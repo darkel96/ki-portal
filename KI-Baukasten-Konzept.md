@@ -875,3 +875,10 @@ MeinHub {
 - **Ziele**: E-Mail (Graph `sendMail`), SharePoint/OneDrive (Datei hochladen, z. B. als PDF aus Abschnitt 22), Teams-Kanal (Nachricht mit Datei).
 - **Datenquellen** (Erweiterung): z. B. „neueste Datei in Ordner X“ oder „Transkripte meiner Besprechungen seit dem letzten Lauf“ statt fester Werte.
 - Vor dem Bau zu klären: Freigabe von `offline_access` für die Hub-Anwendung; ob die Copilot-Schnittstelle mit delegierten Rechten ohne aktive Sitzung nutzbar ist (mit aktueller Graph-Dokumentation prüfen); Betrieb und Protokollierung des Hintergrunddienstes; Aufbewahrungsdauer der Ergebnisse.
+
+### 20.3 Testmodus mit eigenem API-Schlüssel (öffentliche Testseite)
+
+- Vierter KI-Modus `claude-api` (Reihenfolge: `copilot` → `claude-test` → `claude-api` → `simulation`). Er greift, wenn jemand im KI-Menü oben rechts einen eigenen Anthropic-API-Schlüssel einträgt. Gedacht für die öffentliche Testseite auf GitHub Pages; im Betrieb läuft alles über Copilot.
+- Der Schlüssel liegt nur im Browser dieser Person (`localStorage`, wahlweise nur `sessionStorage` für die Sitzung) und geht ausschließlich an api.anthropic.com. Er wird nie in den Code oder die Seite eingebaut; die Kosten laufen über das Konto der Person. Keine Prüfung auf Gültigkeit beim Eintragen außer dem Präfix `sk-ant-`; ein ungültiger Schlüssel zeigt sich beim ersten KI-Schritt mit verständlicher Meldung.
+- Umsetzung `src/lib/ki/claudeApi.ts` mit dem offiziellen SDK `@anthropic-ai/sdk` (Browser-Nutzung ausdrücklich freigeschaltet): Modell Claude Opus 5.5, Streaming mit `max_tokens` 64.000, die Schritt-Einstellung „Modell“ steuert die Denktiefe (`effort`: Schnell = low, Standard = medium, Gründlich = high). Bei einer Ablehnung aus Sicherheitsgründen übernimmt serverseitig ein anderes Modell (`fallbacks: "default"`, Beta `server-side-fallback-2026-07-01`); lehnt auch das ab, erscheint ein Hinweis. Abbrechen wirkt über das AbortSignal.
+- Die CSP für Azure (`public/staticwebapp.config.json`) erlaubt api.anthropic.com bewusst nicht; dort ist dieser Modus gesperrt.

@@ -6,7 +6,7 @@ Fachliches Konzept und Datenmodell: [KI-Baukasten-Konzept.md](KI-Baukasten-Konze
 
 ## Technik
 
-React 19, TypeScript, Vite, Tailwind CSS 4, shadcn/ui, React Router, Zod (App-Schema), dnd-kit (Ziehen und Ablegen, auch per Touch und Tastatur), Motion (Animationen), DOMPurify (Bereinigung von KI-Ausgaben), MSAL (Anmeldung), mammoth / read-excel-file / pdf.js (Datei-Uploads lesen), JSZip (Dateipakete), pdfmake / docx / write-excel-file / pptxgenjs (Ergebnisse als PDF, Word, Excel, PowerPoint).
+React 19, TypeScript, Vite, Tailwind CSS 4, shadcn/ui, React Router, Zod (App-Schema), dnd-kit (Ziehen und Ablegen, auch per Touch und Tastatur), Motion (Animationen), DOMPurify (Bereinigung von KI-Ausgaben), MSAL (Anmeldung), Anthropic-SDK (Testmodus mit eigenem Schlüssel), mammoth / read-excel-file / pdf.js (Datei-Uploads lesen), JSZip (Dateipakete), pdfmake / docx / write-excel-file / pptxgenjs (Ergebnisse als PDF, Word, Excel, PowerPoint).
 
 ## Starten
 
@@ -51,7 +51,7 @@ Die Playwright-Tests prüfen Startseite, App-Ansicht und Baukasten (inklusive Zi
 Jeder Push auf `main` baut den Hub und veröffentlicht ihn über GitHub Actions (`.github/workflows/pages.yml`, Build-Modus `pages`: relative Pfade, Adressen über `#/…`, weil Pages keine SPA-Weiterleitung kennt). Adresse: https://darkel96.github.io/ki-portal/
 
 - Die Seite ist öffentlich erreichbar, auch wenn das Repository privat ist (Zugriffsschutz für Pages gibt es nur mit GitHub Enterprise). Für den Betrieb im Unternehmen ist Azure Static Web Apps mit Entra-ID-Anmeldung vorgesehen.
-- Ohne KI-Konfiguration läuft die Seite im Simulationsmodus. Eigene Apps und Mein Hub liegen im Browser der jeweiligen Nutzer.
+- Ohne KI-Konfiguration läuft die Seite im Simulationsmodus. Zum Testen mit echter KI trägt jede Person oben rechts im KI-Menü ihren eigenen Anthropic-API-Schlüssel ein (bleibt im Browser, Kosten über das eigene Konto); dann antwortet Claude Opus 5.5. Eigene Apps und Mein Hub liegen im Browser der jeweiligen Nutzer.
 - Lokal prüfen: `npm run build:pages` und `npx vite preview --mode pages`.
 
 ## Offen (mit der IT zu klären)

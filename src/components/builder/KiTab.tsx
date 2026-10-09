@@ -262,7 +262,7 @@ export function KiTab({ b }: { b: Builder }) {
             <dl className="kv">
               <dt>Ziel</dt><dd>{KI_ZENTRAL.ziel}</dd>
               <dt>Anmeldung</dt><dd>{KI_ZENTRAL.anmeldung}</dd>
-              <dt>Zustand</dt><dd>{kiModus() === "copilot" ? "verbunden" : kiModus() === "claude-test" ? "Testmodus: Claude antwortet statt Copilot" : "nicht konfiguriert, Simulation"}</dd>
+              <dt>Zustand</dt><dd>{kiModus() === "copilot" ? "verbunden" : kiModus() === "claude-test" ? "Testmodus: Claude antwortet statt Copilot" : kiModus() === "claude-api" ? "Testmodus: Claude über eigenen API-Schlüssel" : "nicht konfiguriert, Simulation"}</dd>
             </dl>
           </TabsContent>
         </Tabs>

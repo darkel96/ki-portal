@@ -9,7 +9,8 @@ import { useApps } from "@/state/apps";
 import type { App } from "@/lib/schema";
 import { appWarnings, areaList, fieldsOf, leereApp, seitenVon } from "@/lib/model";
 import { assistentAnwenden } from "@/lib/assistant";
-import { KiSimulation, kiModus } from "@/lib/ki";
+import { KiSimulation } from "@/lib/ki";
+import { useKiModus } from "@/components/layout/KiSchluessel";
 import { Blatt } from "@/components/layout/Pager";
 import { RunApp, type RunAppHandle } from "@/components/renderer/RunApp";
 import { Seg, TextFld } from "@/components/builder/controls";
@@ -42,7 +43,7 @@ export function NeuPage() {
   const [testBereich, setTestBereich] = useState<"vorschau" | "anpassen">("vorschau");
   const ctl = useRef<AbortController | null>(null);
   const runRef = useRef<RunAppHandle>(null);
-  const ohneKi = kiModus() === "simulation";
+  const ohneKi = useKiModus() === "simulation";
 
   const fragen = async (art: "bauen" | "aendern") => {
     if (ctl.current) { ctl.current.abort(); return; }
@@ -127,7 +128,7 @@ export function NeuPage() {
             <div className="neu-aktion">
               {ohneKi ? (
                 <>
-                  <p className="hint" style={{ margin: 0, flex: "1 1 240px" }}>Der Entwurf per KI ist verfügbar, sobald die zentrale KI-Anbindung eingerichtet ist. Bis dahin kannst du im Baukasten selbst bauen.</p>
+                  <p className="hint" style={{ margin: 0, flex: "1 1 240px" }}>Der Entwurf per KI braucht eine KI-Anbindung. Zum Testen kannst du oben rechts im KI-Menü einen eigenen Anthropic-API-Schlüssel eintragen, oder du baust im Baukasten selbst.</p>
                   <Button asChild variant="outline"><Link to="/baukasten" viewTransition>Im Baukasten selbst bauen</Link></Button>
                 </>
               ) : (

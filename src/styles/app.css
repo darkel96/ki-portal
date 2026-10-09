@@ -57,7 +57,7 @@ body { overflow: hidden; }
   .ki-pill .ki-pill-text { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 }
 .ki-pill[data-modus="copilot"] i { background: var(--brand); }
-.ki-pill[data-modus="claude-test"] i { background: var(--signal); box-shadow: 0 0 0 1px var(--signal-ink); }
+.ki-pill[data-modus="claude-test"] i, .ki-pill[data-modus="claude-api"] i { background: var(--signal); box-shadow: 0 0 0 1px var(--signal-ink); }
 
 /* ===== Startseite ===== */
 .intro { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(260px, 1fr); gap: 20px 48px; align-items: end; }

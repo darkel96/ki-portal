@@ -5,7 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { assistentAnwenden } from "@/lib/assistant";
-import { KiSimulation, kiModus } from "@/lib/ki";
+import { KiSimulation } from "@/lib/ki";
+import { useKiModus } from "@/components/layout/KiSchluessel";
 import type { AssistScope } from "@/lib/sanitize";
 import type { Builder } from "./useBuilder";
 
@@ -24,7 +25,7 @@ export function AssistantPanel({ b }: { b: Builder }) {
   const [log, setLog] = useState<{ wunsch: string; zusammenfassung: string }[]>([]);
   const ctl = useRef<AbortController | null>(null);
   const [laeuft, setLaeuft] = useState(false);
-  const aus = kiModus() === "simulation";
+  const aus = useKiModus() === "simulation";
   const [offen, setOffen] = useState(false);
 
   const umsetzen = async () => {
@@ -56,7 +57,7 @@ export function AssistantPanel({ b }: { b: Builder }) {
   if (aus) return (
     <p className="ai-note">
       <span className="g" aria-hidden="true"><Sparkles size={13} /></span>
-      Der KI-Assistent baut Apps nach deiner Beschreibung. Er ist verfügbar, sobald die zentrale KI-Anbindung eingerichtet ist.
+      Der KI-Assistent baut Apps nach deiner Beschreibung. Er ist verfügbar, sobald die zentrale KI-Anbindung eingerichtet ist. Zum Testen kannst du oben rechts im KI-Menü einen eigenen Anthropic-API-Schlüssel eintragen.
     </p>
   );
 
