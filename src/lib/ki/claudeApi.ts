@@ -53,7 +53,13 @@ export async function claudeApiFragen(text: string, opts: { signal?: AbortSignal
     if (e instanceof Anthropic.AuthenticationError) throw new Error("Der API-Schlüssel ist ungültig. Prüfe ihn im KI-Menü oben rechts.");
     if (e instanceof Anthropic.PermissionDeniedError) throw new Error("Dieser API-Schlüssel darf das Modell nicht nutzen.");
     if (e instanceof Anthropic.RateLimitError) throw new Error("Gerade sind zu viele Anfragen unterwegs oder das Guthaben ist aufgebraucht. Versuch es gleich noch einmal.");
-    if (e instanceof Anthropic.BadRequestError) throw new Error(`Die Anfrage wurde abgelehnt: ${e.message}`);
+    if (e instanceof Anthropic.BadRequestError) {
+      // Nur die Klartext-Meldung aus dem Antworttext zeigen, nicht das rohe JSON.
+      const text = (e.error as { error?: { message?: string } } | undefined)?.error?.message ?? e.message;
+      // Leeres Guthaben kommt als 400 ohne eigenen Fehlertyp; deshalb hier am Meldungstext erkannt.
+      if (/credit balance/i.test(text)) throw new Error("Das Guthaben deines Anthropic-Kontos reicht nicht. Lade unter console.anthropic.com → Plans & Billing Guthaben auf und starte dann erneut. (Ein claude.ai-Abo zählt dafür nicht.)");
+      throw new Error(`Die Anfrage wurde abgelehnt: ${text}`);
+    }
     if (e instanceof Anthropic.APIConnectionError) throw new Error("Keine Verbindung zu Anthropic. Prüfe die Internetverbindung.");
     if (e instanceof Anthropic.APIError) throw new Error(`Fehler bei Anthropic (${e.status ?? "?"}). Versuch es noch einmal.`);
     throw e;
