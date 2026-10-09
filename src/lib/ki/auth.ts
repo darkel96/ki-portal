@@ -13,7 +13,8 @@ function app(): Promise<IPublicClientApplication> {
     auth: {
       clientId: KI_CONFIG.clientId,
       authority: `https://login.microsoftonline.com/${KI_CONFIG.tenantId}`,
-      redirectUri: `${window.location.origin}/auth-redirect.html`,
+      // Neben der App, auch wenn sie in einem Unterordner liegt (z. B. GitHub Pages unter /ki-portal/)
+      redirectUri: new URL("auth-redirect.html", new URL(import.meta.env.BASE_URL, window.location.href)).href,
     },
     cache: { cacheLocation: "sessionStorage" },
   });

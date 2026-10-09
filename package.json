@@ -9,7 +9,8 @@
     "preview": "vite preview",
     "typecheck": "tsc -b --noEmit",
     "test:e2e": "playwright test",
-    "build:artifact": "vite build --mode artifact --outDir dist-artifact --emptyOutDir && node scripts/artifact-nachbereiten.mjs"
+    "build:artifact": "vite build --mode artifact --outDir dist-artifact --emptyOutDir && node scripts/artifact-nachbereiten.mjs",
+    "build:pages": "tsc -b && vite build --mode pages"
   },
   "dependencies": {
     "@azure/msal-browser": "^5.25.0",

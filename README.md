@@ -46,6 +46,14 @@ Die Playwright-Tests prüfen Startseite, App-Ansicht und Baukasten (inklusive Zi
 
 `npm run build` erzeugt `dist/`. Für Azure Static Web Apps liegt die Konfiguration (SPA-Weiterleitung, Sicherheits-Header, CSP) in [public/staticwebapp.config.json](public/staticwebapp.config.json).
 
+## Web-App auf GitHub Pages
+
+Jeder Push auf `main` baut den Hub und veröffentlicht ihn über GitHub Actions (`.github/workflows/pages.yml`, Build-Modus `pages`: relative Pfade, Adressen über `#/…`, weil Pages keine SPA-Weiterleitung kennt). Adresse: https://darkel96.github.io/ki-portal/
+
+- Die Seite ist öffentlich erreichbar, auch wenn das Repository privat ist (Zugriffsschutz für Pages gibt es nur mit GitHub Enterprise). Für den Betrieb im Unternehmen ist Azure Static Web Apps mit Entra-ID-Anmeldung vorgesehen.
+- Ohne KI-Konfiguration läuft die Seite im Simulationsmodus. Eigene Apps und Mein Hub liegen im Browser der jeweiligen Nutzer.
+- Lokal prüfen: `npm run build:pages` und `npx vite preview --mode pages`.
+
 ## Offen (mit der IT zu klären)
 
 - App-Registrierung: bestehende Registrierung der EPLAN/Visio-Anbindung weiterverwenden oder eigene für den Hub
