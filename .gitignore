@@ -1,0 +1,11 @@
+node_modules
+dist
+test-results
+playwright-report
+.env.local
+screenshots
+.impeccable/live
+dist-artifact
+.impeccable/hook.cache.json
+*.tsbuildinfo
+.claude/settings.local.json

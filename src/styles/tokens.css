@@ -1,0 +1,73 @@
+/*
+ * Design-Tokens des KI-Hubs (Körber-CI)
+ *
+ * Quelle: CSS-Variablen von https://www.koerber.com/de (ausgelesen am 08.10.2026).
+ * TODO: Mit vorlagen/koerber.potx (ppt/theme/theme1.xml) abgleichen, sobald die Vorlage vorliegt.
+ * TODO: Hausschrift "fontKoerber" ist lizenziert und nicht enthalten. Bis zur Freigabe ersetzt durch
+ *       Inter Tight (gleiche Rolle: leichte, eng gesetzte Display-Schrift).
+ * Dunkelmodus: Die Website hat keinen Dunkelmodus. Die Dunkel-Werte sind aus derselben Palette
+ *       abgeleitet (neutral-darkest/-darker, blue-light). TODO: mit Corporate Design abstimmen.
+ */
+
+:root {
+  /* Grundfarben (Website: --_primitives--color--*) */
+  --k-warm-grey-lightest: #fbfaf9;
+  --k-warm-grey-lighter: #f5f3f1;
+  --k-warm-grey-light: #f0eeea;
+  --k-warm-grey: #e6e2dc;
+  --k-warm-grey-dark: #bfb8af;
+  --k-warm-grey-darker: #5c5a58;
+  --k-warm-grey-darkest: #454342;
+  --k-white: #ffffff;
+  --k-neutral-lightest: #f2f2f2;
+  --k-neutral-lighter: #d8d9da;
+  --k-neutral-light: #b2b4b6;
+  --k-neutral: #7f8286;
+  --k-neutral-dark: #4c5055;
+  --k-neutral-darker: #191e25;
+  --k-neutral-darkest: #00050d;
+
+  --k-blue-lightest: #e5efff;
+  --k-blue-lighter: #ccdfff;
+  --k-blue-light: #4c8fff;
+  --k-blue: #0060ff;
+  --k-blue-dark: #004ccc;
+  --k-blue-darker: #002666;
+  --k-blue-darkest: #001c4c;
+
+  --k-yellow-lightest: #fffcea;
+  --k-yellow-lighter: #fff9d5;
+  --k-yellow-light: #ffeb6d;
+  --k-yellow: #ffe32f;
+  --k-light-orange: #fec037;
+  --k-orange: #fe8623;
+
+  --k-error-dark-bg: #ff9a9a;          /* Website: --_ui-styles--error--state-dark */
+  --k-error: #c4281c;                   /* TODO: Fehlerfarbe der Website nicht als Token gefunden, Wert gewählt */
+
+  /* Schriften (Website: fontKoerber, Noto Sans, Noto Sans Mono) */
+  --k-font-display: "Inter Tight Variable", "Segoe UI", system-ui, sans-serif;
+  --k-font-body: "Noto Sans Variable", "Segoe UI", system-ui, sans-serif;
+  --k-font-mono: "Noto Sans Mono Variable", ui-monospace, Consolas, monospace;
+
+  /* Schriftgrößen (Website: --text-*) */
+  --k-text-tiny: 0.75rem;
+  --k-text-small: 0.875rem;
+  --k-text-regular: 1rem;
+  --k-text-medium: 1.125rem;
+  --k-text-large: 1.25rem;
+
+  /* Laufweiten der Display-Schrift (Website: h1 63px / -2.53px, h2 48px / -0.96px) */
+  --k-tracking-display: -0.04em;
+  --k-tracking-heading: -0.02em;
+  --k-tracking-rubrik: 0.035em;        /* Rubriken: Noto Sans Mono 12px, Großbuchstaben */
+
+  /* Formen (Website: Buttons 999px, Karten 0px) */
+  --k-radius-pill: 999px;
+  --k-radius-card: 0px;
+  --k-radius-input: 4px;               /* TODO: Eingabefelder auf der Website nicht gefunden, Wert gewählt */
+
+  /* Abstände (Website: --module-spacer, --section-spacer) */
+  --k-module-spacer: 64px;
+  --k-section-spacer: 40px;
+}

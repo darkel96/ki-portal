@@ -1,0 +1,161 @@
+WEBVTT
+
+1
+00:00:04.000 --> 00:00:18.000
+<v Anna Berger>Guten Morgen zusammen. Ich nehme das Meeting auf und lasse das Transkript mitlaufen, dann können wir uns das Protokoll sparen. Heute geht es um den Stand beim Kundenportal 2.0, um die Entscheidung zum Login und um die Planung bis Jahresende.</v>
+
+2
+00:00:19.000 --> 00:00:25.000
+<v Tom Kraus>Morgen. Kurz vorweg: Ich muss um halb zehn raus, ich habe noch den Termin mit dem Einkauf.</v>
+
+3
+00:00:26.000 --> 00:00:32.000
+<v Anna Berger>Passt, dann nehmen wir deine Punkte zuerst. Tom, wie sieht es mit der Anbindung an das ERP aus?</v>
+
+4
+00:00:33.000 --> 00:00:57.000
+<v Tom Kraus>Die Schnittstelle für Aufträge läuft auf der Testumgebung. Kunden sehen ihre offenen Aufträge mit Status und voraussichtlichem Liefertermin. Was noch fehlt, sind die Rechnungen als PDF. Die IT sagt, das Archivsystem liefert die Dokumente nur einzeln, das wird bei Kunden mit vielen Rechnungen langsam.</v>
+
+5
+00:00:58.000 --> 00:01:05.000
+<v Lena Wolf>Wie langsam ist langsam? Wenn ein Großkunde 300 Rechnungen im Jahr hat, will der nicht 300 Mal klicken.</v>
+
+6
+00:01:06.000 --> 00:01:13.000
+<v Tom Kraus>Bei einzelnen Rechnungen ungefähr zwei Sekunden. Für eine Liste über ein Jahr haben wir das noch nicht gemessen.</v>
+
+7
+00:01:14.000 --> 00:01:24.000
+<v Anna Berger>Dann brauchen wir das gemessen, bevor wir entscheiden. Tom, kannst du bis nächsten Mittwoch, also den 14., einen Lasttest mit einem echten Großkunden machen lassen?</v>
+
+8
+00:01:25.000 --> 00:01:30.000
+<v Tom Kraus>Ja, mache ich. Ich frage bei der IT nach, ob Mehmet das übernehmen kann.</v>
+
+9
+00:01:31.000 --> 00:01:42.000
+<v Mehmet Yilmaz>Bin ja da. Das kriege ich bis Dienstag hin, wenn ich die Freigabe für die Kopie der Produktivdaten bekomme. Die muss der Datenschutz absegnen.</v>
+
+10
+00:01:43.000 --> 00:01:49.000
+<v Anna Berger>Okay, die Freigabe hole ich heute noch beim Datenschutz. Dann hast du sie morgen.</v>
+
+11
+00:01:50.000 --> 00:02:07.000
+<v Lena Wolf>Und aus Kundensicht noch ein Punkt: In den Interviews letzte Woche haben drei von fünf Kunden gesagt, dass sie Rechnungen gesammelt als ZIP oder als eine Sammel-PDF herunterladen wollen. Pro Monat oder pro Quartal. Das war mit Abstand der häufigste Wunsch.</v>
+
+12
+00:02:08.000 --> 00:02:21.000
+<v Anna Berger>Gut, dass du das sagst. Dann nehmen wir das als Anforderung auf: Als Einkäufer beim Kunden möchte ich alle Rechnungen eines Zeitraums auf einmal herunterladen, damit ich sie nicht einzeln für die Buchhaltung sammeln muss.</v>
+
+13
+00:02:22.000 --> 00:02:28.000
+<v Tom Kraus>Das hängt dann direkt am Lasttest. Wenn das Archiv das nicht schafft, müssten wir nachts vorbereiten.</v>
+
+14
+00:02:29.000 --> 00:02:32.000
+<v Anna Berger>Genau. Tom, danke, dann kannst du los zum Einkauf.</v>
+
+15
+00:02:33.000 --> 00:02:37.000
+<v Tom Kraus>Danke, bis später.</v>
+
+16
+00:02:38.000 --> 00:02:52.000
+<v Anna Berger>Nächster Punkt, der Login. Wir hatten zwei Varianten: eigene Benutzerkonten im Portal oder Anmeldung über den Firmen-Login der Kunden, also Microsoft Entra ID von deren Seite. Lena, du hattest die Rückmeldungen gesammelt.</v>
+
+17
+00:02:53.000 --> 00:03:11.000
+<v Lena Wolf>Ja. Die großen Kunden wollen fast alle den eigenen Firmen-Login, weil sie dann Mitarbeitende zentral sperren können, wenn jemand das Unternehmen verlässt. Die kleinen Kunden haben oft gar kein Entra ID, die brauchen ein normales Konto mit E-Mail und Passwort.</v>
+
+18
+00:03:12.000 --> 00:03:25.000
+<v Mehmet Yilmaz>Technisch geht beides parallel. Wir können Entra ID als Gastzugang einbinden und daneben lokale Konten mit Zwei-Faktor-Anmeldung. Der Aufwand für beides ist ungefähr anderthalbmal so hoch wie nur eine Variante.</v>
+
+19
+00:03:26.000 --> 00:03:38.000
+<v Anna Berger>Dann entscheiden wir das jetzt: Wir machen beides, aber in zwei Stufen. Zum Start im Februar nur lokale Konten mit Zwei-Faktor, der Firmen-Login kommt im zweiten Quartal. Einwände?</v>
+
+20
+00:03:39.000 --> 00:03:47.000
+<v Lena Wolf>Keine Einwände. Ich würde nur den großen Kunden früh sagen, dass der Firmen-Login kommt, sonst richten die erst hundert lokale Konten ein.</v>
+
+21
+00:03:48.000 --> 00:03:58.000
+<v Mehmet Yilmaz>Einverstanden. Wichtig ist nur, dass die Benutzerkonten von Anfang an eine Kundennummer haben, damit wir sie später sauber dem Firmen-Login zuordnen können.</v>
+
+22
+00:03:59.000 --> 00:04:06.000
+<v Anna Berger>Gut, dann ist das beschlossen. Lena, schreibst du die Kundeninformation zum Login? Bis Ende Oktober reicht.</v>
+
+23
+00:04:07.000 --> 00:04:14.000
+<v Lena Wolf>Mache ich, Entwurf bis 30. Oktober, und ich schicke ihn dir vorher zur Abstimmung.</v>
+
+24
+00:04:15.000 --> 00:04:41.000
+<v Anna Berger>Dann zur Planung. Ich fasse mal zusammen, was ich im Kopf habe, und ihr korrigiert mich. Bis Ende November wollen wir Aufträge und Lieferstatus fertig haben, inklusive Test mit drei Pilotkunden. Im Dezember kommen die Rechnungen dazu, je nachdem, was der Lasttest ergibt. Im Januar Schulung für den Innendienst und dann Start im Februar.</v>
+
+25
+00:04:42.000 --> 00:04:55.000
+<v Mehmet Yilmaz>Der Dezember ist knapp. Zwischen den Jahren ist die Hälfte der IT im Urlaub, und wir haben noch das Update vom ERP am 12. Dezember. Da würde ich keine Rechnungsfunktion live nehmen.</v>
+
+26
+00:04:56.000 --> 00:05:10.000
+<v Anna Berger>Das ist ein berechtigter Punkt. Dann verschieben wir die Rechnungen in den Januar und der Start bleibt im Februar, aber mit Rechnungen erst zwei Wochen danach, falls es eng wird. Ist das für alle okay?</v>
+
+27
+00:05:11.000 --> 00:05:16.000
+<v Lena Wolf>Für mich ja. Wer sind denn die drei Pilotkunden? Das ist noch offen, oder?</v>
+
+28
+00:05:17.000 --> 00:05:28.000
+<v Anna Berger>Stimmt, das ist offen. Ich hätte gern einen großen Kunden mit eigenem Einkauf, einen mittleren und einen kleinen ohne IT-Abteilung. Lena, kannst du Vorschläge machen?</v>
+
+29
+00:05:29.000 --> 00:05:35.000
+<v Lena Wolf>Ja, bis Freitag schicke ich drei Vorschläge mit Ansprechpartnern.</v>
+
+30
+00:05:36.000 --> 00:05:50.000
+<v Mehmet Yilmaz>Noch ein Risiko, das ich loswerden will: Die Lizenz für das Archivsystem ist auf 50 gleichzeitige Zugriffe begrenzt. Wenn das Portal live geht und viele Kunden gleichzeitig Rechnungen laden, laufen wir da rein.</v>
+
+31
+00:05:51.000 --> 00:05:54.000
+<v Anna Berger>Wie teuer wäre eine Erweiterung?</v>
+
+32
+00:05:55.000 --> 00:06:03.000
+<v Mehmet Yilmaz>Weiß ich nicht genau, das müsste der Einkauf beim Hersteller anfragen. Ich kann den Bedarf schätzen, wenn der Lasttest durch ist.</v>
+
+33
+00:06:04.000 --> 00:06:14.000
+<v Anna Berger>Gut. Dann halten wir das als Risiko fest, und Tom nimmt die Anfrage beim Einkauf mit, sobald Mehmet die Zahlen hat. Ich schreibe Tom das nachher.</v>
+
+34
+00:06:15.000 --> 00:06:30.000
+<v Lena Wolf>Eine Sache noch, die mir in den Interviews aufgefallen ist: Zwei Kunden haben gefragt, ob sie Reklamationen direkt im Portal melden können, mit Foto. Das ist nicht im Umfang, aber es kam spontan und mit viel Nachdruck.</v>
+
+35
+00:06:31.000 --> 00:06:39.000
+<v Anna Berger>Das nehmen wir als Idee für später auf, nicht für den Start. Ich will den Umfang jetzt nicht aufmachen. Aber gut zu wissen.</v>
+
+36
+00:06:40.000 --> 00:06:48.000
+<v Mehmet Yilmaz>Technisch wäre das übrigens nicht viel, wenn das Reklamationsmodul im ERP eine Schnittstelle hat. Das weiß ich aber nicht.</v>
+
+37
+00:06:49.000 --> 00:07:20.000
+<v Anna Berger>Dann ist das eine offene Frage für die IT, aber ohne Eile. Okay, ich fasse zusammen. Lasttest Archiv bis Dienstag, 13. Oktober, Mehmet. Freigabe Datenschutz heute, ich. Kundeninformation Login bis 30. Oktober, Lena. Drei Pilotkunden bis Freitag, Lena. Rechnungen rutschen in den Januar, Start bleibt im Februar. Beim Login erst lokale Konten mit Zwei-Faktor, Firmen-Login im zweiten Quartal.</v>
+
+38
+00:07:21.000 --> 00:07:22.000
+<v Lena Wolf>Passt.</v>
+
+39
+00:07:23.000 --> 00:07:27.000
+<v Mehmet Yilmaz>Passt für mich auch. Nächster Termin wie immer in zwei Wochen?</v>
+
+40
+00:07:28.000 --> 00:07:33.000
+<v Anna Berger>Ja, 22. Oktober, gleiche Zeit. Danke euch, bis dann.</v>

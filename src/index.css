@@ -1,0 +1,137 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+@import "@fontsource-variable/noto-sans";
+@import "@fontsource-variable/noto-sans-mono";
+@import "@fontsource-variable/inter-tight";
+@import "./styles/tokens.css";
+@import "./styles/app.css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --font-sans: var(--k-font-body);
+  --font-heading: var(--k-font-display);
+  --font-mono: var(--k-font-mono);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --color-foreground: var(--foreground);
+  --color-background: var(--background);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+}
+
+/* Semantische Rollen, abgeleitet aus den Körber-Tokens */
+:root {
+  --bg: var(--k-warm-grey-lightest);
+  --surface: var(--k-white);
+  --surface-2: var(--k-warm-grey-light);
+  --ink: var(--k-neutral-darkest);
+  --muted-ink: var(--k-warm-grey-darker);
+  --line: #dedad4;                      /* Haarlinie: Website nutzt rgba(0,5,13,.15) auf #fbfaf9 */
+  --line-strong: var(--k-warm-grey-dark);
+  --brand: var(--k-blue);
+  --brand-ink: var(--k-white);
+  --brand-soft: var(--k-blue-lightest);
+  --brand-deep: var(--k-blue-darkest);
+  --tool: var(--k-orange);              /* Werkzeugfarbe im Baukasten (Auswahl, Schilder) */
+  --tool-ink: var(--k-neutral-darkest);
+  --tool-soft: #fff0e2;
+  --tool-text: #a64b00;                 /* Orange als Textfarbe, ausreichend kontrastreich auf Weiß */
+  --signal: var(--k-yellow);            /* nur KI-Aktionen */
+  --signal-ink: var(--k-neutral-darkest);
+  --danger: var(--k-error);
+  --danger-soft: #fbe6e3;
+  --grid-dot: #dcd7cf;
+  /* Bereichsfarben mit passender Schriftfarbe */
+  /* Bereichsfarben nur aus Blau-, Tinte- und Warmgrau-Stufen: Gelb bleibt KI-Aktionen, Orange dem Baukasten vorbehalten */
+  --a0: var(--k-blue); --a0i: var(--k-white);
+  --a1: var(--k-blue-darkest); --a1i: var(--k-white);
+  --a2: var(--k-blue-light); --a2i: var(--k-neutral-darkest);
+  --a3: var(--k-warm-grey-darker); --a3i: var(--k-white);
+  --a4: var(--k-blue-dark); --a4i: var(--k-white);
+  --a5: var(--k-warm-grey-dark); --a5i: var(--k-neutral-darkest);
+  --a6: var(--k-neutral-darker); --a6i: var(--k-white);
+  --signal-soft: var(--k-yellow-lighter);
+
+  /* shadcn/ui */
+  --background: var(--bg);
+  --foreground: var(--ink);
+  --card: var(--surface);
+  --card-foreground: var(--ink);
+  --popover: var(--surface);
+  --popover-foreground: var(--ink);
+  --primary: var(--brand);
+  --primary-foreground: var(--brand-ink);
+  --secondary: var(--surface-2);
+  --secondary-foreground: var(--ink);
+  --muted: var(--surface-2);
+  --muted-foreground: var(--muted-ink);
+  --accent: var(--surface-2);
+  --accent-foreground: var(--ink);
+  --destructive: var(--danger);
+  --border: var(--line);
+  --input: var(--line-strong);
+  --ring: var(--brand);
+  --radius: var(--k-radius-input);
+  color-scheme: light;
+}
+
+.dark {
+  --bg: #0b0f15;
+  --surface: #151a21;
+  --surface-2: #1f252d;
+  --ink: var(--k-warm-grey-lightest);
+  --muted-ink: var(--k-warm-grey-dark);
+  --line: #2e353e;
+  --line-strong: var(--k-neutral-dark);
+  --brand: var(--k-blue-light);
+  --brand-ink: var(--k-neutral-darkest);
+  --brand-soft: #0f2752;
+  --brand-deep: var(--k-blue-lighter);
+  --tool: var(--k-light-orange);
+  --tool-soft: #3a2a10;
+  --tool-text: var(--k-light-orange);
+  --danger: var(--k-error-dark-bg);
+  --danger-soft: #3d1a18;
+  --grid-dot: #252b33;
+  --a0: var(--k-blue-light); --a0i: var(--k-neutral-darkest);
+  --a1: var(--k-blue-lighter); --a1i: var(--k-neutral-darkest);
+  --a2: #7fb0ff; --a2i: var(--k-neutral-darkest);
+  --a3: var(--k-warm-grey-dark); --a3i: var(--k-neutral-darkest);
+  --a4: var(--k-blue); --a4i: var(--k-white);
+  --a5: var(--k-warm-grey); --a5i: var(--k-neutral-darkest);
+  --a6: var(--k-neutral-lighter); --a6i: var(--k-neutral-darkest);
+  --signal-soft: #3a3410;
+  color-scheme: dark;
+}
+
+@layer base {
+  * { @apply border-border outline-ring/50; }
+  html { @apply font-sans; -webkit-font-smoothing: antialiased; }
+  body { @apply bg-background text-foreground; font-size: 15px; line-height: 1.6; }
+  button:not(:disabled), [role="button"]:not(:disabled) { cursor: pointer; }
+  h1, h2, h3 { font-family: var(--k-font-display); font-weight: 400; letter-spacing: var(--k-tracking-heading); text-wrap: balance; }
+  :focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+  ::selection { background: var(--brand-soft); color: var(--ink); }
+  html { scrollbar-color: var(--line-strong) transparent; accent-color: var(--brand); }
+  input, textarea { caret-color: var(--brand); }
+  a { text-underline-offset: 4px; }
+  .tabular, small, .meta { font-variant-numeric: tabular-nums; }
+}

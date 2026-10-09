@@ -1,0 +1,2141 @@
+<title>KI-Hub</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@300;400;500&family=Noto+Sans:wght@400;500;600&family=Noto+Sans+Mono:wght@400;500&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&display=swap">
+<style>
+/* Gestaltung nach Firmen-CI: warmes Hellgrau als Grund, Tinte fast schwarz, Industrie-Blau als Hauptfarbe,
+   Orange als Werkzeugfarbe des Baukastens, Gelb nur für KI-Aktionen. Display-Schrift leicht und eng gesetzt,
+   Text in Noto Sans, kleine Rubriken in Noto Sans Mono. Kanten scharf, Buttons als Pille, Listen mit Haarlinien.
+   Layout: Startseite = Bereichsverzeichnis links | Kacheln rechts; Baukasten = Palette | Fläche | Eigenschaften. */
+:root{
+  --bg:#FBFAF9; --surface:#FFFFFF; --surface-2:#F0EEEA; --ink:#00050D; --muted:#5C5A58; --line:#DEDAD4; --line-strong:#BFB8AF;
+  --accent:#0060FF; --accent-ink:#FFFFFF; --accent-soft:#E5EFFF; --accent-deep:#001C4C;
+  --block:#FE8623; --block-ink:#00050D; --block-soft:#FFF0E2; --block-text:#A64B00;
+  --signal:#FFE32F; --signal-ink:#00050D;
+  --danger:#C4281C; --danger-soft:#FBE6E3;
+  --a0:#0060FF; --a0i:#FFFFFF; --a1:#001C4C; --a1i:#FFFFFF; --a2:#FE8623; --a2i:#00050D; --a3:#FFE32F; --a3i:#00050D;
+  --a4:#4C8FFF; --a4i:#00050D; --a5:#5C5A58; --a5i:#FFFFFF; --a6:#FEC037; --a6i:#00050D;
+  --grid-dot:#DCD7CF;
+  --f-display:"Inter Tight", "Segoe UI", system-ui, sans-serif;
+  --f-body:"Noto Sans", "Segoe UI", system-ui, sans-serif;
+  --f-mono:"Noto Sans Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    color-scheme:dark;
+    --bg:#0B0F15; --surface:#151A21; --surface-2:#1F252D; --ink:#FBFAF9; --muted:#BFB8AF; --line:#2E353E; --line-strong:#4C5055;
+    --accent:#4C8FFF; --accent-ink:#00050D; --accent-soft:#0F2752; --accent-deep:#CCDFFF;
+    --block:#FEC037; --block-ink:#00050D; --block-soft:#3A2A10; --block-text:#FEC037;
+    --signal:#FFE32F; --signal-ink:#00050D;
+    --danger:#FF9A9A; --danger-soft:#3D1A18;
+    --a0:#4C8FFF; --a0i:#00050D; --a1:#CCDFFF; --a1i:#00050D; --a2:#FE8623; --a2i:#00050D; --a3:#FFE32F; --a3i:#00050D;
+    --a4:#7FB0FF; --a4i:#00050D; --a5:#BFB8AF; --a5i:#00050D; --a6:#FEC037; --a6i:#00050D;
+    --grid-dot:#252B33;
+  }
+}
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --bg:#0B0F15; --surface:#151A21; --surface-2:#1F252D; --ink:#FBFAF9; --muted:#BFB8AF; --line:#2E353E; --line-strong:#4C5055;
+  --accent:#4C8FFF; --accent-ink:#00050D; --accent-soft:#0F2752; --accent-deep:#CCDFFF;
+  --block:#FEC037; --block-ink:#00050D; --block-soft:#3A2A10; --block-text:#FEC037;
+  --signal:#FFE32F; --signal-ink:#00050D;
+  --danger:#FF9A9A; --danger-soft:#3D1A18;
+  --a0:#4C8FFF; --a0i:#00050D; --a1:#CCDFFF; --a1i:#00050D; --a2:#FE8623; --a2i:#00050D; --a3:#FFE32F; --a3i:#00050D;
+  --a4:#7FB0FF; --a4i:#00050D; --a5:#BFB8AF; --a5i:#00050D; --a6:#FEC037; --a6i:#00050D;
+  --grid-dot:#252B33;
+}
+
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font:15px/1.6 var(--f-body);-webkit-font-smoothing:antialiased}
+.wrap{max-width:1240px;margin-inline:auto;padding-inline:24px}
+@media (max-width:560px){.wrap{padding-inline:16px}}
+main.wide{max-width:1680px}
+h1,h2,h3{font-family:var(--f-display);font-weight:400;text-wrap:balance;margin:0;letter-spacing:-.02em}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.hint{font-size:13px;color:var(--muted)}
+.rubrik{display:flex;align-items:center;gap:12px;font:400 12px/1.4 var(--f-mono);text-transform:uppercase;letter-spacing:.035em;color:var(--ink)}
+.rubrik::after{content:"";width:40px;height:1px;background:var(--line-strong)}
+.eyebrow{font:400 12px/1.4 var(--f-mono);text-transform:uppercase;letter-spacing:.035em;color:var(--muted)}
+.grow{flex:1}
+
+/* Kopfzeile */
+.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:20;background:color-mix(in srgb,var(--bg) 92%,transparent);backdrop-filter:blur(8px);border-bottom:1px solid var(--line)}
+.top-in{display:flex;align-items:center;gap:28px;min-height:68px;flex-wrap:wrap;padding-block:8px;max-width:1680px}
+.brand{display:flex;align-items:center;gap:10px;background:none;border:0;padding:0;font:400 23px/1 var(--f-display);letter-spacing:-.03em}
+.nav{display:flex;gap:2px}
+.nav button{background:none;border:0;padding:8px 14px;border-radius:999px;color:var(--ink);font-size:15px}
+.nav button:hover{background:var(--surface-2)}
+.nav button[aria-current="page"]{background:var(--ink);color:var(--bg)}
+.ai-pill{margin-left:auto;display:inline-flex;align-items:center;gap:8px;font-size:13px;color:var(--muted);padding:7px 14px;border:1px solid var(--line);border-radius:999px;background:var(--surface)}
+.ai-pill i{width:8px;height:8px;border-radius:50%;background:var(--muted)}
+.ai-pill[data-s="ready"] i{background:var(--accent)}
+.ai-pill[data-s="off"] i{background:var(--block)}
+main{padding-block:40px 80px;display:flex;flex-direction:column;gap:28px}
+
+/* Buttons */
+.btn{display:inline-flex;align-items:center;gap:8px;padding:10px 20px;border-radius:999px;border:1px solid var(--line-strong);background:var(--surface);font-size:14px;text-decoration:none;line-height:1.2;white-space:nowrap;color:var(--ink)}
+.btn:hover{border-color:var(--ink)}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:transparent}
+.btn.primary:hover{background:color-mix(in srgb,var(--accent) 85%,var(--ink))}
+.btn.blockbtn{background:var(--signal);color:var(--signal-ink);border-color:transparent}
+.btn.blockbtn:hover{background:color-mix(in srgb,var(--signal) 88%,var(--ink))}
+.btn.ghost{background:transparent;border-color:transparent}
+.btn.ghost:hover{border-color:var(--line-strong)}
+.btn.danger{color:var(--danger);border-color:var(--danger)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.btn.small{font-size:13px;padding:7px 14px}
+.back{background:none;border:0;padding:0;color:var(--ink);font-size:14px;text-decoration:underline;text-decoration-color:var(--line-strong);text-underline-offset:4px}
+.back:hover{text-decoration-color:var(--ink)}
+
+/* Einstieg */
+.intro{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(260px,1fr);gap:20px 48px;align-items:end}
+@media (max-width:820px){.intro{grid-template-columns:1fr}}
+.intro h1{font-size:clamp(38px,5.4vw,64px);letter-spacing:-.04em;line-height:1.08;margin-top:14px}
+.lede{color:var(--muted);margin:0;max-width:56ch}
+.search{display:flex;flex-direction:column;gap:14px;min-width:0}
+.search input{border-radius:999px!important;padding:13px 20px!important;font-size:15px}
+
+/* Startseite: Bereichsverzeichnis | Kacheln */
+.hub{display:grid;grid-template-columns:260px minmax(0,1fr);gap:40px;align-items:start}
+@media (max-width:900px){.hub{grid-template-columns:1fr;gap:24px}}
+.dir{position:sticky;top:calc(env(safe-area-inset-top,0px) + 92px);display:flex;flex-direction:column}
+@media (max-width:900px){.dir{position:static;display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));column-gap:20px}}
+.dir-head{margin-bottom:10px}
+@media (max-width:900px){.dir-head{grid-column:1/-1}}
+.chip{display:flex;align-items:center;gap:12px;padding:13px 4px;border:0;border-top:1px solid var(--line);background:none;text-align:left;font:400 19px/1.2 var(--f-display);letter-spacing:-.01em;color:var(--ink);transition:padding .2s}
+.chip:last-child{border-bottom:1px solid var(--line)}
+@media (max-width:900px){.chip{font-size:16px;padding:10px 2px}.chip:last-child{border-bottom:0}}
+.chip i{width:12px;height:12px;background:var(--ac,var(--ink));flex:none}
+.chip span{flex:1;min-width:0}
+.chip small{font:400 13px/1 var(--f-mono);color:var(--muted);font-variant-numeric:tabular-nums}
+.chip:hover span{text-decoration:underline;text-decoration-color:var(--line-strong);text-underline-offset:4px}
+.chip[aria-pressed="true"]{color:var(--accent);padding-left:10px}
+.chip[aria-pressed="true"] small{color:var(--accent)}
+.grid-head{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin-bottom:14px;flex-wrap:wrap}
+.grid-head h2{font-size:30px;letter-spacing:-.03em}
+
+/* Kacheln */
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:1px;background:var(--line);border:1px solid var(--line)}
+.tile{display:flex;flex-direction:column;gap:12px;text-align:left;padding:22px;border:0;background:var(--surface);min-height:232px;color:var(--ink)}
+button.tile:hover{background:var(--bg)}
+button.tile:hover .tile-name{text-decoration:underline;text-decoration-thickness:1px;text-underline-offset:5px}
+.tile-top{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.mono{display:inline-grid;place-items:center;width:42px;height:42px;font:500 15px/1 var(--f-display);letter-spacing:0;background:var(--ac);color:var(--aci,#fff);flex:none}
+.area{display:inline-flex;align-items:center;gap:7px;font-size:13px;color:var(--muted)}
+.area i{width:8px;height:8px;background:var(--ac)}
+.tile-name{font:400 22px/1.15 var(--f-display);letter-spacing:-.025em}
+.tile-desc{font-size:14px;color:var(--muted);display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.tile-foot{margin-top:auto;display:flex;align-items:center;justify-content:space-between;gap:8px;padding-top:10px;border-top:1px solid var(--line)}
+.meta{font-size:12.5px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.badge{font-size:12px;line-height:1;padding:5px 10px;border-radius:999px;border:1px solid var(--line);color:var(--muted);white-space:nowrap}
+.badge.own{background:var(--accent-soft);color:var(--accent);border-color:transparent}
+.badge.local{background:var(--block-soft);color:var(--block-text);border-color:transparent}
+.badge.code{background:var(--ink);color:var(--bg);border-color:transparent}
+.tile-new{background:var(--bg);justify-content:center}
+.tile-new:hover{background:var(--surface)!important}
+.plus{display:inline-grid;place-items:center;width:42px;height:42px;background:var(--signal);color:var(--signal-ink);font:300 28px/1 var(--f-display)}
+.empty-grid{grid-column:1/-1;color:var(--muted);padding:22px;background:var(--surface);margin:0}
+
+/* Formularelemente (Hub) */
+input[type="text"],input[type="search"],input[type="number"],input[type="date"],textarea,select{width:100%;padding:10px 12px;border:1px solid var(--line-strong);border-radius:4px;background:var(--surface);min-width:0}
+textarea{resize:vertical;line-height:1.5}
+input:focus,textarea:focus,select:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+.field{display:flex;flex-direction:column;gap:6px}
+.field>label,.lbl{font-size:13px;font-weight:600}
+.check{display:inline-flex;align-items:center;gap:7px;font-size:13px}
+.check input{accent-color:var(--accent)}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:0;padding:20px}
+.status{font-size:12px;line-height:1;padding:5px 10px;border-radius:999px;background:var(--surface-2);color:var(--muted);display:inline-flex;gap:6px;align-items:center;white-space:nowrap}
+.status[data-s="run"]{background:var(--block-soft);color:var(--block-text)}
+.status[data-s="run"]::before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor;animation:pulse 1s infinite alternate}
+.status[data-s="done"]{background:var(--accent-soft);color:var(--accent)}
+.status[data-s="err"]{background:var(--danger-soft);color:var(--danger)}
+@keyframes pulse{from{opacity:1}to{opacity:.25}}
+
+/* App-Ansicht im Hub */
+.app-bar{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.app-tags{display:flex;gap:6px;flex-wrap:wrap}
+
+/* ===== Gestaltete Applikation (o-*) ===== */
+.app-frame{
+  --app-muted:color-mix(in srgb,var(--app-ink) 62%,var(--app-bg));
+  --app-line:color-mix(in srgb,var(--app-ink) 16%,var(--app-bg));
+  --app-soft:color-mix(in srgb,var(--app-ink) 5%,var(--app-bg));
+  background:var(--app-bg);color:var(--app-ink);font-family:var(--app-font);
+  border-radius:var(--app-radius);border:1px solid var(--app-line);
+}
+.app-inner{max-width:var(--app-max);margin-inline:auto;padding:28px clamp(16px,4vw,40px) 36px;display:flex;flex-direction:column;gap:14px}
+.o-stack{display:flex;flex-direction:column;gap:14px;min-width:0}
+.o-h{margin:0;font-family:var(--app-head,var(--app-font));font-weight:400;letter-spacing:-.025em;line-height:1.12;text-wrap:balance}
+.o-h1{font-size:clamp(30px,4vw,44px);letter-spacing:-.035em}
+.o-h2{font-size:26px}
+.o-h3{font-size:19px;font-weight:500}
+.o-p{margin:0;max-width:72ch}
+.o-p.o-s{font-size:13px}.o-p.o-m{font-size:15px}.o-p.o-l{font-size:18px}
+.o-call{padding:12px 14px;border-radius:var(--app-radius);font-size:14px;background:color-mix(in srgb,var(--tone) 13%,var(--app-bg));border:1px solid color-mix(in srgb,var(--tone) 30%,var(--app-bg))}
+.o-call b{color:var(--tone);font-weight:600;margin-right:6px}
+.o-hr{border:0;border-top:1px solid var(--app-line);margin:4px 0;width:100%}
+.o-sec{border-radius:var(--app-radius);display:flex;flex-direction:column;gap:14px;min-width:0}
+.o-sec.bordered{border:1px solid var(--app-line)}
+.o-sec.p-s{padding:12px}.o-sec.p-m{padding:20px}.o-sec.p-l{padding:32px}
+.o-cols{display:grid;grid-template-columns:repeat(var(--n),minmax(0,1fr));gap:20px;align-items:start}
+@media (max-width:760px){.o-cols{grid-template-columns:1fr}}
+.o-field{display:flex;flex-direction:column;gap:6px}
+.o-field>label,.o-field>.o-lbl{font-size:13px;font-weight:600}
+.o-field em{font-style:normal;color:var(--app-accent);margin-left:3px}
+.o-help{font-size:12px;color:var(--app-muted)}
+.o-field input[type="text"],.o-field input[type="number"],.o-field input[type="date"],.o-field textarea,.o-field select{
+  background:var(--app-bg);color:var(--app-ink);border:1px solid var(--app-line);border-radius:calc(var(--app-radius) * .7);font-family:inherit}
+.o-field input:focus,.o-field textarea:focus,.o-field select:focus{border-color:var(--app-accent);box-shadow:0 0 0 3px color-mix(in srgb,var(--app-accent) 22%,transparent)}
+.o-opts{display:flex;flex-wrap:wrap;gap:8px 16px}
+.o-opts label{display:inline-flex;gap:6px;align-items:center;font-size:14px}
+.o-field input[type="checkbox"],.o-field input[type="radio"]{accent-color:var(--app-accent)}
+.o-field.err input,.o-field.err textarea,.o-field.err select{border-color:#C0392B}
+.o-err{font-size:12px;color:#C0392B}
+.o-file{font-size:13px}
+.o-btn-row{display:flex}
+.o-btn{font-family:inherit;font-weight:500;font-size:15px;padding:12px 24px;border-radius:999px;border:1.5px solid var(--btn);background:var(--btn);color:var(--btn-ink)}
+.o-btn.outline{background:transparent;color:var(--btn)}
+.o-btn:hover:not(:disabled){filter:brightness(1.08)}
+.o-btn:disabled{opacity:.45;cursor:not-allowed}
+.o-btn.running{background:transparent;color:var(--btn)}
+.o-out{display:flex;flex-direction:column;gap:10px;min-width:0}
+.o-out.card{border:1px solid var(--app-line);border-radius:var(--app-radius);padding:16px 18px;background:var(--app-bg)}
+.o-out-head{display:flex;align-items:center;gap:10px}
+.o-out-t{font-weight:600;font-size:15px;flex:1;min-width:0}
+.o-muted{color:var(--app-muted);font-size:14px;margin:0}
+.o-out-body{font-size:15px;overflow-wrap:anywhere;min-width:0}
+.o-out-body>:first-child{margin-top:0}.o-out-body>:last-child{margin-bottom:0}
+.o-out-body h3,.o-out-body h4,.o-out-body h5{font-size:16px;margin:16px 0 6px}
+.o-out-body p{margin:0 0 10px}.o-out-body ul,.o-out-body ol{margin:0 0 10px;padding-left:22px}
+.o-out-body code{font-family:var(--f-mono);font-size:13px;background:var(--app-soft);padding:1px 5px;border-radius:4px}
+.o-out-foot{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.o-out-foot details{flex-basis:100%}
+.o-out-foot summary{cursor:pointer;font-size:13px;color:var(--app-muted)}
+.tbl{overflow-x:auto;margin:0 0 12px}
+.tbl table{border-collapse:collapse;font-size:14px;min-width:100%}
+.tbl th,.tbl td{text-align:left;padding:7px 10px;border-bottom:1px solid var(--app-line);vertical-align:top}
+.tbl th{font-weight:600;background:var(--app-soft)}
+pre.prompt{margin:0;white-space:pre-wrap;font:12.5px/1.5 var(--f-mono);background:var(--app-soft,var(--surface-2));padding:12px;border-radius:8px;overflow-x:auto;color:inherit}
+.sim-note{font-size:13px;color:var(--block-text);margin:0 0 8px}
+.err-text{color:#C0392B;font-size:14px;margin:0}
+.auto-out{display:flex;flex-direction:column;gap:14px}
+.auto-out:empty{display:none}
+
+/* ===== Baukasten ===== */
+.bld-bar{display:flex;align-items:center;gap:12px 16px;flex-wrap:wrap}
+.bar-name{font:700 22px/1.2 var(--f-display)!important;letter-spacing:-.015em;border-color:transparent!important;background:transparent!important;padding:4px 8px!important;width:auto!important;flex:1 1 220px;max-width:420px}
+.bar-name:hover{border-color:var(--line)!important}
+.tabs{display:inline-flex;background:var(--surface-2);border-radius:999px;padding:3px;gap:2px}
+.tabs button{border:0;background:transparent;padding:7px 16px;border-radius:999px;font-weight:500;font-size:14px;color:var(--muted)}
+.tabs button[aria-selected="true"]{background:var(--surface);color:var(--ink);box-shadow:0 1px 2px rgb(0 0 0 / .08)}
+.save-msg{font-size:13px;color:var(--muted)}
+.save-msg.bad{color:var(--danger)}
+
+.bld{display:grid;grid-template-columns:200px minmax(0,1fr) 300px;gap:18px;align-items:start}
+@media (max-width:1180px){.bld{grid-template-columns:minmax(0,1fr) 290px}.pal{grid-column:1/-1;position:static!important}.pal-groups{flex-direction:row!important;flex-wrap:wrap}.pal-g{flex:1 1 200px}}
+@media (max-width:780px){.bld{grid-template-columns:1fr}}
+.pal{position:sticky;top:calc(env(safe-area-inset-top,0px) + 76px);display:flex;flex-direction:column;gap:12px;padding:14px}
+.pal-groups{display:flex;flex-direction:column;gap:14px}
+.pal-g{display:flex;flex-direction:column;gap:7px}
+.pal-items{display:flex;flex-direction:column;gap:4px}
+@media (max-width:1180px){.pal-items{flex-direction:row;flex-wrap:wrap}}
+.pal-item{display:flex;align-items:center;gap:9px;padding:6px 8px;border-radius:0;border:1px solid transparent;background:transparent;font-size:13.5px;text-align:left;cursor:grab}
+.pal-item:hover{background:var(--surface-2);border-color:var(--line)}
+.pal-item:active{cursor:grabbing}
+.pal-item .g{display:inline-grid;place-items:center;width:24px;height:24px;border-radius:0;background:var(--surface-2);font:600 12px/1 var(--f-mono);color:var(--ink);flex:none}
+.pal-g[data-g="KI"] .g{background:var(--block-soft);color:var(--block-text)}
+.pal-g[data-g="Eingaben"] .g{background:var(--accent-soft);color:var(--accent)}
+
+.stage{background-color:var(--surface-2);background-image:radial-gradient(var(--grid-dot) 1px,transparent 1px);background-size:16px 16px;border-radius:0;padding:22px;min-height:520px;border:1px solid var(--line)}
+@media (max-width:560px){.stage{padding:10px}}
+.ai-box{margin-bottom:16px;display:flex;flex-direction:column;gap:10px;border-color:color-mix(in srgb,var(--block) 45%,var(--line))}
+.ai-head{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.ai-head h3{font-size:17px;font-weight:600}
+.ai-head .g{display:inline-grid;place-items:center;width:26px;height:26px;border-radius:0;background:var(--block-soft);color:var(--block-text);font:600 13px/1 var(--f-mono)}
+.ai-box .row{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+.ai-box .seg{flex:0 1 auto}
+.ai-sugg{display:flex;flex-wrap:wrap;gap:6px}
+.ai-sugg button{font-size:12.5px;padding:5px 10px;border-radius:999px;border:1px solid var(--line);background:var(--surface);color:var(--muted)}
+.ai-sugg button:hover{border-color:var(--block);color:var(--ink)}
+.ai-log{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px;border-top:1px solid var(--line);padding-top:10px}
+.ai-log li{font-size:13px;display:flex;gap:10px;align-items:baseline;flex-wrap:wrap}
+.ai-log q{color:var(--muted);quotes:"„" "“"}
+.ai-log span{flex:1 1 260px}
+.json-box{display:flex;flex-direction:column;gap:10px;margin-bottom:16px}
+.json-box textarea{font:12.5px/1.5 var(--f-mono)}
+.json-box .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.o-img{max-width:100%;height:auto;border-radius:calc(var(--app-radius) * .6);display:inline-block;vertical-align:top}
+.o-img-s{width:120px}.o-img-m{width:280px}.o-img-l{width:520px}.o-img-full{width:100%}
+.o-img-ph{border:1.5px dashed var(--app-line);border-radius:8px;padding:22px;text-align:center;color:var(--app-muted);font-size:13px}
+.app-meta{font:400 12px/1.3 var(--f-mono);color:var(--muted)}
+.badge.draft{background:var(--block-soft);color:var(--block-text);border-color:transparent}
+
+/* Bausteine auf der Arbeitsfläche */
+.b-list{display:flex;flex-direction:column;gap:14px;min-height:36px;min-width:0}
+.b{position:relative;border-radius:6px;outline:1px dashed transparent;outline-offset:5px;cursor:grab;user-select:none;-webkit-user-select:none;min-width:0}
+.b:hover{outline-color:color-mix(in srgb,var(--block) 55%,transparent)}
+.b.sel{outline:2px solid var(--block)}
+.b.dragging{opacity:.35}
+.b-tag{position:absolute;top:-17px;left:-2px;font:500 10px/1 var(--f-mono);background:var(--block);color:var(--block-ink);padding:3px 6px;border-radius:0;display:none;z-index:3;white-space:nowrap;letter-spacing:.02em}
+.b:hover>.b-tag,.b.sel>.b-tag{display:block}
+.b-tools{position:absolute;top:-19px;right:-2px;display:flex;gap:2px;z-index:4}
+.b-tools button{width:24px;height:22px;display:inline-grid;place-items:center;border-radius:5px;border:1px solid var(--block);background:var(--surface);color:var(--ink);font-size:12px;padding:0;line-height:1}
+.b-tools button:hover{background:var(--block);color:var(--block-ink)}
+.b input,.b textarea,.b select,.b button.o-btn{pointer-events:none}
+.b-use{position:absolute;top:0;right:0;font:500 10px/1 var(--f-mono);padding:3px 6px;border-radius:4px;background:var(--accent-soft);color:var(--accent);z-index:2;pointer-events:none;white-space:nowrap}
+.b-use.off{background:var(--danger-soft);color:var(--danger)}
+.pass{display:flex;flex-direction:column;gap:6px;padding:14px;border-radius:0;background:var(--accent-soft)}
+.pass .lbl{color:var(--accent)}
+.pass .check{font-size:13.5px}
+.uses{font-size:12.5px;color:var(--muted)}
+.bed{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.bed .lbl{font-size:13px;font-weight:600}
+.bed select,.bed input{width:auto;flex:1 1 150px}
+.qlist{display:flex;flex-direction:column;gap:8px;margin-bottom:8px}
+.qrow{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr) minmax(0,1.6fr) 30px;gap:6px;align-items:center}
+@media (max-width:640px){.qrow{grid-template-columns:1fr 30px}.qrow select,.qrow input{grid-column:1}}
+details.more .field{margin-bottom:10px}
+.paket-file{border-top:1px solid var(--app-line);padding:6px 0}
+.paket-file summary{cursor:pointer;font:500 13px/1.4 var(--f-mono)}
+.paket-file>div,.paket-file>pre{margin-top:8px}
+.uses b{color:var(--ink);font-weight:600}
+.b [contenteditable]{outline:2px solid var(--accent);outline-offset:3px;cursor:text;user-select:text;-webkit-user-select:text}
+.b-empty{border:1.5px dashed var(--app-line);border-radius:8px;padding:14px;text-align:center;font:500 12px/1.3 var(--f-mono);color:var(--app-muted)}
+.b-list:has(> .drop-ph) > .b-empty{display:none}
+.drop-ph{height:4px;border-radius:2px;background:var(--block);box-shadow:0 0 0 3px color-mix(in srgb,var(--block) 25%,transparent)}
+.preview-banner{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px;font-size:13px;color:var(--muted)}
+
+/* Eigenschaften */
+.insp{position:sticky;top:calc(env(safe-area-inset-top,0px) + 76px);display:flex;flex-direction:column;gap:14px;max-height:calc(100vh - 100px);overflow:auto}
+@media (max-width:780px){.insp{position:static;max-height:none}}
+.insp-head{display:flex;align-items:center;gap:10px}
+.insp-head h3{font-size:17px;font-weight:600;flex:1}
+.insp-head .g{display:inline-grid;place-items:center;width:28px;height:28px;border-radius:0;background:var(--block-soft);color:var(--block-text);font:600 13px/1 var(--f-mono)}
+.insp-actions{display:flex;gap:6px;flex-wrap:wrap}
+.seg{display:flex;flex-wrap:wrap;background:var(--surface-2);border-radius:999px;padding:3px;gap:2px}
+.seg button{flex:1;border:0;background:transparent;padding:6px 10px;border-radius:999px;font-size:13px;color:var(--muted);white-space:nowrap}
+.seg button[aria-pressed="true"]{background:var(--surface);color:var(--ink);box-shadow:0 1px 2px rgb(0 0 0 / .1)}
+.sws{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.sw{width:26px;height:26px;border-radius:50%;border:1px solid var(--line);padding:0}
+.sw[aria-pressed="true"]{outline:2px solid var(--ink);outline-offset:2px}
+.sw-def{background:conic-gradient(var(--surface) 0 25%,var(--surface-2) 0 50%,var(--surface) 0 75%,var(--surface-2) 0);position:relative}
+.sw-pick{width:26px;height:26px;border-radius:50%;overflow:hidden;border:1px dashed var(--muted);display:inline-grid;place-items:center;cursor:pointer;position:relative}
+.sw-pick input{position:absolute;inset:-6px;width:40px;height:40px;opacity:0;cursor:pointer}
+.sw-pick::after{content:"+";font-size:14px;color:var(--muted)}
+.key-in{font-family:var(--f-mono)!important;font-size:13px!important;color:var(--accent)}
+
+/* KI-Ablauf */
+.ki{display:grid;grid-template-columns:minmax(0,7fr) minmax(0,5fr);gap:18px;align-items:start}
+@media (max-width:980px){.ki{grid-template-columns:1fr}}
+.ki-col{display:flex;flex-direction:column;gap:14px}
+.ki-side{position:sticky;top:calc(env(safe-area-inset-top,0px) + 76px)}
+@media (max-width:980px){.ki-side{position:static}}
+.ki h2{font-size:19px;font-weight:600}
+.ki h3{font-size:16px;font-weight:600}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:6px 14px;margin:0;font-size:13.5px}
+.kv dt{color:var(--muted)}
+.kv dd{margin:0}
+.srow{display:flex;flex-direction:column;gap:12px}
+.srow-head{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.srow-head input{flex:1 1 200px;font-weight:600}
+.step-no{font:500 11px/1 var(--f-mono);text-transform:uppercase;letter-spacing:.08em;color:var(--block-text);white-space:nowrap}
+.three{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+@media (max-width:560px){.three{grid-template-columns:1fr}}
+.srow textarea{font:13.5px/1.55 var(--f-mono)}
+.vars{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.var{font:500 12px/1 var(--f-mono);padding:5px 9px;border-radius:999px;border:1px dashed var(--line);background:var(--surface);color:var(--accent)}
+.var:hover{border-color:var(--accent);border-style:solid}
+.var.prev{color:var(--block-text)}
+.var.prev:hover{border-color:var(--block)}
+.ib{width:32px;height:32px;display:inline-grid;place-items:center;border-radius:999px;border:1px solid var(--line);background:var(--surface);font-size:14px;line-height:1;padding:0}
+.ib:hover:not(:disabled){border-color:var(--ink)}
+.ib:disabled{opacity:.35;cursor:default}
+.ib.x:hover{border-color:var(--danger);color:var(--danger)}
+.adder{display:inline-flex;align-items:center;gap:6px;padding:9px 16px;border-radius:999px;border:1.5px dashed var(--line);background:transparent;font-size:14px;align-self:flex-start}
+.adder:hover{border-color:var(--block);color:var(--block-text)}
+.flowline{display:flex;flex-wrap:wrap;align-items:center;gap:6px}
+.flowline span{font:500 12px/1.3 var(--f-mono);padding:5px 10px;border-radius:6px;background:var(--surface-2)}
+.flowline span.k{background:var(--block-soft);color:var(--block-text)}
+.flowline b{color:var(--muted);font-weight:400}
+.warns{display:flex;flex-direction:column;gap:6px;margin:0;padding:0;list-style:none}
+.warns li{font-size:13px;color:var(--danger);padding-left:14px;position:relative}
+.warns li::before{content:"";position:absolute;left:0;top:.6em;width:6px;height:6px;border-radius:50%;background:currentColor}
+.warns li.soft{color:var(--muted)}
+.ok-text{color:var(--accent);font-size:13px;margin:0}
+.req pre{max-height:420px}
+.where{font-size:12.5px;color:var(--muted)}
+.where.bad{color:var(--block-text)}
+details.more summary{cursor:pointer;font-size:13px;font-weight:600}
+details.more[open] summary{margin-bottom:8px}
+
+@media (prefers-reduced-motion: reduce){
+  *{transition:none!important;animation:none!important}
+}
+</style>
+
+<header class="top">
+  <div class="wrap top-in">
+    <button class="brand" data-action="home" aria-label="KI-Hub Startseite">
+      <svg width="26" height="26" viewBox="0 0 26 26" aria-hidden="true"><rect x="1" y="1" width="11" height="11" rx="0" fill="var(--accent)"/><rect x="14" y="1" width="11" height="11" rx="0" fill="var(--ink)" opacity=".82"/><rect x="1" y="14" width="11" height="11" rx="0" fill="var(--ink)" opacity=".82"/><rect x="14" y="14" width="11" height="11" rx="0" fill="var(--signal)"/></svg>
+      <span>KI-Hub</span>
+    </button>
+    <nav class="nav" aria-label="Hauptnavigation">
+      <button data-action="home" data-nav="start">Applikationen</button>
+      <button data-action="new" data-nav="builder">Baukasten</button>
+    </nav>
+    <span id="ai-pill" class="ai-pill" data-s="checking"><i></i><span>KI wird geprüft</span></span>
+  </div>
+</header>
+<main id="main" class="wrap"></main>
+
+<script>
+/* ================= Beispiel-Applikationen ================= */
+const SEEDS = [
+  { id:"mail-antwort", name:"E-Mail-Antwort", bereich:"Allgemein",
+    beschreibung:"Formuliert eine passende Antwort auf eine eingegangene E-Mail im gewünschten Ton.",
+    felder:[
+      {key:"eingang",label:"Eingegangene E-Mail",typ:"textarea",pflicht:true,beispiel:"Guten Tag, wir haben am 12. September 40 Stück der Artikelnummer 7731 bestellt, bisher aber keine Versandbestätigung erhalten. Können Sie mir sagen, wann die Lieferung kommt?\nViele Grüße, Jana Kröger"},
+      {key:"kernaussage",label:"Was soll die Antwort sagen?",typ:"text",pflicht:true,beispiel:"Lieferung verlässt am Donnerstag das Lager, Sendungsnummer kommt per Mail"},
+      {key:"tonfall",label:"Tonfall",typ:"auswahl",optionen:["freundlich","formell","kurz und knapp"],beispiel:"freundlich"}
+    ],
+    schritte:[{titel:"Antwort formulieren",rolle:"Du bist Assistenz im Kundenservice. Du schreibst höflich, klar und ohne Floskeln.",prompt:"Schreibe eine Antwort auf diese E-Mail:\n\n{{eingang}}\n\nDie Antwort soll inhaltlich Folgendes sagen: {{kernaussage}}\nTonfall: {{tonfall}}\n\nGib nur den fertigen E-Mail-Text mit Anrede und Gruß aus."}]
+  },
+  { id:"angebot", name:"Angebotsanschreiben", bereich:"Vertrieb",
+    beschreibung:"Erstellt das Anschreiben zu einem Angebot mit Nutzen, Leistung und Gesprächsvorschlag.",
+    felder:[
+      {key:"kunde",label:"Kunde und Ansprechpartner",typ:"text",pflicht:true,beispiel:"Stadtwerke Lindau, Herr Bauer"},
+      {key:"leistung",label:"Angebotene Leistung",typ:"textarea",pflicht:true,beispiel:"Wartungsvertrag für 12 Ladesäulen, zwei Prüftermine pro Jahr, Störungsbehebung innerhalb von 48 Stunden"},
+      {key:"besonderheiten",label:"Besonderheiten",typ:"text",beispiel:"Kunde legt Wert auf eine feste Ansprechpartnerin"}
+    ],
+    schritte:[{titel:"Anschreiben",rolle:"Du bist Assistenz im Vertrieb. Du erfindest keine Preise und keine Zusagen.",prompt:"Schreibe ein Anschreiben zu einem Angebot.\nKunde: {{kunde}}\nLeistung: {{leistung}}\nBesonderheiten: {{besonderheiten}}\n\nFasse den Nutzen in drei Sätzen zusammen, nenne die Leistung konkret und schließe mit dem Vorschlag für ein kurzes Abstimmungsgespräch."}]
+  },
+  { id:"stellenanzeige", name:"Stellenanzeige", bereich:"Personal",
+    beschreibung:"Schreibt aus Stichpunkten eine Stellenanzeige und daraus eine Kurzfassung für LinkedIn.",
+    felder:[
+      {key:"position",label:"Position",typ:"text",pflicht:true,beispiel:"Sachbearbeitung Buchhaltung (m/w/d)"},
+      {key:"aufgaben",label:"Aufgaben",typ:"textarea",pflicht:true,beispiel:"Kreditorenbuchhaltung, Zahlungsläufe, Unterstützung beim Monatsabschluss"},
+      {key:"anforderungen",label:"Anforderungen",typ:"textarea",beispiel:"Kaufmännische Ausbildung, erste Erfahrung mit DATEV, sorgfältige Arbeitsweise"},
+      {key:"standort",label:"Standort und Arbeitsmodell",typ:"text",beispiel:"Augsburg, 2 Tage Homeoffice pro Woche"}
+    ],
+    schritte:[
+      {titel:"Anzeige",rolle:"Du schreibst Stellenanzeigen in Du-Form, freundlich und konkret. Keine erfundenen Zahlen oder Benefits.",prompt:"Erstelle eine Stellenanzeige.\nPosition: {{position}}\nAufgaben: {{aufgaben}}\nAnforderungen: {{anforderungen}}\nStandort und Arbeitsmodell: {{standort}}\n\nGliederung: kurzer Einstieg, ## Deine Aufgaben, ## Das bringst du mit, ## Das bieten wir, Abschluss mit Aufruf zur Bewerbung."},
+      {titel:"Kurzfassung für LinkedIn",modell:"quick",prompt:"Fasse diese Stellenanzeige als LinkedIn-Beitrag mit höchstens 600 Zeichen zusammen:\n\n{{schritt1}}"}
+    ]
+  },
+  { id:"protokoll", name:"Meeting-Protokoll", bereich:"Allgemein",
+    beschreibung:"Macht aus Besprechungsnotizen eine Zusammenfassung und eine Aufgabenliste mit Verantwortlichen.",
+    felder:[
+      {key:"notizen",label:"Besprechungsnotizen",typ:"textarea",pflicht:true,beispiel:"Projekt Umzug Lager Nord, 6.10.\nTeilnehmer: Weber, Ahmadi, Schulz, Krause\n- Mietvertrag neue Halle unterschrieben, Übergabe 1.12.\n- Regalsystem: zwei Angebote liegen vor, Ahmadi holt drittes bis 15.10.\n- Netzwerk in neuer Halle fehlt noch, Schulz klärt mit Dienstleister\n- Umzug vorgeschlagen 8.–10.12., Krause stimmt mit Spedition ab\n- Offen: Inventur vor oder nach dem Umzug?"}
+    ],
+    schritte:[
+      {titel:"Zusammenfassung",prompt:"Fasse diese Besprechungsnotizen in höchstens fünf Stichpunkten zusammen. Führe offene Fragen gesondert unter ## Offen auf.\n\n{{notizen}}"},
+      {titel:"Aufgabenliste",modell:"quick",prompt:"Erstelle aus den Notizen eine Markdown-Tabelle mit den Spalten Aufgabe | Verantwortlich | Termin. Fehlt eine Angabe, schreibe „offen“.\n\nNotizen:\n{{notizen}}"}
+    ]
+  },
+  { id:"fehlermeldung", name:"Fehlermeldung erklären", bereich:"IT",
+    beschreibung:"Übersetzt eine Fehlermeldung in verständliche Sprache und nennt Schritte, die man selbst prüfen kann.",
+    felder:[
+      {key:"fehlermeldung",label:"Fehlermeldung",typ:"textarea",pflicht:true,beispiel:"Die Verbindung mit dem Remotecomputer konnte nicht hergestellt werden. Fehlercode: 0x204"},
+      {key:"system",label:"Gerät und Programm",typ:"text",beispiel:"Windows 11, Remotedesktop auf Terminalserver TS02"}
+    ],
+    schritte:[{titel:"Erklärung",rolle:"Du bist IT-Support für Menschen ohne IT-Ausbildung. Du erklärst ohne Fachbegriffe.",prompt:"Erkläre diese Fehlermeldung.\nFehlermeldung: {{fehlermeldung}}\nUmgebung: {{system}}\n\nAufbau: ## Was bedeutet das (zwei Sätze), ## Das kannst du selbst prüfen (nummerierte Schritte), ## Wann du die IT anrufen solltest."}]
+  },
+  { id:"social-post", name:"Social-Media-Beitrag", bereich:"Marketing",
+    beschreibung:"Schreibt drei Varianten eines Beitrags, abgestimmt auf Kanal und Ziel.",
+    felder:[
+      {key:"thema",label:"Worum geht es?",typ:"text",pflicht:true,beispiel:"Unser Azubi-Team hat den Innovationspreis der IHK Schwaben gewonnen"},
+      {key:"kanal",label:"Kanal",typ:"auswahl",optionen:["LinkedIn","Instagram","Facebook"],pflicht:true,beispiel:"LinkedIn"},
+      {key:"ziel",label:"Ziel",typ:"auswahl",optionen:["Reichweite","Bewerbungen","Anmeldungen zu einer Veranstaltung"],beispiel:"Bewerbungen"}
+    ],
+    schritte:[{titel:"Drei Entwürfe",modell:"quick",prompt:"Schreibe drei unterschiedliche Entwürfe für einen {{kanal}}-Beitrag.\nThema: {{thema}}\nZiel des Beitrags: {{ziel}}\n\nJeder Entwurf unter eigener Überschrift (## Variante 1 usw.), passend zu Länge und Ton des Kanals, mit zwei bis vier Hashtags."}]
+  },
+  { id:"klausel", name:"Vertragsklausel prüfen", bereich:"Recht",
+    beschreibung:"Erklärt eine Klausel, zeigt mögliche Risiken und formuliert Fragen für die Rechtsabteilung.",
+    felder:[
+      {key:"klausel",label:"Klauseltext",typ:"textarea",pflicht:true,beispiel:"Der Auftragnehmer haftet für Schäden nur bei Vorsatz und grober Fahrlässigkeit. Die Haftung ist der Höhe nach auf den Auftragswert begrenzt."},
+      {key:"rolle",label:"Unsere Rolle",typ:"auswahl",optionen:["Auftraggeber","Auftragnehmer"],pflicht:true,beispiel:"Auftraggeber"}
+    ],
+    schritte:[{titel:"Einschätzung",rolle:"Du unterstützt die Fachabteilung bei einer ersten Einschätzung. Du ersetzt keine Rechtsberatung und sagst das am Ende in einem Satz.",prompt:"Analysiere diese Vertragsklausel aus Sicht des {{rolle}}s.\n\nKlausel:\n{{klausel}}\n\nAufbau: ## Kurz erklärt, ## Mögliche Risiken, ## Fragen für die Rechtsabteilung."}]
+  },
+  { id:"angebotsvergleich", name:"Angebotsvergleich", bereich:"Einkauf",
+    beschreibung:"Stellt Lieferantenangebote in einer Tabelle gegenüber und gibt eine begründete Empfehlung.",
+    felder:[
+      {key:"angebote",label:"Angebote",typ:"textarea",pflicht:true,beispiel:"Angebot A, Müller Logistik: 4,20 € je Palette, Lieferung in 3 Tagen, Zahlungsziel 30 Tage\nAngebot B, Nordfracht: 3,85 € je Palette, Lieferung in 5 Tagen, Zahlungsziel 14 Tage\nAngebot C, Huber Transporte: 4,05 € je Palette, Lieferung in 2 Tagen, Zahlungsziel 45 Tage, Mindestmenge 200 Paletten"},
+      {key:"kriterien",label:"Worauf kommt es an?",typ:"text",beispiel:"Schnelle Lieferung ist wichtiger als der Preis, etwa 150 Paletten im Monat"}
+    ],
+    schritte:[{titel:"Vergleich und Empfehlung",prompt:"Vergleiche diese Angebote.\n\n{{angebote}}\n\nWorauf es ankommt: {{kriterien}}\n\nErstelle zuerst eine Markdown-Tabelle mit den wichtigsten Merkmalen je Angebot, danach ## Empfehlung mit Begründung in drei Sätzen. Weise auf Bedingungen hin, die nicht passen."}]
+  },
+  { id:"terminologie", name:"Terminologiedatenbank", bereich:"Allgemein", typ:"link",
+    url:"https://claude.ai/artifact/DMi8Pef1dN97SmVaqCr7hJ",
+    beschreibung:"Selbst programmierte Applikation, als Kachel eingebunden. So stehen gecodete Apps neben Baukasten-Apps.",
+    felder:[], schritte:[] }
+];
+
+/* ================= Konstanten ================= */
+const AREA_ORDER = ["Allgemein","Vertrieb","Personal","Marketing","IT","Recht","Einkauf"];
+const BT = {
+  section:{label:"Bereich",g:"▢",group:"Layout"},
+  columns:{label:"Spalten",g:"▥",group:"Layout"},
+  spacer:{label:"Abstand",g:"↕",group:"Layout"},
+  divider:{label:"Trennlinie",g:"—",group:"Layout"},
+  heading:{label:"Überschrift",g:"H",group:"Inhalt"},
+  text:{label:"Text",g:"¶",group:"Inhalt"},
+  callout:{label:"Hinweis",g:"i",group:"Inhalt"},
+  image:{label:"Bild / Logo",g:"◩",group:"Inhalt"},
+  input:{label:"Textzeile",g:"T",group:"Eingaben",field:true},
+  textarea:{label:"Textfeld",g:"≡",group:"Eingaben",field:true},
+  select:{label:"Dropdown",g:"▾",group:"Eingaben",field:true},
+  radio:{label:"Auswahlknöpfe",g:"◉",group:"Eingaben",field:true},
+  checkbox:{label:"Checkbox",g:"✓",group:"Eingaben",field:true},
+  number:{label:"Zahl",g:"#",group:"Eingaben",field:true},
+  date:{label:"Datum",g:"31",group:"Eingaben",field:true},
+  file:{label:"Datei (Text)",g:"⇪",group:"Eingaben",field:true},
+  button:{label:"KI-Button",g:"▶",group:"KI"},
+  output:{label:"Ergebnis",g:"✦",group:"KI"}
+};
+const GROUPS = ["Layout","Inhalt","Eingaben","KI"];
+const MODELL_LABEL = {quick:"Schnell",default:"Standard",complex:"Gründlich"};
+const FORMAT_LABEL = {markdown:"Formatierter Text",text:"Schlichter Text",json:"JSON-Daten",dateien:"Dateipaket (ZIP)"};
+const FORMAT_HINT = {
+  markdown:"Formatiere mit einfachem Markdown: ## Überschriften, - Listen, Tabellen nur wenn sie helfen. Beginne direkt mit dem Ergebnis.",
+  text:"Antworte als schlichter Text ohne Markdown. Beginne direkt mit dem Ergebnis.",
+  json:"Antworte nur mit gültigem JSON, ohne Erklärung davor oder danach.",
+  dateien:'Antworte nur mit gültigem JSON in dieser Form: {"hinweis": "ein Satz zum Paket", "dateien": [{"pfad": "Ordner/Unterordner/Datei.md", "inhalt": "vollständiger Dateiinhalt als Text oder Markdown"}]}. Pfade mit / trennen, ohne Umlaute, Leerzeichen und Sonderzeichen. Keine Erklärung vor oder nach dem JSON.'
+};
+/* Zentrale KI-Anbindung des Hubs. Gilt für alle Applikationen; Apps enthalten keine Verbindungsdaten. */
+const KI_ZENTRAL = {
+  ziel:"Microsoft 365 Copilot über Microsoft Graph",
+  anmeldung:"Zentrale Azure-Anwendung (Microsoft Entra ID), Single Sign-on über MSAL mit dem Windows-Konto",
+  prototyp:"Claude (nur im Prototyp)"
+};
+const QUELL_TYP = {sharepoint:"SharePoint (Website, Bibliothek oder Ordner)", datei:"Einzelne Datei (SharePoint/OneDrive)", web:"Webseite"};
+const BED_OP = {gleich:"ist gleich", ungleich:"ist nicht", gefuellt:"ist ausgefüllt", leer:"ist leer"};
+const LIBS = {
+  xlsx:["https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js", "XLSX"],
+  mammoth:["https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js", "mammoth"],
+  pdf:["https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js", "pdfjsLib"],
+  zip:["https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js", "JSZip"]
+};
+const DEFAULT_THEME = {accent:"", bg:"", font:"sans", radius:"m", width:"m"};
+const FONTS = {sans:"var(--f-body)", serif:'"Source Serif 4", Georgia, serif', display:"var(--f-display)", mono:"var(--f-mono)"};
+const RADIUS = {s:"0px", m:"4px", l:"14px"};
+const HEADS = {sans:"var(--f-display)", serif:'"Source Serif 4", Georgia, serif', display:"var(--f-display)", mono:"var(--f-mono)"};
+const WIDTH = {s:"680px", m:"960px", l:"1240px"};
+const ACCENTS = ["","#0060FF","#004CCC","#001C4C","#4C8FFF","#FE8623","#FEC037","#5C5A58","#00050D","#C4281C"];
+const BGS = ["","#FFFFFF","#FBFAF9","#F5F3F1","#F0EEEA","#E5EFFF","#FFFCEA","#001C4C","#00050D"];
+const TEXTCOLS = ["","#00050D","#5C5A58","#0060FF","#001C4C","#A64B00","#C4281C","#FFFFFF"];
+const TONES = {info:["Info","var(--app-accent)"], warn:["Achtung","#C98A1C"], ok:["Tipp","#3B7A2A"]};
+const STATUS = {entwurf:"Entwurf", pruefung:"In Prüfung", freigegeben:"Freigegeben"};
+const SCHUTZ = {oeffentlich:"Öffentlich", intern:"Intern", vertraulich:"Vertraulich"};
+const ENUMS = {level:[1,2,3], align:["left","center","right"], size:["s","m","l","full"], pad:["s","m","l"], tone:["info","warn","ok"],
+  stil:["filled","outline","card","plain"], h:[12,24,48], rows:[3,5,9], count:[2,3], uebergabe:["text","referenz"]};
+const VISUAL = ["align","color","size","level","bg","pad","border","stil","tone","h"];
+const AI_SUGG = [
+  "Zweispaltig: Eingaben links, Ergebnisse rechts",
+  "Füge oben einen Hinweis zum Datenschutz ein",
+  "Gestalte es seriös in Dunkelblau mit runden Ecken",
+  "Teile den Ablauf in zwei Schritte: erst analysieren, dann Antwort formulieren",
+  "Ergänze ein Dropdown für die Dringlichkeit (niedrig, mittel, hoch)"
+];
+const LS_KEY = "kihub-apps-v2";
+const OFF_CODES = ["not_granted","sampling_disabled","not_declared","capability_disabled","capability_removed"];
+const ERR_TEXT = {
+  rate_limited:"Gerade sind zu viele Anfragen unterwegs. Versuch es in einer Minute noch einmal.",
+  session_expired:"Deine Anmeldung bei Claude ist abgelaufen. Melde dich neu an und starte erneut.",
+  refused:"Die KI hat diese Anfrage abgelehnt. Formuliere die Eingaben anders.",
+  prompt_too_large:"Die Eingaben sind zu lang. Kürze den Text und starte erneut.",
+  empty_completion:"Die KI hat keine Antwort geliefert. Vereinfache die Eingaben und starte erneut."
+};
+
+/* ================= Hilfsfunktionen ================= */
+const rid = p => p + Math.random().toString(36).slice(2,9);
+function esc(s){ return String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
+const escNl = s => esc(s).replace(/\n/g,"<br>");
+const clone = o => JSON.parse(JSON.stringify(o));
+function slug(s){
+  return String(s).toLowerCase().replace(/ä/g,"ae").replace(/ö/g,"oe").replace(/ü/g,"ue").replace(/ß/g,"ss")
+    .replace(/[^a-z0-9]+/g,"_").replace(/^_+|_+$/g,"").slice(0,30) || "feld";
+}
+function uniqueKey(base, taken){
+  let k = base, n = 2;
+  while(taken.has(k)) k = base + "_" + (n++);
+  return k;
+}
+function areaIdx(area){
+  const i = AREA_ORDER.indexOf(area);
+  if(i >= 0) return i;
+  let h = 0; for(const c of String(area)) h = (h*31 + c.charCodeAt(0)) >>> 0;
+  return h % 7;
+}
+function initials(name){
+  const w = String(name).replace(/[^A-Za-zÄÖÜäöüß0-9\s-]/g,"").split(/[\s-]+/).filter(Boolean);
+  if(!w.length) return "KI";
+  return (w.length > 1 ? w[0][0] + w[1][0] : w[0].slice(0,2)).toUpperCase();
+}
+function inkFor(hex){
+  const m = /^#?([0-9a-f]{6})$/i.exec(hex || "");
+  if(!m) return null;
+  const n = parseInt(m[1],16), ch = [n>>16 & 255, n>>8 & 255, n & 255].map(v => { v /= 255; return v <= .03928 ? v/12.92 : ((v+.055)/1.055) ** 2.4; });
+  const L = .2126*ch[0] + .7152*ch[1] + .0722*ch[2];
+  return L > .38 ? "#14201C" : "#F3F6F5";
+}
+function walk(list, fn){
+  for(const b of list){ fn(b); if(b.children) walk(b.children, fn); if(b.cols) b.cols.forEach(c => walk(c, fn)); }
+}
+function locate(list, id){
+  for(let i = 0; i < list.length; i++){
+    const b = list[i];
+    if(b.id === id) return {list, i, b};
+    const subs = [b.children, ...(b.cols || [])].filter(Boolean);
+    for(const s of subs){ const r = locate(s, id); if(r) return r; }
+  }
+  return null;
+}
+function fieldsOf(app){ const out = []; walk(app.blocks || [], b => { if(BT[b.type]?.field) out.push(b); }); return out; }
+function allKeys(app, except){
+  const s = new Set();
+  fieldsOf(app).forEach(b => { if(b !== except) s.add(b.props.key); });
+  (app.steps || []).forEach(st => { if(st !== except) s.add(st.key); });
+  return s;
+}
+function varsIn(text){ return [...String(text || "").matchAll(/\{\{\s*([^}]+?)\s*\}\}/g)].map(m => m[1].toLowerCase()); }
+function renameRefs(app, oldK, newK){
+  const re = new RegExp("\\{\\{\\s*" + oldK + "\\s*\\}\\}", "gi");
+  app.steps.forEach(s => { s.prompt = s.prompt.replace(re, "{{" + newK + "}}"); s.wissen = (s.wissen || "").replace(re, "{{" + newK + "}}"); if(s.bedingung?.feld === oldK) s.bedingung.feld = newK; });
+}
+function stepsUsing(app, key){
+  const k = String(key).toLowerCase(), out = [];
+  (app.steps || []).forEach((s,i) => { if(s.autoAll || varsIn(s.prompt + " " + (s.wissen || "")).includes(k)) out.push(i); });
+  return out;
+}
+function removeVar(s, k){
+  const kre = k.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const tok = new RegExp(`\\{\\{\\s*${kre}\\s*\\}\\}`, "gi");
+  s.prompt = s.prompt.replace(new RegExp(`\\n*[^\\n{}]*:[ \\t]*\\n\\{\\{\\s*${kre}\\s*\\}\\}[ \\t]*`, "gi"), "")
+    .replace(tok, "").replace(/\n{3,}/g, "\n\n").trim();
+  s.wissen = (s.wissen || "").replace(tok, "").trim();
+}
+function fill(tpl, ctx){
+  return String(tpl || "").replace(/\{\{\s*([^}]+?)\s*\}\}/g, (m, k) => {
+    const key = k.toLowerCase();
+    return Object.prototype.hasOwnProperty.call(ctx, key) ? ctx[key] : m;
+  });
+}
+
+/* Markdown für KI-Antworten */
+function inline(s){ return esc(s).replace(/\*\*(.+?)\*\*/g,"<strong>$1</strong>").replace(/`([^`]+)`/g,"<code>$1</code>"); }
+function mdTable(rows){
+  const cells = r => r.trim().replace(/^\|/,"").replace(/\|$/,"").split("|").map(c => c.trim());
+  const body = rows.filter(r => !/^\s*\|?\s*:?-{2,}/.test(r));
+  if(!body.length) return "";
+  const [head, ...rest] = body;
+  return `<div class="tbl"><table><thead><tr>${cells(head).map(c => `<th>${inline(c)}</th>`).join("")}</tr></thead><tbody>${
+    rest.map(r => `<tr>${cells(r).map(c => `<td>${inline(c)}</td>`).join("")}</tr>`).join("")}</tbody></table></div>`;
+}
+function md(src){
+  const lines = String(src).replace(/\r/g,"").split("\n");
+  let html = "", i = 0, m;
+  const blockStart = /^(#{1,4}\s|\s*[-*•]\s+|\s*\d+[.)]\s+|\s*\|.*\|\s*$|\s*(---|\*\*\*)\s*$|\s*```)/;
+  while(i < lines.length){
+    const l = lines[i];
+    if(!l.trim()){ i++; continue; }
+    if(/^\s*```/.test(l)){
+      const code = []; i++;
+      while(i < lines.length && !/^\s*```/.test(lines[i])) code.push(lines[i++]);
+      i++;
+      html += `<pre class="prompt">${esc(code.join("\n"))}</pre>`; continue;
+    }
+    if((m = l.match(/^(#{1,4})\s+(.*)/))){ const h = Math.min(m[1].length + 2, 5); html += `<h${h}>${inline(m[2])}</h${h}>`; i++; continue; }
+    if(/^\s*\|.*\|\s*$/.test(l)){ const rows = []; while(i < lines.length && /^\s*\|.*\|\s*$/.test(lines[i])) rows.push(lines[i++]); html += mdTable(rows); continue; }
+    if(/^\s*[-*•]\s+/.test(l)){ html += "<ul>"; while(i < lines.length && /^\s*[-*•]\s+/.test(lines[i])) html += `<li>${inline(lines[i++].replace(/^\s*[-*•]\s+/,""))}</li>`; html += "</ul>"; continue; }
+    if(/^\s*\d+[.)]\s+/.test(l)){ html += "<ol>"; while(i < lines.length && /^\s*\d+[.)]\s+/.test(lines[i])) html += `<li>${inline(lines[i++].replace(/^\s*\d+[.)]\s+/,""))}</li>`; html += "</ol>"; continue; }
+    if(/^\s*(---|\*\*\*)\s*$/.test(l)){ html += "<hr>"; i++; continue; }
+    const para = [inline(lines[i++])];
+    while(i < lines.length && lines[i].trim() && !blockStart.test(lines[i])) para.push(inline(lines[i++]));
+    html += `<p>${para.join("<br>")}</p>`;
+  }
+  return html;
+}
+function renderResult(text, format){
+  if(format === "json") return `<pre class="prompt">${esc(text)}</pre>`;
+  if(format === "text") return `<p>${escNl(text)}</p>`;
+  return md(text);
+}
+
+/* ================= Datenmodell ================= */
+function blk(type, props, extra){ return {id:rid("b"), type, props:{...props}, ...(extra || {})}; }
+function makeBlock(type, app){
+  const P = {};
+  const b = {id:rid("b"), type, props:P};
+  switch(type){
+    case "section": Object.assign(P, {bg:"", pad:"m", border:true}); b.children = []; break;
+    case "columns": P.count = 2; b.cols = [[],[]]; break;
+    case "spacer": P.h = 24; break;
+    case "divider": break;
+    case "heading": Object.assign(P, {text:"Überschrift", level:2, align:"left", color:""}); break;
+    case "text": Object.assign(P, {text:"Beschreib hier kurz, was zu tun ist.", size:"m", align:"left", color:""}); break;
+    case "callout": Object.assign(P, {text:"Bitte keine personenbezogenen Daten eingeben.", tone:"info"}); break;
+    case "image": Object.assign(P, {src:"", alt:"", size:"m", align:"left"}); break;
+    case "button": Object.assign(P, {text:"KI starten", aktion:"alle", stil:"filled", color:"", align:"left"}); break;
+    case "output": Object.assign(P, {titel:"Ergebnis", quelle:app?.steps?.[0]?.id || "", stil:"card"}); break;
+    default:
+      if(BT[type]?.field){
+        P.label = type === "checkbox" ? "Ja, das trifft zu" : BT[type].label;
+        P.key = uniqueKey(slug(P.label), allKeys(app));
+        Object.assign(P, {keyAuto:true, pflicht:false, beispiel:"", hilfe:"", placeholder:"", rows:5});
+        if(type === "select" || type === "radio") P.optionen = ["Option A","Option B"];
+        if(type === "file") P.uebergabe = "text";
+      }
+  }
+  return b;
+}
+function legacyToApp(d){
+  const app = {id:d.id || null, v:2, name:d.name || "Neue Applikation", bereich:d.bereich || "Allgemein", beschreibung:d.beschreibung || "",
+    typ:d.typ || "baukasten", url:d.url || "", theme:{...DEFAULT_THEME, accent:d.farbe || ""},
+    steps:[], blocks:[], geaendert:d.geaendert || "",
+    status:d.status || "freigegeben", owner:d.owner || "", schutz:d.schutz || "intern", version:d.version ?? 1};
+  if(app.typ === "link") return app;
+  app.steps = (d.schritte || []).map((s,i) => ({id:rid("s"), name:s.titel || "KI-Schritt " + (i+1), key:"schritt" + (i+1),
+    rolle:s.rolle || "", wissen:"", prompt:s.prompt || "", modell:s.modell || "default", format:s.format || "markdown"}));
+  const typeMap = {text:"input", textarea:"textarea", auswahl:"select"};
+  const fields = (d.felder || []).map(f => blk(typeMap[f.typ] || "input", {label:f.label, key:f.key, keyAuto:false, pflicht:!!f.pflicht,
+    beispiel:f.beispiel || "", hilfe:"", placeholder:"", rows:5, optionen:f.optionen || []}));
+  const left = [blk("section", {bg:"", pad:"m", border:true}, {children:[
+    blk("heading", {text:"Eingaben", level:3, align:"left", color:""}), ...fields,
+    blk("button", {text:"Ausführen", aktion:"alle", stil:"filled", color:"", align:"left"})
+  ]})];
+  const right = app.steps.map(s => blk("output", {titel:s.name, quelle:s.id, stil:"card"}));
+  app.blocks = [
+    blk("heading", {text:app.name, level:1, align:"left", color:""}),
+    blk("text", {text:app.beschreibung, size:"m", align:"left", color:""}),
+    blk("columns", {count:2}, {cols:[left, right]})
+  ];
+  return app;
+}
+function ensureV2(a){
+  if(!a || a.typ === "link") return a && a.v === 2 ? a : legacyToApp(a || {});
+  if(!a.blocks) return legacyToApp(a);
+  const {ki, ...rest} = a;   // frühere App-eigene Schnittstellen-Angaben entfallen, die Anbindung ist zentral
+  return {status:"entwurf", owner:"", schutz:"intern", version:1, ...rest, theme:{...DEFAULT_THEME, ...(a.theme || {})}, steps:a.steps || []};
+}
+function newApp(){
+  return legacyToApp({name:"Neue Applikation", bereich:"Allgemein", beschreibung:"Beschreib hier kurz, was die Applikation macht.", status:"entwurf", version:0,
+    felder:[{key:"text", label:"Text", typ:"textarea", pflicht:true}],
+    schritte:[{titel:"Ergebnis", prompt:"Fasse den folgenden Text in fünf Stichpunkten zusammen:\n\n{{text}}"}]});
+}
+
+/* ================= Zustand ================= */
+const SEED_APPS = SEEDS.map(s => ({...legacyToApp(s), _src:"seed"}));
+let sampleFn = null, aiState = "checking";
+let db = null, dbApps = [];
+let localApps = loadLocal();
+let view = {name:"start"};
+const filter = {area:"Alle", q:""};
+let ed = null;                       // Baukasten: {app, sel, tab, preview, brief, reqStep}
+let rs = {results:{}, texts:{}, reqs:{}, ctl:null, files:{}, pakete:{}};
+let reg = new Map();                 // Listen-ID -> Array (Arbeitsfläche)
+let drag = null, ph = null, dropAt = null;
+const main = document.getElementById("main");
+
+function loadLocal(){ try{ const v = JSON.parse(localStorage.getItem(LS_KEY) || "[]"); return Array.isArray(v) ? v.map(ensureV2) : []; }catch{ return []; } }
+function saveLocal(){ try{ localStorage.setItem(LS_KEY, JSON.stringify(localApps)); return true; }catch{ return false; } }
+function allApps(){
+  const dbIds = new Set(dbApps.map(a => a.id));
+  const own = [...dbApps.map(a => ({...a, _src:"db"})), ...localApps.filter(a => !dbIds.has(a.id)).map(a => ({...a, _src:"local"}))]
+    .sort((a,b) => String(b.geaendert || "").localeCompare(String(a.geaendert || "")));
+  return [...own, ...SEED_APPS];
+}
+function findApp(id){ return allApps().find(a => a.id === id); }
+function areaList(apps){
+  return [...new Set(apps.map(a => a.bereich).filter(Boolean))].sort((a,b) => {
+    const ia = AREA_ORDER.indexOf(a), ib = AREA_ORDER.indexOf(b);
+    if(ia >= 0 && ib >= 0) return ia - ib;
+    if(ia >= 0) return -1; if(ib >= 0) return 1;
+    return a.localeCompare(b, "de");
+  });
+}
+
+/* ================= KI und Speicher ================= */
+function setAiPill(){
+  const pill = document.getElementById("ai-pill");
+  pill.dataset.s = aiState;
+  pill.querySelector("span").textContent = aiState === "ready" ? "KI verbunden" : aiState === "off" ? "KI-Simulation" : "KI wird geprüft";
+  pill.title = aiState === "off" ? "In dieser Ansicht ist keine KI verfügbar. Applikationen zeigen dann die Anfrage, die gesendet würde." : "";
+  const b = document.querySelector('[data-action="ai-apply"]');
+  if(b) b.disabled = aiState === "off";
+}
+(async () => {
+  try{ sampleFn = (await window.claude?.use?.("sample")) ?? null; }catch{ sampleFn = null; }
+  aiState = sampleFn ? "ready" : "off";
+  setAiPill();
+})();
+(async () => {
+  try{ db = (await window.claude?.use?.("db")) ?? null; }catch{ db = null; }
+  if(!db) return;
+  db.collection("apps").onSnapshot(snap => {
+    dbApps = snap.docs.filter(d => d.exists).map(d => ensureV2({...d.data(), id:d.id}));
+    if(view.name === "start") renderStart(true);
+  }, () => {});
+})();
+async function persist(def){
+  const {id, ...body} = def;
+  if(db){
+    try{
+      await db.collection("apps").doc(id).set(body);
+      const i = dbApps.findIndex(a => a.id === id);
+      if(i >= 0) dbApps[i] = def; else dbApps.push(def);
+      const li = localApps.findIndex(a => a.id === id);
+      if(li >= 0){ localApps.splice(li,1); saveLocal(); }
+      return "db";
+    }catch{ /* lokal weiter */ }
+  }
+  const before = localApps.slice();
+  const i = localApps.findIndex(a => a.id === id);
+  if(i >= 0) localApps[i] = def; else localApps.push(def);
+  if(saveLocal()) return "local";
+  localApps = before;
+  return "none";
+}
+async function removeApp(app){
+  if(app._src === "db" && db){
+    try{ await db.collection("apps").doc(app.id).delete(); }catch{}
+    dbApps = dbApps.filter(a => a.id !== app.id);
+  }
+  localApps = localApps.filter(a => a.id !== app.id); saveLocal();
+}
+
+/* ================= Navigation ================= */
+function go(v){
+  if(rs.ctl) rs.ctl.abort();
+  rs = {results:{}, texts:{}, reqs:{}, ctl:null, files:{}, pakete:{}};
+  view = v;
+  main.classList.toggle("wide", v.name === "builder");
+  document.querySelectorAll(".nav button").forEach(b => b.setAttribute("aria-current", b.dataset.nav === (v.name === "builder" ? "builder" : "start") ? "page" : "false"));
+  if(v.name === "start") renderStart();
+  else if(v.name === "app") renderAppView(findApp(v.id));
+  else renderBuilder();
+  window.scrollTo(0,0);
+}
+
+/* ================= Startseite ================= */
+function tileHtml(a, isStatic){
+  const ci = areaIdx(a.bereich);
+  const ac = a.theme?.accent || `var(--a${ci})`, aci = a.theme?.accent ? (inkFor(a.theme.accent) || "#fff") : `var(--a${ci}i)`;
+  const badge = a._src === "seed" ? (a.typ === "link" ? `<span class="badge code">Programmiert</span>` : `<span class="badge">Vorlage</span>`)
+    : a.status && a.status !== "freigegeben" ? `<span class="badge draft">${STATUS[a.status] || "Entwurf"}</span>`
+    : a._src === "local" ? `<span class="badge local">Nur in diesem Browser</span>` : `<span class="badge own">Eigene</span>`;
+  const nf = fieldsOf(a).length, ns = (a.steps || []).length;
+  const meta = a.typ === "link" ? "Öffnet in neuem Fenster" : `${nf} ${nf === 1 ? "Eingabe" : "Eingaben"}, ${ns} KI-${ns === 1 ? "Schritt" : "Schritte"}`;
+  const inner = `<span class="tile-top"><span class="mono">${esc(initials(a.name || "?"))}</span><span class="area" style="--ac:var(--a${ci})"><i></i>${esc(a.bereich || "Ohne Bereich")}</span></span>
+    <span class="tile-name">${esc(a.name || "Ohne Namen")}</span>
+    <span class="tile-desc">${esc(a.beschreibung || "Noch keine Beschreibung.")}</span>
+    <span class="tile-foot"><span class="meta">${meta}</span>${badge}</span>`;
+  const st = `--ac:${ac};--aci:${aci}`;
+  return isStatic ? `<div class="tile" style="${st}">${inner}</div>`
+    : `<button class="tile" data-action="open" data-id="${esc(a.id)}" style="${st}">${inner}</button>`;
+}
+function renderStart(soft){
+  if(soft && document.getElementById("grid")){ renderChips(); renderGrid(); renderLede(); return; }
+  if(soft) return;
+  main.innerHTML = `
+    <section class="intro">
+      <div><span class="rubrik">KI-Applikationen für alle Bereiche</span><h1>Welche Aufgabe soll die KI für dich erledigen?</h1></div>
+      <div class="search"><p class="lede" id="lede"></p>
+        <label><span class="sr">Applikationen durchsuchen</span><input id="q" type="search" placeholder="Suchen, z. B. Protokoll oder Angebot" value="${esc(filter.q)}" autocomplete="off"></label></div>
+    </section>
+    <div class="hub">
+      <nav class="dir" id="chips" aria-label="Bereiche"></nav>
+      <section aria-live="polite"><div class="grid-head"><h2 id="grid-title"></h2><span class="hint" id="grid-count"></span></div><div class="grid" id="grid"></div></section>
+    </div>`;
+  renderLede(); renderChips(); renderGrid();
+}
+function renderLede(){
+  const apps = allApps();
+  document.getElementById("lede").textContent = `${apps.length} Applikationen in ${areaList(apps).length} Bereichen. Wähl eine aus oder stell im Baukasten eine eigene zusammen.`;
+}
+function renderChips(){
+  const apps = allApps(), areas = areaList(apps);
+  if(filter.area !== "Alle" && !areas.includes(filter.area)) filter.area = "Alle";
+  const row = (name, n, ac) => `<button class="chip" data-action="area" data-area="${esc(name)}" aria-pressed="${filter.area === name}" style="--ac:${ac}"><i></i><span>${esc(name === "Alle" ? "Alle Bereiche" : name)}</span><small>${n}</small></button>`;
+  document.getElementById("chips").innerHTML = `<span class="rubrik dir-head">Bereiche</span>` + row("Alle", apps.length, "var(--ink)") +
+    areas.map(a => row(a, apps.filter(x => x.bereich === a).length, `var(--a${areaIdx(a)})`)).join("");
+}
+function renderGrid(){
+  const q = filter.q.trim().toLowerCase();
+  const list = allApps().filter(a => (filter.area === "Alle" || a.bereich === filter.area) &&
+    (!q || [a.name, a.beschreibung, a.bereich].join(" ").toLowerCase().includes(q)));
+  document.getElementById("grid-title").textContent = filter.area === "Alle" ? "Alle Applikationen" : filter.area;
+  document.getElementById("grid-count").textContent = q ? `${list.length} Treffer für „${filter.q.trim()}“` : `${list.length} ${list.length === 1 ? "Applikation" : "Applikationen"}`;
+  const empty = list.length ? "" : `<p class="empty-grid">Keine Applikation passt zu „${esc(filter.q || filter.area)}“. Stell im Baukasten eine passende zusammen.</p>`;
+  document.getElementById("grid").innerHTML = empty + list.map(a => tileHtml(a)).join("") +
+    `<button class="tile tile-new" data-action="new"><span class="plus">+</span><span class="tile-name">Neue Applikation</span><span class="tile-desc">Elemente auf die Fläche ziehen, gestalten und festlegen, was die KI tun soll.</span></button>`;
+}
+
+/* ================= Applikation darstellen (Bearbeiten und Ausführen) ================= */
+function themeStyle(t){
+  t = {...DEFAULT_THEME, ...(t || {})};
+  let s = `--app-accent:${t.accent || "var(--accent)"};--app-font:${FONTS[t.font] || FONTS.sans};--app-head:${HEADS[t.font] || HEADS.sans};--app-radius:${RADIUS[t.radius] || RADIUS.m};--app-max:${WIDTH[t.width] || WIDTH.m};`;
+  const ink = inkFor(t.bg);
+  s += t.bg && ink ? `--app-bg:${t.bg};--app-ink:${ink};` : `--app-bg:var(--surface);--app-ink:var(--ink);`;
+  const aInk = inkFor(t.accent);
+  s += `--app-accent-ink:${aInk || "var(--accent-ink)"};`;
+  return s;
+}
+function appHtml(app, mode){
+  reg = new Map();
+  return `<div class="app-frame" data-mode="${mode}" style="${themeStyle(app.theme)}"><div class="app-inner">${listHtml(app.blocks, "root", app, mode)}<div class="auto-out"></div></div></div>`;
+}
+function listHtml(arr, listId, app, mode){
+  if(mode === "edit"){
+    reg.set(listId, arr);
+    return `<div class="b-list" data-list="${listId}">${arr.map(b => blockHtml(b, app, mode)).join("") || `<div class="b-empty">Elemente hierher ziehen</div>`}</div>`;
+  }
+  return arr.map(b => blockHtml(b, app, mode)).join("");
+}
+function fieldControl(b, mode){
+  const P = b.props, id = "in-" + P.key, dis = mode === "edit" ? "disabled tabindex=\"-1\"" : "";
+  const req = P.pflicht ? "<em>*</em>" : "";
+  const help = P.hilfe ? `<span class="o-help">${esc(P.hilfe)}</span>` : "";
+  let ctl;
+  switch(b.type){
+    case "textarea": ctl = `<textarea id="${id}" rows="${+P.rows || 5}" placeholder="${esc(P.placeholder)}" ${dis}></textarea>`; break;
+    case "select": ctl = `<select id="${id}" ${dis}><option value="">Bitte wählen</option>${(P.optionen || []).map(o => `<option>${esc(o)}</option>`).join("")}</select>`; break;
+    case "radio": return `<div class="o-field" data-key="${esc(P.key)}"><span class="o-lbl">${esc(P.label)}${req}</span><div class="o-opts">${(P.optionen || []).map((o,i) => `<label><input type="radio" name="r-${esc(P.key)}" value="${esc(o)}" ${dis}> ${esc(o)}</label>`).join("")}</div>${help}</div>`;
+    case "checkbox": return `<div class="o-field" data-key="${esc(P.key)}"><label class="check" style="font-size:14px;font-weight:500"><input id="${id}" type="checkbox" ${dis}> ${esc(P.label)}${req}</label>${help}</div>`;
+    case "number": ctl = `<input id="${id}" type="number" placeholder="${esc(P.placeholder)}" ${dis}>`; break;
+    case "date": ctl = `<input id="${id}" type="date" ${dis}>`; break;
+    case "file": ctl = `<input id="${id}" type="file" class="o-file" accept=".txt,.csv,.md,.json,.xml,.html,.xlsx,.xls,.docx,.pdf,text/*" data-file="${esc(P.key)}" ${dis}><span class="o-help" id="fi-${esc(P.key)}"></span>`; break;
+    default: ctl = `<input id="${id}" type="text" placeholder="${esc(P.placeholder)}" ${dis}>`;
+  }
+  return `<div class="o-field" data-key="${esc(P.key)}"><label for="${id}">${esc(P.label)}${req}</label>${ctl}${help}</div>`;
+}
+function blockHtml(b, app, mode){
+  const P = b.props || {};
+  const al = P.align ? `text-align:${P.align};` : "";
+  const col = P.color ? `color:${P.color};` : "";
+  let inner;
+  switch(b.type){
+    case "heading": { const l = [1,2,3].includes(+P.level) ? +P.level : 2; inner = `<h${l+1} class="o-h o-h${l}" style="${al}${col}" data-edit>${esc(P.text)}</h${l+1}>`; break; }
+    case "text": inner = `<p class="o-p o-${P.size || "m"}" style="${al}${col}${P.align === "center" ? "margin-inline:auto;" : P.align === "right" ? "margin-left:auto;" : ""}" data-edit>${escNl(P.text)}</p>`; break;
+    case "callout": { const [lab, tone] = TONES[P.tone] || TONES.info; inner = `<div class="o-call" style="--tone:${tone}"><b>${lab}</b><span data-edit>${escNl(P.text)}</span></div>`; break; }
+    case "divider": inner = `<hr class="o-hr">`; break;
+    case "image": inner = P.src
+      ? `<div style="text-align:${P.align || "left"}"><img class="o-img o-img-${P.size || "m"}" src="${esc(P.src)}" alt="${esc(P.alt)}"></div>`
+      : (mode === "edit" ? `<div class="o-img-ph">Bild oder Logo: rechts eine Datei auswählen</div>` : ""); break;
+    case "spacer": inner = `<div style="height:${+P.h || 24}px"></div>`; break;
+    case "section": {
+      const ink = inkFor(P.bg);
+      const st = P.bg && ink ? `background:${P.bg};color:${ink};--app-bg:${P.bg};--app-ink:${ink};` : `background:var(--app-soft);`;
+      inner = `<div class="o-sec p-${P.pad || "m"} ${P.border ? "bordered" : ""}" style="${st}">${listHtml(b.children, "L" + b.id, app, mode)}</div>`; break;
+    }
+    case "columns": inner = `<div class="o-cols" style="--n:${b.cols.length}">${b.cols.map((c,i) => `<div class="o-stack">${listHtml(c, "L" + b.id + "_" + i, app, mode)}</div>`).join("")}</div>`; break;
+    case "button": {
+      const c = P.color || "var(--app-accent)", ink = P.color ? inkFor(P.color) : "var(--app-accent-ink)";
+      const act = mode === "run" ? `data-action="run-ai" data-aktion="${esc(P.aktion || "alle")}"` : `tabindex="-1"`;
+      inner = `<div class="o-btn-row" style="justify-content:${P.align === "center" ? "center" : P.align === "right" ? "flex-end" : "flex-start"}"><button type="button" class="o-btn ${P.stil === "outline" ? "outline" : ""}" style="--btn:${c};--btn-ink:${ink}" ${act} data-edit>${esc(P.text)}</button></div>`; break;
+    }
+    case "output": {
+      const st = (app.steps || []).find(s => s.id === P.quelle);
+      const body = mode === "edit" ? `<p class="o-muted">${st ? `Zeigt das Ergebnis von „${esc(st.name)}“.` : "Noch kein KI-Schritt gewählt."}</p>` : `<p class="o-muted">Das Ergebnis erscheint hier.</p>`;
+      inner = `<div class="o-out ${P.stil === "plain" ? "" : "card"}" data-src="${esc(P.quelle)}"><div class="o-out-head"><span class="o-out-t">${esc(P.titel)}</span><span class="status" hidden></span></div><div class="o-out-body">${body}</div><div class="o-out-foot" hidden></div></div>`; break;
+    }
+    default: inner = BT[b.type]?.field ? fieldControl(b, mode) : "";
+  }
+  if(mode !== "edit") return inner;
+  const sel = ed && ed.sel === b.id;
+  const tag = BT[b.type].label + (BT[b.type].field ? ` · {{${P.key}}}` : "");
+  let useB = "";
+  if(BT[b.type].field){
+    const u = stepsUsing(app, P.key);
+    useB = `<span class="b-use ${u.length ? "" : "off"}">${u.length ? "→ KI-Schritt " + u.map(i => i + 1).join(", ") : "nicht an KI"}</span>`;
+  }
+  const tools = sel ? `<span class="b-tools"><button data-action="b-up" title="Nach oben" aria-label="Nach oben">↑</button><button data-action="b-down" title="Nach unten" aria-label="Nach unten">↓</button><button data-action="b-dup" title="Duplizieren" aria-label="Duplizieren">⧉</button><button data-action="b-del" title="Löschen" aria-label="Löschen">✕</button></span>` : "";
+  return `<div class="b ${sel ? "sel" : ""}" data-bid="${b.id}" draggable="true"><span class="b-tag">${esc(tag)}</span>${tools}${useB}${inner}</div>`;
+}
+
+/* ================= Hub: App-Ansicht ================= */
+function renderAppView(a){
+  if(!a){ go({name:"start"}); return; }
+  const ci = areaIdx(a.bereich), own = a._src === "db" || a._src === "local";
+  const hasEx = fieldsOf(a).some(f => f.props.beispiel);
+  const actions = a.typ === "link" ? "" : (hasEx ? `<button class="btn ghost" data-action="example">Beispieldaten einsetzen</button>` : "") + (own
+    ? `<button class="btn" data-action="edit" data-id="${esc(a.id)}">Im Baukasten bearbeiten</button><span id="del-zone"><button class="btn ghost" data-action="del-ask">Löschen</button></span>`
+    : `<button class="btn" data-action="copy-edit" data-id="${esc(a.id)}">Als Kopie im Baukasten öffnen</button>`);
+  const body = a.typ === "link"
+    ? `<section class="panel" style="display:flex;flex-direction:column;gap:14px;padding:32px"><h1 style="font-size:40px;letter-spacing:-.035em">${esc(a.name)}</h1><p style="margin:0;max-width:60ch;color:var(--muted)">${esc(a.beschreibung)}</p><div><a class="btn primary" href="${esc(a.url)}" target="_blank" rel="noopener">In neuem Fenster öffnen</a></div></section>`
+    : appHtml(a, "run");
+  const meta = a.typ === "link" ? "" : `<span class="app-tags"><span class="badge">Version ${a.version || 1}</span><span class="badge ${a.status && a.status !== "freigegeben" ? "draft" : ""}">${STATUS[a.status] || "Freigegeben"}</span><span class="badge">${SCHUTZ[a.schutz] || "Intern"}</span>${a.owner ? `<span class="badge">Verantwortlich: ${esc(a.owner)}</span>` : ""}</span>`;
+  main.innerHTML = `<div class="app-bar"><button class="back" data-action="home">Zur Übersicht</button><span class="area" style="--ac:var(--a${ci})"><i></i>${esc(a.bereich)}</span>${meta}<span class="grow"></span>${actions}</div>${body}`;
+}
+function fillExamples(app, root){
+  fieldsOf(app).forEach(b => {
+    const P = b.props; if(!P.beispiel) return;
+    const wrap = root.querySelector(`.o-field[data-key="${CSS.escape(P.key)}"]`); if(!wrap) return;
+    if(b.type === "radio"){ wrap.querySelectorAll("input").forEach(r => r.checked = r.value === P.beispiel); return; }
+    const el = wrap.querySelector("#in-" + CSS.escape(P.key)); if(!el) return;
+    if(b.type === "checkbox") el.checked = /^(ja|true|1|x)$/i.test(P.beispiel);
+    else if(b.type !== "file") el.value = P.beispiel;
+  });
+}
+
+/* ================= Ausführen ================= */
+function stepsFor(app, aktion){
+  aktion = aktion || "alle";
+  if(aktion === "alle") return app.steps.slice();
+  if(aktion.startsWith("ab:")){ const i = app.steps.findIndex(s => s.id === aktion.slice(3)); return i < 0 ? [] : app.steps.slice(i); }
+  return app.steps.filter(s => s.id === aktion);
+}
+function aktionLabel(app, aktion){
+  if(!aktion || aktion === "alle") return "alle KI-Schritte";
+  const id = aktion.startsWith("ab:") ? aktion.slice(3) : aktion, s = app.steps.find(x => x.id === id);
+  return s ? (aktion.startsWith("ab:") ? "ab „" + s.name + "“" : "nur „" + s.name + "“") : "einen gelöschten Schritt";
+}
+function quellenOf(step){ return (step.quellen || []).filter(q => q && (q.url || q.titel)); }
+function systemText(app, step){
+  const q = quellenOf(step);
+  return [`Du arbeitest in der Applikation „${app.name}“ eines internen KI-Hubs. Antworte auf Deutsch.`, step.rolle,
+    step.wissen ? "Hintergrundwissen:\n" + step.wissen : "",
+    q.length ? "Hinterlegte Wissensquellen:\n" + q.map(x => `- ${x.titel || x.url} (${QUELL_TYP[x.typ] || "Quelle"})${x.url ? ": " + x.url : ""}`).join("\n") : "",
+    FORMAT_HINT[step.format] || FORMAT_HINT.markdown].filter(Boolean).join("\n\n");
+}
+function buildRequest(app, step, ctx, files){
+  const inPrompt = new Set(varsIn(step.prompt));
+  const used = new Set(varsIn(step.prompt + " " + (step.wissen || "")));
+  let nachricht = fill(step.prompt, ctx);
+  if(step.autoAll){
+    const rest = fieldsOf(app).filter(b => !inPrompt.has(b.props.key.toLowerCase()));
+    rest.forEach(b => used.add(b.props.key.toLowerCase()));
+    if(rest.length) nachricht = (nachricht.trim() ? nachricht.trim() + "\n\n" : "") + "Eingaben:\n\n" +
+      rest.map(b => `${b.props.label}:\n${ctx[b.props.key.toLowerCase()] ?? ""}`).join("\n\n");
+  }
+  const variablen = {};
+  used.forEach(k => { const v = ctx[k]; variablen[k] = v === undefined ? null : String(v).length > 160 ? String(v).slice(0,160) + " …" : v; });
+  const dateien = fieldsOf(app).filter(b => b.type === "file" && used.has(b.props.key.toLowerCase())).map(b => {
+    const f = files?.[b.props.key];
+    return {feld:b.props.key, uebergabe:b.props.uebergabe || "text", name:f?.name || null, typ:f?.type || null, groesse:f?.size ?? null};
+  });
+  return {
+    applikation: app.name,
+    applikationId: app.id || null,
+    schritt: step.name,
+    modell: step.modell || "default",
+    ausgabeformat: step.format || "markdown",
+    websuche: !!step.web,
+    wissensquellen: quellenOf(step).map(q => ({typ:q.typ, titel:q.titel || "", url:q.url || ""})),
+    dateien,
+    system: systemText(app, {...step, wissen: fill(step.wissen, ctx)}),
+    nachricht,
+    variablen
+  };
+}
+/* Dieselbe Anfrage, übersetzt für Microsoft 365 Copilot über Microsoft Graph */
+function graphPreview(step, req){
+  const parts = [];
+  const refs = req.dateien.filter(d => d.uebergabe === "referenz");
+  const files = quellenOf(step).filter(q => q.typ === "datei" && q.url).map(q => ({uri:q.url}));
+  refs.forEach(d => files.push({uri:`https://<tenant>-my.sharepoint.com/personal/<benutzer>/Documents/KI-Hub/${d.name || "<" + d.feld + ">"}`}));
+  if(refs.length) parts.push(`// 0) Hochgeladene Datei(en) nach OneDrive legen\nPUT https://graph.microsoft.com/v1.0/me/drive/root:/KI-Hub/<dateiname>:/content\n<Dateiinhalt>`);
+  const sp = quellenOf(step).filter(q => q.typ === "sharepoint" && q.url);
+  if(sp.length) parts.push(`// 1) Passende Inhalte aus SharePoint holen (Retrieval API)\nPOST https://graph.microsoft.com/v1.0/copilot/retrieval\n` +
+    JSON.stringify({queryString:"<Suchbegriffe aus Aufgabe und Eingaben>", dataSource:"sharePoint", filterExpression:sp.map(q => `path:"${q.url}"`).join(" OR "), maximumNumberOfResults:10}, null, 2) +
+    `\n// Die gefundenen Textauszüge werden der Nachricht als Hintergrundwissen vorangestellt.`);
+  parts.unshift(`// Zentrale KI-Anbindung des KI-Hubs (Azure-Anwendung)\n// Token: MSAL mit Single Sign-on über das Windows-Konto, delegierte Graph-Berechtigungen,\n// zwischengespeichert und vor Ablauf (nach ca. 45 Minuten) erneuert.\n// Header bei jedem Aufruf: Authorization: Bearer <Token>`);
+  parts.push(`// 2) Gespräch anlegen (einmal pro Durchlauf)\nPOST https://graph.microsoft.com/beta/copilot/conversations\n{}`);
+  const body = {message:{text:req.system + "\n\n---\n\n" + req.nachricht}, locationHint:{timeZone:"Europe/Berlin"}, contextualResources:{}};
+  if(files.length) body.contextualResources.files = files;
+  body.contextualResources.webContext = {isWebEnabled:!!req.websuche};
+  parts.push(`// 3) Nachricht senden. Antwort: der letzte Text in „messages“, der nicht die eigene Frage ist\nPOST https://graph.microsoft.com/beta/copilot/conversations/{conversationId}/chat\n` + JSON.stringify(body, null, 2));
+  parts.push(`// Hinweise\n// - Die Modellwahl („${MODELL_LABEL[req.modell] || req.modell}“) hat bei Copilot keine Wirkung.\n// - Voraussetzungen: Microsoft-365-Copilot-Lizenz, Anmeldung über Entra ID, delegierte Berechtigungen.\n// - Endpunkte und Felder: Stand Mitte 2026. Vor der Umsetzung mit der aktuellen Microsoft-Graph-Dokumentation abgleichen.`);
+  return parts.join("\n\n");
+}
+function collectVals(app, root, need){
+  const vals = {}; let ok = true;
+  fieldsOf(app).forEach(b => {
+    const P = b.props, wrap = root.querySelector(`.o-field[data-key="${CSS.escape(P.key)}"]`);
+    if(!wrap) return;
+    let v = "";
+    if(b.type === "radio") v = wrap.querySelector("input:checked")?.value || "";
+    else if(b.type === "checkbox") v = wrap.querySelector("input")?.checked ? "ja" : "nein";
+    else if(b.type === "file") v = rs.files[P.key]?.text || "";
+    else v = (wrap.querySelector("#in-" + CSS.escape(P.key))?.value || "").trim();
+    wrap.classList.remove("err"); wrap.querySelector(".o-err")?.remove();
+    if(P.pflicht && (!need || need.has(P.key)) && (!v || (b.type === "checkbox" && v === "nein"))){
+      ok = false; wrap.classList.add("err"); wrap.insertAdjacentHTML("beforeend", `<span class="o-err">Bitte ausfüllen.</span>`);
+    }
+    vals[P.key.toLowerCase()] = v || "(keine Angabe)";
+  });
+  if(!ok) root.querySelector(".o-field.err")?.scrollIntoView({block:"center", behavior:"smooth"});
+  return ok ? vals : null;
+}
+function condOk(s, vals){
+  const b = s.bedingung; if(!b || !b.feld) return true;
+  let v = vals[b.feld.toLowerCase()]; if(v === "(keine Angabe)") v = "";
+  v = String(v ?? "").trim().toLowerCase();
+  const w = String(b.wert ?? "").trim().toLowerCase();
+  switch(b.op){
+    case "gefuellt": return !!v && v !== "nein";
+    case "leer": return !v || v === "nein";
+    case "ungleich": return v !== w;
+    default: return v === w;
+  }
+}
+function condText(app, s){
+  const b = s.bedingung, f = fieldsOf(app).find(x => x.props.key === b.feld);
+  return `„${f?.props.label || b.feld}“ ${BED_OP[b.op] || BED_OP.gleich}${["gefuellt","leer"].includes(b.op) ? "" : ` „${b.wert}“`}`;
+}
+function outputsFor(root, step){
+  let outs = [...root.querySelectorAll(`.o-out[data-src="${CSS.escape(step.id)}"]`)];
+  if(!outs.length){
+    const auto = root.querySelector(".auto-out");
+    auto.insertAdjacentHTML("beforeend", `<div class="o-out card" data-src="${esc(step.id)}"><div class="o-out-head"><span class="o-out-t">${esc(step.name)}</span><span class="status" hidden></span></div><div class="o-out-body"></div><div class="o-out-foot" hidden></div></div>`);
+    outs = [auto.lastElementChild];
+  }
+  return outs;
+}
+function setOut(outs, st, label, html){
+  outs.forEach(o => {
+    const s = o.querySelector(".status"); s.hidden = false; s.dataset.s = st; s.textContent = label;
+    if(html !== undefined) o.querySelector(".o-out-body").innerHTML = html;
+  });
+}
+function setFoot(outs, step){
+  const req = rs.reqs[step.id];
+  outs.forEach(o => {
+    const f = o.querySelector(".o-out-foot"); f.hidden = false;
+    const dl = step.format === "dateien" ? (rs.pakete[step.id] ? `<button class="btn small" data-action="dl-zip" data-sid="${esc(step.id)}">ZIP herunterladen</button>` : "")
+      : `<button class="btn small" data-action="dl-md" data-sid="${esc(step.id)}">Als Datei speichern</button>`;
+    f.innerHTML = `<button class="btn small" data-action="copy-out" data-sid="${esc(step.id)}">Kopieren</button>${dl}
+      <details><summary>Anfrage an die KI-Schnittstelle ansehen</summary><pre class="prompt">${esc(JSON.stringify(req, null, 2))}</pre></details>
+      <details><summary>So sendet die zentrale KI-Anbindung an Copilot</summary><pre class="prompt">${esc(graphPreview(step, req))}</pre></details>`;
+  });
+}
+
+/* Dateipakete (Format „dateien“) */
+function cleanPath(p){
+  return String(p || "").replace(/\\/g,"/").split("/").map(s => s.trim().replace(/[<>:"|?*\u0000-\u001f]/g,"_").replace(/^\.+$/,"_")).filter(Boolean).join("/").slice(0,240);
+}
+function parsePaket(text){
+  const t = String(text || ""), a = t.indexOf("{"), b = t.lastIndexOf("}");
+  if(a < 0 || b < a) return null;
+  try{
+    const o = JSON.parse(t.slice(a, b + 1));
+    const dateien = (Array.isArray(o.dateien) ? o.dateien : []).map(f => ({pfad:cleanPath(f?.pfad), inhalt:String(f?.inhalt ?? "")})).filter(f => f.pfad).slice(0,200);
+    return dateien.length ? {hinweis:String(o.hinweis || ""), dateien} : null;
+  }catch{ return null; }
+}
+function treeText(paths){
+  const root = {};
+  paths.forEach(p => { let n = root; p.split("/").forEach(seg => { n = n[seg] = n[seg] || {}; }); });
+  const lines = [];
+  const rec = (n, pre) => {
+    const ks = Object.keys(n);
+    ks.forEach((k,i) => {
+      const last = i === ks.length - 1, dir = Object.keys(n[k]).length > 0;
+      lines.push(pre + (last ? "└── " : "├── ") + k + (dir ? "/" : ""));
+      rec(n[k], pre + (last ? "    " : "│   "));
+    });
+  };
+  rec(root, "");
+  return lines.join("\n");
+}
+function renderPaket(p){
+  return `${p.hinweis ? `<p>${esc(p.hinweis)}</p>` : ""}<p class="o-muted">${p.dateien.length} Dateien im Paket</p><pre class="prompt">${esc(treeText(p.dateien.map(f => f.pfad)))}</pre>` +
+    p.dateien.map(f => `<details class="paket-file"><summary>${esc(f.pfad)}</summary>${/\.md$/i.test(f.pfad) ? `<div>${md(f.inhalt)}</div>` : `<pre class="prompt">${esc(f.inhalt)}</pre>`}</details>`).join("");
+}
+function paketName(app, p){
+  const tops = new Set(p.dateien.map(f => f.pfad.split("/")[0]));
+  return (tops.size === 1 && p.dateien.every(f => f.pfad.includes("/")) ? [...tops][0] : slug(app.name)) + ".zip";
+}
+
+/* Bibliotheken bei Bedarf laden (Excel, Word, PDF, ZIP) */
+const libCache = {};
+function loadLib(k){
+  const [src, glob] = LIBS[k];
+  if(window[glob]) return Promise.resolve(window[glob]);
+  if(!libCache[k]) libCache[k] = new Promise((res, rej) => {
+    const s = document.createElement("script"); s.src = src;
+    s.onload = () => window[glob] ? res(window[glob]) : rej(new Error("lib"));
+    s.onerror = () => { delete libCache[k]; rej(new Error("load")); };
+    document.head.appendChild(s);
+  });
+  return libCache[k];
+}
+async function extractText(file){
+  const n = file.name.toLowerCase();
+  if(/\.(xlsx|xlsm|xls)$/.test(n)){
+    const X = await loadLib("xlsx");
+    const wb = X.read(await file.arrayBuffer(), {type:"array"});
+    return wb.SheetNames.map(sn => `## Tabellenblatt: ${sn}\n` + X.utils.sheet_to_csv(wb.Sheets[sn], {FS:";"})).join("\n\n");
+  }
+  if(/\.docx$/.test(n)){
+    const M = await loadLib("mammoth");
+    return (await M.extractRawText({arrayBuffer:await file.arrayBuffer()})).value;
+  }
+  if(/\.pdf$/.test(n)){
+    const P = await loadLib("pdf");
+    P.GlobalWorkerOptions.workerSrc = LIBS.pdf[0].replace("pdf.min.js", "pdf.worker.min.js");
+    const doc = await P.getDocument({data:new Uint8Array(await file.arrayBuffer())}).promise;
+    const out = [];
+    for(let i = 1; i <= Math.min(doc.numPages, 200); i++){ const tc = await (await doc.getPage(i)).getTextContent(); out.push(tc.items.map(it => it.str).join(" ")); }
+    return out.join("\n\n");
+  }
+  if(/\.(doc|ppt|pptx|msg)$/.test(n)) throw new Error("format");
+  return file.text();
+}
+
+/* Herunterladen */
+let dlNs;
+async function saveFile(name, data, btn){
+  if(dlNs === undefined){ try{ dlNs = (await window.claude?.use?.("downloads")) ?? null; }catch{ dlNs = null; } }
+  const old = btn.textContent;
+  if(!dlNs){ btn.textContent = "Download hier nicht möglich"; setTimeout(() => { btn.textContent = old; }, 2400); return; }
+  try{ await dlNs.save({filename:name, data}); btn.textContent = "Gespeichert"; }
+  catch(e){ btn.textContent = e?.code === "declined" ? "Abgebrochen" : "Download nicht möglich"; }
+  setTimeout(() => { btn.textContent = old; }, 2000);
+}
+
+function runApp(){ return view.name === "builder" ? ed?.app : findApp(view.id); }
+async function runAi(btn){
+  const app = runApp(); if(!app) return;
+  if(rs.ctl){ rs.ctl.abort(); return; }
+  const root = btn.closest(".app-frame");
+  const steps = stepsFor(app, btn.dataset.aktion);
+  if(!steps.length) return;
+  const runIdx = new Set(steps.map(s => app.steps.indexOf(s)));
+  const need = new Set(fieldsOf(app).filter(b => stepsUsing(app, b.props.key).some(i => runIdx.has(i))).map(b => b.props.key));
+  const vals = collectVals(app, root, need); if(!vals) return;
+  for(const s of steps){
+    const i = app.steps.indexOf(s), used = varsIn(s.prompt + " " + (s.wissen || ""));
+    const missing = app.steps.slice(0, i).find(p => !runIdx.has(app.steps.indexOf(p)) && !(p.key in rs.results) && used.includes(p.key.toLowerCase()));
+    if(missing){
+      setOut(outputsFor(root, s), "err", "wartet auf Ergebnis", `<p class="err-text">„${esc(s.name)}“ braucht das Ergebnis von „${esc(missing.name)}“. Starte zuerst den Button für „${esc(missing.name)}“.</p>`);
+      return;
+    }
+  }
+  const label = btn.textContent;
+  btn.textContent = "Stoppen"; btn.classList.add("running");
+  root.querySelectorAll('[data-action="run-ai"]').forEach(b => { if(b !== btn) b.disabled = true; });
+  const ctl = rs.ctl = new AbortController();
+  const ctx = {...vals, ...rs.results};
+  for(const s of steps){
+    const outs = outputsFor(root, s);
+    if(!condOk(s, vals)){
+      rs.results[s.key] = ""; ctx[s.key] = "";
+      setOut(outs, "wait", "übersprungen", `<p class="o-muted">Übersprungen, weil die Bedingung nicht erfüllt ist: ${esc(condText(app, s))}.</p>`);
+      continue;
+    }
+    const req = buildRequest(app, s, ctx, rs.files);
+    rs.reqs[s.id] = req;
+    setOut(outs, "run", "läuft", `<p class="o-muted">KI arbeitet …</p>`);
+    let text = null;
+    const show = t => s.format === "dateien" ? `<p class="o-muted">Dateipaket wird erstellt … (${t.length.toLocaleString("de-DE")} Zeichen)</p>` : renderResult(t, s.format);
+    if(sampleFn && aiState !== "off"){
+      const note = quellenOf(s).length ? "\n\nHinweis: Die hinterlegten Wissensquellen sind in dieser Testumgebung nicht abrufbar. Erfinde keine Inhalte daraus, sondern weise darauf hin, wo sie fehlen." : "";
+      try{
+        const r = await sampleFn(req.system + note + "\n\n---\n\n" + req.nachricht, {signal:ctl.signal, cache:false, modelTier:s.modell || "default",
+          onText:({text}) => outs.forEach(o => { o.querySelector(".o-out-body").innerHTML = show(text); })});
+        text = r.text;
+        let html;
+        if(s.format === "dateien"){
+          const p = parsePaket(text);
+          if(p){ rs.pakete[s.id] = p; html = renderPaket(p); }
+          else html = `<p class="err-text">Die KI hat kein gültiges Dateipaket geliefert. Starte den Schritt erneut.</p><details><summary>Rohantwort</summary><pre class="prompt">${esc(text)}</pre></details>`;
+        }else html = renderResult(text, s.format);
+        setOut(outs, "done", "fertig", html + (r.truncated ? `<p class="o-muted">Die Antwort wurde gekürzt. Teil die Aufgabe auf mehrere Schritte auf.</p>` : ""));
+      }catch(e){
+        if(e?.code === "cancelled"){ setOut(outs, "wait", "gestoppt", e.text && s.format !== "dateien" ? renderResult(e.text, s.format) : ""); break; }
+        if(OFF_CODES.includes(e?.code)){ aiState = "off"; setAiPill(); }
+        else{ setOut(outs, "err", "Fehler", (e?.text && e.code !== "refused" && s.format !== "dateien" ? renderResult(e.text, s.format) : "") + `<p class="err-text">${esc(ERR_TEXT[e?.code] || "Die Verbindung zur KI ist abgebrochen. Starte erneut.")}</p>`); break; }
+      }
+    }
+    if(text === null){
+      text = `‹Ergebnis von ${s.name}›`;
+      setOut(outs, "wait", "simuliert", `<p class="sim-note">Simulation: Diese Anfrage würde an die KI-Schnittstelle gehen.</p><pre class="prompt">${esc(JSON.stringify(req, null, 2))}</pre>`);
+    }
+    rs.results[s.key] = text; ctx[s.key] = text; rs.texts[s.id] = text;
+    setFoot(outs, s);
+  }
+  if(rs.ctl === ctl) rs.ctl = null;
+  btn.textContent = label; btn.classList.remove("running");
+  root.querySelectorAll('[data-action="run-ai"]').forEach(b => b.disabled = false);
+}
+
+/* ================= Baukasten ================= */
+function edState(app){
+  return {app, sel:null, tab:"ui", preview:false, brief:"", reqStep:app.steps[0]?.id || "", undo:[], redo:[], dirty:false,
+    json:false, aiScope:"alles", aiLog:[], aiCtl:null};
+}
+function startBuilder(app){
+  ed = edState(app);
+  go({name:"builder"});
+}
+
+/* Verlauf: Rückgängig / Wiederholen */
+let typingKey = null, typingAt = 0;
+function snap(){
+  if(!ed) return;
+  ed.undo.push(JSON.stringify(ed.app));
+  if(ed.undo.length > 80) ed.undo.shift();
+  ed.redo = []; ed.dirty = true;
+  updateUndoBtns();
+}
+function snapTyping(t){
+  const now = Date.now(), k = t.id || t.dataset.p || t.dataset.s || t.dataset.ap;
+  if(k !== typingKey || now - typingAt > 1500) snap();
+  typingKey = k; typingAt = now;
+}
+function histMove(from, to){
+  if(!ed || !ed[from].length) return;
+  ed[to].push(JSON.stringify(ed.app));
+  ed.app = JSON.parse(ed[from].pop());
+  if(ed.sel && !locate(ed.app.blocks, ed.sel)) ed.sel = null;
+  ed.dirty = true; typingKey = null;
+  renderBuilder();
+}
+function updateUndoBtns(){
+  const u = document.querySelector('[data-action="undo"]'), r = document.querySelector('[data-action="redo"]');
+  if(u) u.disabled = !ed.undo.length;
+  if(r) r.disabled = !ed.redo.length;
+}
+
+function renderBuilder(){
+  if(!ed) ed = edState(newApp());
+  const hard = appWarnings(ed.app).filter(([,soft]) => !soft).length;
+  main.innerHTML = `
+    <div class="bld-bar">
+      <button class="back" data-action="home">Zur Übersicht</button>
+      <label class="sr" for="bld-name">Name der Applikation</label>
+      <input id="bld-name" class="bar-name" type="text" value="${esc(ed.app.name)}" placeholder="Name der Applikation">
+      <div class="tabs" role="tablist">
+        <button role="tab" data-action="tab" data-tab="ui" aria-selected="${ed.tab === "ui"}">Oberfläche</button>
+        <button role="tab" data-action="tab" data-tab="ki" aria-selected="${ed.tab === "ki"}">KI-Ablauf${hard ? ` <span class="status" data-s="err" style="padding:3px 7px">${hard}</span>` : ""}</button>
+      </div>
+      <span class="grow"></span>
+      <button class="ib" data-action="undo" title="Rückgängig (Strg+Z)" aria-label="Rückgängig" ${ed.undo.length ? "" : "disabled"}>↶</button>
+      <button class="ib" data-action="redo" title="Wiederholen (Strg+Y)" aria-label="Wiederholen" ${ed.redo.length ? "" : "disabled"}>↷</button>
+      <button class="btn ghost" data-action="json" aria-pressed="${ed.json}">Export / Import</button>
+      <button class="btn ${ed.preview ? "blockbtn" : ""}" data-action="preview" aria-pressed="${ed.preview}">${ed.preview ? "Vorschau beenden" : "Vorschau testen"}</button>
+      <button class="btn primary" data-action="save">Speichern</button>
+    </div>
+    <div id="save-msg" class="save-msg" aria-live="polite"></div>
+    ${ed.json ? `<section class="panel json-box">
+      <div class="ai-head"><h3>Applikation als JSON</h3><span class="grow"></span><button class="ib" data-action="json" aria-label="Schließen">✕</button></div>
+      <p class="hint" style="margin:0">Kopieren, um die Applikation in dein eigenes Projekt zu übertragen. Oder eine bearbeitete Fassung einfügen und übernehmen.</p>
+      <label class="sr" for="json-text">JSON der Applikation</label>
+      <textarea id="json-text" rows="14">${esc(JSON.stringify(exportable(ed.app), null, 2))}</textarea>
+      <div class="row"><button class="btn small" data-action="json-copy">Kopieren</button><button class="btn small primary" data-action="json-apply">Übernehmen</button><span id="json-msg" class="hint"></span></div>
+    </section>` : ""}
+    <div id="bld-body"></div>`;
+  renderBuilderBody();
+}
+function exportable(app){ const c = clone(app); delete c._src; return c; }
+function renderBuilderBody(){
+  const body = document.getElementById("bld-body");
+  if(ed.preview){
+    body.innerHTML = `<div class="stage"><div class="preview-banner"><span class="status" data-s="done">Vorschau</span>So sieht die Applikation im Hub aus. Eingaben und KI-Buttons funktionieren.<span class="grow"></span>${fieldsOf(ed.app).some(f => f.props.beispiel) ? `<button class="btn small" data-action="example">Beispieldaten einsetzen</button>` : ""}</div>${appHtml(ed.app, "run")}</div>`;
+    return;
+  }
+  if(ed.tab === "ki"){ renderKiTab(body); return; }
+  body.innerHTML = `<div class="bld">
+      <aside class="panel pal" aria-label="Elemente">
+        <div class="pal-groups">${GROUPS.map(g => `<div class="pal-g" data-g="${g}"><span class="eyebrow">${g}</span><div class="pal-items">${
+          Object.entries(BT).filter(([,v]) => v.group === g).map(([t,v]) => `<button class="pal-item" draggable="true" data-ptype="${t}" data-action="pal-add" data-type="${t}" title="Auf die Fläche ziehen oder anklicken"><span class="g">${v.g}</span>${v.label}</button>`).join("")}</div></div>`).join("")}</div>
+        <p class="hint" style="margin:0">Ziehen oder anklicken. Doppelklick auf Texte bearbeitet sie direkt.</p>
+      </aside>
+      <div>
+        <section class="panel ai-box" aria-label="KI-Assistent">
+          <div class="ai-head"><span class="g">✦</span><h3>KI-Assistent</h3><span class="hint">Beschreib, was entstehen oder sich ändern soll. Jede Änderung lässt sich rückgängig machen.</span></div>
+          <label class="sr" for="ai-brief">Wunsch an den KI-Assistenten</label>
+          <textarea id="ai-brief" rows="2" placeholder="z. B. Mach daraus ein Formular für Reisekosten mit Datum, Ziel, Betrag und Beleg-Upload. Oben ein Hinweis zum Datenschutz, Akzentfarbe Dunkelblau.">${esc(ed.brief)}</textarea>
+          <div class="ai-sugg">${AI_SUGG.map(s => `<button type="button" data-action="ai-sugg" data-v="${esc(s)}">${esc(s)}</button>`).join("")}</div>
+          <div class="row">
+            <div class="seg" role="group" aria-label="Was darf die KI ändern?">${[["alles","Oberfläche + Ablauf"],["ui","Nur Oberfläche"],["design","Nur Design"]].map(([v,t]) => `<button type="button" data-action="ai-scope" data-v="${v}" aria-pressed="${ed.aiScope === v}">${t}</button>`).join("")}</div>
+            <button class="btn blockbtn" data-action="ai-apply" ${aiState === "off" ? "disabled" : ""}>${ed.aiCtl ? "Abbrechen" : "Umsetzen"}</button>
+            <span id="ai-msg" class="hint">${aiState === "off" ? "In dieser Ansicht ist keine KI verfügbar. Öffne den Hub über claude.ai." : ""}</span>
+          </div>
+          ${ed.aiLog.length ? `<ul class="ai-log">${ed.aiLog.slice(0,5).map((l,i) => `<li><q>${esc(l.prompt.length > 70 ? l.prompt.slice(0,70) + " …" : l.prompt)}</q><span>${esc(l.summary)}</span>${i === 0 && ed.undo.length ? `<button class="btn small" data-action="undo">Rückgängig</button>` : ""}</li>`).join("")}</ul>` : ""}
+        </section>
+        <div class="stage" id="stage"><div id="canvas"></div></div>
+      </div>
+      <aside class="panel insp" id="insp" aria-label="Eigenschaften"></aside>
+    </div>`;
+  renderCanvas(); renderInspector();
+}
+function renderCanvas(){
+  const c = document.getElementById("canvas");
+  if(c) c.innerHTML = appHtml(ed.app, "edit");
+}
+function selBlock(){ return ed?.sel ? locate(ed.app.blocks, ed.sel)?.b : null; }
+
+/* Eigenschaften-Felder */
+const iText = (p, label, val, ph = "", cls = "") => `<div class="field"><label for="ip-${p}">${label}</label><input id="ip-${p}" class="${cls}" type="text" data-p="${p}" value="${esc(val ?? "")}" placeholder="${esc(ph)}"></div>`;
+const iArea = (p, label, val, rows = 3, ph = "") => `<div class="field"><label for="ip-${p}">${label}</label><textarea id="ip-${p}" rows="${rows}" data-p="${p}" placeholder="${esc(ph)}">${esc(val ?? "")}</textarea></div>`;
+const iSeg = (p, label, val, opts, act = "seg") => `<div class="field"><span class="lbl">${label}</span><div class="seg" role="group" aria-label="${label}">${opts.map(([v,t]) => `<button type="button" data-action="${act}" data-p="${p}" data-v="${v}" aria-pressed="${String(val) === String(v)}">${t}</button>`).join("")}</div></div>`;
+const iSw = (p, label, val, colors, act = "sw") => `<div class="field"><span class="lbl">${label}</span><div class="sws">${colors.map(c => `<button type="button" class="sw ${c ? "" : "sw-def"}" data-action="${act}" data-p="${p}" data-v="${c}" aria-pressed="${(val || "") === c}" aria-label="${c || "Standard"}" title="${c || "Standard"}" ${c ? `style="background:${c}"` : ""}></button>`).join("")}<label class="sw-pick" title="Eigene Farbe"><span class="sr">Eigene Farbe für ${label}</span><input type="color" ${act === "sw" ? "data-p" : "data-tp"}="${p}" value="${/^#[0-9a-f]{6}$/i.test(val || "") ? val : "#888888"}"></label></div></div>`;
+const iCheck = (p, label, val) => `<label class="check"><input id="ip-${p}" type="checkbox" data-p="${p}" ${val ? "checked" : ""}> ${label}</label>`;
+const iSel = (p, label, val, opts) => `<div class="field"><label for="ip-${p}">${label}</label><select id="ip-${p}" data-p="${p}">${opts.map(([v,t]) => `<option value="${esc(v)}" ${String(val) === String(v) ? "selected" : ""}>${esc(t)}</option>`).join("")}</select></div>`;
+const ALIGN = [["left","Links"],["center","Mitte"],["right","Rechts"]];
+
+function passHtml(b){
+  const P = b.props, steps = ed.app.steps, k = P.key.toLowerCase();
+  const rows = steps.length ? steps.map((s,i) => {
+    const inText = varsIn(s.prompt + " " + (s.wissen || "")).includes(k);
+    const on = s.autoAll || inText;
+    return `<label class="check"><input type="checkbox" data-action="pass" data-sid="${s.id}" ${on ? "checked" : ""} ${s.autoAll && !inText ? "disabled" : ""}> Schritt ${i+1}: ${esc(s.name)}${s.autoAll && !inText ? ` <span class="hint">(bekommt alle Eingaben automatisch)</span>` : ""}</label>`;
+  }).join("") : `<p class="hint" style="margin:0">Leg zuerst im KI-Ablauf einen Schritt an.</p>`;
+  return `<div class="pass"><span class="lbl">An die KI übergeben</span>${rows}<span class="hint">Ein Häkchen hängt „${esc(P.label)}: {{${esc(P.key)}}}“ an den Prompt des Schritts an. Ohne Häkchen bekommt die KI dieses Feld nicht.</span></div>`;
+}
+function renderInspector(){
+  const el = document.getElementById("insp"); if(!el) return;
+  const b = selBlock();
+  if(!b){
+    const t = ed.app.theme, areas = areaList(allApps());
+    el.innerHTML = `<div class="insp-head"><span class="g">▣</span><h3>Applikation</h3></div>
+      <div class="field"><label for="ap-bereich">Bereich</label><input id="ap-bereich" type="text" list="ap-areas" data-ap="bereich" value="${esc(ed.app.bereich)}"><datalist id="ap-areas">${areas.map(a => `<option value="${esc(a)}">`).join("")}</datalist></div>
+      <div class="field"><label for="ap-desc">Kurzbeschreibung für die Kachel</label><textarea id="ap-desc" rows="2" data-ap="beschreibung">${esc(ed.app.beschreibung)}</textarea></div>
+      ${iSw("accent", "Akzentfarbe", t.accent, ACCENTS, "tsw")}
+      ${iSw("bg", "Hintergrund", t.bg, BGS, "tsw")}
+      ${iSeg("font", "Schrift", t.font, [["sans","Modern"],["serif","Klassisch"],["display","Markant"],["mono","Technisch"]], "tseg")}
+      ${iSeg("radius", "Ecken", t.radius, [["s","Eckig"],["m","Leicht"],["l","Rund"]], "tseg")}
+      ${iSeg("width", "Breite", t.width, [["s","Schmal"],["m","Normal"],["l","Breit"]], "tseg")}
+      <div class="pass" style="background:var(--surface-2)"><span class="lbl" style="color:var(--ink)">Freigabe</span>
+        ${iSeg("status", "Status", ed.app.status || "entwurf", Object.entries(STATUS), "aseg")}
+        <div class="field"><label for="ap-owner">Verantwortlich</label><input id="ap-owner" type="text" data-ap="owner" value="${esc(ed.app.owner || "")}" placeholder="Name oder Abteilung"></div>
+        ${iSeg("schutz", "Schutzklasse der Daten", ed.app.schutz || "intern", Object.entries(SCHUTZ), "aseg")}
+        <span class="hint">Version ${ed.app.version || 0}${ed.app.geaendert ? ", zuletzt gespeichert " + new Date(ed.app.geaendert).toLocaleString("de-DE", {dateStyle:"medium", timeStyle:"short"}) : ", noch nicht gespeichert"}. Jedes Speichern erhöht die Version.</span>
+      </div>
+      <p class="hint" style="margin:0">Klick ein Element auf der Fläche an, um es zu bearbeiten. Entf löscht das gewählte Element.</p>`;
+    return;
+  }
+  const P = b.props, T = BT[b.type];
+  let f = "";
+  const stepOpts = ed.app.steps.map(s => [s.id, s.name]);
+  switch(b.type){
+    case "heading": f = iText("text","Text",P.text) + iSeg("level","Größe",P.level,[[1,"Groß"],[2,"Mittel"],[3,"Klein"]]) + iSeg("align","Ausrichtung",P.align,ALIGN) + iSw("color","Farbe",P.color,TEXTCOLS); break;
+    case "text": f = iArea("text","Text",P.text,4) + iSeg("size","Größe",P.size,[["s","Klein"],["m","Normal"],["l","Groß"]]) + iSeg("align","Ausrichtung",P.align,ALIGN) + iSw("color","Farbe",P.color,TEXTCOLS); break;
+    case "callout": f = iArea("text","Text",P.text,3) + iSeg("tone","Art",P.tone,[["info","Info"],["warn","Achtung"],["ok","Tipp"]]); break;
+    case "image": f = `<div class="field"><label for="ip-img">Bilddatei</label><input id="ip-img" type="file" accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml" data-img="1"><span class="hint" id="img-msg">${P.src ? "Ein Bild ist gesetzt. Eine neue Datei ersetzt es." : "PNG, JPG, WebP oder SVG. Große Bilder werden automatisch verkleinert."}</span></div>`
+      + iText("alt","Alternativtext",P.alt,"Was zeigt das Bild?") + iSeg("size","Größe",P.size,[["s","Klein"],["m","Mittel"],["l","Groß"],["full","Volle Breite"]]) + iSeg("align","Ausrichtung",P.align,ALIGN)
+      + (P.src ? `<button class="btn small" data-action="img-clear">Bild entfernen</button>` : ""); break;
+    case "spacer": f = iSeg("h","Höhe",P.h,[[12,"Klein"],[24,"Mittel"],[48,"Groß"]]); break;
+    case "divider": f = `<p class="hint" style="margin:0">Eine Trennlinie hat keine Einstellungen.</p>`; break;
+    case "section": f = iSw("bg","Hintergrund",P.bg,BGS) + iSeg("pad","Innenabstand",P.pad,[["s","Klein"],["m","Mittel"],["l","Groß"]]) + iCheck("border","Rahmen anzeigen",P.border); break;
+    case "columns": f = iSeg("count","Spalten",P.count,[[2,"2 Spalten"],[3,"3 Spalten"]]) + `<p class="hint" style="margin:0">Zieh Elemente in die einzelnen Spalten. Auf schmalen Bildschirmen stehen die Spalten untereinander.</p>`; break;
+    case "button": f = iText("text","Beschriftung",P.text) + iSel("aktion","Startet",P.aktion,[["alle","Alle KI-Schritte nacheinander"], ...stepOpts.map(([id,n]) => [id, "Nur: " + n]), ...stepOpts.slice(1).map(([id,n]) => ["ab:" + id, "Ab: " + n + " (bis zum Ende)"])])
+      + `<p class="hint" style="margin:0">Braucht ein Schritt das Ergebnis eines früheren Schritts, muss dieser vorher gelaufen sein. Pflichtfelder werden nur für die gestarteten Schritte geprüft.</p>` + iSeg("stil","Stil",P.stil,[["filled","Gefüllt"],["outline","Umrandet"]]) + iSeg("align","Ausrichtung",P.align,ALIGN) + iSw("color","Farbe",P.color,ACCENTS); break;
+    case "output": f = iText("titel","Titel",P.titel) + iSel("quelle","Zeigt das Ergebnis von",P.quelle,[["","– bitte wählen –"], ...stepOpts]) + iSeg("stil","Stil",P.stil,[["card","Karte"],["plain","Schlicht"]]) + `<button class="btn small" data-action="tab" data-tab="ki">Prompt im KI-Ablauf bearbeiten</button>`; break;
+    default:
+      f = iText("label","Bezeichnung",P.label)
+        + `<div class="field"><label for="ip-key">Variable</label><input id="ip-key" class="key-in" type="text" data-p="key" value="${esc(P.key)}"><span class="hint">Im Prompt als <code>{{${esc(P.key)}}}</code> einsetzen.</span></div>`
+        + (["input","textarea","number"].includes(b.type) ? iText("placeholder","Platzhaltertext",P.placeholder) : "")
+        + (["select","radio"].includes(b.type) ? iArea("optionen","Optionen (eine pro Zeile)",(P.optionen || []).join("\n"),4) : "")
+        + (b.type === "textarea" ? iSeg("rows","Höhe",P.rows,[[3,"Klein"],[5,"Mittel"],[9,"Groß"]]) : "")
+        + iText("hilfe","Hilfetext",P.hilfe,"Optional, steht unter dem Feld")
+        + (b.type !== "file" ? iText("beispiel","Beispielwert zum Testen",P.beispiel) : "")
+        + (b.type === "file" ? iSeg("uebergabe","Übergabe an die KI",P.uebergabe || "text",[["text","Inhalt als Text"],["referenz","Als Datei (Copilot)"]])
+          + `<p class="hint" style="margin:0">Gelesen werden Word (.docx), Excel (.xlsx), PDF und Textdateien. „Als Datei“ bedeutet: Mit Copilot wird die Datei nach OneDrive hochgeladen und als Verweis übergeben. Im Prototyp geht immer der Text an die KI.</p>` : "")
+        + iCheck("pflicht","Pflichtfeld",P.pflicht)
+        + passHtml(b);
+  }
+  el.innerHTML = `<div class="insp-head"><span class="g">${T.g}</span><h3>${T.label}</h3></div>
+    <div class="insp-actions"><button class="btn small" data-action="desel">App-Einstellungen</button><button class="btn small" data-action="b-dup">Duplizieren</button><button class="btn small danger" data-action="b-del">Löschen</button></div>${f}`;
+}
+
+/* Bausteine verändern */
+function cloneBlock(b){
+  const c = clone(b);
+  const re = x => { x.id = rid("b"); if(BT[x.type]?.field){ x.props.key = uniqueKey(slug(x.props.key), allKeys(ed.app)); } (x.children || []).forEach(re); (x.cols || []).forEach(col => col.forEach(re)); };
+  re(c); return c;
+}
+function blockAction(a){
+  const loc = ed.sel ? locate(ed.app.blocks, ed.sel) : null;
+  if(!loc) return;
+  snap();
+  if(a === "b-del"){ loc.list.splice(loc.i,1); ed.sel = null; }
+  if(a === "b-dup"){ const c = cloneBlock(loc.b); loc.list.splice(loc.i + 1, 0, c); ed.sel = c.id; }
+  if(a === "b-up" && loc.i > 0){ [loc.list[loc.i-1], loc.list[loc.i]] = [loc.list[loc.i], loc.list[loc.i-1]]; }
+  if(a === "b-down" && loc.i < loc.list.length - 1){ [loc.list[loc.i+1], loc.list[loc.i]] = [loc.list[loc.i], loc.list[loc.i+1]]; }
+  renderCanvas(); renderInspector();
+}
+function addByClick(type){
+  snap();
+  const b = makeBlock(type, ed.app);
+  let target = ed.app.blocks, idx = target.length;
+  const loc = ed.sel ? locate(ed.app.blocks, ed.sel) : null;
+  if(loc){
+    if(loc.b.type === "section"){ target = loc.b.children; idx = target.length; }
+    else if(loc.b.type === "columns"){ target = loc.b.cols[0]; idx = target.length; }
+    else { target = loc.list; idx = loc.i + 1; }
+  }
+  target.splice(idx, 0, b);
+  ed.sel = b.id; renderCanvas(); renderInspector();
+  document.querySelector(`[data-bid="${b.id}"]`)?.scrollIntoView({block:"nearest", behavior:"smooth"});
+}
+function setCols(b, n){
+  n = +n;
+  while(b.cols.length < n) b.cols.push([]);
+  while(b.cols.length > n){ const extra = b.cols.pop(); b.cols[b.cols.length - 1].push(...extra); }
+  b.props.count = n;
+}
+
+/* ================= KI-Ablauf ================= */
+function appWarnings(app){
+  const w = [];
+  const fieldKeys = fieldsOf(app).map(b => b.props.key);
+  const used = new Set();
+  if(!String(app.name).trim()) w.push(["Gib der Applikation einen Namen.", false]);
+  if(!app.steps.length) w.push(["Leg im KI-Ablauf mindestens einen KI-Schritt an.", false]);
+  app.steps.forEach((s,i) => {
+    const avail = new Set([...fieldKeys, ...app.steps.slice(0,i).map(x => x.key)]);
+    for(const k of varsIn(s.prompt + " " + (s.wissen || ""))){ used.add(k); if(!avail.has(k)) w.push([`„${s.name}“ nutzt {{${k}}}. Diese Variable gibt es an dieser Stelle nicht.`, false]); }
+    if(!String(s.prompt).trim()) w.push([`„${s.name}“ hat noch keinen Prompt.`, false]);
+    if(s.bedingung?.feld && !fieldKeys.includes(s.bedingung.feld)) w.push([`Die Bedingung von „${s.name}“ verweist auf ein Feld, das es nicht mehr gibt.`, false]);
+    if((s.quellen || []).some(q => !String(q.url || "").trim())) w.push([`„${s.name}“ hat eine Wissensquelle ohne Adresse.`, true]);
+  });
+  let hasBtn = false; const outSrc = new Set();
+  walk(app.blocks, b => {
+    if(b.type === "button"){ hasBtn = true; if(b.props.aktion !== "alle" && !stepsFor(app, b.props.aktion).length) w.push([`Der Button „${b.props.text}“ startet einen Schritt, den es nicht mehr gibt.`, false]); }
+    if(b.type === "output"){ if(!app.steps.some(s => s.id === b.props.quelle)) w.push([`Das Ergebnis-Element „${b.props.titel}“ ist mit keinem KI-Schritt verbunden.`, false]); outSrc.add(b.props.quelle); }
+    if((b.type === "select" || b.type === "radio") && !(b.props.optionen || []).length) w.push([`„${b.props.label}“ hat noch keine Optionen.`, false]);
+  });
+  if(app.steps.length && !hasBtn) w.push(["Auf der Oberfläche fehlt ein KI-Button, der den Ablauf startet.", false]);
+  app.steps.forEach(s => { if(!outSrc.has(s.id)) w.push([`Für „${s.name}“ gibt es kein Ergebnis-Element. Das Ergebnis erscheint unten in der App.`, true]); });
+  fieldsOf(app).forEach(b => { if(!stepsUsing(app, b.props.key).length) w.push([`Die Eingabe „${b.props.label}“ geht an keinen KI-Schritt.`, true]); });
+  return w;
+}
+function varChips(i){
+  const app = ed.app;
+  return `<span class="hint">Einsetzen:</span>` + fieldsOf(app).map(b => `<button class="var" data-action="ins" data-i="${i}" data-v="${esc(b.props.key)}" title="${esc(b.props.label)}">{{${esc(b.props.key)}}}</button>`).join("") +
+    app.steps.slice(0,i).map(s => `<button class="var prev" data-action="ins" data-i="${i}" data-v="${esc(s.key)}" title="Ergebnis von ${esc(s.name)}">{{${esc(s.key)}}}</button>`).join("");
+}
+function renderKiTab(body){
+  const app = ed.app, n = app.steps.length;
+  body.innerHTML = `<div class="ki">
+    <div class="ki-col">
+      <section class="panel" style="display:flex;flex-direction:column;gap:10px">
+        <h2>KI-Ablauf</h2>
+        <p class="hint" style="margin:0">Jeder Schritt ist eine Anfrage an die KI-Schnittstelle. Die Schritte laufen nacheinander. Eingaben setzt du mit {{variable}} ein, das Ergebnis eines früheren Schritts mit seiner Variable.</p>
+        <div class="flowline"><span class="k">${fieldsOf(app).length} Eingaben</span>${app.steps.map((s,i) => `<b>→</b><span>${i+1} · ${esc(s.name)}</span>`).join("")}<b>→</b><span class="k">Ergebnis</span></div>
+      </section>
+      <div class="ki-col" id="steps">${app.steps.map((s,i) => `
+        <section class="panel srow" data-sid="${s.id}" data-i="${i}">
+          <div class="srow-head">
+            <span class="step-no">Schritt ${i+1}</span>
+            <input id="sn-${s.id}" type="text" data-s="name" value="${esc(s.name)}" aria-label="Name des Schritts">
+            <button class="ib" data-action="s-up" data-i="${i}" aria-label="Nach oben" ${i === 0 ? "disabled" : ""}>↑</button>
+            <button class="ib" data-action="s-down" data-i="${i}" aria-label="Nach unten" ${i === n-1 ? "disabled" : ""}>↓</button>
+            <button class="ib x" data-action="s-del" data-i="${i}" aria-label="Schritt löschen">✕</button>
+          </div>
+          <div class="three">
+            <div class="field"><label for="sk-${s.id}">Ergebnis-Variable</label><input id="sk-${s.id}" class="key-in" type="text" data-s="key" value="${esc(s.key)}"></div>
+            <div class="field"><label for="sm-${s.id}" title="Bei Copilot ohne Wirkung">Modell</label><select id="sm-${s.id}" data-s="modell">${Object.entries(MODELL_LABEL).map(([k,v]) => `<option value="${k}" ${s.modell === k ? "selected" : ""}>${v}</option>`).join("")}</select></div>
+            <div class="field"><label for="sf-${s.id}">Ausgabe</label><select id="sf-${s.id}" data-s="format">${Object.entries(FORMAT_LABEL).map(([k,v]) => `<option value="${k}" ${s.format === k ? "selected" : ""}>${v}</option>`).join("")}</select></div>
+          </div>
+          <div class="field"><label for="sr-${s.id}">Rolle und Regeln (Systemanweisung)</label><textarea id="sr-${s.id}" rows="2" data-s="rolle" placeholder="z. B. Du bist Assistenz im Vertrieb. Du schreibst sachlich und erfindest keine Preise.">${esc(s.rolle)}</textarea></div>
+          <div class="field"><label for="sp-${s.id}">Prompt</label><textarea id="sp-${s.id}" rows="7" data-s="prompt" placeholder="Was soll die KI in diesem Schritt tun?">${esc(s.prompt)}</textarea></div>
+          <div class="vars" data-vars="${i}">${varChips(i)}</div>
+          <label class="check"><input id="sa-${s.id}" type="checkbox" data-s="autoAll" ${s.autoAll ? "checked" : ""}> Alle Eingaben automatisch anhängen <span class="hint">(ohne Platzhalter: jedes Feld kommt mit Bezeichnung unten an den Prompt)</span></label>
+          <label class="check"><input id="sx-${s.id}" type="checkbox" data-s="web" ${s.web ? "checked" : ""}> Websuche erlauben <span class="hint">(nur mit Copilot wirksam)</span></label>
+          <span class="uses" data-uses="${s.id}"></span>
+          <div class="bed"><span class="lbl">Nur ausführen, wenn</span>
+            <select id="sbf-${s.id}" data-bed="feld" aria-label="Feld der Bedingung"><option value="">– immer ausführen –</option>${fieldsOf(app).map(b => `<option value="${esc(b.props.key)}" ${s.bedingung?.feld === b.props.key ? "selected" : ""}>${esc(b.props.label)}</option>`).join("")}</select>
+            ${s.bedingung?.feld ? `<select id="sbo-${s.id}" data-bed="op" aria-label="Vergleich">${Object.entries(BED_OP).map(([k,v]) => `<option value="${k}" ${(s.bedingung.op || "gleich") === k ? "selected" : ""}>${v}</option>`).join("")}</select>
+            ${["gefuellt","leer"].includes(s.bedingung.op) ? "" : `<input id="sbw-${s.id}" type="text" data-bed="wert" value="${esc(s.bedingung.wert || "")}" placeholder="Wert" aria-label="Wert der Bedingung">`}` : ""}
+          </div>
+          <details class="more" ${s.wissen || (s.quellen || []).length ? "open" : ""}><summary>Wissen und Quellen (${(s.quellen || []).length} Quellen)</summary>
+            <div class="field"><label for="sw-${s.id}">Hintergrundwissen als Text</label><textarea id="sw-${s.id}" rows="4" data-s="wissen" placeholder="Feste Informationen, die die KI immer kennen soll, z. B. Richtlinien, Produktdaten, Textbausteine.">${esc(s.wissen)}</textarea></div>
+            <div class="qlist">${(s.quellen || []).map((q,qi) => `<div class="qrow" data-qi="${qi}">
+              <select id="sqt-${s.id}-${qi}" data-q="typ" aria-label="Art der Quelle">${Object.entries(QUELL_TYP).map(([k,v]) => `<option value="${k}" ${q.typ === k ? "selected" : ""}>${v}</option>`).join("")}</select>
+              <input id="sqn-${s.id}-${qi}" type="text" data-q="titel" value="${esc(q.titel || "")}" placeholder="Bezeichnung, z. B. QM-Handbuch" aria-label="Bezeichnung der Quelle">
+              <input id="squ-${s.id}-${qi}" type="text" data-q="url" value="${esc(q.url || "")}" placeholder="https://firma.sharepoint.com/sites/QM/Freigegebene Dokumente" aria-label="Adresse der Quelle">
+              <button class="ib x" data-action="q-del" data-i="${i}" data-qi="${qi}" aria-label="Quelle entfernen">✕</button></div>`).join("")}</div>
+            <button class="adder" data-action="q-add" data-i="${i}">+ Wissensquelle</button>
+            <p class="hint" style="margin:0">SharePoint-Bereiche, Dateien oder Webseiten, in denen die KI nachschlagen soll. Mit Copilot über Microsoft Graph werden sie durchsucht bzw. als Datei übergeben. Im Prototyp gehen nur ihre Namen und Adressen mit.</p>
+          </details>
+          <span class="where" data-where="${s.id}"></span>
+        </section>`).join("")}
+      </div>
+      <button class="adder" data-action="add-step">+ KI-Schritt</button>
+    </div>
+    <div class="ki-col ki-side">
+      <section class="panel" style="display:flex;flex-direction:column;gap:12px">
+        <h3>KI-Anbindung</h3>
+        <p style="margin:0">Alle Applikationen nutzen die zentrale Anbindung des KI-Hubs. In der Applikation ist dafür nichts einzustellen.</p>
+        <dl class="kv">
+          <dt>Ziel</dt><dd>${esc(KI_ZENTRAL.ziel)}</dd>
+          <dt>Anmeldung</dt><dd>${esc(KI_ZENTRAL.anmeldung)}</dd>
+          <dt>In diesem Prototyp</dt><dd>${esc(KI_ZENTRAL.prototyp)}</dd>
+        </dl>
+        <p class="hint" style="margin:0">Die Applikation liefert nur die fertige Anfrage (unten). Anmeldung, Berechtigungen und der Versand an Copilot liegen bei der zentralen Azure-Anwendung.</p>
+      </section>
+      <section class="panel req" style="display:flex;flex-direction:column;gap:12px">
+        <h3>Anfrage-Vorschau</h3>
+        ${n ? `<div class="field"><label for="req-step">Schritt</label><select id="req-step">${app.steps.map(s => `<option value="${s.id}" ${ed.reqStep === s.id ? "selected" : ""}>${esc(s.name)}</option>`).join("")}</select></div>` : ""}
+        <div class="seg" role="group" aria-label="Darstellung der Anfrage">${[["neutral","Neutral"],["graph","Copilot (Microsoft Graph)"]].map(([v,t]) => `<button type="button" data-action="req-view" data-v="${v}" aria-pressed="${(ed.reqView || "neutral") === v}">${t}</button>`).join("")}</div>
+        <p class="hint" style="margin:0">${(ed.reqView || "neutral") === "graph" ? "So sendet die zentrale KI-Anbindung diese Anfrage über Microsoft Graph an Copilot." : "Das übergibt die Applikation an die zentrale KI-Anbindung. Eingaben sind mit den Beispielwerten gefüllt."}</p>
+        <pre class="prompt" id="req-json"></pre>
+      </section>
+      <section class="panel" style="display:flex;flex-direction:column;gap:10px">
+        <h3>Prüfung</h3><div id="ki-warn"></div>
+      </section>
+    </div>
+  </div>`;
+  renderKiSide();
+}
+function renderKiSide(){
+  const app = ed.app;
+  const pre = document.getElementById("req-json");
+  if(pre){
+    const step = app.steps.find(s => s.id === ed.reqStep) || app.steps[0];
+    if(step){
+      const ctx = {};
+      fieldsOf(app).forEach(b => { ctx[b.props.key.toLowerCase()] = b.props.beispiel || `‹${b.props.label}›`; });
+      app.steps.forEach(s => { ctx[s.key.toLowerCase()] = `‹Ergebnis von ${s.name}›`; });
+      const req = buildRequest(app, step, ctx);
+      pre.textContent = (ed.reqView || "neutral") === "graph" ? graphPreview(step, req) : JSON.stringify(req, null, 2);
+    }else pre.textContent = "Noch kein KI-Schritt angelegt.";
+  }
+  const w = appWarnings(app), box = document.getElementById("ki-warn");
+  if(box) box.innerHTML = w.length ? `<ul class="warns">${w.map(([t,soft]) => `<li class="${soft ? "soft" : ""}">${esc(t)}</li>`).join("")}</ul>` : `<p class="ok-text">Alles verbunden. Bereit zum Speichern.</p>`;
+  app.steps.forEach((s,i) => {
+    const u = document.querySelector(`[data-uses="${s.id}"]`);
+    if(u){
+      const fl = fieldsOf(app).filter(b => stepsUsing(app, b.props.key).includes(i)).map(b => b.props.label);
+      const prev = app.steps.slice(0,i).filter(p => varsIn(s.prompt + " " + (s.wissen || "")).includes(p.key.toLowerCase())).map(p => "Ergebnis von " + p.name);
+      const all = [...fl, ...prev];
+      u.innerHTML = all.length ? `Bekommt: <b>${all.map(esc).join(", ")}</b>` : "Bekommt noch keine Eingaben.";
+    }
+    const el = document.querySelector(`[data-where="${s.id}"]`); if(!el) return;
+    let n = 0; walk(app.blocks, b => { if(b.type === "output" && b.props.quelle === s.id) n++; });
+    el.textContent = n ? `Wird in ${n} Ergebnis-Element${n > 1 ? "en" : ""} auf der Oberfläche angezeigt.` : "Kein Ergebnis-Element auf der Oberfläche. Das Ergebnis erscheint unten in der App.";
+    el.classList.toggle("bad", !n);
+  });
+}
+function refreshVarChips(){ document.querySelectorAll("[data-vars]").forEach(el => { el.innerHTML = varChips(+el.dataset.vars); }); }
+
+/* Bild einlesen und auf höchstens 800 px Breite verkleinern (SVG bleibt unverändert) */
+function loadImage(file){
+  return new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onerror = reject;
+    r.onload = () => {
+      const url = String(r.result);
+      if(file.type === "image/svg+xml") return resolve(url);
+      const img = new Image();
+      img.onerror = reject;
+      img.onload = () => {
+        const scale = Math.min(1, 800 / img.naturalWidth);
+        const c = document.createElement("canvas");
+        c.width = Math.max(1, Math.round(img.naturalWidth * scale)); c.height = Math.max(1, Math.round(img.naturalHeight * scale));
+        c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+        let out = c.toDataURL("image/webp", .85);
+        if(!out.startsWith("data:image/webp")) out = c.toDataURL("image/png");
+        resolve(out.length < url.length ? out : url);
+      };
+      img.src = url;
+    };
+    r.readAsDataURL(file);
+  });
+}
+
+/* ================= KI-Assistent ================= */
+const isHex = v => /^#[0-9a-f]{6}$/i.test(String(v || ""));
+function sanitizeTheme(t, base){
+  t = t && typeof t === "object" ? t : {};
+  const b = {...DEFAULT_THEME, ...(base || {})};
+  return {
+    accent: t.accent === "" || isHex(t.accent) ? (t.accent ?? b.accent) : b.accent,
+    bg: t.bg === "" || isHex(t.bg) ? (t.bg ?? b.bg) : b.bg,
+    font: FONTS[t.font] ? t.font : b.font,
+    radius: RADIUS[t.radius] ? t.radius : b.radius,
+    width: WIDTH[t.width] ? t.width : b.width
+  };
+}
+function coerceProp(k, v, d){
+  if(typeof d === "boolean") return !!v;
+  if(k === "color" || k === "bg") return v === "" || isHex(v) ? v : d;
+  if(k === "optionen") return Array.isArray(v) ? v.map(x => String(x).slice(0,120)).filter(Boolean).slice(0,20) : d;
+  if(ENUMS[k]){ const n = typeof d === "number" ? Number(v) : v; return ENUMS[k].includes(n) ? n : d; }
+  if(typeof d === "number") return Number.isFinite(Number(v)) ? Number(v) : d;
+  return String(v ?? "").slice(0, 4000);
+}
+/* Prüft eine von der KI (oder per Import) gelieferte App und bringt sie in ein sauberes Format */
+function sanitizeApp(raw, base){
+  raw = raw && typeof raw === "object" ? raw : {};
+  const app = clone(base);
+  if(typeof raw.name === "string" && raw.name.trim()) app.name = raw.name.trim().slice(0,60);
+  if(typeof raw.bereich === "string" && raw.bereich.trim()) app.bereich = raw.bereich.trim().slice(0,40);
+  if(typeof raw.beschreibung === "string") app.beschreibung = raw.beschreibung.slice(0,300);
+  app.theme = sanitizeTheme(raw.theme, base.theme);
+  const ids = new Set(), keys = new Set(), renames = [], stepMap = new Map();
+  const cleanId = (id, p) => { id = String(id || "").replace(/[^A-Za-z0-9_-]/g,"").slice(0,24); if(!id || ids.has(id)) id = rid(p); ids.add(id); return id; };
+  const stepsIn = Array.isArray(raw.steps) ? raw.steps : base.steps;
+  app.steps = stepsIn.slice(0,8).filter(s => s && typeof s === "object").map((s,i) => {
+    const id = cleanId(s.id, "s"); stepMap.set(String(s.id), id);
+    const key = uniqueKey(slug(s.key || "schritt" + (i+1)), keys); keys.add(key);
+    if(s.key && s.key !== key) renames.push([String(s.key), key]);
+    return {id, name:String(s.name || "KI-Schritt " + (i+1)).slice(0,80), key,
+      rolle:String(s.rolle || "").slice(0,4000), wissen:String(s.wissen || "").slice(0,20000), prompt:String(s.prompt || "").slice(0,8000),
+      modell:MODELL_LABEL[s.modell] ? s.modell : "default", format:FORMAT_LABEL[s.format] ? s.format : "markdown", autoAll:!!s.autoAll,
+      web:!!s.web,
+      quellen:(Array.isArray(s.quellen) ? s.quellen : []).slice(0,20).filter(q => q && typeof q === "object").map(q => ({typ:QUELL_TYP[q.typ] ? q.typ : "sharepoint", titel:String(q.titel || "").slice(0,120), url:String(q.url || "").slice(0,800)})),
+      bedingung:s.bedingung && typeof s.bedingung === "object" && s.bedingung.feld ? {feld:String(s.bedingung.feld), op:BED_OP[s.bedingung.op] ? s.bedingung.op : "gleich", wert:String(s.bedingung.wert ?? "").slice(0,200)} : null};
+  });
+  const empty = {blocks:[], steps:[]};
+  function sb(b, depth){
+    if(!b || typeof b !== "object" || !BT[b.type] || depth > 5) return null;
+    const def = makeBlock(b.type, empty);
+    const nb = {id:cleanId(b.id, "b"), type:b.type, props:{...def.props}};
+    const p = b.props && typeof b.props === "object" ? b.props : {};
+    for(const k of Object.keys(def.props)) if(k in p && k !== "key" && k !== "keyAuto") nb.props[k] = coerceProp(k, p[k], def.props[k]);
+    if(BT[b.type].field){
+      const orig = String(p.key || p.label || "feld");
+      const key = uniqueKey(slug(orig), keys); keys.add(key);
+      if(p.key && p.key !== key) renames.push([String(p.key), key]);
+      nb.props.key = key; nb.props.keyAuto = false;
+    }
+    if(b.type === "section") nb.children = (Array.isArray(b.children) ? b.children : []).map(c => sb(c, depth+1)).filter(Boolean);
+    if(b.type === "columns"){
+      let cols = (Array.isArray(b.cols) ? b.cols : []).slice(0,3).map(c => (Array.isArray(c) ? c : []).map(x => sb(x, depth+1)).filter(Boolean));
+      while(cols.length < 2) cols.push([]);
+      nb.cols = cols; nb.props.count = cols.length;
+    }
+    return nb;
+  }
+  const blocksIn = Array.isArray(raw.blocks) ? raw.blocks : base.blocks;
+  app.blocks = blocksIn.map(b => sb(b, 0)).filter(Boolean);
+  renames.forEach(([o,k]) => {
+    const re = new RegExp("\\{\\{\\s*" + o.replace(/[.*+?^${}()|[\]\\]/g,"\\$&") + "\\s*\\}\\}", "gi");
+    app.steps.forEach(s => { s.prompt = s.prompt.replace(re, "{{" + k + "}}"); s.wissen = s.wissen.replace(re, "{{" + k + "}}"); if(s.bedingung?.feld === o) s.bedingung.feld = k; });
+  });
+  fixRefs(app, stepMap);
+  return app;
+}
+function fixRefs(app, stepMap){
+  const ids = new Set(app.steps.map(s => s.id));
+  walk(app.blocks, b => {
+    if(b.type === "button"){
+      const ab = String(b.props.aktion || "").startsWith("ab:"), id = ab ? b.props.aktion.slice(3) : b.props.aktion;
+      const nid = stepMap?.has(id) ? stepMap.get(id) : id;
+      b.props.aktion = b.props.aktion === "alle" || !ids.has(nid) ? "alle" : (ab ? "ab:" + nid : nid);
+    }
+    if(b.type === "output"){
+      if(stepMap?.has(b.props.quelle)) b.props.quelle = stepMap.get(b.props.quelle);
+      if(!ids.has(b.props.quelle)) b.props.quelle = "";
+    }
+  });
+}
+function applyScope(next, base, scope){
+  if(scope === "ui"){ next.steps = clone(base.steps); fixRefs(next); return next; }
+  if(scope === "design"){
+    const out = clone(base); out.theme = next.theme;
+    const map = new Map(); walk(next.blocks, b => map.set(b.id, b));
+    walk(out.blocks, b => { const n = map.get(b.id); if(!n || n.type !== b.type) return; VISUAL.forEach(k => { if(k in b.props && k in n.props) b.props[k] = n.props[k]; }); });
+    return out;
+  }
+  return next;
+}
+function assistPrompt(app, wish, scope){
+  const scopeRule = scope === "ui" ? "Ändere nur Oberfläche und Design (blocks, theme). Gib steps exakt unverändert zurück."
+    : scope === "design" ? "Ändere nur das Aussehen: theme sowie die props align, color, size, level, bg, pad, border, stil, tone. Struktur, Texte und steps bleiben unverändert."
+    : "Du darfst Oberfläche, Design und KI-Ablauf ändern. Ist die Applikation noch ein leerer Entwurf, baue sie nach dem Wunsch komplett neu auf.";
+  return `Du bist der KI-Assistent eines No-Code-Baukastens für KI-Applikationen in einem internen Firmenportal. Du änderst die Definition einer Applikation nach dem Wunsch der Person.
+
+## Aufbau einer Applikation
+- "blocks": Baum der Oberfläche. Jeder Block: {"id": string, "type": string, "props": {...}}. "section" hat zusätzlich "children": Block[]. "columns" hat "cols": Block[][] mit 2 oder 3 Spalten.
+- "steps": KI-Ablauf, läuft nacheinander. Jeder Schritt: {"id", "name", "key", "rolle", "wissen", "prompt", "modell": "quick"|"default"|"complex", "format": "markdown"|"text"|"json"|"dateien", "autoAll": bool, "web": bool, "quellen": [{"typ": "sharepoint"|"datei"|"web", "titel", "url"}], "bedingung": null oder {"feld": key einer Eingabe, "op": "gleich"|"ungleich"|"gefuellt"|"leer", "wert"}}. Format "dateien" erzeugt ein Dateipaket, das als ZIP heruntergeladen werden kann. "quellen" sind SharePoint-Bereiche oder Dateien, in denen die KI nachschlagen soll; übernimm vorhandene Quellen unverändert.
+- "theme": {"accent": "#RRGGBB" oder "", "bg": "#RRGGBB" oder "", "font": "sans"|"serif"|"display"|"mono", "radius": "s"|"m"|"l", "width": "s"|"m"|"l"}
+
+## Blocktypen und ihre props
+- section: bg ("#RRGGBB" oder ""), pad s|m|l, border bool
+- columns: count 2|3
+- spacer: h 12|24|48
+- divider: keine
+- heading: text, level 1|2|3, align left|center|right, color
+- text: text, size s|m|l, align, color
+- callout: text, tone info|warn|ok
+- image: src (nie selbst setzen, neue Bilder mit src ""), alt, size s|m|l|full, align
+- input, textarea, number, date, file, select, radio, checkbox: label, key (klein_mit_unterstrich, eindeutig), pflicht bool, hilfe, placeholder, beispiel (realistischer Testwert); select/radio zusätzlich optionen: string[]; textarea zusätzlich rows 3|5|9
+- button: text, aktion ("alle", id eines Schritts für nur diesen Schritt, oder "ab:" + id für diesen und alle folgenden Schritte), stil filled|outline, align, color
+- file hat zusätzlich uebergabe "text"|"referenz"
+- output: titel, quelle (id eines Schritts), stil card|plain
+
+## Regeln
+- Behalte die ids bestehender Blöcke und Schritte bei. Neue Blöcke und Schritte bekommen neue kurze ids wie "n1", "n2".
+- In Prompts setzt du Eingaben mit {{key}} ein und Ergebnisse früherer Schritte mit {{key des Schritts}}.
+- Jede Eingabe, die für die Aufgabe wichtig ist, kommt in mindestens einem Prompt vor.
+- Es gibt mindestens einen KI-Button, und jeder Schritt hat ein Ergebnis-Element (output mit quelle = id des Schritts).
+- Gute Gestaltung: klare Überschrift, kurze Erklärung, zusammengehörige Eingaben in einem Bereich, Ergebnisse gut sichtbar. Farben nur als #RRGGBB, ruhig und geschäftlich.
+- Texte auf Deutsch, sachlich, für Mitarbeitende einer Firma.
+- ${scopeRule}
+- Ändere nur, was der Wunsch verlangt oder was dafür nötig ist.
+
+## Aktuelle Applikation
+${JSON.stringify(app)}
+
+## Wunsch der Person
+"""${wish}"""
+
+Antworte nur mit einem JSON-Objekt dieser Form:
+{"zusammenfassung": "ein bis zwei Sätze, was du geändert hast", "app": {"name": "...", "bereich": "...", "beschreibung": "...", "theme": {...}, "blocks": [...], "steps": [...]}}`;
+}
+async function aiAssist(){
+  if(ed.aiCtl){ ed.aiCtl.abort(); return; }
+  const ta = document.getElementById("ai-brief"), msg = document.getElementById("ai-msg"), btn = document.querySelector('[data-action="ai-apply"]');
+  const wish = ta.value.trim(); ed.brief = ta.value;
+  if(!wish){ msg.textContent = "Beschreib zuerst, was entstehen oder sich ändern soll."; ta.focus(); return; }
+  if(!sampleFn || aiState === "off"){ msg.textContent = "In dieser Ansicht ist keine KI verfügbar. Öffne den Hub über claude.ai."; return; }
+  const imgs = new Map();
+  const ctxApp = clone({name:ed.app.name, bereich:ed.app.bereich, beschreibung:ed.app.beschreibung, theme:ed.app.theme, blocks:ed.app.blocks, steps:ed.app.steps});
+  walk(ctxApp.blocks, b => {
+    if(b.type === "image"){ imgs.set(b.id, b.props.src); b.props.src = b.props.src ? "[bild]" : ""; }
+    if(BT[b.type]?.field) delete b.props.keyAuto;
+  });
+  const base = ed.app, scope = ed.aiScope, baseJson = JSON.stringify(ed.app);
+  const ctl = ed.aiCtl = new AbortController();
+  btn.textContent = "Abbrechen";
+  msg.textContent = "Die KI baut um. Das dauert meist 30 bis 90 Sekunden …";
+  try{
+    const res = await sampleFn.json(assistPrompt(ctxApp, wish, scope), {signal:ctl.signal, modelTier:"default"});
+    if(!res || typeof res !== "object" || !res.app) throw {code:"invalid_json"};
+    const next = applyScope(sanitizeApp(res.app, base), base, scope);
+    walk(next.blocks, b => { if(b.type === "image") b.props.src = imgs.get(b.id) || ""; });
+    if(!ed || ed.aiCtl !== ctl) return;         // Baukasten verlassen
+    ed.aiCtl = null;
+    if(JSON.stringify(ed.app) !== baseJson){    // währenddessen weitergearbeitet: nichts überschreiben
+      const b2 = document.querySelector('[data-action="ai-apply"]'); if(b2) b2.textContent = "Umsetzen";
+      const m2 = document.getElementById("ai-msg"); if(m2) m2.textContent = "Du hast währenddessen weitergearbeitet. Der Vorschlag wurde nicht übernommen, schick den Wunsch noch einmal.";
+      return;
+    }
+    snap();
+    ed.app = next; ed.sel = null; ed.brief = "";
+    ed.reqStep = next.steps[0]?.id || "";
+    ed.aiLog.unshift({prompt:wish, summary:String(res.zusammenfassung || "Änderungen übernommen.").slice(0,300)});
+    renderBuilder();
+  }catch(e){
+    if(!ed) return;
+    ed.aiCtl = null;
+    const b2 = document.querySelector('[data-action="ai-apply"]'), m2 = document.getElementById("ai-msg");
+    if(b2) b2.textContent = "Umsetzen";
+    if(!m2) return;
+    if(e?.code === "cancelled") m2.textContent = "Abgebrochen. Nichts wurde geändert.";
+    else if(OFF_CODES.includes(e?.code)){ aiState = "off"; setAiPill(); m2.textContent = "Die KI ist in dieser Ansicht nicht freigegeben."; }
+    else m2.textContent = e?.code === "invalid_json" ? "Die Antwort der KI war unvollständig. Versuch es noch einmal oder formuliere den Wunsch kürzer." : (ERR_TEXT[e?.code] || "Das Umbauen ist fehlgeschlagen. Versuch es noch einmal.");
+  }
+}
+
+/* ================= Speichern ================= */
+async function saveApp(){
+  const msg = document.getElementById("save-msg");
+  const hard = appWarnings(ed.app).filter(([,soft]) => !soft);
+  if(hard.length){ msg.className = "save-msg bad"; msg.textContent = hard[0][0] + (hard.length > 1 ? ` (und ${hard.length - 1} weitere Punkte im KI-Ablauf)` : ""); return; }
+  const def = clone(ed.app);
+  delete def._src;
+  def.id = def.id || "app-" + Date.now().toString(36) + Math.random().toString(36).slice(2,6);
+  def.v = 2; def.typ = "baukasten"; def.geaendert = new Date().toISOString();
+  def.version = (Number(def.version) || 0) + 1;
+  msg.className = "save-msg"; msg.textContent = "Wird gespeichert …";
+  const where = await persist(def);
+  if(where === "none"){ msg.className = "save-msg bad"; msg.textContent = "Speichern ist in dieser Ansicht nicht möglich."; return; }
+  ed = null;
+  go({name:"app", id:def.id});
+}
+
+/* ================= Ereignisse ================= */
+document.addEventListener("click", e => {
+  const el = e.target.closest("[data-action]");
+  if(!el){
+    const canvas = e.target.closest("#canvas");
+    if(canvas && ed && !e.target.closest("[contenteditable]")){
+      const b = e.target.closest(".b");
+      const id = b ? b.dataset.bid : null;
+      if(ed.sel !== id){ ed.sel = id; renderCanvas(); renderInspector(); }
+    }
+    return;
+  }
+  const a = el.dataset.action, i = +el.dataset.i;
+  switch(a){
+    case "home":
+      if(view.name === "builder" && ed?.dirty){
+        const m = document.getElementById("save-msg");
+        m.className = "save-msg bad";
+        m.innerHTML = `Es gibt ungespeicherte Änderungen. <button class="btn small primary" data-action="save">Speichern</button> <button class="btn small danger" data-action="home-force">Verwerfen</button> <button class="btn small ghost" data-action="stay">Weiter bearbeiten</button>`;
+        break;
+      }
+      ed = null; go({name:"start"}); break;
+    case "home-force": if(ed?.aiCtl) ed.aiCtl.abort(); ed = null; go({name:"start"}); break;
+    case "stay": { const m = document.getElementById("save-msg"); m.className = "save-msg"; m.textContent = ""; break; }
+    case "new": if(view.name !== "builder") startBuilder(newApp()); break;
+    case "open": go({name:"app", id:el.dataset.id}); break;
+    case "edit": { const app = findApp(el.dataset.id); if(app){ const c = clone(app); delete c._src; startBuilder(c); } break; }
+    case "copy-edit": { const app = findApp(el.dataset.id); if(app){ const c = clone(app); delete c._src; c.id = null; c.name += " (Kopie)"; startBuilder(c); } break; }
+    case "area": filter.area = el.dataset.area; renderChips(); renderGrid(); break;
+    case "example": { const app = runApp(); const root = document.querySelector('.app-frame[data-mode="run"]'); if(app && root) fillExamples(app, root); break; }
+    case "run-ai": runAi(el); break;
+    case "copy-out": { const t = rs.texts[el.dataset.sid] || ""; try{ navigator.clipboard?.writeText(t); el.textContent = "Kopiert"; }catch{ el.textContent = "Nicht möglich"; } setTimeout(() => { el.textContent = "Kopieren"; }, 1600); break; }
+    case "del-ask": document.getElementById("del-zone").innerHTML = `<span class="hint">Wirklich löschen?</span> <button class="btn danger" data-action="del-yes">Löschen</button> <button class="btn ghost" data-action="del-no">Abbrechen</button>`; break;
+    case "del-no": document.getElementById("del-zone").innerHTML = `<button class="btn ghost" data-action="del-ask">Löschen</button>`; break;
+    case "del-yes": { const app = findApp(view.id); if(app) removeApp(app).then(() => go({name:"start"})); break; }
+    /* Baukasten */
+    case "tab": ed.tab = el.dataset.tab; ed.preview = false; renderBuilder(); break;
+    case "preview": ed.preview = !ed.preview; rs = {results:{}, texts:{}, reqs:{}, ctl:null, files:{}, pakete:{}}; renderBuilder(); break;
+    case "save": saveApp(); break;
+    case "pal-add": addByClick(el.dataset.type); break;
+    case "desel": ed.sel = null; renderCanvas(); renderInspector(); break;
+    case "b-up": case "b-down": case "b-dup": case "b-del": blockAction(a); break;
+    case "seg": { const b = selBlock(); if(!b) break; const p = el.dataset.p; let v = el.dataset.v;
+      if(["level","h","rows","count"].includes(p)) v = +v;
+      snap();
+      if(p === "count") setCols(b, v); else b.props[p] = v;
+      renderCanvas(); renderInspector(); break; }
+    case "sw": { const b = selBlock(); if(!b) break; snap(); b.props[el.dataset.p] = el.dataset.v; renderCanvas(); renderInspector(); break; }
+    case "tseg": case "tsw": snap(); ed.app.theme[el.dataset.p] = el.dataset.v; renderCanvas(); renderInspector(); break;
+    case "aseg": snap(); ed.app[el.dataset.p] = el.dataset.v; renderInspector(); break;
+    case "img-clear": { const b = selBlock(); if(!b) break; snap(); b.props.src = ""; renderCanvas(); renderInspector(); break; }
+    case "undo": histMove("undo", "redo"); break;
+    case "redo": histMove("redo", "undo"); break;
+    case "json": ed.json = !ed.json; renderBuilder(); break;
+    case "json-copy": { const ta = document.getElementById("json-text"); try{ navigator.clipboard?.writeText(ta.value); document.getElementById("json-msg").textContent = "In die Zwischenablage kopiert."; }catch{ ta.select(); document.getElementById("json-msg").textContent = "Text ist markiert. Mit Strg+C kopieren."; } break; }
+    case "json-apply": {
+      const ta = document.getElementById("json-text"), m = document.getElementById("json-msg");
+      let raw; try{ raw = JSON.parse(ta.value); }catch(err){ m.textContent = "Das ist kein gültiges JSON: " + err.message; break; }
+      snap();
+      const next = sanitizeApp(raw, ed.app);
+      ["status","owner","schutz"].forEach(k => { if(typeof raw[k] === "string") next[k] = k === "status" ? (STATUS[raw[k]] ? raw[k] : next[k]) : k === "schutz" ? (SCHUTZ[raw[k]] ? raw[k] : next[k]) : raw[k].slice(0,80); });
+      walk(next.blocks, b => { if(b.type === "image" && !/^data:image\//.test(b.props.src)) b.props.src = ""; });
+      ed.app = next; ed.sel = null; ed.json = false; renderBuilder();
+      document.getElementById("save-msg").textContent = "JSON übernommen. Mit „Rückgängig“ kommst du zur vorherigen Fassung zurück.";
+      break;
+    }
+    case "ai-apply": aiAssist(); break;
+    case "req-view": ed.reqView = el.dataset.v; document.querySelectorAll('[data-action="req-view"]').forEach(x => x.setAttribute("aria-pressed", x === el)); renderBuilder(); break;
+    case "q-add": { snap(); const s = ed.app.steps[i]; (s.quellen = s.quellen || []).push({typ:"sharepoint", titel:"", url:""}); renderBuilder(); document.getElementById(`sqn-${s.id}-${s.quellen.length - 1}`)?.focus(); break; }
+    case "q-del": { snap(); ed.app.steps[i].quellen.splice(+el.dataset.qi, 1); renderBuilder(); break; }
+    case "dl-md": {
+      const s = runApp()?.steps.find(x => x.id === el.dataset.sid); const t = rs.texts[el.dataset.sid];
+      if(s && t) saveFile(`${slug(s.name)}.${s.format === "json" ? "json" : s.format === "text" ? "txt" : "md"}`, t, el); break;
+    }
+    case "dl-zip": {
+      const app = runApp(), p = rs.pakete[el.dataset.sid]; if(!app || !p) break;
+      const old = el.textContent; el.textContent = "ZIP wird gepackt …";
+      loadLib("zip").then(JSZip => { const z = new JSZip(); p.dateien.forEach(f => z.file(f.pfad, f.inhalt)); return z.generateAsync({type:"blob"}); })
+        .then(blob => { el.textContent = old; saveFile(paketName(app, p), blob, el); })
+        .catch(() => { el.textContent = "ZIP konnte nicht erstellt werden"; setTimeout(() => { el.textContent = old; }, 2400); });
+      break;
+    }
+    case "ai-sugg": { const ta = document.getElementById("ai-brief"); ta.value = el.dataset.v; ed.brief = ta.value; ta.focus(); break; }
+    case "ai-scope": ed.aiScope = el.dataset.v; document.querySelectorAll('[data-action="ai-scope"]').forEach(x => x.setAttribute("aria-pressed", x === el)); break;
+    case "pass": {
+      const b = selBlock(), s = ed.app.steps.find(x => x.id === el.dataset.sid);
+      if(!b || !s) break;
+      snap();
+      const k = b.props.key;
+      if(el.checked){
+        if(!varsIn(s.prompt + " " + (s.wissen || "")).includes(k.toLowerCase()))
+          s.prompt = (s.prompt.trim() ? s.prompt.replace(/\s+$/, "") + "\n\n" : "") + `${b.props.label}:\n{{${k}}}`;
+      }else removeVar(s, k);
+      renderCanvas(); renderInspector(); break;
+    }
+    /* KI-Ablauf */
+    case "add-step": {
+      const n = ed.app.steps.length + 1;
+      const key = uniqueKey("schritt" + n, allKeys(ed.app));
+      const s = {id:rid("s"), name:"KI-Schritt " + n, key, rolle:"", wissen:"", prompt:"", modell:"default", format:"markdown", autoAll:false, web:false, quellen:[], bedingung:null};
+      snap(); ed.app.steps.push(s); ed.reqStep = s.id; renderBuilder();
+      document.getElementById("sp-" + s.id)?.focus(); break;
+    }
+    case "s-del": {
+      snap(); const s = ed.app.steps[i]; ed.app.steps.splice(i,1);
+      walk(ed.app.blocks, b => { if(b.type === "button" && (b.props.aktion === s.id || b.props.aktion === "ab:" + s.id)) b.props.aktion = "alle"; if(b.type === "output" && b.props.quelle === s.id) b.props.quelle = ""; });
+      renderBuilder(); break;
+    }
+    case "s-up": case "s-down": { snap(); const j = a === "s-up" ? i - 1 : i + 1; const st = ed.app.steps; [st[i], st[j]] = [st[j], st[i]]; renderBuilder(); break; }
+    case "ins": {
+      const ta = document.querySelector(`.srow[data-i="${i}"] textarea[data-s="prompt"]`); if(!ta) break;
+      const v = "{{" + el.dataset.v + "}}", s = ta.selectionStart ?? ta.value.length, en = ta.selectionEnd ?? s;
+      snap();
+      ta.value = ta.value.slice(0,s) + v + ta.value.slice(en);
+      ta.focus(); ta.selectionStart = ta.selectionEnd = s + v.length;
+      ed.app.steps[i].prompt = ta.value; renderKiSide(); break;
+    }
+  }
+});
+
+document.addEventListener("input", e => {
+  const t = e.target;
+  if(t.id === "q"){ filter.q = t.value; renderGrid(); return; }
+  if(!ed || view.name !== "builder") return;
+  if(t.id === "ai-brief"){ ed.brief = t.value; return; }
+  if(t.id === "req-step"){ ed.reqStep = t.value; renderKiSide(); return; }
+  if(t.id === "json-text" || t.type === "file") return;
+  if(t.id === "bld-name"){ snapTyping(t); ed.app.name = t.value; return; }
+  if(t.dataset.ap){ snapTyping(t); ed.app[t.dataset.ap] = t.value; return; }
+  if(t.dataset.tp){ snapTyping(t); ed.app.theme[t.dataset.tp] = t.value; renderCanvas(); return; }
+  if(t.dataset.p && t.closest("#insp")){
+    const b = selBlock(); if(!b) return;
+    const p = t.dataset.p;
+    if(p === "key") return;
+    snapTyping(t);
+    let v = t.type === "checkbox" ? t.checked : t.value;
+    if(p === "optionen") v = t.value.split("\n").map(s => s.trim()).filter(Boolean);
+    b.props[p] = v;
+    if(p === "label" && b.props.keyAuto){
+      const nk = uniqueKey(slug(v), allKeys(ed.app, b));
+      if(nk !== b.props.key){ renameRefs(ed.app, b.props.key, nk); b.props.key = nk; const ki = document.getElementById("ip-key"); if(ki) ki.value = nk; }
+    }
+    renderCanvas(); return;
+  }
+  const srow = t.closest(".srow[data-sid]");
+  if(srow && t.dataset.bed){
+    const s = ed.app.steps[+srow.dataset.i], k = t.dataset.bed;
+    snapTyping(t);
+    if(k === "feld") s.bedingung = t.value ? {feld:t.value, op:s.bedingung?.op || "gleich", wert:s.bedingung?.wert || ""} : null;
+    else if(s.bedingung) s.bedingung[k] = t.value;
+    if(k === "wert") renderKiSide(); else renderBuilder();
+    return;
+  }
+  if(srow && t.dataset.q){
+    const s = ed.app.steps[+srow.dataset.i], q = s.quellen?.[+t.closest(".qrow").dataset.qi];
+    if(!q) return;
+    snapTyping(t); q[t.dataset.q] = t.value; renderKiSide();
+    return;
+  }
+  if(srow && t.dataset.s && t.dataset.s !== "key"){
+    const s = ed.app.steps[+srow.dataset.i];
+    snapTyping(t);
+    s[t.dataset.s] = t.type === "checkbox" ? t.checked : t.value;
+    if(t.dataset.s === "name"){ const fl = document.querySelectorAll(".flowline span:not(.k)")[+srow.dataset.i]; if(fl) fl.textContent = `${+srow.dataset.i + 1} · ${t.value}`; }
+    renderKiSide();
+  }
+});
+document.addEventListener("change", e => {
+  const t = e.target;
+  if(t.matches?.('input[type="file"][data-file]')){
+    const f = t.files?.[0], key = t.dataset.file, info = document.getElementById("fi-" + key);
+    if(!f){ delete rs.files[key]; if(info) info.textContent = ""; return; }
+    if(info) info.textContent = `${f.name} wird gelesen …`;
+    extractText(f).then(txt => {
+      txt = String(txt || "");
+      rs.files[key] = {name:f.name, size:f.size, type:f.type || f.name.split(".").pop(), text:txt.slice(0, 60000)};
+      if(info) info.textContent = txt.trim() ? `${f.name} gelesen (${Math.min(txt.length, 60000).toLocaleString("de-DE")} Zeichen${txt.length > 60000 ? ", gekürzt" : ""})` : `${f.name} enthält keinen lesbaren Text (z. B. ein eingescanntes PDF).`;
+    }).catch(err => {
+      delete rs.files[key];
+      if(info) info.textContent = err?.message === "format" ? "Dieses Format kann der Prototyp nicht lesen. Speichere die Datei als .docx, .xlsx, .pdf, .csv oder .txt." : "Die Datei konnte nicht gelesen werden.";
+    });
+    return;
+  }
+  if(!ed || view.name !== "builder") return;
+  if(t.dataset.img){
+    const f = t.files?.[0], b = selBlock(), m = document.getElementById("img-msg");
+    if(!f || !b) return;
+    m.textContent = "Bild wird verarbeitet …";
+    loadImage(f).then(src => {
+      if(src.length > 200000){ m.textContent = "Das Bild ist auch verkleinert noch zu groß. Nutze ein kleineres Bild oder ein Logo als PNG/SVG."; return; }
+      snap(); b.props.src = src;
+      if(!b.props.alt) b.props.alt = f.name.replace(/\.[^.]+$/, "");
+      renderCanvas(); renderInspector();
+    }).catch(() => { m.textContent = "Die Datei konnte nicht als Bild gelesen werden."; });
+    return;
+  }
+  if(t.dataset.p === "key" && t.closest("#insp")){
+    const b = selBlock(); if(!b) return;
+    snap();
+    const nk = uniqueKey(slug(t.value), allKeys(ed.app, b));
+    if(nk !== b.props.key) renameRefs(ed.app, b.props.key, nk);
+    b.props.key = nk; b.props.keyAuto = false; t.value = nk;
+    renderCanvas(); renderInspector(); return;
+  }
+  const srow = t.closest(".srow[data-sid]");
+  if(srow && t.dataset.s === "key"){
+    const s = ed.app.steps[+srow.dataset.i];
+    snap();
+    const nk = uniqueKey(slug(t.value), allKeys(ed.app, s));
+    if(nk !== s.key) renameRefs(ed.app, s.key, nk);
+    s.key = nk; t.value = nk;
+    document.querySelectorAll('.srow textarea[data-s="prompt"]').forEach((ta, j) => { if(ta.value !== ed.app.steps[j].prompt) ta.value = ed.app.steps[j].prompt; });
+    refreshVarChips(); renderKiSide();
+  }
+});
+document.addEventListener("keydown", e => {
+  if(!ed || view.name !== "builder" || ed.preview) return;
+  if(e.target.closest("input,textarea,select,[contenteditable]")) return;
+  if((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "z"){ e.preventDefault(); e.shiftKey ? histMove("redo","undo") : histMove("undo","redo"); return; }
+  if((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "y"){ e.preventDefault(); histMove("redo","undo"); return; }
+  if(ed.tab !== "ui" || !ed.sel) return;
+  if(e.key === "Delete" || e.key === "Backspace"){ e.preventDefault(); blockAction("b-del"); }
+  if(e.key === "Escape"){ ed.sel = null; renderCanvas(); renderInspector(); }
+});
+
+/* Direkt auf der Fläche bearbeiten */
+document.addEventListener("dblclick", e => {
+  const b = e.target.closest?.("#canvas .b"); if(!b) return;
+  const target = [...b.querySelectorAll("[data-edit]")].find(x => x.closest(".b") === b);
+  if(!target) return;
+  const loc = locate(ed.app.blocks, b.dataset.bid); if(!loc) return;
+  b.draggable = false;
+  target.style.pointerEvents = "auto";
+  try{ target.contentEditable = "plaintext-only"; }catch{ target.contentEditable = "true"; }
+  if(target.contentEditable !== "plaintext-only") target.contentEditable = "true";
+  target.focus();
+  const r = document.createRange(); r.selectNodeContents(target); const s = getSelection(); s.removeAllRanges(); s.addRange(r);
+  const single = ["heading","button"].includes(loc.b.type);
+  const onKey = ev => { if(ev.key === "Enter" && (single || !ev.shiftKey) && single){ ev.preventDefault(); target.blur(); } if(ev.key === "Escape") target.blur(); };
+  target.addEventListener("keydown", onKey);
+  target.addEventListener("blur", () => {
+    const txt = target.innerText.replace(/\n{3,}/g,"\n\n").trim();
+    if(txt && txt !== loc.b.props.text){ snap(); loc.b.props.text = txt; }
+    ed.sel = loc.b.id; renderCanvas(); renderInspector();
+  }, {once:true});
+});
+
+/* Ziehen und Ablegen */
+function clearPh(){ ph?.remove(); dropAt = null; }
+document.addEventListener("dragstart", e => {
+  const p = e.target.closest?.("[data-ptype]");
+  if(p){ drag = {kind:"new", type:p.dataset.ptype}; e.dataTransfer.effectAllowed = "copy"; e.dataTransfer.setData("text/plain", p.dataset.ptype); return; }
+  const b = e.target.closest?.("#canvas .b");
+  if(b){ drag = {kind:"move", id:b.dataset.bid, el:b}; e.dataTransfer.effectAllowed = "move"; e.dataTransfer.setData("text/plain", b.dataset.bid); requestAnimationFrame(() => b.classList.add("dragging")); }
+});
+document.addEventListener("dragover", e => {
+  if(!drag) return;
+  const list = e.target.closest?.("#canvas [data-list]");
+  if(!list || (drag.kind === "move" && drag.el.contains(list))){ clearPh(); return; }
+  e.preventDefault();
+  e.dataTransfer.dropEffect = drag.kind === "new" ? "copy" : "move";
+  const kids = [...list.children].filter(c => c.classList.contains("b") && c !== drag.el);
+  let before = null;
+  for(const k of kids){ const r = k.getBoundingClientRect(); if(e.clientY < r.top + r.height / 2){ before = k; break; } }
+  if(!ph){ ph = document.createElement("div"); ph.className = "drop-ph"; }
+  if(ph.parentNode !== list || ph.nextSibling !== before) list.insertBefore(ph, before);
+  dropAt = {listId:list.dataset.list, beforeId:before?.dataset.bid || null};
+});
+document.addEventListener("drop", e => {
+  if(!drag || !dropAt) return;
+  e.preventDefault();
+  const target = reg.get(dropAt.listId);
+  if(target){
+    snap();
+    let b;
+    if(drag.kind === "new") b = makeBlock(drag.type, ed.app);
+    else { const loc = locate(ed.app.blocks, drag.id); if(loc){ b = loc.b; loc.list.splice(loc.i, 1); } }
+    if(b){
+      let idx = dropAt.beforeId ? target.findIndex(x => x.id === dropAt.beforeId) : -1;
+      if(idx < 0) idx = target.length;
+      target.splice(idx, 0, b);
+      ed.sel = b.id;
+    }
+  }
+  clearPh(); drag = null;
+  renderCanvas(); renderInspector();
+});
+document.addEventListener("dragend", () => {
+  if(drag?.el) drag.el.classList.remove("dragging");
+  clearPh(); drag = null;
+});
+
+go({name:"start"});
+</script>
