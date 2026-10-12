@@ -3,7 +3,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { kiFragen } from "@/lib/ki";
-import { abmelden, graphToken } from "@/lib/ki/auth";
+import { abmelden, anmeldenWeiterleitung, graphToken } from "@/lib/ki/auth";
 import { copilotVerbindung, redirectUri, testVerbindungSetzen } from "@/lib/ki/config";
 import { letzteMessung, letzteRohantwort } from "@/lib/ki/copilot";
 import { kiModusGeaendert } from "./KiSchluessel";
@@ -69,6 +69,8 @@ export function KiCopilotStatus({ konto, onKonto }: { konto: string | null; onKo
   const [ergebnis, setErgebnis] = useState<{ ok: boolean; text: string; technisch?: string } | null>(null);
   const testen = async () => {
     setErgebnis(null);
+    // Ohne Konto: per Weiterleitung anmelden (kein Pop-up); die Seite kommt danach zurück
+    if (!konto) { setLaeuft("anmelden"); try { await anmeldenWeiterleitung(); return; } catch (e) { setErgebnis({ ok: false, text: e instanceof Error ? e.message : String(e) }); setLaeuft(""); return; } }
     try {
       setLaeuft("anmelden");
       await graphToken();

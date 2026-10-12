@@ -4,8 +4,11 @@ import { KoerberLogo } from "./KoerberLogo";
 import { KiSchluessel, useKiModus } from "./KiSchluessel";
 import { KiCopilotEinrichten, KiCopilotStatus } from "./KiCopilot";
 import { aktuellesKonto } from "@/lib/ki/auth";
-import { copilotVorwaermen } from "@/lib/ki/copilot";
+import { Anmeldung } from "./Anmeldung";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+
+/** Initialen aus dem Anzeigenamen („Dario Keller“ → „DK“) */
+const initialen = (name: string) => name.split(/\s+/).filter(Boolean).slice(0, 2).map((t) => t[0]!.toUpperCase()).join("");
 
 export function Shell() {
   const loc = useLocation();
@@ -13,8 +16,6 @@ export function Shell() {
   const [konto, setKonto] = useState<string | null>(null);
   const kontoLaden = () => { aktuellesKonto().then((k) => setKonto(k?.name ?? null)).catch(() => setKonto(null)); };
   useEffect(kontoLaden, [loc.pathname, modus]);
-  // Beim Start still anmelden und ein Copilot-Gespräch vorbereiten, damit der erste KI-Aufruf sofort startet
-  useEffect(() => { if (modus === "copilot") copilotVorwaermen().then((ok) => { if (ok) kontoLaden(); }, () => undefined); }, [modus]);
   // Fenstertitel je Bereich; App-Seiten setzen ihren eigenen
   useEffect(() => {
     if (loc.pathname.startsWith("/app/")) return;
@@ -42,7 +43,7 @@ export function Shell() {
           <Popover>
             <PopoverTrigger asChild>
               <button type="button" className="ki-pill" data-modus={modus} data-angemeldet={modus === "copilot" && !konto ? "nein" : undefined}>
-                <i aria-hidden="true" />
+                {modus === "copilot" && konto ? <span className="ki-avatar" aria-hidden="true">{initialen(konto)}</span> : <i aria-hidden="true" />}
                 <span className="ki-pill-text">{modus === "copilot" ? (konto ? `Copilot · ${konto}` : "Copilot · nicht angemeldet") : modus === "claude-test" ? "Testmodus mit Claude" : modus === "claude-api" ? "Claude (eigener Schlüssel)" : "KI-Simulation"}</span>
               </button>
             </PopoverTrigger>
@@ -78,7 +79,9 @@ export function Shell() {
         </div>
       </header>
       <main id="inhalt" tabIndex={-1} className={`wrap page ${imBaukasten ? "wide" : ""}`}>
-        <Outlet />
+        <Anmeldung aktiv={modus === "copilot"} onAngemeldet={kontoLaden}>
+          <Outlet />
+        </Anmeldung>
       </main>
       <footer className="fuss">
         <div className={`wrap fuss-in ${imBaukasten ? "wide" : ""}`}>

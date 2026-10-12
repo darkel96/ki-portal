@@ -13,6 +13,8 @@ test("Copilot im KI-Menü einrichten", async ({ page }) => {
   await page.getByRole("button", { name: "Copilot einrichten" }).click();
   await expect(page.locator(".ki-pill")).toContainText("Copilot");
   await expect(page.getByRole("button", { name: "Jetzt anmelden" })).toBeVisible();
+  // Mit Copilot-Anbindung ist der Hub erst nach der Anmeldung nutzbar: das Anmeldetor erscheint (Testverbindung leitet nie von selbst weiter)
+  await expect(page.getByRole("button", { name: "Mit Firmenkonto anmelden" })).toBeVisible();
   await page.getByText("Technische Angaben").click();
   await page.getByRole("button", { name: "Entfernen" }).click();
   await expect(page.locator(".ki-pill")).toContainText("KI-Simulation");
