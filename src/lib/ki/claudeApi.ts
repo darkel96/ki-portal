@@ -31,7 +31,7 @@ function anthropic(): Anthropic {
   return client;
 }
 
-export async function claudeApiFragen(text: string, opts: { signal?: AbortSignal; modell?: "quick" | "default" | "complex" } = {}): Promise<string> {
+export async function claudeApiFragen(text: string, opts: { signal?: AbortSignal; modell?: "quick" | "default" | "complex"; onTeil?: (text: string) => void } = {}): Promise<string> {
   if (!apiSchluessel()) throw new Error("Kein API-Schlüssel eingetragen.");
   try {
     const stream = anthropic().beta.messages.stream({
@@ -43,6 +43,7 @@ export async function claudeApiFragen(text: string, opts: { signal?: AbortSignal
       fallbacks: "default",
       messages: [{ role: "user", content: text }],
     }, { signal: opts.signal });
+    if (opts.onTeil) { let bisher = ""; stream.on("text", (stueck) => { bisher += stueck; opts.onTeil!(bisher); }); }
     const antwort = await stream.finalMessage();
     if (antwort.stop_reason === "refusal") throw new Error("Die KI hat diese Anfrage abgelehnt. Formuliere die Eingaben anders.");
     const ergebnis = antwort.content.map((b) => (b.type === "text" ? b.text : "")).join("").trim();

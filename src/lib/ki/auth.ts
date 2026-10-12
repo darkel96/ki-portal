@@ -21,7 +21,9 @@ function app(): Promise<IPublicClientApplication> {
         // Neben der App, auch wenn sie in einem Unterordner liegt (z. B. GitHub Pages unter /ki-portal/)
         redirectUri: redirectUri(),
       },
-      cache: { cacheLocation: "sessionStorage" },
+      // Angemeldet bleiben über Tabs und Neustarts hinweg; MSAL verschlüsselt den Zwischenspeicher
+      // mit einem Schlüssel, der mit der Browsersitzung endet.
+      cache: { cacheLocation: "localStorage" },
     }),
   };
   return pca.app;
@@ -91,6 +93,27 @@ export async function graphToken(scopes?: string[]): Promise<string> {
     }
   } catch (e) {
     throw anmeldefehler(e);
+  }
+}
+
+/**
+ * Token ohne jedes Fenster, für das Vorwärmen beim Seitenstart: aus dem Zwischenspeicher bzw. per
+ * Refresh-Token, sonst per Single Sign-on über die bestehende Microsoft-Sitzung des Browsers.
+ * Gibt null zurück, wenn das nicht reicht; dann meldet sich die Person beim ersten KI-Aufruf an.
+ */
+export async function graphTokenStill(): Promise<string | null> {
+  const v = copilotVerbindung();
+  if (!v) return null;
+  const a = await app();
+  const konto = a.getActiveAccount() ?? a.getAllAccounts()[0] ?? null;
+  try {
+    const r = konto
+      ? await a.acquireTokenSilent({ scopes: v.scopes, account: konto })
+      : await a.ssoSilent({ scopes: v.scopes });
+    a.setActiveAccount(r.account);
+    return r.accessToken;
+  } catch {
+    return null;
   }
 }
 
