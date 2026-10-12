@@ -49,3 +49,10 @@
 
 /* KI-Ablauf ohne Schritte */
 .ki-leer { display: flex; flex-direction: column; gap: 12px; align-items: flex-start; }
+
+/* KI-Assistent: Bei langem Wunsch gibt das Eingabefeld Platz ab und scrollt in sich, „Umsetzen“ bleibt immer sichtbar */
+.bld-mitte > .ai-box { overflow: hidden; }
+.ai-inhalt { flex: 1 1 auto; min-height: 0; }
+.ai-inhalt > * { flex: none; }
+.ai-box .ai-inhalt > textarea[data-slot="textarea"] { flex: 0 1 auto; min-height: calc(3lh + 18px); }
+.ai-inhalt > .ai-log { flex: 0 1 auto; min-height: 0; overflow: auto; overscroll-behavior: contain; scrollbar-width: thin; }
