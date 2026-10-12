@@ -4,6 +4,8 @@ import { claudeDownloads } from "./ki/claudeTest";
 export const MAX_TEXT = 60_000;
 export const FILE_ACCEPT = ".txt,.csv,.md,.json,.xml,.html,.vtt,.xlsx,.docx,.pdf,text/*";
 
+const TEXT_ENDUNGEN = /\.(txt|csv|md|markdown|json|xml|html?|vtt)$/;
+
 export class UnsupportedFormatError extends Error {}
 
 /** Liest Word, Excel, PDF und Textdateien als Text. Bibliotheken werden erst bei Bedarf geladen. */
@@ -31,7 +33,8 @@ export async function extractText(file: File): Promise<string> {
     }
     return out.join("\n\n");
   }
-  if (/\.(xls|doc|ppt|pptx|msg)$/.test(n)) throw new UnsupportedFormatError(n);
+  // Nur bekannte Textformate (siehe FILE_ACCEPT) werden als Text gelesen; alles andere (.exe, .pptx, Bilder …) wird abgelehnt
+  if (!TEXT_ENDUNGEN.test(n) && !file.type.startsWith("text/")) throw new UnsupportedFormatError(n);
   return file.text();
 }
 

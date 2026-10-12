@@ -10,7 +10,7 @@ import { saveFile } from "@/lib/files";
 import { DATEI_ART, DATEI_ARTEN, dateiErzeugen, dateiName, type DateiArt } from "@/lib/dokument";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Check, ChevronDown, Copy, Download, RotateCcw } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { initials, slug, stepsFor, walk } from "@/lib/model";
 import { useRun } from "./runContext";
 import type { Mode } from "./BlockContent";
@@ -102,7 +102,7 @@ function TeamLogView({ o, app, stepId }: { o: OutState; app: App; stepId: string
       <AnimatePresence initial={false}>
         {o.team.map((e, i) => e.art === "moderation" ? (
           <motion.li key={i} className="team-mod" initial={{ opacity: 0 }} animate={{ opacity: 1, transition: { duration: 0.15, ease: EASE_OUT } }}>
-            <span>Runde {e.runde}: Moderation gibt das Wort an <b>{e.naechster}</b>. {e.begruendung}</span>
+            <span>Runde {e.runde}: Moderation gibt das Wort an <b>{e.naechster}</b>{e.auftrag ? <>: „{e.auftrag}“</> : "."} {e.begruendung}</span>
           </motion.li>
         ) : (
           <motion.li key={i} className="team-msg" initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0, transition: { duration: 0.2, ease: EASE_OUT } }}>
@@ -122,6 +122,15 @@ export function OutputView({ app, titel, stepId, stil, mode }: { app: App; titel
   const run = useRun();
   const step = app.steps.find((s) => s.id === stepId);
   const o = run?.outs[stepId];
+  const team = step?.art === "team";
+  // Agenten-Team: Das fertige Ergebnis ins Bild holen, es steht über dem (dann eingeklappten) Verlauf
+  const ergebnisRef = useRef<HTMLDivElement>(null);
+  const warLaeuft = useRef(false);
+  useEffect(() => {
+    if (!team) return;
+    if (o?.status === "laeuft") warLaeuft.current = true;
+    else if (warLaeuft.current && o?.text) { warLaeuft.current = false; ergebnisRef.current?.scrollIntoView({ block: "start", behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" }); }
+  }, [team, o?.status, o?.text]);
   let body: React.ReactNode;
   if (mode === "edit") body = <p className="o-muted">{step ? `Zeigt das Ergebnis von „${step.name}“.` : "Noch kein KI-Schritt gewählt."}</p>;
   else if (!o) {
@@ -129,15 +138,15 @@ export function OutputView({ app, titel, stepId, stil, mode }: { app: App; titel
     walk(app.blocks, (b) => { if (!knopf && b.type === "button" && step && stepsFor(app, b.props.aktion).includes(step)) knopf = b.props.text; });
     body = <p className="o-muted">{knopf ? `Das Ergebnis erscheint hier, sobald du „${knopf}“ startest.` : "Das Ergebnis erscheint hier."}</p>;
   }
-  else if (o.status === "laeuft" && step?.art !== "team" && !o.text) body = <p className="o-muted">KI arbeitet\u00a0…</p>;
+  else if (o.status === "wartet") body = <p className="o-muted">{run?.laeuft ? "Wartet, bis die vorherigen Schritte fertig sind\u00a0…" : "Noch nicht erstellt."}</p>;
+  else if (o.status === "laeuft" && !team && !o.text) body = <p className="o-muted">KI arbeitet\u00a0…</p>;
   else if (o.status === "simuliert") body = <><p className="o-muted" style={{ color: "var(--tool-text)" }}>Simulation: Diese Anfrage würde an die zentrale KI-Anbindung gehen.</p>{o.req && <pre className="code o-sim">{o.req.nachricht}</pre>}<p className="o-muted">Den vollständigen Aufbau zeigen die technischen Details.</p></>;
   else if (o.status === "uebersprungen") body = <p className="o-muted">{o.meldung}</p>;
   else body = (
     <>
-      {step?.art === "team" && <TeamLogView o={o} app={app} stepId={stepId} />}
-      {step?.art === "team" && o.status === "laeuft" && <p className="o-muted">Das Team arbeitet\u00a0…</p>}
+      {team && o.text && <div ref={ergebnisRef} className="team-erg-kopf"><h3 className="o-h o-h3">Ergebnis</h3>{o.status === "fertig" && o.meldung && <p className="o-muted">{o.meldung}</p>}</div>}
       {o.text && (o.paket ? (
-        <div className={step?.art === "team" ? "team-result" : undefined}>
+        <div className={team ? "team-result" : undefined}>
           {o.paket.hinweis && <p>{o.paket.hinweis}</p>}
           <p className="o-muted">{o.paket.dateien.length} Dateien im Paket</p>
           <pre className="code">{treeText(o.paket.dateien.map((f) => f.pfad))}</pre>
@@ -153,11 +162,18 @@ export function OutputView({ app, titel, stepId, stil, mode }: { app: App; titel
           ))}
         </div>
       ) : step?.format !== "dateien" && (
-        <div className={`o-body ${step?.art === "team" ? "team-result" : ""}`} dangerouslySetInnerHTML={{ __html: renderResult(o.text, step?.format ?? "markdown") }} />
+        <div className={`o-body ${team ? "team-result" : ""}`} dangerouslySetInnerHTML={{ __html: renderResult(o.text, step?.format ?? "markdown") }} />
       ))}
-      {o.status === "laeuft" && step?.art !== "team" && <p className="o-muted">KI schreibt\u00a0…</p>}
+      {o.status === "laeuft" && !team && <p className="o-muted">KI schreibt\u00a0…</p>}
       {o.status === "fehler" && o.meldung && <p className="o-err" role="alert">{o.meldung}</p>}
       {o.status === "gestoppt" && <p className="o-muted">Gestoppt.</p>}
+      {team && o.status === "laeuft" && <p className="o-muted">Das Team arbeitet\u00a0…</p>}
+      {team && !!o.team?.length && (() => { const n = o.team.filter((e) => e.art === "beitrag").length; return (
+        <details className="team-verlauf" open={o.status === "laeuft"}>
+          <summary>Verlauf ({n} {n === 1 ? "Beitrag" : "Beiträge"})</summary>
+          <TeamLogView o={o} app={app} stepId={stepId} />
+        </details>
+      ); })()}
     </>
   );
 

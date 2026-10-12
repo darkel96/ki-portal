@@ -1,4 +1,4 @@
-import type { CSSProperties, ReactNode } from "react";
+import { useRef, type CSSProperties, type ReactNode } from "react";
 import type { App, Block } from "@/lib/schema";
 import { inkFor } from "@/lib/model";
 import { FILE_ACCEPT } from "@/lib/files";
@@ -13,6 +13,7 @@ const alignStyle = (align?: string, color?: string): CSSProperties => ({ textAli
 
 function Field({ b, mode }: { b: Extract<Block, { type: "input" | "textarea" | "select" | "radio" | "checkbox" | "number" | "date" | "file" }>; mode: Mode }) {
   const run = useRun();
+  const dateiInput = useRef<HTMLInputElement>(null);
   const P = b.props;
   const id = `in-${P.key}`;
   const dis = mode === "edit";
@@ -46,11 +47,22 @@ function Field({ b, mode }: { b: Extract<Block, { type: "input" | "textarea" | "
       </div>);
     case "number": ctl = <input type="number" {...common} placeholder={P.placeholder} value={String(v ?? "")} onChange={(e) => set(e.target.value)} />; break;
     case "date": ctl = <input type="date" {...common} value={String(v ?? "")} onChange={(e) => set(e.target.value)} />; break;
-    case "file": ctl = (
-      <>
-        <input type="file" {...common} accept={FILE_ACCEPT} className="o-file" onChange={(e) => run?.setDatei(P.key, e.target.files?.[0] ?? null)} />
-        {run?.dateiInfo[P.key] && <span className={run.dateiFehler?.has(P.key) ? "o-err" : "o-help"} aria-live="polite">{run.dateiInfo[P.key]}</span>}
-      </>); break;
+    case "file": {
+      // Natives Feld versteckt (Label/htmlFor und Tastatur bleiben), sichtbar: Knopf, Dateiname bzw. Status, Entfernen
+      const info = run?.dateiInfo[P.key] ?? "";
+      const gewaehlt = !!run?.files[P.key] || !!info;
+      ctl = (
+        <>
+          <input ref={dateiInput} type="file" {...common} accept={FILE_ACCEPT} className="o-file-nativ" tabIndex={-1}
+            onChange={(e) => run?.setDatei(P.key, e.target.files?.[0] ?? null)} />
+          <div className="o-file">
+            <button type="button" className="o-file-btn" disabled={dis} tabIndex={dis ? -1 : undefined} aria-describedby={described} aria-invalid={err || undefined}
+              aria-label={`${P.label}: Datei auswählen`} onClick={() => dateiInput.current?.click()}>{gewaehlt ? "Andere Datei" : "Datei auswählen"}</button>
+            <span className={run?.dateiFehler?.has(P.key) ? "o-err" : "o-help o-file-stand"} aria-live="polite">{info || "Keine Datei ausgewählt"}</span>
+            {gewaehlt && <button type="button" className="o-file-weg" disabled={dis} aria-label={`${P.label}: Datei entfernen`} onClick={() => { if (dateiInput.current) dateiInput.current.value = ""; run?.setDatei(P.key, null); }}>Entfernen</button>}
+          </div>
+        </>); break;
+    }
     default: ctl = <input type="text" {...common} placeholder={P.placeholder} value={String(v ?? "")} onChange={(e) => set(e.target.value)} />;
   }
   return (
