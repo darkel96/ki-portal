@@ -1,0 +1,36 @@
+/* Mein Hub und Dialoge: Ergänzungen zur Charlestown-Gestaltung (nach app.css geladen) */
+
+/* Kopf wie auf der Startseite, aber knapper, weil die Seite nie scrollt */
+.mh-hero { flex: none; padding-block: 26px 22px; }
+.mh-hero .lede b { color: var(--ink); font-weight: 600; }
+.mh-steuerung { display: flex; align-items: center; justify-content: flex-end; gap: 10px 16px; flex-wrap: wrap; }
+@media (max-width: 900px) { .mh-steuerung { justify-content: flex-start; } }
+@media (max-width: 560px) { .mh-hero { padding-block: 14px 12px; } }
+
+/* Reiter: Inhalt füllt die Restfläche */
+.mh-reiter { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 14px; }
+.mh-tab { flex: 1; min-height: 0; display: flex; flex-direction: column; font-size: inherit; }
+
+/* Karten wie die Kacheln der Startseite */
+.mh-karte { padding: 18px 20px; border-radius: var(--k-radius-card); box-shadow: var(--k-shadow-card); }
+.mh-karte[data-laeuft] { box-shadow: var(--k-shadow-card), inset 0 0 0 1px var(--signal); }
+.mh-lauf { --app-radius: var(--k-radius-card); box-shadow: var(--k-shadow-card); }
+/* Kopf und Fuß bleiben immer sichtbar, nur die Mitte gibt Platz ab */
+.mh-karte-kopf, .mh-fuss { flex-shrink: 0; }
+.mh-vorlagen, .mh-letzter, .mh-kv { flex-shrink: 1; min-height: 0; overflow: hidden; }
+.mh-vorlagen a.var { text-decoration: none; }
+/* Entfernen: 36 px Trefferfläche, optisch bündig mit dem Kartenrand */
+.mh-x { width: 36px; height: 36px; margin: -8px -10px 0 0; }
+.mh-aktiv { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted-ink); flex: none; cursor: pointer; }
+@media (max-width: 560px) {
+  .mh-karte { padding: 12px 14px; gap: 8px; }
+  .mh-vorlagen, .mh-letzter { display: none; }
+}
+
+/* Auftragsdialog als Formular: gleicher Abstand wie im Dialog */
+.mh-form { display: grid; gap: 16px; min-width: 0; }
+
+/* Fehlerseiten im Stil der Startseite; der Hinweis bleibt auch auf dem Handy sichtbar */
+.hero-meldung .hero-links { display: flex; gap: 16px; margin: 6px 0 0; }
+button.link-back { border: 0; background: none; padding: 0; font: inherit; font-size: 14px; cursor: pointer; }
+@media (max-width: 560px) { .hero-meldung .lede { display: block; } }

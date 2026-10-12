@@ -7,6 +7,8 @@ export type RunCtx = {
   setWert: (key: string, v: string | boolean) => void;
   files: Record<string, FileInfo>;
   dateiInfo: Record<string, string>;
+  /** Dateifelder, deren Datei nicht gelesen werden konnte */
+  dateiFehler?: Set<string>;
   setDatei: (key: string, f: File | null) => void;
   fehler: Set<string>;
   outs: Record<string, OutState>;

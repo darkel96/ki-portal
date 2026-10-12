@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { Link, useSearchParams } from "react-router";
 import { Input } from "@/components/ui/input";
 import { useApps } from "@/state/apps";
@@ -40,7 +40,8 @@ export function Tile({ a, mono }: { a: HubApp; mono: string }) {
       </span>
       <span className="tile-desc">{a.beschreibung || "Noch keine Beschreibung."}</span>
       <span className="tile-foot">
-        <span className="status" data-s={status}>{a._src !== "vorlage" && status === "freigegeben" ? "Eigene" : STATUS_TILE[status]}</span>
+        {/* Vorlagen sind immer bereit; ein Status erscheint nur, wenn er etwas aussagt */}
+        {a._src === "vorlage" ? <span /> : <span className="status" data-s={status}>{status === "freigegeben" ? "Eigene" : STATUS_TILE[status]}</span>}
         <span className="tile-go">{nf === 0 ? "Ohne Eingaben" : `${nf} ${nf === 1 ? "Feld" : "Felder"} zum Ausfüllen`}<ArrowRight size={16} aria-hidden="true" /></span>
       </span>
     </Link>
@@ -62,7 +63,12 @@ export function HubPage() {
   const suche = useRef<HTMLInputElement>(null);
   const feld = useRef<HTMLDivElement>(null);
   const { spalten, zeilen, hoehe, abstand } = useRaster(feld, { breite: 300, hoehe: 196, maxHoehe: 236, hoeheSchmal: 112, abstand: 20, abstandSchmal: 10 });
-  const [seite, setSeite] = useState(0);
+  // Seite steht in der Adresse: Nach dem Öffnen einer App führt „Zurück“ wieder hierher
+  const seite = Math.max(0, Number(sp.get("seite") ?? 1) - 1) || 0;
+  const setSeite = (i: number | ((alt: number) => number)) => {
+    const n = typeof i === "function" ? i(seite) : i;
+    setSp((p) => { const x = new URLSearchParams(p); if (n > 0) x.set("seite", String(n + 1)); else x.delete("seite"); return x; }, { replace: true });
+  };
 
   const liste = apps.filter((a) => (aktiv === "Alle" || a.bereich === aktiv) && (!query || [a.name, a.beschreibung, a.bereich].join(" ").toLowerCase().includes(query)));
   const proSeite = spalten * zeilen;
@@ -71,8 +77,9 @@ export function HubPage() {
   const akt = Math.min(seite, seiten - 1);
   const sichtbar = eintraege.slice(akt * proSeite, (akt + 1) * proSeite);
 
-  // Neuer Filter oder neue Suche: wieder vorn anfangen.
-  useEffect(() => setSeite(0), [aktiv, query]);
+  // Neuer Filter oder neue Suche: wieder vorn anfangen (nicht beim ersten Laden, sonst ginge die gemerkte Seite verloren).
+  const ersterFilter = useRef(true);
+  useEffect(() => { if (ersterFilter.current) { ersterFilter.current = false; return; } setSeite(0); }, [aktiv, query]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     const h = (e: KeyboardEvent) => {
       if (e.key === "/" && !e.ctrlKey && !e.metaKey && !(e.target as HTMLElement).closest("input,textarea,select,[contenteditable]")) {
@@ -84,7 +91,7 @@ export function HubPage() {
     };
     window.addEventListener("keydown", h);
     return () => window.removeEventListener("keydown", h);
-  }, [akt, seiten]);
+  }, [akt, seiten]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const eigene = apps.filter((a) => a._src !== "vorlage").length;
   return (
@@ -96,9 +103,9 @@ export function HubPage() {
           <p className="lede">Der gemeinsame Einstieg für alle Bereiche. Eine Kachel wählen und direkt arbeiten, oder dir von der KI eine eigene Applikation bauen lassen.</p>
         </div>
         <dl className="zahlen">
-          <div><dt>Applikationen</dt><dd>{apps.length}</dd></div>
-          <div><dt>Bereiche</dt><dd>{bereiche.length}</dd></div>
-          <div className="blau"><dt>eigene</dt><dd>{eigene}</dd></div>
+          <div><dt>Applikationen</dt><dd>{geladen ? apps.length : "–"}</dd></div>
+          <div><dt>Bereiche</dt><dd>{geladen ? bereiche.length : "–"}</dd></div>
+          <div className="blau"><dt>Eigene</dt><dd>{geladen ? eigene : "–"}</dd></div>
         </dl>
       </section>
       {fehler && <p role="alert" className="hint" style={{ color: "var(--danger)" }}>{fehler}</p>}
@@ -120,19 +127,25 @@ export function HubPage() {
             </select>
           </label>
           <div className="search">
-            <span className="hint" aria-live="polite">{query ? `${liste.length} Treffer für „${q.trim()}“` : `${liste.length} ${liste.length === 1 ? "Applikation" : "Applikationen"}`}</span>
+            <span className="hint" aria-live="polite">{!geladen ? "" : query ? `${liste.length} Treffer für „${q.trim()}“` : `${liste.length} ${liste.length === 1 ? "Applikation" : "Applikationen"}`}</span>
             <label>
               <span className="sr-only">Applikationen durchsuchen</span>
-              <Input ref={suche} type="search" aria-keyshortcuts="/" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Suchen, z. B. Protokoll  ( / )" autoComplete="off" />
+              <Input ref={suche} type="search" aria-keyshortcuts="/" value={q} onChange={(e) => setQ(e.target.value)} name="q" placeholder="Suchen, z. B. Protokoll …" autoComplete="off" />
             </label>
+            <kbd className="kbd nur-breit" aria-hidden="true" title="Taste / springt in die Suche">/</kbd>
           </div>
         </div>
-        {!geladen && <p className="empty">Applikationen werden geladen …</p>}
-        {geladen && !liste.length && <p className="empty">Keine Applikation passt zu „{q.trim() || aktiv}“. Lass dir eine passende bauen.</p>}
+        {!geladen && <p className="empty">Applikationen werden geladen\u00a0…</p>}
+        {geladen && !liste.length && (
+          <p className="empty">Keine Applikation passt zu „{q.trim() || aktiv}“.{" "}
+            <button type="button" className="link-back" onClick={() => setSp(new URLSearchParams())}>Suche und Filter zurücksetzen</button>
+            {" "}oder <Link to="/neu" viewTransition className="link-back">lass dir eine passende bauen</Link>.
+          </p>
+        )}
         <div className="tiles-feld" ref={feld}>
           <Blatt id={`${aktiv}|${query}|${akt}|${proSeite}`} className="tiles-blatt">
             <div className="tiles-raster" style={{ gridTemplateColumns: `repeat(${spalten}, minmax(0, 1fr))`, gridAutoRows: `${hoehe}px`, gap: abstand }}>
-              {sichtbar.map((a) => a === "neu" ? (
+              {geladen && sichtbar.map((a) => a === "neu" ? (
                 <div key="neu">
                   <Link to="/neu" viewTransition className="tile tile-new">
                     <span className="plus" aria-hidden="true">+</span>

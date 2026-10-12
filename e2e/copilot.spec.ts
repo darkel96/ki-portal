@@ -11,7 +11,7 @@ test("Copilot im KI-Menü einrichten", async ({ page }) => {
   await page.getByPlaceholder("Client-ID (Anwendungs-ID)").fill("11111111-2222-3333-4444-555555555555");
   await page.getByRole("button", { name: "Copilot einrichten" }).click();
   await expect(page.locator(".ki-pill")).toContainText("Copilot");
-  await expect(page.getByRole("button", { name: "Verbindung testen" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Jetzt anmelden" })).toBeVisible();
   await page.getByText("Technische Angaben").click();
   await page.getByRole("button", { name: "Entfernen" }).click();
   await expect(page.locator(".ki-pill")).toContainText("KI-Simulation");

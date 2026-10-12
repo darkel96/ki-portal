@@ -32,7 +32,7 @@ function Field({ b, mode }: { b: Extract<Block, { type: "input" | "textarea" | "
         {b.props.optionen.map((o) => <option key={o}>{o}</option>)}
       </select>); break;
     case "radio": return (
-      <fieldset className={`o-field ${err ? "err" : ""}`} data-key={P.key} style={{ border: 0, padding: 0, margin: 0 }} aria-describedby={described}>
+      <fieldset className={`o-field ${err ? "err" : ""}`} data-key={P.key} style={{ border: 0, padding: 0, margin: 0 }} role="radiogroup" aria-required={P.pflicht || undefined} aria-invalid={err || undefined} aria-describedby={described}>
         <legend className="o-lbl">{P.label}{req}</legend>
         <div className="o-opts">{b.props.optionen.map((o) => (
           <label key={o}><input type="radio" name={`r-${P.key}`} value={o} disabled={dis} checked={v === o} onChange={() => set(o)} /> {o}</label>
@@ -49,7 +49,7 @@ function Field({ b, mode }: { b: Extract<Block, { type: "input" | "textarea" | "
     case "file": ctl = (
       <>
         <input type="file" {...common} accept={FILE_ACCEPT} className="o-file" onChange={(e) => run?.setDatei(P.key, e.target.files?.[0] ?? null)} />
-        {run?.dateiInfo[P.key] && <span className="o-help" aria-live="polite">{run.dateiInfo[P.key]}</span>}
+        {run?.dateiInfo[P.key] && <span className={run.dateiFehler?.has(P.key) ? "o-err" : "o-help"} aria-live="polite">{run.dateiInfo[P.key]}</span>}
       </>); break;
     default: ctl = <input type="text" {...common} placeholder={P.placeholder} value={String(v ?? "")} onChange={(e) => set(e.target.value)} />;
   }
@@ -57,7 +57,7 @@ function Field({ b, mode }: { b: Extract<Block, { type: "input" | "textarea" | "
     <div className={`o-field ${err ? "err" : ""}`} data-key={P.key}>
       <label htmlFor={id}>{P.label}{req}</label>
       {ctl}{help}
-      {err && <span className="o-err" id={`${id}-fehler`}>Bitte ausfüllen.</span>}
+      {err && <span className="o-err" id={`${id}-fehler`}>{b.type === "select" ? "Bitte auswählen." : b.type === "file" ? "Bitte eine Datei auswählen." : "Bitte ausfüllen."}</span>}
     </div>
   );
 }
@@ -91,7 +91,7 @@ export function BlockContent({ b, app, mode, renderList }: { b: Block; app: App;
     case "columns":
       return <div className="o-cols" style={{ "--n": b.cols?.length ?? 2 } as CSSProperties}>{(b.cols ?? []).map((c, i) => <div className="o-stack" key={i}>{renderList(c, `${b.id}:${i}`)}</div>)}</div>;
     case "button": {
-      // KI-Buttons tragen das KI-Gelb, solange keine eigene Farbe gewählt ist.
+      // KI-Buttons tragen die KI-Farbe (Körber-Blau), solange keine eigene Farbe gewählt ist.
       const c = b.props.color || "var(--signal)";
       const ink = b.props.color ? inkFor(b.props.color) : "var(--signal-ink)";
       const laeuft = run?.laeuft === b.id;
@@ -99,7 +99,8 @@ export function BlockContent({ b, app, mode, renderList }: { b: Block; app: App;
         <div className="o-btn-row" style={{ justifyContent: b.props.align === "center" ? "center" : b.props.align === "right" ? "flex-end" : "flex-start" }}>
           <button type="button" className={`o-btn ${b.props.stil === "outline" ? "outline" : ""}`} style={{ "--btn": c, "--btn-ink": ink } as CSSProperties}
             disabled={mode === "edit" || (!!run?.laeuft && !laeuft)} tabIndex={mode === "edit" ? -1 : undefined}
-            onClick={() => run?.starten(b.id, b.props.aktion)} aria-keyshortcuts={mode === "run" ? "Control+Enter" : undefined} title={mode === "run" ? "Strg+Enter startet den ersten KI-Button" : undefined}>
+            onClick={() => run?.starten(b.id, b.props.aktion)}
+            title={mode === "run" && run?.laeuft && !laeuft ? "Ein anderer Ablauf läuft gerade. Warte, bis er fertig ist, oder stopp ihn." : undefined}>
             {laeuft ? "Stoppen" : b.props.text}
           </button>
         </div>

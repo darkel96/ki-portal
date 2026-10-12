@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from "react";
 import { ArrowDown, ArrowUp, Plus, Trash, Users } from "lucide-react";
-import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -12,7 +11,7 @@ import { FORMAT_LABEL, MODELL_LABEL, QUELL_TYP, buildRequest, graphPreview } fro
 import { KI_ZENTRAL } from "@/lib/ki/config";
 import { kiModus } from "@/lib/ki";
 import { Check, Fld, Sel, TextFld } from "./controls";
-import type { Builder } from "./useBuilder";
+import { geloeschtToast, type Builder } from "./useBuilder";
 
 const DATEI_OPTIONEN: [string, string][] = [["keine", "Keine (nur anzeigen)"], ["pdf", "PDF"], ["docx", "Word (.docx)"], ["xlsx", "Excel (.xlsx)"], ["pptx", "PowerPoint (.pptx)"], ["wunsch", "Wie in Aufgabe oder Eingabe verlangt"]];
 const BED_OP: [NonNullable<Step["bedingung"]>["op"], string][] = [["gleich", "ist gleich"], ["ungleich", "ist nicht"], ["gefuellt", "ist ausgefüllt"], ["leer", "ist leer"]];
@@ -28,7 +27,7 @@ function insertAt(el: HTMLTextAreaElement | null, text: string, apply: (v: strin
 
 function VarChips({ app, i, onInsert }: { app: App; i: number; onInsert: (t: string) => void }) {
   return (
-    <div className="vars" aria-label="Platzhalter einsetzen">
+    <div className="vars" role="group" aria-label="Eingaben und Ergebnisse einsetzen">
       <span className="hint">Einsetzen:</span>
       {fieldsOf(app).map((b) => <button key={b.id} type="button" className="var" title={`Setzt {{${b.props.key}}} ein`} onClick={() => onInsert(`{{${b.props.key}}}`)}><Plus size={11} aria-hidden="true" />{b.props.label}</button>)}
       {fieldsOf(app).filter((b) => b.type === "file").flatMap((b) => DATEI_ZUSATZ.map((z) => (
@@ -50,7 +49,7 @@ function StepKey({ b, i }: { b: Builder; i: number }) {
     s.key = nk;
   });
   return (
-    <Fld label="Name des Ergebnisses" htmlFor={`sk-${b.app.steps[i].id}`}>
+    <Fld label="Name des Ergebnisses" htmlFor={`sk-${b.app.steps[i].id}`} hint="Damit greifen spätere Schritte auf dieses Ergebnis zu.">
       <Input id={`sk-${b.app.steps[i].id}`} className="font-mono text-[13px]" value={v} onChange={(e) => setV(e.target.value)} onBlur={commit} onKeyDown={(e) => { if (e.key === "Enter") commit(); }} />
     </Fld>
   );
@@ -78,7 +77,7 @@ function StepCard({ b, i, onAktiv }: { b: Builder; i: number; onAktiv: (id: stri
         <Input value={s.name} aria-label="Name des Schritts" className="flex-1 font-medium" onChange={(e) => set("name", e.target.value, true)} />
         <Button variant="outline" size="icon-sm" aria-label="Schritt nach vorn" disabled={i === 0} onClick={() => b.change((d) => { [d.steps[i - 1], d.steps[i]] = [d.steps[i], d.steps[i - 1]]; })}><ArrowUp /></Button>
         <Button variant="outline" size="icon-sm" aria-label="Schritt nach hinten" disabled={i === n - 1} onClick={() => b.change((d) => { [d.steps[i + 1], d.steps[i]] = [d.steps[i], d.steps[i + 1]]; })}><ArrowDown /></Button>
-        <Button variant="outline" size="icon-sm" aria-label="Schritt löschen" onClick={() => { onAktiv(b.app.steps[i + 1]?.id ?? b.app.steps[i - 1]?.id ?? null); toast(`„${s.name}“ gelöscht.`, { action: { label: "Rückgängig", onClick: () => b.undo() } }); b.change((d) => {
+        <Button variant="outline" size="icon-sm" aria-label="Schritt löschen" onClick={() => { const vorher = b.aktuell(); onAktiv(b.app.steps[i + 1]?.id ?? b.app.steps[i - 1]?.id ?? null); geloeschtToast(b, vorher, `„${s.name}“ gelöscht.`, () => onAktiv(s.id)); b.change((d) => {
           const id = d.steps[i].id;
           d.steps.splice(i, 1);
           walk(d.blocks, (x) => {
@@ -90,7 +89,7 @@ function StepCard({ b, i, onAktiv }: { b: Builder; i: number; onAktiv: (id: stri
       <Fld label="Art">
         <ToggleGroup type="single" variant="outline" size="sm" value={s.art} className="justify-start" aria-label="Art des Schritts"
           onValueChange={(v) => { if (!v) return; b.change((d) => { const st = d.steps[i]; st.art = v as Step["art"]; if (st.art === "team" && !st.team) st.team = makeStep(d, "team").team; }); }}>
-          <ToggleGroupItem value="prompt" className="rounded-full px-3">Ein Prompt</ToggleGroupItem>
+          <ToggleGroupItem value="prompt" className="rounded-full px-3">Eine KI-Aufgabe</ToggleGroupItem>
           <ToggleGroupItem value="team" className="rounded-full px-3"><Users size={14} aria-hidden="true" />Agenten-Team</ToggleGroupItem>
         </ToggleGroup>
       </Fld>
@@ -122,7 +121,7 @@ function StepCard({ b, i, onAktiv }: { b: Builder; i: number; onAktiv: (id: stri
             <div className="agent-row" key={a.id}>
               <Input aria-label={`Name von Agent ${ai + 1}`} value={a.name} onChange={(e) => setTeam((t) => { t.agenten[ai].name = e.target.value; }, `${a.id}:name`)} />
               <Textarea aria-label={`Rolle von ${a.name}`} rows={2} value={a.rolle} placeholder="Aufgabe und Haltung dieses Agenten" onChange={(e) => setTeam((t) => { t.agenten[ai].rolle = e.target.value; }, `${a.id}:rolle`)} />
-              <Button variant="outline" size="icon-sm" aria-label={`${a.name} entfernen`} disabled={team.agenten.length <= 2} onClick={() => setTeam((t) => { t.agenten.splice(ai, 1); })}><Trash /></Button>
+              <Button variant="outline" size="icon-sm" aria-label={`${a.name} entfernen`} disabled={team.agenten.length <= 2} onClick={() => { const vorher = b.aktuell(); setTeam((t) => { t.agenten.splice(ai, 1); }); geloeschtToast(b, vorher, `„${a.name}“ entfernt.`); }}><Trash /></Button>
             </div>
           ))}
           <div><Button variant="outline" size="sm" disabled={team.agenten.length >= 6} onClick={() => setTeam((t) => { t.agenten.push({ id: rid("g"), name: `Agent ${t.agenten.length + 1}`, rolle: "" }); })}><Plus />Agent hinzufügen</Button></div>
@@ -131,7 +130,7 @@ function StepCard({ b, i, onAktiv }: { b: Builder; i: number; onAktiv: (id: stri
         </TabsContent>
       )}
         <TabsContent value="fein" className="ki-teil">
-      {!team && <TextFld label="Rolle und Regeln für die KI" multiline rows={2} value={s.rolle} placeholder="z. B. Du bist Assistenz im Vertrieb. Du schreibst sachlich und erfindest keine Preise." onChange={(v) => set("rolle", v, true)} />}
+      {!team && <TextFld label="Rolle und Regeln für die KI" multiline rows={2} value={s.rolle} placeholder="z. B. Du bist Assistenz im Vertrieb. Du schreibst sachlich und erfindest keine Preise …" onChange={(v) => set("rolle", v, true)} />}
       <div className="three">
         <StepKey b={b} i={i} />
         <Sel label="Modell" value={s.modell} options={Object.entries(MODELL_LABEL) as [Step["modell"], string][]} onChange={(v) => set("modell", v)} />
@@ -160,15 +159,15 @@ function StepCard({ b, i, onAktiv }: { b: Builder; i: number; onAktiv: (id: stri
       </div>
         </TabsContent>
         <TabsContent value="wissen" className="ki-teil">
-          <TextFld label="Hintergrundwissen als Text" multiline rows={4} value={s.wissen} placeholder="Feste Informationen, die die KI immer kennen soll, z. B. Richtlinien, Produktdaten, Textbausteine." onChange={(v) => set("wissen", v, true)} />
+          <TextFld label="Hintergrundwissen als Text" multiline rows={4} value={s.wissen} placeholder="Feste Informationen, die die KI immer kennen soll, z. B. Richtlinien, Produktdaten, Textbausteine …" onChange={(v) => set("wissen", v, true)} />
           {s.quellen.map((q, qi) => (
             <div className="qrow" key={qi}>
               <select aria-label="Art der Quelle" className="h-9 rounded-[4px] border border-input bg-background px-2 text-sm" value={q.typ} onChange={(e) => b.change((d) => { d.steps[i].quellen[qi].typ = e.target.value as typeof q.typ; })}>
                 {Object.entries(QUELL_TYP).map(([k, t]) => <option key={k} value={k}>{t}</option>)}
               </select>
-              <Input aria-label="Bezeichnung der Quelle" placeholder="z. B. QM-Handbuch" value={q.titel} onChange={(e) => b.change((d) => { d.steps[i].quellen[qi].titel = e.target.value; }, `${s.id}:q${qi}t`)} />
+              <Input aria-label="Bezeichnung der Quelle" placeholder="z. B. QM-Handbuch …" value={q.titel} onChange={(e) => b.change((d) => { d.steps[i].quellen[qi].titel = e.target.value; }, `${s.id}:q${qi}t`)} />
               <Input aria-label="Adresse der Quelle" placeholder="https://firma.sharepoint.com/sites/QM/Freigegebene Dokumente" value={q.url} onChange={(e) => b.change((d) => { d.steps[i].quellen[qi].url = e.target.value; }, `${s.id}:q${qi}u`)} />
-              <Button variant="outline" size="icon-sm" aria-label="Quelle entfernen" onClick={() => b.change((d) => { d.steps[i].quellen.splice(qi, 1); })}><Trash /></Button>
+              <Button variant="outline" size="icon-sm" aria-label="Quelle entfernen" onClick={() => { const vorher = b.aktuell(); b.change((d) => { d.steps[i].quellen.splice(qi, 1); }); geloeschtToast(b, vorher, `Wissensquelle${q.titel ? ` „${q.titel}“` : ""} entfernt.`); }}><Trash /></Button>
             </div>
           ))}
           <div><Button variant="outline" size="sm" onClick={() => b.change((d) => { d.steps[i].quellen.push({ typ: "sharepoint", titel: "", url: "" }); })}><Plus />Wissensquelle</Button></div>
@@ -183,13 +182,19 @@ function StepCard({ b, i, onAktiv }: { b: Builder; i: number; onAktiv: (id: stri
   );
 }
 
-export function KiTab({ b }: { b: Builder }) {
+/** fokusPruefung: zählt hoch, wenn Speichern an offenen Punkten scheitert; dann Prüfung zeigen (schmal: rechter Bereich). */
+export function KiTab({ b, fokusPruefung = 0 }: { b: Builder; fokusPruefung?: number }) {
   const app = b.app;
   const [aktivId, setAktivId] = useState<string | null>(app.steps[0]?.id ?? null);
   const [ansicht, setAnsicht] = useState<"neutral" | "graph">("neutral");
-  const [seite, setSeite] = useState<"vorschau" | "pruefung" | "anbindung">("vorschau");
-  /** Auf schmalen Bildschirmen: Schritte oder Vorschau und Prüfung. */
-  const [bereich, setBereich] = useState<"schritt" | "info">("schritt");
+  const [seite, setSeite] = useState<"vorschau" | "pruefung" | "anbindung">("pruefung");
+  /** Auf schmalen Bildschirmen: Schritte oder Prüfung und Vorschau. */
+  const [bereich, setBereich] = useState<"schritt" | "info">(fokusPruefung ? "info" : "schritt");
+  useEffect(() => {
+    if (!fokusPruefung) return;
+    setSeite("pruefung");
+    setBereich("info");
+  }, [fokusPruefung]);
   const ai = Math.max(0, app.steps.findIndex((s) => s.id === aktivId));
   const step = app.steps[ai];
   const ctx: Record<string, string> = {};
@@ -210,7 +215,7 @@ export function KiTab({ b }: { b: Builder }) {
     <div className="ki" data-bereich={bereich}>
       <div className="ki-bereiche" role="group" aria-label="Bereich anzeigen">
         <button type="button" aria-pressed={bereich === "schritt"} onClick={() => setBereich("schritt")}>Schritte</button>
-        <button type="button" aria-pressed={bereich === "info"} onClick={() => setBereich("info")}>Vorschau und Prüfung{harte.length ? ` (${harte.length})` : ""}</button>
+        <button type="button" aria-pressed={bereich === "info"} onClick={() => setBereich("info")}>Prüfung und Vorschau{harte.length ? ` (${harte.length})` : ""}</button>
       </div>
       <nav className="panel ki-rail" aria-label="KI-Schritte">
         <h2>KI-Ablauf</h2>
@@ -222,8 +227,8 @@ export function KiTab({ b }: { b: Builder }) {
               <button type="button" aria-current={i === ai ? "step" : undefined} onClick={() => { setAktivId(s.id); setBereich("schritt"); }}>
                 <span className="s-no" aria-hidden="true">{i + 1}</span>
                 <span className="s-name">{s.name}</span>
-                {s.art === "team" && <Users size={13} aria-label="Agenten-Team" />}
-                {offenJe(s) && <i className="ki-offen" aria-label="hat offene Punkte" />}
+                {s.art === "team" && <Users size={13} role="img" aria-label="Agenten-Team" />}
+                {offenJe(s) && <i className="ki-offen" role="img" aria-label="hat offene Punkte" />}
               </button>
             </li>
           ))}
@@ -236,17 +241,24 @@ export function KiTab({ b }: { b: Builder }) {
       </nav>
       <div className="ki-mitte">
         {step ? <StepCard key={step.id} b={b} i={ai} onAktiv={setAktivId} />
-          : <section className="panel ki-karte"><p className="hint" style={{ margin: 0 }}>Noch kein KI-Schritt. Leg links einen Schritt oder ein Agenten-Team an.</p></section>}
+          : <section className="panel ki-karte ki-leer" aria-labelledby="ki-leer-titel">
+              <h3 id="ki-leer-titel">Noch kein KI-Schritt</h3>
+              <p className="hint" style={{ margin: 0 }}>Ein KI-Schritt erledigt eine Aufgabe mit den Eingaben. Ein Agenten-Team erarbeitet ein Ziel in mehreren Runden.</p>
+              <div className="flex flex-wrap gap-2">
+                <Button onClick={() => add("prompt")}><Plus />KI-Schritt anlegen</Button>
+                <Button variant="outline" onClick={() => add("team")}><Users />Agenten-Team anlegen</Button>
+              </div>
+            </section>}
       </div>
       <div className="panel ki-side">
         <Tabs value={seite} onValueChange={(v) => setSeite(v as typeof seite)} className="ki-teile">
           <TabsList variant="line" aria-label="Zusatzinformationen">
-            <TabsTrigger value="vorschau">Anfrage</TabsTrigger>
             <TabsTrigger value="pruefung">Prüfung{w.length ? ` (${w.length})` : ""}</TabsTrigger>
+            <TabsTrigger value="vorschau">Technische Vorschau</TabsTrigger>
             <TabsTrigger value="anbindung">Anbindung</TabsTrigger>
           </TabsList>
           <TabsContent value="vorschau" className="ki-teil">
-            {step && <p className="hint" style={{ margin: 0 }}>Für Schritt {ai + 1}: <b style={{ color: "var(--ink)" }}>{step.name}</b></p>}
+            {step && <p className="hint" style={{ margin: 0 }}>Für Fachleute: die Anfrage von Schritt {ai + 1} (<b style={{ color: "var(--ink)" }}>{step.name}</b>), wie sie an die KI geht.</p>}
             <ToggleGroup type="single" variant="outline" size="sm" value={ansicht} onValueChange={(v) => v && setAnsicht(v as typeof ansicht)} className="justify-start" aria-label="Darstellung der Anfrage">
               <ToggleGroupItem value="neutral" className="rounded-full px-3">Neutral</ToggleGroupItem>
               <ToggleGroupItem value="graph" className="rounded-full px-3">Copilot (Microsoft Graph)</ToggleGroupItem>

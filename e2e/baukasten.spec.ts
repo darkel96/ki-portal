@@ -49,19 +49,19 @@ test.describe("Baukasten", () => {
   test("Seiten: neue Seite anlegen und Baustein auf einen Seiten-Reiter ziehen", async ({ page }) => {
     await page.goto("/baukasten");
     await oben(page).first().waitFor();
-    const reiter = page.getByRole("tab", { name: /Ergebnis/ }).filter({ has: page.locator(".s-no") });
+    const reiter = page.getByRole("group", { name: "Seiten der Applikation" }).getByRole("button", { name: /Ergebnis/ }).filter({ has: page.locator(".s-no") });
     await expect(page.locator(".s-tab")).toHaveCount(2);
     const n = await oben(page).count();
     await ziehen(page, oben(page).first(), reiter);
     // Die Fläche wechselt auf Seite 2, dort liegt jetzt auch der verschobene Baustein.
-    await expect(page.locator(".s-tab").nth(1)).toHaveAttribute("aria-selected", "true");
+    await expect(page.locator(".s-tab").nth(1)).toHaveAttribute("aria-current", "page");
     await expect(oben(page)).toHaveCount(2);
     await page.locator(".s-tab").first().click();
     await expect(oben(page)).toHaveCount(n - 1);
 
     await page.getByRole("button", { name: "Seite" }).filter({ hasText: "Seite" }).last().click();
     await expect(page.locator(".s-tab")).toHaveCount(3);
-    await expect(page.locator(".s-tab").nth(1)).toHaveAttribute("aria-selected", "true");
+    await expect(page.locator(".s-tab").nth(1)).toHaveAttribute("aria-current", "page");
     await expect(page.getByLabel("Titel der Seite")).toBeVisible();
   });
 

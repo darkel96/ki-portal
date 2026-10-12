@@ -14,10 +14,10 @@ export function JsonDialog({ b }: { b: Builder }) {
   const [fehler, setFehler] = useState("");
   return (
     <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (o) { setText(JSON.stringify(b.app, null, 2)); setFehler(""); } }}>
-      <DialogTrigger asChild><Button variant="ghost">Als Datei</Button></DialogTrigger>
+      <DialogTrigger asChild><Button variant="ghost">Exportieren / Importieren …</Button></DialogTrigger>
       <DialogContent className="sm:max-w-3xl">
         <DialogHeader>
-          <DialogTitle>Applikation als JSON</DialogTitle>
+          <DialogTitle>Applikation exportieren oder einfügen (für Fachleute)</DialogTitle>
           <DialogDescription>Kopieren oder speichern, um die Applikation weiterzugeben. Oder eine bearbeitete Fassung einfügen und übernehmen.</DialogDescription>
         </DialogHeader>
         <label htmlFor="json-text" className="sr-only">JSON der Applikation</label>
@@ -25,17 +25,21 @@ export function JsonDialog({ b }: { b: Builder }) {
         {fehler && <p id="json-fehler" role="alert" className="text-sm text-destructive">{fehler}</p>}
         <DialogFooter className="gap-2 sm:justify-between">
           <div className="flex gap-2">
-            <Button variant="outline" onClick={() => void navigator.clipboard?.writeText(text).then(() => toast.success("In die Zwischenablage kopiert."))}>Kopieren</Button>
+            <Button variant="outline" onClick={() => {
+              if (!navigator.clipboard) { toast.error("Kopieren geht hier nicht. Markier den Text und kopier ihn mit Strg+C."); return; }
+              navigator.clipboard.writeText(text).then(() => toast.success("In die Zwischenablage kopiert."))
+                .catch(() => toast.error("Kopieren ist fehlgeschlagen. Markier den Text und kopier ihn mit Strg+C."));
+            }}>Kopieren</Button>
             <Button variant="outline" onClick={() => saveFile(`${slug(b.app.name)}.json`, text, "application/json")}>Als Datei speichern</Button>
           </div>
           <Button onClick={() => {
             let raw: unknown;
-            try { raw = JSON.parse(text); } catch (e) { setFehler(`Das ist kein gültiges JSON: ${e instanceof Error ? e.message : ""}`); return; }
+            try { raw = JSON.parse(text); } catch { setFehler("Der Text ist beschädigt oder unvollständig. Füg die exportierte Fassung unverändert ein."); return; }
             const next = sanitizeApp(raw, b.app);
             b.replace(next);
             b.setSel(null);
             setOpen(false);
-            toast.success("JSON übernommen. Mit Rückgängig kommst du zur vorherigen Fassung zurück.");
+            toast.success("Fassung übernommen. Mit Rückgängig kommst du zur vorherigen zurück.");
           }}>Übernehmen</Button>
         </DialogFooter>
       </DialogContent>

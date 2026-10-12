@@ -31,7 +31,7 @@ test("Mein Hub: Voreinstellung, Auftrag, Ausführen und Verlauf", async ({ page 
 
   // In Mein Hub ausführen
   await page.goto("/mein");
-  await expect(page.getByRole("heading", { name: "Mein Hub" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Deine Apps und Aufträge" })).toBeVisible();
   await expect(page.locator(".mh-karte")).toContainText("Stellenanzeige");
   await expect(page.locator(".mh-vorlagen")).toContainText("Buchhaltung Augsburg");
   await page.getByRole("tab", { name: /Aufträge/ }).click();
@@ -40,7 +40,7 @@ test("Mein Hub: Voreinstellung, Auftrag, Ausführen und Verlauf", async ({ page 
   await page.getByRole("tab", { name: /Verlauf/ }).click();
   const lauf = page.locator(".mh-lauf").first();
   await expect(lauf).toContainText("Wöchentliche Stellenanzeige");
-  await expect(lauf.locator(".status-pill")).toHaveText("fertig");
+  await expect(lauf.locator(".status-pill")).toHaveText(/^fertig$/i);
   await expect.poll(() => page.evaluate(() => document.documentElement.scrollHeight - window.innerHeight)).toBeLessThanOrEqual(1);
   await page.screenshot({ path: `screenshots/${info.project.name}-meinhub.png` });
   await lauf.click();

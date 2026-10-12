@@ -50,7 +50,9 @@ export function Palette({ onAdd }: { onAdd: (t: BlockType) => void }) {
           </div>
         ))}
       </div>
-      <p className="hint" style={{ margin: 0 }}>Ziehen oder anklicken. Auf der Fläche: Leertaste verschiebt, Eingabetaste öffnet die Eigenschaften.</p>
+      <p className="hint pal-hinweis" title="Auf der Fläche: Leertaste verschiebt, Eingabetaste öffnet die Eigenschaften, Entf löscht.">
+        Ziehen oder anklicken<span className="sr-only">. Auf der Fläche: Leertaste verschiebt, Eingabetaste öffnet die Eigenschaften.</span>
+      </p>
     </aside>
   );
 }
@@ -123,6 +125,10 @@ function EditList({ blocks, listId, ctx }: { blocks: Block[]; listId: string; ct
     </SortableContext>
   );
 }
+
+/** Bewegung nur, wenn niemand reduzierte Bewegung eingestellt hat. */
+export const ruhig = () => typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;
+export const scrollArt = (): ScrollBehavior => (ruhig() ? "auto" : "smooth");
 
 /* ---------- Ziehen und Ablegen ---------- */
 const ankuendigungen: Announcements = {
@@ -226,7 +232,7 @@ export function UiDnd({ b, children, onAdded, onSeiteNeu }: { b: Builder; childr
     <DndContext sensors={sensors} collisionDetection={collision} measuring={{ droppable: { strategy: MeasuringStrategy.Always } }} autoScroll={{ threshold: { x: 0, y: 0.12 }, acceleration: 6 }} onDragStart={onDragStart} onDragEnd={onDragEnd} onDragCancel={() => { setAktiv(null); ausgeschlossen.current = new Set(); }}
       accessibility={{ announcements: ankuendigungen, screenReaderInstructions: { draggable: "Leertaste zum Aufnehmen. Pfeiltasten zum Verschieben, Leertaste zum Ablegen, Escape zum Abbrechen. Eingabetaste öffnet die Eigenschaften." } }}>
       {children}
-      <DragOverlay dropAnimation={{ duration: 220, easing: "cubic-bezier(0.34, 1.4, 0.64, 1)" }}>
+      <DragOverlay dropAnimation={ruhig() ? null : { duration: 220, easing: "cubic-bezier(0.34, 1.4, 0.64, 1)" }}>
         {aktiv && <div className="drag-ghost">{label}</div>}
       </DragOverlay>
     </DndContext>
@@ -238,7 +244,7 @@ function SeitenTab({ p, i, aktiv, onWahl }: { p: Block; i: number; aktiv: boolea
   // Reiter sind Ablagestellen: Ein Baustein, der auf einen Reiter gezogen wird, wandert auf diese Seite.
   const { setNodeRef, isOver } = useDroppable({ id: `tab:${p.id}`, data: { listId: `${p.id}:c` } });
   return (
-    <button ref={setNodeRef} type="button" role="tab" aria-selected={aktiv} className="s-tab" data-over={isOver} onClick={onWahl}
+    <button ref={setNodeRef} type="button" aria-current={aktiv ? "page" : undefined} className="s-tab" data-over={isOver} onClick={onWahl}
       title={aktiv ? "Eigenschaften der Seite zeigen" : "Zu dieser Seite wechseln. Bausteine können auf den Reiter gezogen werden."}>
       <span className="s-no" aria-hidden="true">{i + 1}</span><span className="s-name">{seitenTitel(p, i)}</span>
     </button>
@@ -249,7 +255,7 @@ export function SeitenLeiste({ b, seite, onSeite, onNeu }: { b: Builder; seite: 
   const seiten = seitenVon(b.app);
   return (
     <div className="s-bar">
-      <div className="s-tabs" role="tablist" aria-label="Seiten der Applikation">
+      <div className="s-tabs" role="group" aria-label="Seiten der Applikation">
         {seiten.map((p, i) => <SeitenTab key={p.id} p={p} i={i} aktiv={i === seite} onWahl={() => { onSeite(i); b.setSel(p.id); }} />)}
       </div>
       <button type="button" className="s-add" onClick={onNeu} title="Neue Seite hinter der aktuellen einfügen"><Plus size={14} aria-hidden="true" />Seite</button>
@@ -257,22 +263,39 @@ export function SeitenLeiste({ b, seite, onSeite, onNeu }: { b: Builder; seite: 
   );
 }
 
+/**
+ * Feste Teile der App-Ansicht um den Seiteninhalt (geschätzt): Kopfzeile ~64, App-Leiste ~80, Pager ~66,
+ * Fußzeile ~44, Innenabstände von .app-inner ~52.
+ */
+const LAUF_RAHMEN = 306;
+/** Abstände zwischen Bausteinen: in der App (.b-list) und auf der Fläche (.stage .b-list, plus 4px oben). */
+const LAUF_ABSTAND = 14, FLAECHE_ABSTAND = 24, FLAECHE_OBEN = 4;
+
+/** Natürliche Höhe des Seiteninhalts wie in der App: ohne Strecken der Liste und ohne die größeren Abstände der Fläche. */
+function inhaltHoehe(liste: HTMLElement): number {
+  const kinder = [...liste.children] as HTMLElement[];
+  let h = kinder.reduce((s, k) => s + k.offsetHeight, 0) + LAUF_ABSTAND * Math.max(0, kinder.length - 1);
+  liste.querySelectorAll<HTMLElement>(".b-list").forEach((l) => { h -= (FLAECHE_ABSTAND - LAUF_ABSTAND) * Math.max(0, l.children.length - 1) + FLAECHE_OBEN; });
+  return h;
+}
+
 export function Canvas({ b, seite, onDelete, onFocusProp }: { b: Builder; seite: number; onDelete: (id: string) => void; onFocusProp: (id: string) => void }) {
   const ctx = useMemo<EditCtx>(() => ({ b, onDelete, onFocusProp }), [b, onDelete, onFocusProp]);
   const p = seitenVon(b.app)[seite];
   const buehne = useRef<HTMLDivElement>(null);
   const [zuLang, setZuLang] = useState(false);
-  // Hinweis, wenn eine Seite nicht mehr auf den Bildschirm passt: Dann sollte sie aufgeteilt werden.
+  // Hinweis, wenn die Seite in der App-Ansicht nicht auf den Bildschirm passt. Maßstab ist das Fenster, nicht die Fläche:
+  // Die Fläche schrumpft z. B., wenn der KI-Assistent aufgeklappt ist.
   useEffect(() => {
-    const el = buehne.current;
-    if (!el) return;
-    const pruefen = () => setZuLang(el.scrollHeight > el.clientHeight + 8);
+    const liste = buehne.current?.querySelector<HTMLElement>(`[data-list="${p?.id}:c"]`);
+    if (!liste) return;
+    const pruefen = () => setZuLang(inhaltHoehe(liste) > window.innerHeight - LAUF_RAHMEN);
     const ro = new ResizeObserver(pruefen);
-    ro.observe(el);
-    if (el.firstElementChild) ro.observe(el.firstElementChild);
+    [...liste.children].forEach((k) => ro.observe(k));
+    window.addEventListener("resize", pruefen);
     pruefen();
-    return () => ro.disconnect();
-  }, [p?.id]);
+    return () => { ro.disconnect(); window.removeEventListener("resize", pruefen); };
+  }, [p?.id, b.app]);
   if (!p) return null;
   return (
     <div className="stage innen-scroll" ref={buehne} onClick={() => b.setSel(null)}
@@ -286,7 +309,7 @@ export function Canvas({ b, seite, onDelete, onFocusProp }: { b: Builder; seite:
           <EditList blocks={p.children ?? []} listId={`${p.id}:c`} ctx={ctx} />
         </div>
       </div>
-      {zuLang && <p className="s-lang" role="status">Diese Seite ist höher als der Bildschirm. Verschieb einen Teil auf eine neue Seite, dann muss niemand scrollen.</p>}
+      {zuLang && <p className="s-lang" role="status">Diese Seite passt in der App nicht ganz auf den Bildschirm. Verschieb einen Teil mit „+ Seite“ auf eine neue Seite.</p>}
     </div>
   );
 }

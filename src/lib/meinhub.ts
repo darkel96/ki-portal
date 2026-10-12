@@ -137,6 +137,7 @@ export const datumZeit = (iso: string) => (iso ? new Date(iso).toLocaleString("d
 export interface MeinHubSpeicher {
   laden(nutzer: string): Promise<MeinHub>;
   speichern(d: MeinHub): Promise<void>;
+  loeschen(nutzer: string): Promise<void>;
 }
 
 const MAX_LAEUFE = 40;
@@ -162,6 +163,24 @@ export class LokalerMeinHubSpeicher implements MeinHubSpeicher {
       }
     }
   }
+  async loeschen(nutzer: string): Promise<void> {
+    localStorage.removeItem(lsKey(nutzer));
+  }
+}
+
+/** Ist im Speicher etwas Eigenes (z. B. vom lokalen Testnutzer vor der Anmeldung)? */
+export const hatInhalt = (d: MeinHub) => !!(d.pins.length || d.voreinstellungen.length || d.auftraege.length || d.laeufe.length);
+
+/** Daten eines zweiten Speichers übernehmen; bei gleicher ID gewinnt `basis`. */
+export function zusammenfuehren(basis: MeinHub, dazu: MeinHub): MeinHub {
+  const neu = <T, K>(a: T[], b: T[], k: (x: T) => K) => [...a, ...b.filter((x) => !a.some((y) => k(y) === k(x)))];
+  return {
+    ...basis,
+    pins: neu(basis.pins, dazu.pins, (p) => p.appId),
+    voreinstellungen: neu(basis.voreinstellungen, dazu.voreinstellungen, (v) => v.id),
+    auftraege: neu(basis.auftraege, dazu.auftraege, (a) => a.id),
+    laeufe: neu(basis.laeufe, dazu.laeufe, (l) => l.id).sort((x, y) => y.start.localeCompare(x.start)),
+  };
 }
 
 /* ---------- Ausführung ohne Bildschirm ---------- */
