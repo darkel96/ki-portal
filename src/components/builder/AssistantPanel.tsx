@@ -85,12 +85,14 @@ export function AssistantPanel({ b }: { b: Builder }) {
       {/* Außerhalb des Klappbereichs: Meldungen bleiben sichtbar und werden auch zugeklappt angesagt. */}
       <p className="ai-meldung" role="status" data-art={meldung?.art}>{meldung && meldung.art !== "fehler" ? meldung.text : ""}</p>
       {meldung?.art === "fehler" && <p className="ai-meldung" role="alert" data-art="fehler">{meldung.text}</p>}
-      <CollapsibleContent className="flex flex-col gap-2.5">
+      <CollapsibleContent className="ai-inhalt flex flex-col gap-2.5">
       <label htmlFor="assistent-wunsch" className="sr-only">Wunsch an den KI-Assistenten</label>
       <Textarea id="assistent-wunsch" rows={2} value={wunsch} onChange={(e) => setWunsch(e.target.value)} disabled={laeuft}
+        onKeyDown={(e) => { if ((e.ctrlKey || e.metaKey) && e.key === "Enter" && wunsch.trim()) { e.preventDefault(); void umsetzen(); } }} aria-keyshortcuts="Control+Enter"
         placeholder="z. B. Mach daraus ein Formular für Reisekosten mit Datum, Ziel, Betrag und Beleg-Upload. Oben ein Hinweis zum Datenschutz, Akzentfarbe Dunkelblau …" />
-      <div className="ai-sugg">{VORSCHLAEGE.map((v) => <button key={v} type="button" disabled={laeuft} onClick={() => setWunsch(v)}>{v}</button>)}</div>
-      <div className="flex flex-wrap items-center gap-3">
+      {/* Vorschläge nur, solange das Feld leer ist: Sie füllen es ohnehin nur vor und kosten sonst Platz */}
+      {!wunsch.trim() && <div className="ai-sugg">{VORSCHLAEGE.map((v) => <button key={v} type="button" disabled={laeuft} onClick={() => setWunsch(v)}>{v}</button>)}</div>}
+      <div className="ai-aktion flex flex-wrap items-center gap-3">
         {wunsch.trim() && <ToggleGroup type="single" variant="outline" size="sm" value={scope} disabled={laeuft} onValueChange={(v) => v && setScope(v as AssistScope)} aria-label="Was darf die KI ändern?" className="flex-wrap">
           <ToggleGroupItem value="alles" className="rounded-full px-3">Oberfläche und Ablauf</ToggleGroupItem>
           <ToggleGroupItem value="ui" className="rounded-full px-3">Nur Oberfläche</ToggleGroupItem>
@@ -99,6 +101,7 @@ export function AssistantPanel({ b }: { b: Builder }) {
         {laeuft
           ? <Button variant="outline" onClick={() => ctl.current?.abort()}><X aria-hidden="true" />Abbrechen</Button>
           : <Button className="ki-knopf" onClick={() => void umsetzen()}><Sparkles aria-hidden="true" />Umsetzen</Button>}
+        {!laeuft && wunsch.trim() && <span className="hint nur-breit">oder Strg+Enter</span>}
       </div>
       {log.length > 0 && (
         <ul className="ai-log">
