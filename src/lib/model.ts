@@ -289,6 +289,9 @@ export function leereApp(bereich = "Allgemein"): App {
 
 /* ---------- Prüfung ---------- */
 export type Warnung = { text: string; weich: boolean };
+/** Anzeigename eines Schritts bzw. Agenten, auch wenn das Namensfeld leer ist. */
+export const stepName = (s: Pick<Step, "name">, i: number) => s.name.trim() || `KI-Schritt ${i + 1}`;
+export const agentName = (a: { name: string }, i: number) => a.name.trim() || `Agent ${i + 1}`;
 export function appWarnings(app: App): Warnung[] {
   const w: Warnung[] = [];
   const hard = (text: string) => w.push({ text, weich: false });
@@ -297,15 +300,20 @@ export function appWarnings(app: App): Warnung[] {
   if (!app.name.trim()) hard("Gib der Applikation einen Namen.");
   if (!app.steps.length) hard("Leg im KI-Ablauf mindestens einen KI-Schritt an.");
   app.steps.forEach((s, i) => {
+    const nm = stepName(s, i);
+    if (!s.name.trim()) hard(`„${nm}“ braucht einen Namen.`);
     const avail = new Set([...fieldKeys, ...zusatzKeys(app), ...app.steps.slice(0, i).map((x) => x.key)]);
-    for (const k of varsIn(stepText(s))) if (!avail.has(k)) hard(`„${s.name}“ nutzt {{${k}}}. Diese Variable gibt es an dieser Stelle nicht.`);
-    if (!s.prompt.trim()) hard(`„${s.name}“ hat noch keine Aufgabe.`);
-    if (s.bedingung?.feld && !fieldKeys.includes(s.bedingung.feld)) hard(`Die Bedingung von „${s.name}“ verweist auf ein Feld, das es nicht mehr gibt.`);
-    if (s.quellen.some((q) => !q.url.trim())) soft(`„${s.name}“ hat eine Wissensquelle ohne Adresse.`);
+    for (const k of varsIn(stepText(s))) if (!avail.has(k)) hard(`„${nm}“ nutzt {{${k}}}. Diese Variable gibt es an dieser Stelle nicht.`);
+    if (!s.prompt.trim()) hard(`„${nm}“ hat noch keine Aufgabe.`);
+    if (s.bedingung?.feld && !fieldKeys.includes(s.bedingung.feld)) hard(`Die Bedingung von „${nm}“ verweist auf ein Feld, das es nicht mehr gibt.`);
+    if (s.quellen.some((q) => !q.url.trim())) soft(`„${nm}“ hat eine Wissensquelle ohne Adresse.`);
     if (s.art === "team") {
-      if (!s.team || s.team.agenten.length < 2) hard(`Das Agenten-Team „${s.name}“ braucht mindestens zwei Agenten.`);
-      else if (s.team.agenten.some((a) => !a.rolle.trim())) soft(`Im Agenten-Team „${s.name}“ hat ein Agent noch keine Rolle.`);
-      if (!s.team?.ziel.trim()) hard(`Das Agenten-Team „${s.name}“ hat noch kein Ziel.`);
+      if (!s.team || s.team.agenten.length < 2) hard(`Das Agenten-Team „${nm}“ braucht mindestens zwei Agenten.`);
+      else {
+        if (s.team.agenten.some((a) => !a.name.trim())) hard(`Im Agenten-Team „${nm}“ braucht jeder Agent einen Namen.`);
+        if (s.team.agenten.some((a) => !a.rolle.trim())) soft(`Im Agenten-Team „${nm}“ hat ein Agent noch keine Rolle.`);
+      }
+      if (!s.team?.ziel.trim()) hard(`Das Agenten-Team „${nm}“ hat noch kein Ziel.`);
     }
   });
   let hasBtn = false;
@@ -323,7 +331,7 @@ export function appWarnings(app: App): Warnung[] {
   });
   if (app.steps.length && !hasBtn) hard("Auf der Oberfläche fehlt ein KI-Button, der den Ablauf startet.");
   seitenVon(app).forEach((p, i) => { if (!p.children?.length) soft(`Seite ${i + 1} „${(p.props as PropsOf<"seite">).titel}“ ist leer.`); });
-  app.steps.forEach((s) => { if (!outSrc.has(s.id)) soft(`Für „${s.name}“ gibt es kein Ergebnis-Element. Das Ergebnis erscheint als Kachel in der Ergebnisübersicht der App.`); });
+  app.steps.forEach((s, i) => { if (!outSrc.has(s.id)) soft(`Für „${stepName(s, i)}“ gibt es kein Ergebnis-Element. Das Ergebnis erscheint als Kachel in der Ergebnisübersicht der App.`); });
   fieldsOf(app).forEach((b) => { if (!stepsUsing(app, b.props.key).length) soft(`Die Eingabe „${b.props.label}“ geht an keinen KI-Schritt.`); });
   return w;
 }

@@ -35,6 +35,8 @@ export function JsonDialog({ b }: { b: Builder }) {
           <Button onClick={() => {
             let raw: unknown;
             try { raw = JSON.parse(text); } catch { setFehler("Der Text ist beschädigt oder unvollständig. Füg die exportierte Fassung unverändert ein."); return; }
+            // „123“ oder „[]“ sind gültiges JSON, aber keine Applikation.
+            if (!raw || typeof raw !== "object" || Array.isArray(raw) || !("blocks" in raw || "steps" in raw || "name" in raw)) { setFehler("Das ist keine exportierte Applikation. Erwartet wird ein Objekt mit name, blocks und steps."); return; }
             const next = sanitizeApp(raw, b.app);
             b.replace(next);
             b.setSel(null);

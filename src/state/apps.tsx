@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
-import type { App, HubApp } from "@/lib/schema";
+import { AppSchema, type App, type HubApp } from "@/lib/schema";
 import { appStore } from "@/lib/store";
 import { SEED_APPS } from "@/lib/seeds";
 
@@ -40,12 +40,16 @@ export function AppsProvider({ children }: { children: ReactNode }) {
   const save = useCallback(async (app: App) => {
     const def: App = {
       ...app,
+      name: app.name.trim().slice(0, 60),
       id: app.id ?? `app-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`,
       version: (app.version || 0) + 1,
       geaendert: new Date().toISOString(),
       typ: "baukasten",
     };
     delete (def as Partial<HubApp>)._src;
+    // Nur speichern, was sich auch wieder laden lässt.
+    const chk = AppSchema.safeParse(def);
+    if (!chk.success) { const f = chk.error.issues[0]; throw new Error(`Die Applikation kann so nicht gespeichert werden (${f.path.join(".") || "Angabe"}: ${f.message}). Prüf die Angabe im Baukasten.`); }
     await appStore.save(def);
     setEigene((prev) => [...prev.filter((a) => a.id !== def.id), def]);
     return def;

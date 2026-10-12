@@ -169,11 +169,15 @@ export function applyScope(next: App, base: App, scope: AssistScope): App {
   return next;
 }
 
-/** Lädt eine gespeicherte App, auch aus älteren Formaten. */
+/** Lädt eine gespeicherte App, auch aus älteren Formaten. Wirft nie: eine defekte App ergibt null, nicht den Verlust aller anderen. */
 export function loadApp(raw: unknown): App | null {
+  try { return loadAppStrikt(raw); } catch (e) { console.warn("Applikation übersprungen:", e); return null; }
+}
+function loadAppStrikt(raw: unknown): App | null {
   if (!isObj(raw)) return null;
   if (!Array.isArray(raw.blocks) && (Array.isArray(raw.felder) || raw.typ === "link")) return fromSimple(raw as unknown as LegacyApp);
-  const base = AppSchema.parse({ id: typeof raw.id === "string" ? raw.id : null, name: typeof raw.name === "string" && raw.name.trim() ? raw.name : "Ohne Namen" });
+  const name = typeof raw.name === "string" && raw.name.trim() ? raw.name.trim().slice(0, 60) : "Ohne Namen";
+  const base = AppSchema.parse({ id: typeof raw.id === "string" ? raw.id : null, name });
   const app = sanitizeApp(raw, base);
   const meta = AppSchema.pick({ typ: true, url: true, status: true, owner: true, schutz: true, version: true, geaendert: true });
   const m = meta.safeParse({ typ: raw.typ, url: raw.url, status: raw.status, owner: raw.owner, schutz: raw.schutz, version: raw.version, geaendert: raw.geaendert });

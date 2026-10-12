@@ -20,9 +20,9 @@
 }
 .pal-hinweis { margin: 0; line-height: 1.35; cursor: help; }
 
-/* Seiten-Reiter: aktuelle Seite per aria-current statt aria-selected */
-.s-tab[aria-current="page"] { background: var(--brand); color: var(--brand-ink); border-color: var(--brand); }
-.s-tab[aria-current="page"] .s-no { background: var(--bg); }
+/* Seiten-Reiter: aktuelle Seite per aria-current, sanft hinterlegt statt blau gefüllt (nur „Speichern“ bleibt der Primärknopf) */
+.s-tab[aria-current="page"] { background: var(--brand-soft); color: var(--brand-deep); border-color: var(--brand); font-weight: 600; box-shadow: inset 0 -2px 0 var(--brand); }
+.s-tab[aria-current="page"] .s-no { background: var(--brand); color: var(--brand-ink); }
 
 /* Name der App sieht von Anfang an bearbeitbar aus */
 .bld-bar .bar-name { border-color: var(--line) !important; }
@@ -56,3 +56,64 @@
 .ai-inhalt > * { flex: none; }
 .ai-box .ai-inhalt > textarea[data-slot="textarea"] { flex: 0 1 auto; min-height: calc(3lh + 18px); }
 .ai-inhalt > .ai-log { flex: 0 1 auto; min-height: 0; overflow: auto; overscroll-behavior: contain; scrollbar-width: thin; }
+
+/* ===== Nachbesserungen aus dem Audit (A3/A4) ===== */
+/* KI-Assistent: Inhalt scrollt in sich, Vorschläge einzeilig wischbar, „Umsetzen“ als feste Fußzeile – immer sichtbar */
+.bld-mitte > .ai-box .ai-inhalt { overflow: auto; overscroll-behavior: contain; scrollbar-width: thin; }
+.bld-mitte > .ai-box .ai-sugg { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
+.bld-mitte > .ai-box .ai-sugg button { white-space: nowrap; flex: none; }
+.bld-mitte > .ai-box .ai-aktion { position: sticky; bottom: 0; z-index: 1; background: var(--surface); padding-top: 2px; }
+.ai-head h2 { font-size: 18px; margin: 0; }
+.ai-umsetzen svg { color: var(--signal); }
+@media (max-width: 640px) { .ai-box .ai-inhalt > textarea[data-slot="textarea"] { min-height: calc(2lh + 18px); } }
+
+/* Einfügestelle beim Ziehen: Linie vor bzw. hinter dem überfahrenen Baustein (Lücke zwischen Bausteinen ist 24px) */
+.b[data-drop]::after { content: ""; position: absolute; left: 0; right: 0; height: 3px; border-radius: 2px; background: var(--tool); z-index: 4; pointer-events: none; }
+.b[data-drop="before"]::after { top: -14px; }
+.b[data-drop="after"]::after { bottom: -14px; }
+
+/* Laptop (≤850px hoch): Palette ohne Hinweis und mit knapperen Kacheln, damit sie ohne Scrollen passt */
+@media (min-width: 1181px) and (max-height: 850px) {
+  .pal-hinweis { display: none; }
+  .pal .pal-item { padding: 3px 2px; }
+}
+
+/* Tablet mit Touch, mittlere Breite: Beschriftungen zeigen (kein Hover für title), zweispaltig schmal */
+@media (max-width: 1180px) and (min-width: 781px) and (pointer: coarse) {
+  .bld { grid-template-columns: 150px minmax(0, 1fr) 290px; }
+  .pal { padding: 8px !important; align-items: stretch; }
+  .pal .rubrik, .pal .pal-txt { display: block; }
+  .pal .rubrik { font-size: 11px; }
+  .pal-items { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; }
+  .pal-item { flex-direction: column; justify-content: center; gap: 3px; padding: 6px 2px !important; font-size: 11.5px; line-height: 1.15; text-align: center; border-color: var(--line); min-width: 0; }
+  .pal-item .g { width: 22px; height: 22px; }
+}
+
+/* Touch: Tippziele mindestens 40px (Baustein-Werkzeuge, Reiter, Pfeile, Chips, Schrittnamen, Schritt-Kacheln) */
+@media (pointer: coarse) {
+  .b-tools { top: -42px; gap: 4px; }
+  .b-tool { width: 40px; height: 40px; }
+  .bld-bar [data-slot="tabs-list"], .ki-teile [data-slot="tabs-list"] { height: 40px; }
+  .srow-head [data-size="icon-sm"], .agent-row [data-size="icon-sm"], .qrow [data-size="icon-sm"] { width: 40px; height: 40px; }
+  .srow-head input[data-slot="input"] { height: 40px; }
+  .ki-steps button, .s-tab, .s-add, .var, .ai-sugg button, .bld-bereiche button, .ki-bereiche button { min-height: 40px; }
+  .ki [data-slot="toggle-group-item"], .insp [data-slot="toggle-group-item"], .ai-box [data-slot="toggle-group-item"] { min-height: 40px; }
+  .agent-row { grid-template-columns: 160px minmax(0, 1fr) 40px; }
+  .qrow { grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr) minmax(0, 1.6fr) 40px; }
+}
+@media (pointer: coarse) and (max-width: 640px) { .agent-row, .qrow { grid-template-columns: 1fr 40px; } }
+
+/* Schmal: Schrittname in voller Breite, Nummer und Knöpfe in eigener Zeile */
+@media (max-width: 560px) {
+  .srow-head > input[data-slot="input"] { flex: 1 1 100%; order: -1; }
+  .srow-head .step-no { margin-right: auto; }
+}
+
+/* Handy-Leiste: Vorschau-Knopf mit kurzem Text statt nur Symbol */
+.bar-kurz { display: none; }
+@media (max-width: 640px) { .bar-kurz { display: inline; } }
+
+/* Neue Applikation: auf niedrigen Fenstern ohne Beispiel-Chips, damit das Formular nicht in sich scrollt */
+@media (max-height: 820px) { .neu-beispiele { display: none; } }
+/* Während die KI baut: Link in den Baukasten gesperrt */
+.link-back[aria-disabled="true"] { opacity: .5; pointer-events: none; }

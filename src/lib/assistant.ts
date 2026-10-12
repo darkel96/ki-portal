@@ -33,7 +33,7 @@ ${blockSchemaForPrompt()}
 - Behalte die ids bestehender Blöcke und Schritte bei. Neue bekommen kurze ids wie "n1", "n2".
 - In Prompts setzt du Eingaben mit {{key}} ein und Ergebnisse früherer Schritte mit {{key des Schritts}}. Für ein Datei-Feld gibt es zusätzlich {{key_name}} (Dateiname), {{key_titel}} (Dateiname ohne Endung) und {{key_datum}} (Datum der Datei); andere erfundene Platzhalter gibt es nicht.
 - Jede wichtige Eingabe kommt in mindestens einem Prompt vor. Es gibt mindestens einen KI-Button, jeder Schritt hat ein Ergebnis-Element (output mit quelle = id des Schritts).
-- Gute Gestaltung: klare Überschrift, kurze Erklärung, zusammengehörige Eingaben in einem Bereich, Ergebnisse gut sichtbar. Farben nur als #RRGGBB, ruhig und geschäftlich.
+- Gute Gestaltung: klare Überschrift, kurze Erklärung, zusammengehörige Eingaben in einem Abschnitt (section), Ergebnisse gut sichtbar. Farben nur als #RRGGBB, ruhig und geschäftlich.
 - Texte auf Deutsch, sachlich, für Mitarbeitende einer Firma.
 - ${regel}
 - Ändere nur, was der Wunsch verlangt oder was dafür nötig ist.
@@ -52,7 +52,7 @@ export async function assistentAnwenden(app: App, wunsch: string, scope: AssistS
   const bilder = new Map<string, string>();
   walk(app.blocks, (b) => { if (b.type === "image") bilder.set(b.id, b.props.src); });
   const roh = jsonAus(await kiFragen(assistPrompt(app, wunsch, scope), signal)) as { zusammenfassung?: unknown; app?: unknown };
-  if (!roh || typeof roh !== "object" || !roh.app) throw new Error("Die Antwort der KI war unvollständig. Versuch es noch einmal oder formuliere den Wunsch kürzer.");
+  if (!roh || typeof roh !== "object" || !roh.app || typeof roh.app !== "object" || Array.isArray(roh.app)) throw new Error("Die Antwort der KI war unvollständig. Versuch es noch einmal oder formuliere den Wunsch kürzer.");
   const next = applyScope(sanitizeApp(roh.app, app), app, scope);
   walk(next.blocks, (b) => { if (b.type === "image") b.props.src = bilder.get(b.id) ?? ""; });
   return { app: next, zusammenfassung: String(roh.zusammenfassung ?? "Änderungen übernommen.").slice(0, 300) };

@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
   DndContext, DragOverlay, KeyboardSensor, MeasuringStrategy, PointerSensor, TouchSensor, closestCenter, pointerWithin, useDraggable, useDroppable, useSensor, useSensors,
-  type CollisionDetection, type DragEndEvent, type DragStartEvent, type Announcements,
+  type CollisionDetection, type DragEndEvent, type DragMoveEvent, type DragStartEvent, type Announcements,
 } from "@dnd-kit/core";
 import { SortableContext, arrayMove, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
@@ -50,14 +50,16 @@ export function Palette({ onAdd }: { onAdd: (t: BlockType) => void }) {
           </div>
         ))}
       </div>
-      <p className="hint pal-hinweis" title="Auf der Fläche: Leertaste verschiebt, Eingabetaste öffnet die Eigenschaften, Entf löscht.">
-        Ziehen oder anklicken<span className="sr-only">. Auf der Fläche: Leertaste verschiebt, Eingabetaste öffnet die Eigenschaften.</span>
+      <p className="hint pal-hinweis" title="Auf der Fläche: Leertaste verschiebt (Pfeiltasten, Leertaste legt ab), Eingabetaste öffnet die Eigenschaften (dort auch Duplizieren), Entf löscht, Strg+Z macht rückgängig.">
+        Ziehen oder anklicken<span className="sr-only">. Auf der Fläche: Leertaste verschiebt, Eingabetaste öffnet die Eigenschaften (dort auch Duplizieren), Entf löscht, Strg+Z macht rückgängig.</span>
       </p>
     </aside>
   );
 }
 
 /* ---------- Bausteine auf der Fläche ---------- */
+/** Einfügestelle beim Ziehen: Linie vor oder hinter dem überfahrenen Baustein. */
+const DropCtx = createContext<{ id: string; pos: "before" | "after" } | null>(null);
 type EditCtx = { b: Builder; onDelete: (id: string) => void; onFocusProp: (id: string) => void };
 
 function blockLabel(x: Block, ki?: string): string {
@@ -70,11 +72,12 @@ function SortBlock({ x, listId, ctx, renderList }: { x: Block; listId: string; c
   const { b } = ctx;
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: x.id, data: { listId } });
   const sel = b.sel === x.id;
+  const drop = useContext(DropCtx);
   let use: ReactNode = null;
   let kiText: string | undefined;
   if (isFieldType(x.type)) {
     const u = stepsUsing(b.app, (x.props as { key: string }).key);
-    kiText = u.length ? `geht an Schritt ${u.map((i) => i + 1).join(", ")}` : "geht an keinen KI-Schritt";
+    kiText = u.length ? `geht an KI-Schritt ${u.map((i) => i + 1).join(", ")}` : "geht an keinen KI-Schritt";
     use = <span className={`b-use ${u.length ? "" : "off"}`} aria-hidden="true">{kiText}</span>;
   }
   const move = (dir: -1 | 1) => b.change((d) => {
@@ -86,10 +89,10 @@ function SortBlock({ x, listId, ctx, renderList }: { x: Block; listId: string; c
   });
   const stop = { onPointerDown: (e: React.PointerEvent) => e.stopPropagation(), onKeyDown: (e: React.KeyboardEvent) => e.stopPropagation() };
   return (
-    <div ref={setNodeRef} className="b" data-sel={sel} data-dragging={isDragging} data-bid={x.id}
+    <div ref={setNodeRef} className="b" data-sel={sel} data-dragging={isDragging} data-bid={x.id} data-drop={drop?.id === x.id ? drop.pos : undefined}
       style={{ transform: CSS.Translate.toString(transform), transition }}
       {...attributes} {...listeners} aria-label={blockLabel(x, kiText)}
-      aria-description="Eingabetaste: Eigenschaften bearbeiten. Leertaste: verschieben. Entf: löschen."
+      aria-description="Eingabetaste: Eigenschaften bearbeiten, dort auch Duplizieren. Leertaste: verschieben. Entf: löschen."
       onKeyDown={(e) => {
         if (e.key === "Enter" && e.target === e.currentTarget) { e.preventDefault(); ctx.onFocusProp(x.id); return; }
         listeners?.onKeyDown?.(e);
@@ -100,11 +103,12 @@ function SortBlock({ x, listId, ctx, renderList }: { x: Block; listId: string; c
       <span className="b-tag" aria-hidden="true">{BT[x.type].label}{isFieldType(x.type) ? ` {{${(x.props as { key: string }).key}}}` : ""}</span>
       {use}
       {sel && (
-        <span className="absolute -top-[22px] right-0 z-10 flex gap-0.5" {...stop}>
+        <span className="b-tools absolute -top-[22px] right-0 z-10 flex gap-0.5" {...stop}>
           {[["Nach oben", ArrowUp, () => move(-1)], ["Nach unten", ArrowDown, () => move(1)], ["Duplizieren", Copy, () => b.change((d) => { const loc = locate(d.blocks, x.id); if (loc) loc.list.splice(loc.i + 1, 0, cloneBlock(loc.b, d)); })], ["Löschen", Trash, () => ctx.onDelete(x.id)]].map(([t, Icon, fn]) => {
             const I = Icon as typeof ArrowUp;
-            return <button key={t as string} type="button" title={t as string} aria-label={t as string} onClick={(e) => { e.stopPropagation(); (fn as () => void)(); }}
-              className="grid size-6 place-items-center border border-[var(--tool)] bg-[var(--surface)] text-[var(--ink)] hover:bg-[var(--tool)] hover:text-[var(--tool-ink)]"><I size={13} /></button>;
+            // Nicht in der Tab-Reihenfolge: Die Aktionen gibt es auch per Tastatur (Leertaste, Entf) und in den Eigenschaften.
+            return <button key={t as string} type="button" tabIndex={-1} title={t as string} aria-label={t as string} onClick={(e) => { e.stopPropagation(); (fn as () => void)(); }}
+              className="b-tool grid size-6 place-items-center border border-[var(--tool)] bg-[var(--surface)] text-[var(--ink)] hover:bg-[var(--tool)] hover:text-[var(--tool-ink)]"><I size={13} /></button>;
           })}
         </span>
       )}
@@ -146,6 +150,9 @@ export function UiDnd({ b, children, onAdded, onSeiteNeu }: { b: Builder; childr
   );
   const ausgeschlossen = useRef<Set<string>>(new Set());
   const [aktiv, setAktiv] = useState<string | null>(null);
+  const [drop, setDrop] = useState<{ id: string; pos: "before" | "after" } | null>(null);
+  const dropKey = useRef("");
+  const dropSetzen = (next: typeof drop) => { const k = next ? `${next.id}:${next.pos}` : ""; if (k !== dropKey.current) { dropKey.current = k; setDrop(next); } };
 
   const collision: CollisionDetection = (args) => {
     const ex = ausgeschlossen.current;
@@ -175,8 +182,22 @@ export function UiDnd({ b, children, onAdded, onSeiteNeu }: { b: Builder; childr
     ausgeschlossen.current = ex;
   };
 
+  const onDragMove = (e: DragMoveEvent) => {
+    const { active, over } = e;
+    const overId = over ? String(over.id) : "";
+    if (!over || overId === String(active.id) || overId.startsWith("liste:") || overId.startsWith("tab:")) { dropSetzen(null); return; }
+    const as = (active.data.current as { sortable?: { containerId: string; index: number } } | undefined)?.sortable;
+    const os = (over.data.current as { sortable?: { containerId: string; index: number } } | undefined)?.sortable;
+    const ar = active.rect.current.translated;
+    // Gleiche Liste: Sortieren tauscht die Plätze (arrayMove); sonst entscheidet die Hälfte, über der der Baustein schwebt.
+    const pos = as && os && as.containerId === os.containerId ? (as.index < os.index ? "after" : "before")
+      : ar && ar.top + ar.height / 2 > over.rect.top + over.rect.height / 2 ? "after" : "before";
+    dropSetzen({ id: overId, pos });
+  };
+
   const onDragEnd = (e: DragEndEvent) => {
     setAktiv(null);
+    dropSetzen(null);
     const { active, over } = e;
     ausgeschlossen.current = new Set();
     if (!over) return;
@@ -229,10 +250,11 @@ export function UiDnd({ b, children, onAdded, onSeiteNeu }: { b: Builder; childr
 
   const label = aktiv ? (aktiv.startsWith("neu:") ? BT[aktiv.slice(4) as BlockType]?.label : (() => { const l = locate(b.app.blocks, aktiv); return l ? BT[l.b.type].label : ""; })()) : "";
   return (
-    <DndContext sensors={sensors} collisionDetection={collision} measuring={{ droppable: { strategy: MeasuringStrategy.Always } }} autoScroll={{ threshold: { x: 0, y: 0.12 }, acceleration: 6 }} onDragStart={onDragStart} onDragEnd={onDragEnd} onDragCancel={() => { setAktiv(null); ausgeschlossen.current = new Set(); }}
+    <DndContext sensors={sensors} collisionDetection={collision} measuring={{ droppable: { strategy: MeasuringStrategy.Always } }} autoScroll={{ threshold: { x: 0, y: 0.12 }, acceleration: 6 }} onDragStart={onDragStart} onDragMove={onDragMove} onDragEnd={onDragEnd} onDragCancel={() => { setAktiv(null); dropSetzen(null); ausgeschlossen.current = new Set(); }}
       accessibility={{ announcements: ankuendigungen, screenReaderInstructions: { draggable: "Leertaste zum Aufnehmen. Pfeiltasten zum Verschieben, Leertaste zum Ablegen, Escape zum Abbrechen. Eingabetaste öffnet die Eigenschaften." } }}>
-      {children}
-      <DragOverlay dropAnimation={ruhig() ? null : { duration: 220, easing: "cubic-bezier(0.34, 1.4, 0.64, 1)" }}>
+      <DropCtx.Provider value={drop}>{children}</DropCtx.Provider>
+      {/* Neue Bausteine: kein Rückflug des Schattens zur Palette */}
+      <DragOverlay dropAnimation={ruhig() || aktiv?.startsWith("neu:") ? null : { duration: 220, easing: "cubic-bezier(0.34, 1.4, 0.64, 1)" }}>
         {aktiv && <div className="drag-ghost">{label}</div>}
       </DragOverlay>
     </DndContext>
@@ -243,10 +265,11 @@ export function UiDnd({ b, children, onAdded, onSeiteNeu }: { b: Builder; childr
 function SeitenTab({ p, i, aktiv, onWahl }: { p: Block; i: number; aktiv: boolean; onWahl: () => void }) {
   // Reiter sind Ablagestellen: Ein Baustein, der auf einen Reiter gezogen wird, wandert auf diese Seite.
   const { setNodeRef, isOver } = useDroppable({ id: `tab:${p.id}`, data: { listId: `${p.id}:c` } });
+  const titel = seitenTitel(p, i);
   return (
     <button ref={setNodeRef} type="button" aria-current={aktiv ? "page" : undefined} className="s-tab" data-over={isOver} onClick={onWahl}
-      title={aktiv ? "Eigenschaften der Seite zeigen" : "Zu dieser Seite wechseln. Bausteine können auf den Reiter gezogen werden."}>
-      <span className="s-no" aria-hidden="true">{i + 1}</span><span className="s-name">{seitenTitel(p, i)}</span>
+      title={`${titel}. ${aktiv ? "Eigenschaften der Seite zeigen." : "Zu dieser Seite wechseln. Bausteine können auf den Reiter gezogen werden."}`}>
+      <span className="s-no" aria-hidden="true">{i + 1}</span><span className="s-name">{titel}</span>
     </button>
   );
 }

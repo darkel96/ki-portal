@@ -73,7 +73,7 @@ function vorschau(k: Kachel, outs: Record<string, OutState>, laeuft: boolean): s
     if (o.text) return o.text.replace(/```[\s\S]*?```/g, " ").replace(/<[^>]+>/g, " ").replace(/[#*_`>|]+/g, " ").replace(/-{3,}/g, " ").replace(/\s+/g, " ").trim().slice(0, 260);
     if (o.status === "gestoppt") return "Gestoppt, bevor ein Ergebnis da war.";
     if (o.status === "fehler") return "Abgebrochen. Öffnen und „Erneut versuchen“.";
-    if (o.status === "wartet" && laeuft) return "Wartet, bis die vorherigen Schritte fertig sind\u00a0…";
+    if (o.status === "wartet") return laeuft ? "Wartet, bis die vorherigen Schritte fertig sind\u00a0…" : "Nicht gestartet, weil der Ablauf vorher gestoppt wurde oder abgebrochen ist.";
   }
   return "Wird erstellt, sobald du „Ergebnisse erstellen“ startest.";
 }

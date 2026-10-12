@@ -65,7 +65,7 @@ async function laufen(page: Page, id: string) {
   const mehr = page.getByRole("button", { name: "Weitere Aktionen" });
   if (await mehr.isVisible()) { await mehr.click(); await page.getByRole("menuitem", { name: "Beispieldaten einsetzen" }).click(); }
   else await page.getByRole("button", { name: "Beispieldaten einsetzen" }).click();
-  await page.getByRole("navigation", { name: "Seiten blättern" }).getByRole("button", { name: /Ergebnisse erstellen|^Weiter$|Ausführen/ }).click();
+  await page.getByRole("navigation", { name: "Seiten blättern" }).getByRole("button", { name: /Ergebnisse erstellen|^Weiter$|^Erstellen$|Ausführen/ }).click();
   await expect(page.locator(".e-kachel .status-pill")).toHaveText(["Fertig", "Fertig"], { timeout: 15_000 });
 }
 

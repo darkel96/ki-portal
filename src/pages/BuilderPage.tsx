@@ -14,7 +14,7 @@ import { geloeschtToast, useBuilder } from "@/components/builder/useBuilder";
 import { Canvas, Palette, SeitenLeiste, UiDnd, listOf, scrollArt } from "@/components/builder/Canvas";
 import { Inspector } from "@/components/builder/Inspector";
 import { KiTab } from "@/components/builder/KiTab";
-import { AssistantPanel } from "@/components/builder/AssistantPanel";
+import { AssistantPanel, useAssistZustand } from "@/components/builder/AssistantPanel";
 import { JsonDialog } from "@/components/builder/JsonDialog";
 import { BT } from "@/components/builder/catalog";
 import { NotFoundPage } from "./NotFoundPage";
@@ -38,6 +38,7 @@ function Editor({ start, ungespeichert }: { start: App; ungespeichert: boolean }
   const seiten = seitenVon(b.app);
   const seite = Math.min(seiteRoh, Math.max(0, seiten.length - 1));
   const runRef = useRef<RunAppHandle>(null);
+  const assist = useAssistZustand(start);
 
   // Die Fläche folgt der Auswahl: Liegt der gewählte Baustein auf einer anderen Seite (z. B. nach Rückgängig), dorthin wechseln.
   useEffect(() => {
@@ -120,6 +121,8 @@ function Editor({ start, ungespeichert }: { start: App; ungespeichert: boolean }
   /** Speichert und öffnet die App. Mit bleiben: nur speichern (z. B. beim Verlassen über den Dialog). */
   const speichern = async (bleiben = false): Promise<boolean> => {
     if (speichert) return false;
+    // Fehlender Name: dort bleiben, wo man ist, und das Namensfeld fokussieren.
+    if (!b.aktuell().name.trim()) { toast.error("Gib der Applikation einen Namen."); document.getElementById("bld-name")?.focus(); return false; }
     if (harte.length) {
       toast.error(harte[0].text + (harte.length > 1 ? ` (und ${harte.length - 1} weitere Punkte im KI-Ablauf)` : ""));
       setTab("ki"); setVorschau(false); setPruefen((n) => n + 1);
@@ -151,7 +154,7 @@ function Editor({ start, ungespeichert }: { start: App; ungespeichert: boolean }
       <div className="sr-only" aria-live="polite">{ansage}</div>
       <div className="bld-bar">
         <label htmlFor="bld-name" className="sr-only">Name der Applikation</label>
-        <Input id="bld-name" className="bar-name" value={b.app.name} placeholder="Name der Applikation" onChange={(e) => b.change((d) => { d.name = e.target.value; }, "name")} />
+        <Input id="bld-name" className="bar-name" maxLength={60} value={b.app.name} placeholder="Name der Applikation" onChange={(e) => b.change((d) => { d.name = e.target.value; }, "name")} />
         <Tabs value={tab} onValueChange={(v) => { setTab(v as "ui" | "ki"); setVorschau(false); setPruefen(0); }}>
           <TabsList className="rounded-full">
             <TabsTrigger value="ui" className="rounded-full px-4">Oberfläche</TabsTrigger>
@@ -162,7 +165,7 @@ function Editor({ start, ungespeichert }: { start: App; ungespeichert: boolean }
         <Button variant="outline" size="icon" aria-label="Rückgängig (Strg+Z)" title="Rückgängig (Strg+Z)" disabled={!b.canUndo} onClick={b.undo}><Undo2 /></Button>
         <Button variant="outline" size="icon" aria-label="Wiederholen (Strg+Y)" title="Wiederholen (Strg+Y)" disabled={!b.canRedo} onClick={b.redo}><Redo2 /></Button>
         <span className="nur-breit"><JsonDialog b={b} /></span>
-        <Button variant={vorschau ? "secondary" : "outline"} aria-pressed={vorschau} onClick={() => setVorschau((v) => !v)}>{vorschau ? <EyeOff /> : <Eye />}<span className="bar-txt">{vorschau ? "Vorschau beenden" : "Vorschau testen"}</span></Button>
+        <Button variant={vorschau ? "secondary" : "outline"} aria-pressed={vorschau} onClick={() => setVorschau((v) => !v)}>{vorschau ? <EyeOff /> : <Eye />}<span className="bar-txt">{vorschau ? "Vorschau beenden" : "Vorschau testen"}</span><span className="bar-kurz" aria-hidden="true">{vorschau ? "Zurück" : "Vorschau"}</span></Button>
         <Button onClick={() => void speichern()} disabled={speichert} title="Speichern (Strg+S)" aria-keyshortcuts="Control+S">{speichert ? <><Loader2 className="animate-spin motion-reduce:animate-none" aria-hidden="true" />Speichert …</> : <><Save />Speichern</>}</Button>
       </div>
 
@@ -185,7 +188,7 @@ function Editor({ start, ungespeichert }: { start: App; ungespeichert: boolean }
           <div className="bld" data-bereich={bereich}>
             <Palette onAdd={addByClick} />
             <div className="bld-mitte">
-              <AssistantPanel b={b} />
+              <AssistantPanel b={b} a={assist} />
               <SeitenLeiste b={b} seite={seite} onSeite={setSeite} onNeu={() => addByClick("seite")} />
               <Canvas b={b} seite={seite} onDelete={del} onFocusProp={focusProp} />
             </div>
@@ -194,15 +197,15 @@ function Editor({ start, ungespeichert }: { start: App; ungespeichert: boolean }
         </UiDnd>
       )}
 
-      <AlertDialog open={blocker.state === "blocked"}>
+      <AlertDialog open={blocker.state === "blocked"} onOpenChange={(o) => { if (!o) blocker.reset?.(); }}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Ungespeicherte Änderungen</AlertDialogTitle>
             <AlertDialogDescription>Du hast „{b.app.name}“ geändert und noch nicht gespeichert. Wenn du die Seite verlässt, gehen die Änderungen verloren.</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => blocker.reset?.()}>Weiter bearbeiten</AlertDialogCancel>
-            <AlertDialogAction className="bg-destructive text-white hover:bg-destructive/90" disabled={speichert} onClick={() => blocker.proceed?.()}>Änderungen verwerfen</AlertDialogAction>
+            <AlertDialogCancel>Weiter bearbeiten</AlertDialogCancel>
+            <AlertDialogAction variant="destructive" disabled={speichert} onClick={() => blocker.proceed?.()}>Änderungen verwerfen</AlertDialogAction>
             <Button disabled={speichert} onClick={() => void speichernUndVerlassen()}>{speichert ? <><Loader2 className="animate-spin motion-reduce:animate-none" aria-hidden="true" />Speichert …</> : "Speichern und verlassen"}</Button>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -216,7 +219,7 @@ function Editor({ start, ungespeichert }: { start: App; ungespeichert: boolean }
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Behalten</AlertDialogCancel>
-            <AlertDialogAction className="bg-destructive text-white hover:bg-destructive/90" onClick={() => { if (seiteWeg) loeschen(seiteWeg.id); setSeiteWeg(null); }}>Seite löschen</AlertDialogAction>
+            <AlertDialogAction variant="destructive" onClick={() => { if (seiteWeg) loeschen(seiteWeg.id); setSeiteWeg(null); }}>Seite löschen</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
