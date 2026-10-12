@@ -75,3 +75,6 @@
 .lauf-dialog { max-height: calc(100dvh - 2rem); grid-template-rows: auto minmax(0, 1fr); }
 .lauf-dialog-inhalt { border: 0; border-radius: 0; flex: none; max-height: min(64dvh, 720px); display: flex; flex-direction: column; gap: 12px; --app-radius: 10px; }
 .lauf-dialog .hint { margin: 0; }
+
+/* Vorschautext der Ergebnis-Kacheln: sehr lange Wörter umbrechen statt abschneiden */
+.e-text { overflow-wrap: anywhere; }

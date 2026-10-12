@@ -70,7 +70,7 @@ function vorschau(k: Kachel, outs: Record<string, OutState>, laeuft: boolean): s
     if (o.status === "simuliert") return "Simulation: Die Anfrage ist vorbereitet, es gibt keine KI-Antwort.";
     if ((o.status === "uebersprungen" || o.status === "fehler") && o.meldung) return o.meldung;
     if (o.paket) return `${o.paket.dateien.length} ${o.paket.dateien.length === 1 ? "Datei" : "Dateien"}${o.paket.hinweis ? `: ${o.paket.hinweis}` : ""}`;
-    if (o.text) return o.text.replace(/```[\s\S]*?```/g, " ").replace(/<[^>]+>/g, " ").replace(/[#*_`>|]+/g, " ").replace(/-{3,}/g, " ").replace(/\s+/g, " ").trim().slice(0, 260);
+    if (o.text) return o.text.replace(/```[\s\S]*?```/g, " ").replace(/<[^>]+>/g, " ").replace(/(^|\s)[-•]\s+/g, " ").replace(/[#*_`>|]+/g, " ").replace(/-{3,}/g, " ").replace(/\s+/g, " ").trim().slice(0, 260);
     if (o.status === "gestoppt") return "Gestoppt, bevor ein Ergebnis da war.";
     if (o.status === "fehler") return "Abgebrochen. Öffnen und „Erneut versuchen“.";
     if (o.status === "wartet") return laeuft ? "Wartet, bis die vorherigen Schritte fertig sind\u00a0…" : "Nicht gestartet, weil der Ablauf vorher gestoppt wurde oder abgebrochen ist.";
