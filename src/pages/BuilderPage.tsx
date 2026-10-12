@@ -155,7 +155,7 @@ function Editor({ start, ungespeichert }: { start: App; ungespeichert: boolean }
         <Tabs value={tab} onValueChange={(v) => { setTab(v as "ui" | "ki"); setVorschau(false); setPruefen(0); }}>
           <TabsList className="rounded-full">
             <TabsTrigger value="ui" className="rounded-full px-4">Oberfläche</TabsTrigger>
-            <TabsTrigger value="ki" className="rounded-full px-4">KI-Ablauf{harte.length > 0 && <span className="ml-1.5 rounded-full bg-destructive/15 px-1.5 text-[11px] text-destructive" aria-label={`${harte.length} offene Punkte`}>{harte.length}</span>}</TabsTrigger>
+            <TabsTrigger value="ki" className="rounded-full px-4">KI-Ablauf{harte.length > 0 && <><span className="ml-1.5 rounded-full bg-destructive/15 px-1.5 text-[11px] text-destructive" aria-hidden="true">{harte.length}</span><span className="sr-only">, {harte.length} offene Punkte</span></>}</TabsTrigger>
           </TabsList>
         </Tabs>
         <span className="flex-1" />
@@ -163,7 +163,7 @@ function Editor({ start, ungespeichert }: { start: App; ungespeichert: boolean }
         <Button variant="outline" size="icon" aria-label="Wiederholen (Strg+Y)" title="Wiederholen (Strg+Y)" disabled={!b.canRedo} onClick={b.redo}><Redo2 /></Button>
         <span className="nur-breit"><JsonDialog b={b} /></span>
         <Button variant={vorschau ? "secondary" : "outline"} aria-pressed={vorschau} onClick={() => setVorschau((v) => !v)}>{vorschau ? <EyeOff /> : <Eye />}<span className="bar-txt">{vorschau ? "Vorschau beenden" : "Vorschau testen"}</span></Button>
-        <Button onClick={() => void speichern()} disabled={speichert} title="Speichern (Strg+S)" aria-keyshortcuts="Control+S">{speichert ? <><Loader2 className="animate-spin motion-reduce:animate-none" aria-hidden="true" />Speichert …</> : <><Save />Speichern</>}</Button>
+        <Button onClick={() => void speichern()} disabled={speichert} title="Speichern (Strg+S)" aria-keyshortcuts="Control+S">{speichert ? <><Loader2 className="animate-spin motion-reduce:animate-none" aria-hidden="true" />Speichert …</> : <><Save />Speichern</>}</Button>
       </div>
 
       {vorschau ? (
@@ -203,7 +203,7 @@ function Editor({ start, ungespeichert }: { start: App; ungespeichert: boolean }
           <AlertDialogFooter>
             <AlertDialogCancel onClick={() => blocker.reset?.()}>Weiter bearbeiten</AlertDialogCancel>
             <AlertDialogAction className="bg-destructive text-white hover:bg-destructive/90" disabled={speichert} onClick={() => blocker.proceed?.()}>Änderungen verwerfen</AlertDialogAction>
-            <Button disabled={speichert} onClick={() => void speichernUndVerlassen()}>{speichert ? <><Loader2 className="animate-spin motion-reduce:animate-none" aria-hidden="true" />Speichert …</> : "Speichern und verlassen"}</Button>
+            <Button disabled={speichert} onClick={() => void speichernUndVerlassen()}>{speichert ? <><Loader2 className="animate-spin motion-reduce:animate-none" aria-hidden="true" />Speichert …</> : "Speichern und verlassen"}</Button>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

@@ -17,7 +17,7 @@ export const BT: Record<BlockType, { label: string; icon: LucideIcon; group: "La
   input: { label: "Textzeile", icon: Type, group: "Eingaben" },
   textarea: { label: "Textfeld", icon: TextAlignStart, group: "Eingaben" },
   select: { label: "Auswahlliste", icon: ChevronDown, group: "Eingaben" },
-  radio: { label: "Auswahlknöpfe", icon: CircleDot, group: "Eingaben" },
+  radio: { label: "Auswahl\u00adknöpfe", icon: CircleDot, group: "Eingaben" },
   checkbox: { label: "Ankreuzfeld", icon: SquareCheck, group: "Eingaben" },
   number: { label: "Zahl", icon: Hash, group: "Eingaben" },
   date: { label: "Datum", icon: Calendar, group: "Eingaben" },

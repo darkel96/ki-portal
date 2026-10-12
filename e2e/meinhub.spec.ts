@@ -31,7 +31,7 @@ test("Mein Hub: Voreinstellung, Auftrag, Ausführen und Verlauf", async ({ page 
 
   // In Mein Hub ausführen
   await page.goto("/mein");
-  await expect(page.getByRole("heading", { name: "Mein Hub" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Deine Apps und Aufträge" })).toBeVisible();
   await expect(page.locator(".mh-karte")).toContainText("Stellenanzeige");
   await expect(page.locator(".mh-vorlagen")).toContainText("Buchhaltung Augsburg");
   await page.getByRole("tab", { name: /Aufträge/ }).click();

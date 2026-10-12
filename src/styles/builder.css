@@ -1,1 +1,51 @@
 /* Baukasten und „Neue Applikation“: Ergänzungen zur Charlestown-Gestaltung (nach app.css geladen) */
+
+/* Palette: Antippen bleibt schnell, Wischen scrollt (Ziehen startet per TouchSensor erst nach kurzem Halten) */
+.pal-item { touch-action: manipulation; border-radius: 6px; overflow-wrap: normal; hyphens: manual; }
+.pal-item .g { border-radius: 4px; }
+.ki-steps button { border-radius: 6px; }
+.drag-ghost { border-radius: 6px; }
+
+/* Palette breit: kompakter, damit sie ab ca. 850px Fensterhöhe ohne Scrollen passt.
+   Rechnung: 9 Kachelreihen à 44px + 20px Reihenabstände ≈ 416, 4 Rubriken à 18px ≈ 72,
+   Gruppenabstände 3 × 8 = 24, Hinweis einzeilig 18 + 8, Innenabstand 2 × 10 + Rand 2 ≈ 560px. */
+@media (min-width: 1181px) {
+  .pal { padding: 10px; gap: 8px; }
+  .pal .pal-groups { gap: 8px; }
+  .pal .pal-g { gap: 4px; }
+  .pal .rubrik { font-size: 11px; line-height: 1.3; }
+  .pal .pal-items { gap: 4px; }
+  .pal .pal-item { gap: 2px; padding: 4px 2px; }
+  .pal .pal-item .g { width: 20px; height: 20px; }
+}
+.pal-hinweis { margin: 0; line-height: 1.35; cursor: help; }
+
+/* Seiten-Reiter: aktuelle Seite per aria-current statt aria-selected */
+.s-tab[aria-current="page"] { background: var(--brand); color: var(--brand-ink); border-color: var(--brand); }
+.s-tab[aria-current="page"] .s-no { background: var(--bg); }
+
+/* Name der App sieht von Anfang an bearbeitbar aus */
+.bld-bar .bar-name { border-color: var(--line) !important; }
+.bld-bar .bar-name:hover { border-color: var(--line-strong) !important; }
+.bld-bar .bar-name:focus-visible { border-color: var(--brand) !important; }
+
+/* Farbfelder: sichtbarer Fokus in Markenblau */
+.sw-pick:focus-within { outline: 2px solid var(--brand); outline-offset: 2px; }
+.sw:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+
+/* Laufanzeige mit Drehsymbol statt Punkt */
+.status-pill.mit-icon::before { display: none; }
+
+/* KI-Assistent: Meldungen auch im zugeklappten Zustand */
+.ai-unterzeile { min-width: 0; }
+.ai-meldung { margin: 0; font-size: 13px; color: var(--muted-ink); }
+.ai-meldung:empty { display: none; }
+.ai-meldung[data-art="ok"] { color: var(--brand); }
+.ai-meldung[data-art="fehler"] { color: var(--danger); }
+
+/* Fehler unter Feldern */
+.fld-fehler { font-size: 13px; color: var(--danger); }
+.neu-fehler { margin: 0; color: var(--danger); }
+
+/* KI-Ablauf ohne Schritte */
+.ki-leer { display: flex; flex-direction: column; gap: 12px; align-items: flex-start; }
