@@ -113,12 +113,17 @@ body { overflow: hidden; }
 .tiles-blatt { outline: none; }
 
 /* Kacheln: weiße Karten mit Haarlinie, Symbolfläche, Rubrik, Fußzeile mit Status und Pfeil */
-.tiles-raster { display: grid; gap: 20px; }
+.tiles-raster { position: relative; display: grid; gap: 20px; }
 .tiles-raster > * { display: grid; min-height: 0; }
 @media (max-width: 560px) { .tiles-raster { gap: 10px; } }
-.tile { display: flex; flex-direction: column; gap: 14px; text-align: left; padding: 22px 24px; border: 1px solid var(--line); border-radius: var(--k-radius-card); background: var(--surface); box-shadow: var(--k-shadow-card); min-height: 0; overflow: hidden; color: var(--ink); text-decoration: none; transition: box-shadow 180ms ease-out, border-color 180ms ease-out, transform 180ms ease-out; }
-a.tile:hover { border-color: var(--line-strong); box-shadow: var(--k-shadow-card-hover); transform: translateY(-1px); }
-a.tile:hover .tile-go svg { transform: translateX(3px); }
+.tile { display: flex; flex-direction: column; gap: 14px; text-align: left; padding: 22px 24px; border: 1px solid var(--line); border-radius: var(--k-radius-card); background: var(--surface); box-shadow: var(--k-shadow-card); min-height: 0; overflow: hidden; color: var(--ink); text-decoration: none; transition: box-shadow .18s ease, border-color .18s ease, transform .18s ease; }
+/* Bewegung wie im KSCA-Portal „Charlestown“: Karte hebt sich um 2 px, Pfeil rutscht 5 px, beim Klicken sinkt sie zurück */
+a.tile:hover { border-color: var(--line-strong); box-shadow: var(--k-shadow-card-hover); transform: translateY(-2px); }
+a.tile:active { transform: none; }
+a.tile:hover .tile-go svg { transform: translateX(5px); }
+/* Erstes Laden: Kacheln tauchen nacheinander auf. Die Animation sitzt auf der Rasterzelle, damit transform der Karte dem Hover gehört. */
+@keyframes auftauchen { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+.tiles-raster.erst > * { animation: auftauchen .45s cubic-bezier(.2,.7,.2,1) backwards; animation-delay: calc(var(--i, 0) * 70ms); }
 .tile-kopf { display: flex; align-items: center; gap: 14px; min-width: 0; }
 .tile-kopf > span:last-child { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
 .mono { display: inline-grid; place-items: center; width: 46px; height: 46px; border-radius: 8px; font: 700 14px/1 var(--k-font-display); background: var(--brand-soft); color: var(--brand); flex: none; }
@@ -133,7 +138,7 @@ a.tile:hover .tile-go svg { transform: translateX(3px); }
 .status[data-s="entwurf"] { color: var(--muted-ink); }
 .status[data-s="pruefung"] { color: var(--tool-text); }
 .tile-go { display: inline-flex; align-items: center; gap: 8px; color: var(--muted-ink); white-space: nowrap; overflow: hidden; }
-.tile-go svg { color: var(--brand); flex: none; transition: transform 180ms ease-out; }
+.tile-go svg { color: var(--brand); flex: none; transition: transform .18s ease; }
 @media (max-width: 560px) { .tile { padding: 12px 14px; gap: 8px; } .tile-desc, .chips { display: none; } .mono { width: 36px; height: 36px; font-size: 13px; } .tile-foot { padding-top: 8px; } }
 .tile-new { border-style: dashed; border-color: var(--line-strong); box-shadow: none; justify-content: center; gap: 8px; }
 .tile-new .tile-name { white-space: normal; }
@@ -586,7 +591,9 @@ a.mh-titel:hover { text-decoration: underline; text-underline-offset: 4px; }
 
 /* Weniger Bewegung: kein Anheben der Karten, kein Pfeil-Schub */
 @media (prefers-reduced-motion: reduce) {
+  a.tile, .tile-go svg { transition: none; }
   a.tile:hover, a.tile:hover .tile-go svg { transform: none; }
+  .tiles-raster.erst > * { animation: none; }
 }
 /* Sehr niedrige Fenster (Zoom 200 %, Handy quer): dann darf die Seite scrollen, statt Inhalte abzuschneiden */
 @media (max-height: 560px) {

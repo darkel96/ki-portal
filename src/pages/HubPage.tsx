@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router";
 import { Input } from "@/components/ui/input";
 import { useApps } from "@/state/apps";
@@ -7,6 +7,7 @@ import { areaList, fieldsOf, initials } from "@/lib/model";
 import type { HubApp } from "@/lib/schema";
 import { Blatt, Pager, blaetterTaste } from "@/components/layout/Pager";
 import { useRaster } from "@/components/layout/useRaster";
+import { useGleiten } from "@/components/layout/useGleiten";
 
 /** Kürzel je App, bei Gleichstand eindeutig gemacht (z. B. AN und AG). */
 export function kuerzel(apps: HubApp[]): Map<string, string> {
@@ -76,6 +77,15 @@ export function HubPage() {
   const seiten = Math.max(1, Math.ceil(eintraege.length / proSeite));
   const akt = Math.min(seite, seiten - 1);
   const sichtbar = eintraege.slice(akt * proSeite, (akt + 1) * proSeite);
+  // Animationen wie im KSCA-Portal: beim ersten Laden tauchen die Kacheln nacheinander auf, beim Filtern gleiten sie
+  const raster = useRef<HTMLDivElement>(null);
+  useGleiten(raster, sichtbar.map((a) => (a === "neu" ? "neu" : a.id)).join("|"));
+  const [erst, setErst] = useState(true);
+  useEffect(() => {
+    if (!geladen) return;
+    const t = setTimeout(() => setErst(false), 450 + 70 * proSeite);
+    return () => clearTimeout(t);
+  }, [geladen]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Neuer Filter oder neue Suche: wieder vorn anfangen (nicht beim ersten Laden, sonst ginge die gemerkte Seite verloren).
   const ersterFilter = useRef(true);
@@ -143,10 +153,10 @@ export function HubPage() {
           </p>
         )}
         <div className="tiles-feld" ref={feld}>
-          <Blatt id={`${aktiv}|${query}|${akt}|${proSeite}`} className="tiles-blatt">
-            <div className="tiles-raster" style={{ gridTemplateColumns: `repeat(${spalten}, minmax(0, 1fr))`, gridAutoRows: `${hoehe}px`, gap: abstand }}>
-              {geladen && sichtbar.map((a) => a === "neu" ? (
-                <div key="neu">
+          <Blatt id={`${akt}|${proSeite}`} className="tiles-blatt">
+            <div ref={raster} className={`tiles-raster ${erst ? "erst" : ""}`} style={{ gridTemplateColumns: `repeat(${spalten}, minmax(0, 1fr))`, gridAutoRows: `${hoehe}px`, gap: abstand }}>
+              {geladen && sichtbar.map((a, i) => a === "neu" ? (
+                <div key="neu" data-gleiten="neu" style={{ "--i": i } as React.CSSProperties}>
                   <Link to="/neu" viewTransition className="tile tile-new">
                     <span className="plus" aria-hidden="true">+</span>
                     <span className="tile-name">Neue Applikation</span>
@@ -154,7 +164,7 @@ export function HubPage() {
                   </Link>
                 </div>
               ) : (
-                <div key={a.id}><Tile a={a} mono={monos.get(a.id ?? a.name) ?? initials(a.name)} /></div>
+                <div key={a.id} data-gleiten={a.id ?? a.name} style={{ "--i": i } as React.CSSProperties}><Tile a={a} mono={monos.get(a.id ?? a.name) ?? initials(a.name)} /></div>
               ))}
             </div>
           </Blatt>
