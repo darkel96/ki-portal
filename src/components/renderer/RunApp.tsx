@@ -113,11 +113,44 @@ function Uebersicht({ kacheln, outs, laeuft, geaendert, onStart, onOeffnen }: {
 }
 
 /** Applikation im Modus „run“: Eingaben aktiv, KI-Buttons starten den Ablauf. */
+/**
+ * Verlassen-Schutz als eigene Komponente: Der Router kennt nur den zuletzt registrierten Blocker. Eine
+ * eingebettete Vorschau (Baukasten, Neue Applikation) darf deshalb keinen anlegen, sonst gilt der der Seite nicht mehr.
+ */
+function VerlassenSchutz({ ungesichert, laeuft, blatt, onVerlassen }: { ungesichert: boolean; laeuft: boolean; blatt: React.RefObject<HTMLDivElement | null>; onVerlassen: () => void }) {
+  const blocker = useBlocker(({ currentLocation, nextLocation }) => ungesichert && currentLocation.pathname !== nextLocation.pathname);
+  /** Element, das den Verlassen-Dialog ausgelöst hat (bekommt nach „Hierbleiben“/Escape den Fokus zurück) */
+  const ausloeser = useRef<HTMLElement | null>(null);
+  useEffect(() => { if (blocker.state === "blocked") ausloeser.current = document.activeElement instanceof HTMLElement && document.activeElement !== document.body ? document.activeElement : null; }, [blocker.state]);
+  useEffect(() => {
+    if (!ungesichert) return;
+    const h = (e: BeforeUnloadEvent) => { e.preventDefault(); };
+    window.addEventListener("beforeunload", h);
+    return () => window.removeEventListener("beforeunload", h);
+  }, [ungesichert]);
+  return (
+    <AlertDialog open={blocker.state === "blocked"} onOpenChange={(o) => { if (!o) blocker.reset?.(); }}>
+      <AlertDialogContent onCloseAutoFocus={(e) => { e.preventDefault(); (ausloeser.current?.isConnected ? ausloeser.current : blatt.current)?.focus({ preventScroll: true }); }}>
+        <AlertDialogHeader>
+          <AlertDialogTitle>{laeuft ? "Der Ablauf läuft noch" : "Eingaben verwerfen?"}</AlertDialogTitle>
+          <AlertDialogDescription>{laeuft ? "Wenn du die Seite verlässt, wird der Ablauf abgebrochen und die Ergebnisse gehen verloren." : "Deine Eingaben sind noch nicht ausgeführt und gehen verloren. Tipp: Über „Voreinstellungen“ kannst du sie speichern."}</AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>Hierbleiben</AlertDialogCancel>
+          <AlertDialogAction onClick={() => { onVerlassen(); blocker.proceed?.(); }}>{laeuft ? "Abbrechen und verlassen" : "Verwerfen und verlassen"}</AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  );
+}
+
 export const RunApp = forwardRef<RunAppHandle, {
   app: App;
   /** Wird nach jedem Ablauf mit den Ergebnissen der gelaufenen Schritte aufgerufen (z. B. für den Verlauf in Mein Hub) */
   onLaufFertig?: (outs: Record<string, OutState>) => void;
-}>(function RunApp({ app, onLaufFertig }, ref) {
+  /** Als Vorschau in einer anderen Seite eingebettet: kein eigener Verlassen-Schutz (die Seite hat ihren eigenen) */
+  eingebettet?: boolean;
+}>(function RunApp({ app, onLaufFertig, eingebettet }, ref) {
   const [werte, setWerte] = useState<Werte>({});
   const [files, setFiles] = useState<Record<string, FileInfo>>({});
   const [dateiInfo, setDateiInfo] = useState<Record<string, string>>({});
@@ -376,16 +409,6 @@ export const RunApp = forwardRef<RunAppHandle, {
   // Ungesicherte Eingaben bzw. laufender Ablauf: vor dem Verlassen fragen
   const hatEingaben = Object.values(werte).some((v) => v !== "" && v !== false) || Object.keys(files).length > 0;
   const ungesichert = !!laeuft || (hatEingaben && (!stand || stand !== JSON.stringify(werte) + Object.keys(files).join("|")));
-  const blocker = useBlocker(({ currentLocation, nextLocation }) => ungesichert && currentLocation.pathname !== nextLocation.pathname);
-  /** Element, das den Verlassen-Dialog ausgelöst hat (bekommt nach „Hierbleiben“/Escape den Fokus zurück) */
-  const ausloeser = useRef<HTMLElement | null>(null);
-  useEffect(() => { if (blocker.state === "blocked") ausloeser.current = document.activeElement instanceof HTMLElement && document.activeElement !== document.body ? document.activeElement : null; }, [blocker.state]);
-  useEffect(() => {
-    if (!ungesichert) return;
-    const h = (e: BeforeUnloadEvent) => { e.preventDefault(); };
-    window.addEventListener("beforeunload", h);
-    return () => window.removeEventListener("beforeunload", h);
-  }, [ungesichert]);
   useEffect(() => () => ctl.current?.abort(), []);
 
   const linearTitel = (i: number) => (i === uebersichtIdx && mitUebersicht ? "Ergebnisse" : seitenTitel(eingabeSeiten[i], seiten.indexOf(eingabeSeiten[i])));
@@ -419,18 +442,7 @@ export const RunApp = forwardRef<RunAppHandle, {
           <Pager className="app-pager" seite={akt} anzahl={anzahl} titel={linearTitel} weiter={naechste} weiterKurz={naechste === "Ergebnisse erstellen" ? "Erstellen" : undefined} onWechsel={wechseln} onWeiter={() => weiterKlick(akt + 1)} />
         )}
       </div>
-      <AlertDialog open={blocker.state === "blocked"} onOpenChange={(o) => { if (!o) blocker.reset?.(); }}>
-        <AlertDialogContent onCloseAutoFocus={(e) => { e.preventDefault(); (ausloeser.current?.isConnected ? ausloeser.current : blatt.current)?.focus({ preventScroll: true }); }}>
-          <AlertDialogHeader>
-            <AlertDialogTitle>{laeuft ? "Der Ablauf läuft noch" : "Eingaben verwerfen?"}</AlertDialogTitle>
-            <AlertDialogDescription>{laeuft ? "Wenn du die Seite verlässt, wird der Ablauf abgebrochen und die Ergebnisse gehen verloren." : "Deine Eingaben sind noch nicht ausgeführt und gehen verloren. Tipp: Über „Voreinstellungen“ kannst du sie speichern."}</AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Hierbleiben</AlertDialogCancel>
-            <AlertDialogAction onClick={() => { ctl.current?.abort(); blocker.proceed?.(); }}>{laeuft ? "Abbrechen und verlassen" : "Verwerfen und verlassen"}</AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      {!eingebettet && <VerlassenSchutz ungesichert={ungesichert} laeuft={!!laeuft} blatt={blatt} onVerlassen={() => ctl.current?.abort()} />}
     </RunContext.Provider>
   );
 });

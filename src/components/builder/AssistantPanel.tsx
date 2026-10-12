@@ -26,8 +26,8 @@ export type AssistZustand = { offen: boolean; wunsch: string; scope: AssistScope
 
 /** Zustand des Assistenten lebt im Editor: Tab-Wechsel und Vorschau verwerfen Log, Meldung und Wunsch nicht. */
 export function useAssistZustand(app: App) {
-  // Neue, noch nie gespeicherte Apps: Assistent gleich aufgeklappt, außer das Fenster ist niedrig (dann bleibt die Fläche sichtbar).
-  const [st, setSt] = useState<AssistZustand>(() => ({ offen: !app.id && window.innerHeight >= 800, wunsch: "", scope: "alles", meldung: null, log: [], laeuft: false }));
+  // Neue, noch nie gespeicherte Apps: Assistent gleich aufgeklappt, außer das Fenster ist niedrig oder schmal (dann bleibt die Fläche sichtbar).
+  const [st, setSt] = useState<AssistZustand>(() => ({ offen: !app.id && window.innerHeight >= 800 && window.innerWidth > 640, wunsch: "", scope: "alles", meldung: null, log: [], laeuft: false }));
   const ctl = useRef<AbortController | null>(null);
   return { st, setSt, ctl };
 }

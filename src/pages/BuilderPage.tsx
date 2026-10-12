@@ -176,7 +176,7 @@ function Editor({ start, ungespeichert }: { start: App; ungespeichert: boolean }
             <span className="flex-1" />
             <Button size="sm" variant="outline" onClick={() => runRef.current?.beispieleEinsetzen()}>Beispieldaten einsetzen</Button>
           </div>
-          <RunApp ref={runRef} app={b.app} />
+          <RunApp ref={runRef} app={b.app} eingebettet />
         </div>
       ) : tab === "ki" ? <KiTab b={b} fokusPruefung={pruefen} /> : (
         <UiDnd b={b} onAdded={(id) => b.setSel(id)} onSeiteNeu={() => addByClick("seite")}>

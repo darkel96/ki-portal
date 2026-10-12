@@ -103,9 +103,9 @@ export function BlockContent({ b, app, mode, renderList }: { b: Block; app: App;
     case "columns":
       return <div className="o-cols" style={{ "--n": b.cols?.length ?? 2 } as CSSProperties}>{(b.cols ?? []).map((c, i) => <div className="o-stack" key={i}>{renderList(c, `${b.id}:${i}`)}</div>)}</div>;
     case "button": {
-      // KI-Buttons tragen die KI-Farbe (Körber-Blau), solange keine eigene Farbe gewählt ist.
-      const c = b.props.color || "var(--signal)";
-      const ink = b.props.color ? inkFor(b.props.color) : "var(--signal-ink)";
+      // KI-Buttons folgen der Akzentfarbe der App (Standard: Körber-Blau), solange keine eigene Farbe gewählt ist.
+      const c = b.props.color || "var(--app-accent)";
+      const ink = b.props.color ? inkFor(b.props.color) : "var(--app-accent-ink)";
       const laeuft = run?.laeuft === b.id;
       return (
         <div className="o-btn-row" style={{ justifyContent: b.props.align === "center" ? "center" : b.props.align === "right" ? "flex-end" : "flex-start" }}>

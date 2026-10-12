@@ -64,7 +64,8 @@ export function NeuPage() {
   const wechseln = (i: number) => { fokusNachWechsel.current = true; setSchritt(i); };
 
   // Ein ungespeicherter Entwurf geht beim Verlassen verloren: nachfragen.
-  const warnen = !!entwurf && !speichert;
+  // Schützenswert: ein fertiger Entwurf, ein laufender Bau oder eine schon getippte Beschreibung (Schritt 1)
+  const warnen = !speichert && (!!entwurf || !!laeuft || beschreibung.trim().length > 20);
   const blocker = useBlocker(({ currentLocation, nextLocation }) => warnen && !frei.current && currentLocation.pathname !== nextLocation.pathname);
   useEffect(() => {
     if (!warnen) return;
@@ -193,7 +194,7 @@ export function NeuPage() {
               <span className="flex-1" />
               {fieldsOf(entwurf).some((f) => f.type !== "file" && f.props.beispiel) && <Button size="sm" variant="outline" onClick={() => runRef.current?.beispieleEinsetzen()}>Beispieldaten einsetzen</Button>}
             </div>
-            <RunApp key={nr} ref={runRef} app={entwurf} />
+            <RunApp key={nr} ref={runRef} app={entwurf} eingebettet />
           </div>
           <aside className="panel neu-seite" data-sichtbar={testBereich === "anpassen"} aria-label="Entwurf anpassen">
             <h2>{entwurf.name}</h2>
@@ -245,8 +246,8 @@ export function NeuPage() {
       )}
 
       {/* Escape und „Weiter bearbeiten“ schließen den Dialog; der Fokus geht zurück aufs Blatt. */}
-      <AlertDialog open={blocker.state === "blocked"} onOpenChange={(o) => { if (!o) { blocker.reset?.(); requestAnimationFrame(() => blattRef.current?.focus()); } }}>
-        <AlertDialogContent>
+      <AlertDialog open={blocker.state === "blocked"} onOpenChange={(o) => { if (!o) blocker.reset?.(); }}>
+        <AlertDialogContent onCloseAutoFocus={(e) => { e.preventDefault(); blattRef.current?.focus(); }}>
           <AlertDialogHeader>
             <AlertDialogTitle>Entwurf nicht gespeichert</AlertDialogTitle>
             <AlertDialogDescription>„{entwurf?.name || "Neue Applikation"}“ ist noch nicht gespeichert. Wenn du die Seite verlässt, geht der Entwurf verloren.</AlertDialogDescription>

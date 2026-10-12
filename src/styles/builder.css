@@ -117,3 +117,5 @@
 @media (max-height: 820px) { .neu-beispiele { display: none; } }
 /* Während die KI baut: Link in den Baukasten gesperrt */
 .link-back[aria-disabled="true"] { opacity: .5; pointer-events: none; }
+/* Touch: Baustein-Schild auf die Höhe der 40px-Werkzeugleiste, damit sich beide nicht überdecken */
+@media (pointer: coarse) { .b-tag { top: -36px; max-width: calc(100% - 184px); overflow: hidden; text-overflow: ellipsis; } }

@@ -150,6 +150,8 @@ export function UiDnd({ b, children, onAdded, onSeiteNeu }: { b: Builder; childr
   );
   const ausgeschlossen = useRef<Set<string>>(new Set());
   const [aktiv, setAktiv] = useState<string | null>(null);
+  /** Zuletzt gezogen war ein neuer Baustein: beim Rendern nach dem Ablegen ist aktiv schon null, der Schatten braucht das aber noch. */
+  const neu = useRef(false);
   const [drop, setDrop] = useState<{ id: string; pos: "before" | "after" } | null>(null);
   const dropKey = useRef("");
   const dropSetzen = (next: typeof drop) => { const k = next ? `${next.id}:${next.pos}` : ""; if (k !== dropKey.current) { dropKey.current = k; setDrop(next); } };
@@ -168,6 +170,7 @@ export function UiDnd({ b, children, onAdded, onSeiteNeu }: { b: Builder; childr
 
   const onDragStart = (e: DragStartEvent) => {
     const id = String(e.active.id);
+    neu.current = id.startsWith("neu:");
     setAktiv(id);
     const ex = new Set<string>();
     if (!id.startsWith("neu:")) {
@@ -254,7 +257,7 @@ export function UiDnd({ b, children, onAdded, onSeiteNeu }: { b: Builder; childr
       accessibility={{ announcements: ankuendigungen, screenReaderInstructions: { draggable: "Leertaste zum Aufnehmen. Pfeiltasten zum Verschieben, Leertaste zum Ablegen, Escape zum Abbrechen. Eingabetaste öffnet die Eigenschaften." } }}>
       <DropCtx.Provider value={drop}>{children}</DropCtx.Provider>
       {/* Neue Bausteine: kein Rückflug des Schattens zur Palette */}
-      <DragOverlay dropAnimation={ruhig() || aktiv?.startsWith("neu:") ? null : { duration: 220, easing: "cubic-bezier(0.34, 1.4, 0.64, 1)" }}>
+      <DragOverlay dropAnimation={ruhig() || neu.current ? null : { duration: 220, easing: "cubic-bezier(0.34, 1.4, 0.64, 1)" }}>
         {aktiv && <div className="drag-ghost">{label}</div>}
       </DragOverlay>
     </DndContext>
