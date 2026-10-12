@@ -490,14 +490,14 @@ Schritt-Variablen werden `schritt1`, `schritt2` …
 | Text / gedämpft / Linien | `#00050D` / `#5C5A58` / `rgba(0,5,13,.15)` bzw. `#DEDAD4` |
 | Hauptfarbe (Buttons, Auswahl, Links) | Blau `#0060FF`, dunkel `#004CCC`, sehr dunkel `#001C4C`, hell `#E5EFFF` |
 | Akzente | Gelb `#FFE32F` (nur KI-Aktionen), Orange `#FE8623` (Werkzeugfarbe im Baukasten), Hellorange `#FEC037` |
-| Display-Schrift | Hausschrift „fontKoerber“ 400, eng gesetzt (−0,02 bis −0,04 em); im Prototyp ersetzt durch Inter Tight |
+| Display-Schrift | Hausschrift „fontKoerber“; bis zur Freigabe Noto Sans fett (Charlestown-Linie) |
 | Text | Noto Sans 400/500/600 |
 | Rubriken | Noto Sans Mono 12 px, Großbuchstaben, +0,035 em, mit kurzer Linie dahinter |
 | Formen | Buttons als Pille (`border-radius: 999px`), Karten und Flächen scharfkantig, Listen mit Haarlinien |
 
 - Startseite: Rubrik + große, leichte Display-Überschrift; links ein **Bereichsverzeichnis** (Haarlinien-Liste mit Farbfeld und Anzahl), rechts die Kacheln als bündiges Raster mit 1-px-Fugen.
 - Bereichsfarben aus der CI-Palette, jeweils mit passender Schriftfarbe (`--aN` / `--aNi`).
-- Im Zielsystem die lizenzierte Hausschrift und das offizielle Logo einbinden (im Prototyp bewusst nicht enthalten).
+- Im Zielsystem die lizenzierte Hausschrift einbinden. Das Körber-Logo ist eingebunden (`src/components/layout/KoerberLogo.tsx`, aus der EMF-Vorlage umgewandelt, Farbe folgt der Schrift).
 
 **Allgemein:**
 
@@ -884,3 +884,4 @@ MeinHub {
 - Die CSP für Azure (`public/staticwebapp.config.json`) erlaubt api.anthropic.com bewusst nicht; dort ist dieser Modus gesperrt.
 - Copilot-Testverbindung im KI-Menü: Client- und Tenant-ID lassen sich ohne Build-Konfiguration im Browser eintragen (`localStorage`, Werte aus der Build-Umgebung haben Vorrang). Ohne `VITE_GRAPH_SCOPES` fordert der Hub die sieben delegierten Berechtigungen an, die die Copilot-Chat-API laut Microsoft Learn verlangt (`Sites.Read.All`, `Mail.Read`, `People.Read.All`, `OnlineMeetingTranscript.Read.All`, `Chat.Read`, `ChannelMessage.Read.All`, `ExternalItem.Read.All`). Anmelde- und Graph-Fehler werden in Hinweise übersetzt, was in der App-Registrierung fehlt. „Verbindung testen“ meldet an und schickt eine kurze Testfrage.
 - Tempo und Anmeldung: Schritte, die nicht aufeinander aufbauen (keine Platzhalter auf das Ergebnis des anderen, keine Bedingung darauf), laufen gleichzeitig. Text-Ergebnisse wachsen sichtbar mit (Copilot `chatOverStream`, Rückfall auf `/chat`, wenn der Tenant kein Streaming anbietet). Nach jedem Aufruf liegt schon das nächste Copilot-Gespräch bereit. Beim Seitenstart meldet der Hub still an (Zwischenspeicher bzw. Single Sign-on, ohne Fenster) und bereitet ein Gespräch vor; der MSAL-Zwischenspeicher liegt in `localStorage`, damit die Anmeldung über Tabs hinweg hält. Doppelt gelieferte Copilot-Antworten (A + A) werden bereinigt, JSON wird mit Klammerzählung ausgelesen. Im KI-Menü zeigt „Verbindung testen“ die Dauer je Phase; die letzte Rohantwort von Graph lässt sich zur Prüfung kopieren.
+- Gestaltung nach dem KSCA-Portal „Charlestown“: weiße Kopfzeile mit Körber-Logo und „KSCA“, Warmgrau-Band mit Rubrik, Titel, Einleitung und Kennzahlen, Bereichsfilter als Pillen (aktiv Körber-Blau), Kacheln als weiße Karten (Radius 10 px, Haarlinie, Symbolfläche in Hellblau, Rubrik in gesperrten Großbuchstaben, Fußzeile mit Status-Punkt und Pfeil), gestrichelte Karte „Neue Applikation“, Fußzeilen-Band. Eine Schrift (Noto Sans) in Normal und Fett; KI-Aktionen und Hauptschaltflächen in Körber-Blau; nur heller Modus.

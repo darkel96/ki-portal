@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { NavLink, Outlet, Link, useLocation } from "react-router";
+import { KoerberLogo } from "./KoerberLogo";
 import { KiSchluessel, useKiModus } from "./KiSchluessel";
 import { KiCopilotEinrichten, KiCopilotStatus } from "./KiCopilot";
 import { aktuellesKonto } from "@/lib/ki/auth";
@@ -7,18 +8,7 @@ import { copilotVorwaermen } from "@/lib/ki/copilot";
 import { KI_ZENTRAL } from "@/lib/ki/config";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
-function useSystemTheme() {
-  useEffect(() => {
-    const mq = window.matchMedia("(prefers-color-scheme: dark)");
-    const set = () => document.documentElement.classList.toggle("dark", mq.matches);
-    set();
-    mq.addEventListener("change", set);
-    return () => mq.removeEventListener("change", set);
-  }, []);
-}
-
 export function Shell() {
-  useSystemTheme();
   const loc = useLocation();
   const modus = useKiModus();
   const [konto, setKonto] = useState<string | null>(null);
@@ -34,13 +24,8 @@ export function Shell() {
       <header className="top">
         <div className={`wrap top-in ${imBaukasten ? "wide" : ""}`}>
           <Link to="/" className="brand" viewTransition aria-label="KI-Hub, zur Übersicht">
-            <svg width="26" height="26" viewBox="0 0 26 26" aria-hidden="true">
-              <rect x="1" y="1" width="11" height="11" fill="var(--brand)" />
-              <rect x="14" y="1" width="11" height="11" fill="var(--ink)" opacity=".82" />
-              <rect x="1" y="14" width="11" height="11" fill="var(--ink)" opacity=".82" />
-              <rect x="14" y="14" width="11" height="11" fill="var(--signal)" />
-            </svg>
-            <span translate="no">KI-Hub</span>
+            <KoerberLogo className="brand-logo" />
+            <span className="brand-org" translate="no">KSCA</span>
           </Link>
           <nav className="nav" aria-label="Hauptnavigation">
             <NavLink to="/" end viewTransition>Applikationen</NavLink>
@@ -87,6 +72,12 @@ export function Shell() {
       <main id="inhalt" className={`wrap page ${imBaukasten ? "wide" : ""}`}>
         <Outlet />
       </main>
+      <footer className="fuss">
+        <div className={`wrap fuss-in ${imBaukasten ? "wide" : ""}`}>
+          <span>{modus === "copilot" ? "Alle Applikationen laufen über Microsoft 365 Copilot." : modus === "simulation" ? "KI-Simulation: Anfragen werden angezeigt, nicht gesendet." : "Testmodus: Claude beantwortet die Anfragen."}</span>
+          <span>KI-Hub · Pilot KSCA · Fragen an Dario Keller</span>
+        </div>
+      </footer>
     </div>
   );
 }

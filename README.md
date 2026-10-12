@@ -73,7 +73,7 @@ Jeder Push auf `main` baut den Hub und veröffentlicht ihn über GitHub Actions 
 - Graph-Aufruf direkt aus dem Browser oder über einen Backend-Dienst (für Protokollierung und Mengenbegrenzung)
 - Speicherort der Apps in SharePoint und Schreibrechte
 - Microsoft-365-Copilot-Lizenzen für alle Nutzer
-- Lizenzierte Hausschrift (`fontKoerber`) und offizielles Logo; Farben mit `vorlagen/koerber.potx` abgleichen
+- Lizenzierte Hausschrift (`fontKoerber`); Farben mit `vorlagen/koerber.potx` abgleichen (Logo ist eingebunden)
 - Copilot-Endpunkte (teils Beta) vor Inbetriebnahme mit der aktuellen Graph-Dokumentation abgleichen
 - Mein Hub im Betrieb: Speicher je Nutzer, Hintergrunddienst für regelmäßige Aufträge (z. B. Azure Function), Refresh-Token (`offline_access`) in Key Vault, Ziele E-Mail/SharePoint/Teams (siehe Konzept Abschnitt 24.4)
 

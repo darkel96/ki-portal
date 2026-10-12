@@ -3,7 +3,6 @@
 @import "shadcn/tailwind.css";
 @import "@fontsource-variable/noto-sans";
 @import "@fontsource-variable/noto-sans-mono";
-@import "@fontsource-variable/inter-tight";
 @import "./styles/tokens.css";
 @import "./styles/app.css";
 
@@ -39,13 +38,13 @@
 
 /* Semantische Rollen, abgeleitet aus den Körber-Tokens */
 :root {
-  --bg: var(--k-warm-grey-lightest);
+  --bg: var(--k-white);
   --surface: var(--k-white);
-  --surface-2: var(--k-warm-grey-light);
+  --surface-2: var(--k-warm-grey-lighter); /* Warmgrau-Bänder (Kopfbereich, Fußzeile) */
   --ink: var(--k-neutral-darkest);
   --muted-ink: var(--k-warm-grey-darker);
-  --line: #dedad4;                      /* Haarlinie: Website nutzt rgba(0,5,13,.15) auf #fbfaf9 */
-  --line-strong: var(--k-warm-grey-dark);
+  --line: #e7e4df;                      /* Haarlinie der Karten und Trenner */
+  --line-strong: #cdc8c0;
   --brand: var(--k-blue);
   --brand-ink: var(--k-white);
   --brand-soft: var(--k-blue-lightest);
@@ -54,8 +53,9 @@
   --tool-ink: var(--k-neutral-darkest);
   --tool-soft: #fff0e2;
   --tool-text: #a64b00;                 /* Orange als Textfarbe, ausreichend kontrastreich auf Weiß */
-  --signal: var(--k-yellow);            /* nur KI-Aktionen */
-  --signal-ink: var(--k-neutral-darkest);
+  --signal: var(--k-blue);              /* KI-Aktionen: wie Charlestown in Körber-Blau */
+  --signal-ink: var(--k-white);
+  --ok: #1f8a4c;                        /* Status „bereit“ (grüner Punkt) */
   --danger: var(--k-error);
   --danger-soft: #fbe6e3;
   --grid-dot: #dcd7cf;
@@ -68,7 +68,7 @@
   --a4: var(--k-blue-dark); --a4i: var(--k-white);
   --a5: var(--k-warm-grey-dark); --a5i: var(--k-neutral-darkest);
   --a6: var(--k-neutral-darker); --a6i: var(--k-white);
-  --signal-soft: var(--k-yellow-lighter);
+  --signal-soft: var(--k-blue-lightest);
 
   /* shadcn/ui */
   --background: var(--bg);
@@ -127,7 +127,7 @@
   html { @apply font-sans; -webkit-font-smoothing: antialiased; }
   body { @apply bg-background text-foreground; font-size: 15px; line-height: 1.6; }
   button:not(:disabled), [role="button"]:not(:disabled) { cursor: pointer; }
-  h1, h2, h3 { font-family: var(--k-font-display); font-weight: 400; letter-spacing: var(--k-tracking-heading); text-wrap: balance; }
+  h1, h2, h3 { font-family: var(--k-font-display); font-weight: 700; letter-spacing: var(--k-tracking-heading); text-wrap: balance; }
   :focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
   ::selection { background: var(--brand-soft); color: var(--ink); }
   html { scrollbar-color: var(--line-strong) transparent; accent-color: var(--brand); }

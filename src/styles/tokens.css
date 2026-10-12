@@ -3,10 +3,10 @@
  *
  * Quelle: CSS-Variablen von https://www.koerber.com/de (ausgelesen am 08.10.2026).
  * TODO: Mit vorlagen/koerber.potx (ppt/theme/theme1.xml) abgleichen, sobald die Vorlage vorliegt.
- * TODO: Hausschrift "fontKoerber" ist lizenziert und nicht enthalten. Bis zur Freigabe ersetzt durch
- *       Inter Tight (gleiche Rolle: leichte, eng gesetzte Display-Schrift).
- * Dunkelmodus: Die Website hat keinen Dunkelmodus. Die Dunkel-Werte sind aus derselben Palette
- *       abgeleitet (neutral-darkest/-darker, blue-light). TODO: mit Corporate Design abstimmen.
+ * Gestaltung nach dem KSCA-Portal „Charlestown“: helle Flächen, Warmgrau-Bänder, Körber-Blau als
+ *       einzige Akzentfarbe, abgerundete Karten, eine serifenlose Schrift in Normal und Fett,
+ *       Rubriken in gesperrten Großbuchstaben. Nur heller Modus (wie Charlestown).
+ * TODO: Hausschrift "fontKoerber" ist lizenziert und nicht enthalten; bis zur Freigabe Noto Sans.
  */
 
 :root {
@@ -46,8 +46,8 @@
   --k-error: #c4281c;                   /* TODO: Fehlerfarbe der Website nicht als Token gefunden, Wert gewählt */
 
   /* Schriften (Website: fontKoerber, Noto Sans, Noto Sans Mono) */
-  --k-font-display: "Inter Tight Variable", "Segoe UI", system-ui, sans-serif;
-  --k-font-body: "Noto Sans Variable", "Segoe UI", system-ui, sans-serif;
+  --k-font-display: "Noto Sans Variable", "Segoe UI", Arial, sans-serif;
+  --k-font-body: "Noto Sans Variable", "Segoe UI", Arial, sans-serif;
   --k-font-mono: "Noto Sans Mono Variable", ui-monospace, Consolas, monospace;
 
   /* Schriftgrößen (Website: --text-*) */
@@ -58,14 +58,16 @@
   --k-text-large: 1.25rem;
 
   /* Laufweiten der Display-Schrift (Website: h1 63px / -2.53px, h2 48px / -0.96px) */
-  --k-tracking-display: -0.04em;
-  --k-tracking-heading: -0.02em;
-  --k-tracking-rubrik: 0.035em;        /* Rubriken: Noto Sans Mono 12px, Großbuchstaben */
+  --k-tracking-display: -0.02em;
+  --k-tracking-heading: -0.01em;
+  --k-tracking-rubrik: 0.16em;         /* Rubriken: 12px fett, Großbuchstaben, weit gesperrt (Charlestown) */
 
-  /* Formen (Website: Buttons 999px, Karten 0px) */
+  /* Formen (Charlestown: Schaltflächen 999px, Karten 10px, Symbolflächen 8px) */
   --k-radius-pill: 999px;
-  --k-radius-card: 0px;
-  --k-radius-input: 4px;               /* TODO: Eingabefelder auf der Website nicht gefunden, Wert gewählt */
+  --k-radius-card: 10px;
+  --k-radius-input: 8px;
+  --k-shadow-card: 0 1px 2px rgb(0 5 13 / 4%);
+  --k-shadow-card-hover: 0 8px 24px rgb(0 5 13 / 8%);
 
   /* Abstände (Website: --module-spacer, --section-spacer) */
   --k-module-spacer: 64px;
