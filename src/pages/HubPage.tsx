@@ -79,7 +79,7 @@ export function HubPage() {
   const sichtbar = eintraege.slice(akt * proSeite, (akt + 1) * proSeite);
   // Animationen wie im KSCA-Portal: beim ersten Laden tauchen die Kacheln nacheinander auf, beim Filtern gleiten sie
   const raster = useRef<HTMLDivElement>(null);
-  useGleiten(raster, sichtbar.map((a) => (a === "neu" ? "neu" : a.id)).join("|"));
+  useGleiten(raster, sichtbar.map((a) => (a === "neu" ? "neu" : a.id)).join("|"), aktiv);
   const [erst, setErst] = useState(true);
   useEffect(() => {
     if (!geladen) return;
