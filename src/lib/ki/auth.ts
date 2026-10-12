@@ -55,22 +55,19 @@ function anmeldefehler(e: unknown): Error {
   return new Error(`Anmeldung fehlgeschlagen: ${t.slice(0, 300)}`);
 }
 
-/** Token für Microsoft Graph: erst still, dann per Single Sign-on, zuletzt mit Anmeldefenster. */
+/** Token für Microsoft Graph: still aus dem Zwischenspeicher, sonst mit Anmeldefenster. */
 export async function graphToken(scopes?: string[]): Promise<string> {
   const a = await app();
   scopes ??= copilotVerbindung()!.scopes;
   try {
     let konto = a.getActiveAccount() ?? a.getAllAccounts()[0] ?? null;
     if (!konto) {
-      try {
-        const r = await a.ssoSilent({ scopes });
-        a.setActiveAccount(r.account);
-        return r.accessToken;
-      } catch {
-        const r = await a.loginPopup({ scopes });
-        a.setActiveAccount(r.account);
-        return r.accessToken;
-      }
+      // Gleich das Anmeldefenster öffnen, solange es noch als Folge des Klicks gilt. Ein vorgeschaltetes
+      // ssoSilent wartet ohne Drittanbieter-Cookies bis zu 10 s; danach blockiert der Browser das Fenster.
+      // Ist die Person bei Microsoft schon angemeldet, schließt sich das Fenster von selbst.
+      const r = await a.loginPopup({ scopes });
+      a.setActiveAccount(r.account);
+      return r.accessToken;
     }
     try {
       return (await a.acquireTokenSilent({ scopes, account: konto })).accessToken;
