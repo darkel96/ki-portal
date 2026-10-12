@@ -82,6 +82,19 @@ export function bedingungErfuellt(s: Step, ctx: Record<string, string>): boolean
   }
 }
 
+/** Schritte dieses Laufs, deren Ergebnis ein Schritt braucht (Platzhalter oder Bedingung). */
+function abhaengigkeiten(s: Step, steps: Step[]): Step[] {
+  const text = [stepText(s), s.rolle, s.team?.moderation ?? "", ...(s.team?.agenten.map((a) => a.rolle) ?? [])].join(" ");
+  const used = new Set(varsIn(text));
+  if (s.bedingung?.feld) used.add(s.bedingung.feld.toLowerCase());
+  return steps.slice(0, steps.indexOf(s)).filter((p) => used.has(p.key.toLowerCase()));
+}
+
+/**
+ * Führt die gestarteten Schritte aus. Schritte, die nicht aufeinander aufbauen, laufen gleichzeitig;
+ * ein Schritt startet, sobald alle Schritte fertig sind, deren Ergebnis er braucht.
+ * Bei einem Fehler oder Stopp startet nichts Neues mehr; laufende Schritte dürfen zu Ende laufen.
+ */
 export async function ablaufStarten(opts: {
   app: App; aktion: string; werte: Werte; files: Record<string, FileInfo>; ergebnisse: Record<string, string>;
   signal: AbortSignal; setOut: (stepId: string, s: OutState | ((prev: OutState | undefined) => OutState)) => void;
@@ -90,12 +103,18 @@ export async function ablaufStarten(opts: {
   const steps = stepsFor(app, opts.aktion);
   const ergebnisse = { ...opts.ergebnisse };
   const ctx = { ...kontext(app, werte, files), ...lower(ergebnisse) };
-  for (const s of steps) {
-    if (signal.aborted) break;
+  const deps = new Map(steps.map((s) => [s, abhaengigkeiten(s, steps)]));
+  const erledigt = new Set<Step>();
+  const gestartet = new Set<Step>();
+  const laufend = new Map<Step, Promise<void>>();
+  let abbruch = false;
+
+  /** Ein Schritt; gibt false zurück, wenn danach nichts mehr starten soll. */
+  const schritt = async (s: Step): Promise<boolean> => {
     if (!bedingungErfuellt(s, ctx)) {
-      ergebnisse[s.key] = ""; ctx[s.key] = "";
+      ergebnisse[s.key] = ""; ctx[s.key.toLowerCase()] = "";
       setOut(s.id, { status: "uebersprungen", meldung: "Übersprungen, weil die Bedingung nicht erfüllt ist." });
-      continue;
+      return true;
     }
     const req = buildRequest(app, s, ctx, files);
     setOut(s.id, { status: "laeuft", req, team: s.art === "team" ? [] : undefined });
@@ -113,31 +132,58 @@ export async function ablaufStarten(opts: {
           }),
         });
       } else {
-        text = await kiSenden(req, signal);
+        // Text-Ergebnisse wachsen sichtbar mit; JSON und Dateipakete erst, wenn sie vollständig sind
+        const live = s.format === "markdown" || s.format === "text" ? mitlesen((t) => setOut(s.id, (prev) => ({ ...(prev ?? { status: "laeuft" }), text: t }))) : undefined;
+        text = await kiSenden(req, signal, live?.teil);
+        live?.ende();
       }
       const paket = s.format === "dateien" ? parsePaket(text) : undefined;
       setOut(s.id, (prev) => ({
         ...(prev ?? {}), status: s.format === "dateien" && !paket ? "fehler" : "fertig", text, paket,
         meldung: s.format === "dateien" && !paket ? "Die KI hat kein gültiges Dateipaket geliefert. Starte den Schritt erneut." : prev?.meldung,
       }));
-      ergebnisse[s.key] = text; ctx[s.key] = text;
+      ergebnisse[s.key] = text; ctx[s.key.toLowerCase()] = text;
+      return true;
     } catch (e) {
       if (e instanceof KiSimulation) {
         const text = `‹Ergebnis von ${s.name}›`;
         setOut(s.id, (prev) => ({ ...(prev ?? {}), status: "simuliert", req: "applikation" in e.req ? e.req : prev?.req }));
-        ergebnisse[s.key] = text; ctx[s.key] = text;
-        if (s.art === "team") break;
-        continue;
+        ergebnisse[s.key] = text; ctx[s.key.toLowerCase()] = text;
+        return s.art !== "team";
       }
       if (signal.aborted || (e instanceof DOMException && e.name === "AbortError")) {
         setOut(s.id, (prev) => ({ ...(prev ?? {}), status: "gestoppt" }));
-        break;
+        return false;
       }
       setOut(s.id, (prev) => ({ ...(prev ?? {}), status: "fehler", meldung: e instanceof Error ? e.message : "Die Verbindung zur KI ist abgebrochen. Starte erneut." }));
-      break;
+      return false;
     }
+  };
+
+  for (;;) {
+    if (!abbruch && !signal.aborted) {
+      for (const s of steps) {
+        if (gestartet.has(s) || !deps.get(s)!.every((d) => erledigt.has(d))) continue;
+        gestartet.add(s);
+        laufend.set(s, schritt(s).then((weiter) => { erledigt.add(s); if (!weiter) abbruch = true; laufend.delete(s); }));
+      }
+    }
+    if (!laufend.size) break;
+    await Promise.race(laufend.values());
   }
   return ergebnisse;
+}
+
+/** Bündelt Zwischenstände auf höchstens einen pro Bildschirm-Aktualisierung, damit lange Antworten flüssig bleiben. */
+function mitlesen(zeigen: (text: string) => void) {
+  let letzter = "", geplant = 0, aus = false;
+  return {
+    teil: (t: string) => {
+      letzter = t;
+      geplant ||= requestAnimationFrame(() => { geplant = 0; if (!aus) zeigen(letzter); });
+    },
+    ende: () => { aus = true; cancelAnimationFrame(geplant); },
+  };
 }
 
 const lower = (o: Record<string, string>) => Object.fromEntries(Object.entries(o).map(([k, v]) => [k.toLowerCase(), v]));

@@ -3,6 +3,7 @@ import { NavLink, Outlet, Link, useLocation } from "react-router";
 import { KiSchluessel, useKiModus } from "./KiSchluessel";
 import { KiCopilotEinrichten, KiCopilotStatus } from "./KiCopilot";
 import { aktuellesKonto } from "@/lib/ki/auth";
+import { copilotVorwaermen } from "@/lib/ki/copilot";
 import { KI_ZENTRAL } from "@/lib/ki/config";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
@@ -23,6 +24,8 @@ export function Shell() {
   const [konto, setKonto] = useState<string | null>(null);
   const kontoLaden = () => { aktuellesKonto().then((k) => setKonto(k?.name ?? null)).catch(() => setKonto(null)); };
   useEffect(kontoLaden, [loc.pathname, modus]);
+  // Beim Start still anmelden und ein Copilot-Gespräch vorbereiten, damit der erste KI-Aufruf sofort startet
+  useEffect(() => { if (modus === "copilot") copilotVorwaermen().then((ok) => { if (ok) kontoLaden(); }, () => undefined); }, [modus]);
   const imBaukasten = loc.pathname.startsWith("/baukasten") || loc.pathname === "/neu";
 
   return (

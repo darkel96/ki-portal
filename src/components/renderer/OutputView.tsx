@@ -92,7 +92,7 @@ export function OutputView({ app, titel, stepId, stil, mode }: { app: App; titel
   let body: React.ReactNode;
   if (mode === "edit") body = <p className="o-muted">{step ? `Zeigt das Ergebnis von „${step.name}“.` : "Noch kein KI-Schritt gewählt."}</p>;
   else if (!o) body = <p className="o-muted">Das Ergebnis erscheint hier.</p>;
-  else if (o.status === "laeuft" && step?.art !== "team") body = <p className="o-muted">KI arbeitet …</p>;
+  else if (o.status === "laeuft" && step?.art !== "team" && !o.text) body = <p className="o-muted">KI arbeitet …</p>;
   else if (o.status === "simuliert") body = <><p className="o-muted" style={{ color: "var(--tool-text)" }}>Simulation: Diese Anfrage würde an die zentrale KI-Anbindung gehen.</p>{o.req && <pre className="code o-sim">{o.req.nachricht}</pre>}<p className="o-muted">Den vollständigen Aufbau zeigen die technischen Details.</p></>;
   else if (o.status === "uebersprungen") body = <p className="o-muted">{o.meldung}</p>;
   else body = (
@@ -118,6 +118,7 @@ export function OutputView({ app, titel, stepId, stil, mode }: { app: App; titel
       ) : step?.format !== "dateien" && (
         <div className={`o-body ${step?.art === "team" ? "team-result" : ""}`} dangerouslySetInnerHTML={{ __html: renderResult(o.text, step?.format ?? "markdown") }} />
       ))}
+      {o.status === "laeuft" && step?.art !== "team" && <p className="o-muted">KI schreibt …</p>}
       {o.status === "fehler" && o.meldung && <p className="o-err" role="alert">{o.meldung}</p>}
       {o.status === "gestoppt" && <p className="o-muted">Gestoppt.</p>}
     </>
@@ -134,7 +135,7 @@ export function OutputView({ app, titel, stepId, stil, mode }: { app: App; titel
         {o && <span className="status-pill" data-s={o.status}>{STATUS_LABEL[o.status]}</span>}
       </div>
       <motion.div key={o?.status === "laeuft" ? "laeuft" : o?.status ?? "leer"} className="o-body"
-        initial={o ? { opacity: 0, y: 4 } : false} animate={{ opacity: 1, y: 0, transition: { duration: 0.2, ease: EASE_OUT } }} aria-live="polite">
+        initial={o ? { opacity: 0, y: 4 } : false} animate={{ opacity: 1, y: 0, transition: { duration: 0.2, ease: EASE_OUT } }} aria-live="polite" aria-busy={o?.status === "laeuft"}>
         {body}
       </motion.div>
       {mode === "run" && o && (fertig || o.req) && (

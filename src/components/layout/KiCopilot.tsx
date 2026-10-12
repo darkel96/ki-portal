@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { kiFragen } from "@/lib/ki";
 import { abmelden, graphToken } from "@/lib/ki/auth";
 import { copilotVerbindung, redirectUri, testVerbindungSetzen } from "@/lib/ki/config";
+import { letzteMessung, letzteRohantwort } from "@/lib/ki/copilot";
 import { kiModusGeaendert } from "./KiSchluessel";
 
 const GUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -45,6 +46,19 @@ export function KiCopilotEinrichten() {
   );
 }
 
+const sek = (ms: number) => `${(ms / 1000).toFixed(1).replace(".", ",")} s`;
+/** Dauer des letzten Copilot-Aufrufs nach Phasen, z. B. „Anmeldung 0,1 s · Gespräch 0,0 s (vorbereitet) · Antwort 4,2 s“. */
+function messungText(): string {
+  const m = letzteMessung;
+  if (!m) return "";
+  return [
+    `Anmeldung ${sek(m.anmeldung)}`,
+    `Gespräch ${sek(m.gespraech)}${m.ausVorrat ? " (vorbereitet)" : ""}`,
+    m.ersteZeichen != null ? `erste Zeichen nach ${sek(m.ersteZeichen)}` : "",
+    `Antwort ${sek(m.antwort)}${m.gestreamt ? " (Streaming)" : ""}`,
+  ].filter(Boolean).join(" · ");
+}
+
 /** Copilot verbunden: Anmeldung und eine kurze Testfrage prüfen, Testverbindung wieder entfernen. */
 export function KiCopilotStatus({ konto, onKonto }: { konto: string | null; onKonto: () => void }) {
   const v = copilotVerbindung();
@@ -55,8 +69,8 @@ export function KiCopilotStatus({ konto, onKonto }: { konto: string | null; onKo
       await graphToken();
       onKonto();
       setLaeuft("fragen");
-      const antwort = await kiFragen("Antworte nur mit dem Wort: Verbunden");
-      toast.success(`Copilot antwortet: „${antwort.slice(0, 120)}“`);
+      const antwort = await kiFragen("Antworte nur mit dem Wort: Verbunden", undefined, () => undefined);
+      toast.success(`Copilot antwortet: „${antwort.slice(0, 120)}“`, { description: messungText(), duration: 10_000 });
     } catch (e) {
       toast.error(e instanceof Error ? e.message : String(e), { duration: 20_000 });
     } finally {
@@ -89,6 +103,10 @@ export function KiCopilotStatus({ konto, onKonto }: { konto: string | null; onKo
           <dt className="font-semibold">Client-ID</dt><dd className="break-all">{v.clientId}</dd>
           <dt className="font-semibold">Tenant</dt><dd className="break-all">{v.tenantId}</dd>
           <dt className="font-semibold">Weiterleitung (Single-page application)</dt><dd><Weiterleitung /></dd>
+          {letzteMessung && <><dt className="font-semibold">Letzter Aufruf</dt><dd>{messungText()}</dd></>}
+          {letzteRohantwort && <><dt className="font-semibold">Letzte Antwort von Graph</dt><dd>
+            <Button size="sm" type="button" variant="outline" className="rounded-full" onClick={() => navigator.clipboard.writeText(letzteRohantwort).then(() => toast.success("Rohantwort kopiert."), () => toast.error("Kopieren nicht möglich."))}>Rohantwort kopieren</Button>
+          </dd></>}
           <dt className="font-semibold">Graph-Berechtigungen (delegiert)</dt><dd className="break-all">{v.scopes.map((s) => s.replace("https://graph.microsoft.com/", "")).join(", ")}</dd>
         </dl>
       </details>
