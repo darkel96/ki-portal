@@ -1,7 +1,7 @@
 /** Anmeldung über die zentrale Azure-Anwendung (MSAL, Single Sign-on). */
 import {
   createStandardPublicClientApplication, InteractionRequiredAuthError,
-  type AccountInfo, type IPublicClientApplication,
+  type AccountInfo, type AuthenticationResult, type IPublicClientApplication,
 } from "@azure/msal-browser";
 import { copilotVerbindung, redirectUri } from "./config";
 
@@ -50,9 +50,23 @@ function anmeldefehler(e: unknown): Error {
   };
   if (code && hinweis[code]) return new Error(`${hinweis[code]} (${code})`);
   if (/popup_window_error|empty_window_error/.test(t)) return new Error("Das Anmeldefenster wurde vom Browser blockiert. Pop-ups für diese Seite erlauben und erneut versuchen.");
+  if (/interaction_in_progress/.test(t)) return new Error("Es läuft noch eine Anmeldung. Offenes Anmeldefenster abschließen oder schließen und erneut versuchen.");
   if (/user_cancelled/.test(t)) return new Error("Die Anmeldung wurde abgebrochen.");
   if (/timed_out|monitor_window_timeout/.test(t)) return new Error(`Die Anmeldung kam nicht zurück. Ist ${redirectUri()} in der App-Registrierung unter „Single-page application“ eingetragen?`);
   return new Error(`Anmeldung fehlgeschlagen: ${t.slice(0, 300)}`);
+}
+
+/**
+ * Höchstens ein Anmeldefenster gleichzeitig: Weitere Aufrufe (z. B. mehrere Agenten) warten auf dasselbe.
+ * overrideInteractionInProgress räumt einen hängengebliebenen Versuch ab (z. B. nach einem blockierten
+ * Fenster), sonst meldet MSAL bis zum Schließen des Tabs „interaction_in_progress“.
+ */
+let laufendesFenster: Promise<string> | null = null;
+function popup(a: IPublicClientApplication, oeffnen: () => Promise<AuthenticationResult>): Promise<string> {
+  laufendesFenster ??= oeffnen()
+    .then((r) => { a.setActiveAccount(r.account); return r.accessToken; })
+    .finally(() => { laufendesFenster = null; });
+  return laufendesFenster;
 }
 
 /** Token für Microsoft Graph: still aus dem Zwischenspeicher, sonst mit Anmeldefenster. */
@@ -60,23 +74,18 @@ export async function graphToken(scopes?: string[]): Promise<string> {
   const a = await app();
   scopes ??= copilotVerbindung()!.scopes;
   try {
-    let konto = a.getActiveAccount() ?? a.getAllAccounts()[0] ?? null;
+    const konto = a.getActiveAccount() ?? a.getAllAccounts()[0] ?? null;
     if (!konto) {
       // Gleich das Anmeldefenster öffnen, solange es noch als Folge des Klicks gilt. Ein vorgeschaltetes
       // ssoSilent wartet ohne Drittanbieter-Cookies bis zu 10 s; danach blockiert der Browser das Fenster.
       // Ist die Person bei Microsoft schon angemeldet, schließt sich das Fenster von selbst.
-      const r = await a.loginPopup({ scopes });
-      a.setActiveAccount(r.account);
-      return r.accessToken;
+      return await popup(a, () => a.loginPopup({ scopes, overrideInteractionInProgress: true }));
     }
     try {
       return (await a.acquireTokenSilent({ scopes, account: konto })).accessToken;
     } catch (e) {
       if (e instanceof InteractionRequiredAuthError) {
-        const r = await a.acquireTokenPopup({ scopes, account: konto });
-        a.setActiveAccount(r.account);
-        konto = r.account;
-        return r.accessToken;
+        return await popup(a, () => a.acquireTokenPopup({ scopes, account: konto, overrideInteractionInProgress: true }));
       }
       throw e;
     }
