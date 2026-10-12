@@ -6,12 +6,16 @@ import type { ReactNode } from "react";
  * Blättern statt Scrollen: Zurück, Seitenpunkte, Weiter.
  * Die Farben kommen aus currentColor bzw. --pg-accent, damit der Pager auch in gestalteten Apps passt.
  */
-export function Pager({ seite, anzahl, titel, onWechsel, label = "Seite", weiter, className = "" }: {
+export function Pager({ seite, anzahl, titel, onWechsel, onWeiter, label = "Seite", mehrzahl = `${label}n`, weiter, className = "" }: {
   seite: number;
   anzahl: number;
   titel?: (i: number) => string;
   onWechsel: (i: number) => void;
+  /** Eigene Aktion für die Weiter-Schaltfläche (z. B. Ergebnisse erstellen); Punkte und Tasten blättern nur */
+  onWeiter?: () => void;
   label?: string;
+  /** Mehrzahl für die Beschriftung der Navigation („Ergebnisse blättern“) */
+  mehrzahl?: string;
   /** Eigener Text für „Weiter“, z. B. der Titel der nächsten Seite */
   weiter?: string;
   className?: string;
@@ -19,7 +23,7 @@ export function Pager({ seite, anzahl, titel, onWechsel, label = "Seite", weiter
   if (anzahl <= 1) return null;
   const name = (i: number) => titel?.(i) || `${label} ${i + 1}`;
   return (
-    <nav className={`pager ${className}`} aria-label={`${label}n blättern`}>
+    <nav className={`pager ${className}`} aria-label={`${mehrzahl} blättern`}>
       <button type="button" className="pg-btn" onClick={() => onWechsel(seite - 1)} disabled={seite === 0}>
         <ChevronLeft aria-hidden="true" size={16} /> Zurück
       </button>
@@ -27,7 +31,7 @@ export function Pager({ seite, anzahl, titel, onWechsel, label = "Seite", weiter
         {anzahl <= 12 && (
           <div className="dots">
             {Array.from({ length: anzahl }, (_, i) => (
-              <button key={i} type="button" aria-label={`${label} ${i + 1}: ${name(i)}`} aria-current={i === seite ? "true" : undefined} onClick={() => onWechsel(i)} />
+              <button key={i} type="button" aria-label={titel ? `${label} ${i + 1}: ${name(i)}` : name(i)} aria-current={i === seite ? "step" : undefined} onClick={() => onWechsel(i)} />
             ))}
           </div>
         )}
@@ -35,7 +39,7 @@ export function Pager({ seite, anzahl, titel, onWechsel, label = "Seite", weiter
           {titel ? <><b>{name(seite)}</b><span>{seite + 1} von {anzahl}</span></> : <span>{label} {seite + 1} von {anzahl}</span>}
         </span>
       </div>
-      <button type="button" className="pg-btn primaer" onClick={() => onWechsel(seite + 1)} disabled={seite === anzahl - 1}>
+      <button type="button" className="pg-btn primaer" onClick={() => (onWeiter ? onWeiter() : onWechsel(seite + 1))} disabled={seite === anzahl - 1}>
         {weiter && seite < anzahl - 1
           ? <><span className="pg-weiter pg-lang">{weiter}</span><span className="pg-kurz">Weiter</span></>
           : <span className="pg-weiter">Weiter</span>} <ChevronRight aria-hidden="true" size={16} />

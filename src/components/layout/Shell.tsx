@@ -5,7 +5,6 @@ import { KiSchluessel, useKiModus } from "./KiSchluessel";
 import { KiCopilotEinrichten, KiCopilotStatus } from "./KiCopilot";
 import { aktuellesKonto } from "@/lib/ki/auth";
 import { copilotVorwaermen } from "@/lib/ki/copilot";
-import { KI_ZENTRAL } from "@/lib/ki/config";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 export function Shell() {
@@ -16,6 +15,12 @@ export function Shell() {
   useEffect(kontoLaden, [loc.pathname, modus]);
   // Beim Start still anmelden und ein Copilot-Gespräch vorbereiten, damit der erste KI-Aufruf sofort startet
   useEffect(() => { if (modus === "copilot") copilotVorwaermen().then((ok) => { if (ok) kontoLaden(); }, () => undefined); }, [modus]);
+  // Fenstertitel je Bereich; App-Seiten setzen ihren eigenen
+  useEffect(() => {
+    if (loc.pathname.startsWith("/app/")) return;
+    const t = loc.pathname === "/" ? "Applikationen" : loc.pathname.startsWith("/mein") ? "Mein Hub" : loc.pathname.startsWith("/baukasten") ? "Baukasten" : loc.pathname === "/neu" ? "Neue Applikation" : "";
+    document.title = t ? `${t} – KI-Hub` : "KI-Hub";
+  }, [loc.pathname]);
   const imBaukasten = loc.pathname.startsWith("/baukasten") || loc.pathname === "/neu";
 
   return (
@@ -34,12 +39,12 @@ export function Shell() {
           </nav>
           <Popover>
             <PopoverTrigger asChild>
-              <button type="button" className="ki-pill" data-modus={modus}>
+              <button type="button" className="ki-pill" data-modus={modus} data-angemeldet={modus === "copilot" && !konto ? "nein" : undefined}>
                 <i aria-hidden="true" />
-                <span className="ki-pill-text">{modus === "copilot" ? (konto ? `Copilot, angemeldet als ${konto}` : "Copilot verbunden") : modus === "claude-test" ? "Testmodus mit Claude" : modus === "claude-api" ? "Claude (eigener Schlüssel)" : "KI-Simulation"}</span>
+                <span className="ki-pill-text">{modus === "copilot" ? (konto ? `Copilot · ${konto}` : "Copilot · nicht angemeldet") : modus === "claude-test" ? "Testmodus mit Claude" : modus === "claude-api" ? "Claude (eigener Schlüssel)" : "KI-Simulation"}</span>
               </button>
             </PopoverTrigger>
-            <PopoverContent align="end" className="max-h-[80vh] w-80 overflow-y-auto rounded-none text-sm leading-relaxed">
+            <PopoverContent align="end" className="max-h-[80vh] w-80 overflow-y-auto text-sm leading-relaxed">
               {modus === "claude-test" ? (
                 <>
                   <p className="font-semibold">Testmodus mit Claude</p>
@@ -54,7 +59,8 @@ export function Shell() {
                 </>
               ) : modus === "copilot" ? (
                 <>
-                  <p>Alle Applikationen senden ihre Anfragen über die zentrale Azure-Anwendung an {KI_ZENTRAL.ziel}.</p>
+                  <p className="font-semibold">Microsoft 365 Copilot</p>
+                  <p className="mt-1.5 text-muted-foreground">Die Applikationen nutzen Copilot mit deinem Firmenkonto. Du siehst nur Ergebnisse aus Daten, auf die du ohnehin Zugriff hast.</p>
                   <KiCopilotStatus konto={konto} onKonto={kontoLaden} />
                 </>
               ) : (

@@ -9,9 +9,9 @@ import { paketName, treeText, zipPaket } from "@/lib/paket";
 import { saveFile } from "@/lib/files";
 import { DATEI_ART, DATEI_ARTEN, dateiErzeugen, dateiName, type DateiArt } from "@/lib/dokument";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { ChevronDown, Download } from "lucide-react";
+import { Check, ChevronDown, Copy, Download, RotateCcw } from "lucide-react";
 import { useState } from "react";
-import { initials, slug } from "@/lib/model";
+import { initials, slug, stepsFor, walk } from "@/lib/model";
 import { useRun } from "./runContext";
 import type { Mode } from "./BlockContent";
 
@@ -37,13 +37,13 @@ function DateiKnoepfe({ app, text, titel, haupt, roh }: { app: App; text: string
     <>
       {haupt && (
         <Button size="sm" className="rounded-full" disabled={!!baut} onClick={() => void laden(haupt)}>
-          <Download aria-hidden="true" />{baut === haupt ? `${DATEI_ART[haupt].label} wird erstellt …` : `${DATEI_ART[haupt].label} herunterladen`}
+          <Download aria-hidden="true" />{baut === haupt ? `${DATEI_ART[haupt].label} wird erstellt\u00a0…` : `${DATEI_ART[haupt].label} herunterladen`}
         </Button>
       )}
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button size="sm" variant="outline" className="rounded-full" disabled={!!baut}>
-            {baut && baut !== haupt ? `${DATEI_ART[baut].label} wird erstellt …` : haupt ? "Andere Datei" : "Als Datei herunterladen"}<ChevronDown aria-hidden="true" />
+            {baut && baut !== haupt ? `${DATEI_ART[baut].label} wird erstellt\u00a0…` : haupt ? "Anderes Format" : "Als Datei herunterladen"}<ChevronDown aria-hidden="true" />
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="start">
@@ -54,6 +54,39 @@ function DateiKnoepfe({ app, text, titel, haupt, roh }: { app: App; text: string
         </DropdownMenuContent>
       </DropdownMenu>
     </>
+  );
+}
+
+/** Kopiert formatiert (für Outlook/Word) und als reinen Text; die Schaltfläche bestätigt kurz selbst. */
+function KopierKnopf({ text, format, teil }: { text: string; format: string; teil: boolean }) {
+  const [ok, setOk] = useState(false);
+  const kopieren = async () => {
+    try {
+      const html = renderResult(text, format as never);
+      if (typeof ClipboardItem !== "undefined" && navigator.clipboard?.write) {
+        await navigator.clipboard.write([new ClipboardItem({ "text/html": new Blob([html], { type: "text/html" }), "text/plain": new Blob([text], { type: "text/plain" }) })]);
+      } else await navigator.clipboard.writeText(text);
+      setOk(true);
+      setTimeout(() => setOk(false), 2000);
+    } catch {
+      toast.error("Kopieren nicht möglich. Markier den Text und kopier ihn mit Strg+C.");
+    }
+  };
+  return (
+    <Button size="sm" variant="outline" className="rounded-full" onClick={() => void kopieren()}>
+      {ok ? <><Check aria-hidden="true" />Kopiert</> : <><Copy aria-hidden="true" />{teil ? "Teilergebnis kopieren" : "Kopieren"}</>}
+    </Button>
+  );
+}
+
+/** ZIP mit Ladezustand und Fehlermeldung */
+function ZipKnopf({ onLaden, text, haupt }: { onLaden: () => Promise<void>; text: string; haupt: boolean }) {
+  const [baut, setBaut] = useState(false);
+  return (
+    <Button size="sm" variant={haupt ? "default" : "outline"} className="rounded-full" disabled={baut} onClick={async () => {
+      setBaut(true);
+      try { await onLaden(); } catch (e) { toast.error(`Das ZIP konnte nicht erstellt werden.${e instanceof Error ? " " + e.message : ""}`); } finally { setBaut(false); }
+    }}><Download aria-hidden="true" />{baut ? "ZIP wird erstellt\u00a0…" : text}</Button>
   );
 }
 
@@ -91,14 +124,18 @@ export function OutputView({ app, titel, stepId, stil, mode }: { app: App; titel
   const o = run?.outs[stepId];
   let body: React.ReactNode;
   if (mode === "edit") body = <p className="o-muted">{step ? `Zeigt das Ergebnis von „${step.name}“.` : "Noch kein KI-Schritt gewählt."}</p>;
-  else if (!o) body = <p className="o-muted">Das Ergebnis erscheint hier.</p>;
-  else if (o.status === "laeuft" && step?.art !== "team" && !o.text) body = <p className="o-muted">KI arbeitet …</p>;
+  else if (!o) {
+    let knopf = "";
+    walk(app.blocks, (b) => { if (!knopf && b.type === "button" && step && stepsFor(app, b.props.aktion).includes(step)) knopf = b.props.text; });
+    body = <p className="o-muted">{knopf ? `Das Ergebnis erscheint hier, sobald du „${knopf}“ startest.` : "Das Ergebnis erscheint hier."}</p>;
+  }
+  else if (o.status === "laeuft" && step?.art !== "team" && !o.text) body = <p className="o-muted">KI arbeitet\u00a0…</p>;
   else if (o.status === "simuliert") body = <><p className="o-muted" style={{ color: "var(--tool-text)" }}>Simulation: Diese Anfrage würde an die zentrale KI-Anbindung gehen.</p>{o.req && <pre className="code o-sim">{o.req.nachricht}</pre>}<p className="o-muted">Den vollständigen Aufbau zeigen die technischen Details.</p></>;
   else if (o.status === "uebersprungen") body = <p className="o-muted">{o.meldung}</p>;
   else body = (
     <>
       {step?.art === "team" && <TeamLogView o={o} app={app} stepId={stepId} />}
-      {step?.art === "team" && o.status === "laeuft" && <p className="o-muted">Das Team arbeitet …</p>}
+      {step?.art === "team" && o.status === "laeuft" && <p className="o-muted">Das Team arbeitet\u00a0…</p>}
       {o.text && (o.paket ? (
         <div className={step?.art === "team" ? "team-result" : undefined}>
           {o.paket.hinweis && <p>{o.paket.hinweis}</p>}
@@ -118,7 +155,7 @@ export function OutputView({ app, titel, stepId, stil, mode }: { app: App; titel
       ) : step?.format !== "dateien" && (
         <div className={`o-body ${step?.art === "team" ? "team-result" : ""}`} dangerouslySetInnerHTML={{ __html: renderResult(o.text, step?.format ?? "markdown") }} />
       ))}
-      {o.status === "laeuft" && step?.art !== "team" && <p className="o-muted">KI schreibt …</p>}
+      {o.status === "laeuft" && step?.art !== "team" && <p className="o-muted">KI schreibt\u00a0…</p>}
       {o.status === "fehler" && o.meldung && <p className="o-err" role="alert">{o.meldung}</p>}
       {o.status === "gestoppt" && <p className="o-muted">Gestoppt.</p>}
     </>
@@ -133,16 +170,22 @@ export function OutputView({ app, titel, stepId, stil, mode }: { app: App; titel
       <div className="o-out-head">
         <span className="o-out-t">{titel}</span>
         {o && <span className="status-pill" data-s={o.status}>{STATUS_LABEL[o.status]}</span>}
+        {/* Nur der Status wird angesagt, nicht jedes Stück des entstehenden Texts */}
+        <span className="sr-only" aria-live="polite">{o && mode === "run" ? `${titel}: ${STATUS_LABEL[o.status]}` : ""}</span>
       </div>
-      <motion.div key={o?.status === "laeuft" ? "laeuft" : o?.status ?? "leer"} className="o-body"
-        initial={o ? { opacity: 0, y: 4 } : false} animate={{ opacity: 1, y: 0, transition: { duration: 0.2, ease: EASE_OUT } }} aria-live="polite" aria-busy={o?.status === "laeuft"}>
+      <motion.div key={o ? "da" : "leer"} className="o-body"
+        initial={o ? { opacity: 0, y: 4 } : false} animate={{ opacity: 1, y: 0, transition: { duration: 0.2, ease: EASE_OUT } }} aria-busy={o?.status === "laeuft"}>
         {body}
       </motion.div>
       {mode === "run" && o && (fertig || o.req) && (
         <div className="o-foot">
-          {fertig && <Button size="sm" variant="outline" className="rounded-full" onClick={() => { void navigator.clipboard?.writeText(o.text ?? "").then(() => toast.success("In die Zwischenablage kopiert.")); }}>Kopieren</Button>}
+          {(o.status === "fehler" || o.status === "gestoppt") && step && (
+            <Button size="sm" className="rounded-full" disabled={!!run?.laeuft} onClick={() => run?.starten(`wiederholen:${stepId}`, stepId)}><RotateCcw aria-hidden="true" />Erneut versuchen</Button>
+          )}
+          {fertig && (!o.paket || einDokument) && <KopierKnopf text={einDokument ? einDokument.inhalt : o.text ?? ""} format={einDokument ? "markdown" : step?.format ?? "markdown"} teil={o.status !== "fertig"} />}
           {fertig && o.paket && einDokument && <DateiKnoepfe app={app} text={einDokument.inhalt} titel={dateiTitel(einDokument.pfad)} haupt={o.req?.ergebnisDatei ?? "pdf"} roh={{ name: dateiTitel(einDokument.pfad), endung: einDokument.pfad.split(".").pop() ?? "txt" }} />}
-          {fertig && o.paket && <Button size="sm" variant={einDokument ? "outline" : "default"} className="rounded-full" onClick={async () => saveFile(paketName(app.name, o.paket!), await zipPaket(o.paket!, app.name, o.req?.ergebnisDatei ?? undefined))}>{o.req?.ergebnisDatei ? `ZIP herunterladen (Dokumente als ${DATEI_ART[o.req.ergebnisDatei].label})` : "ZIP herunterladen"}</Button>}
+          {fertig && o.paket && <ZipKnopf haupt={!einDokument} text={o.req?.ergebnisDatei ? `ZIP mit ${DATEI_ART[o.req.ergebnisDatei].label}-Dateien` : "ZIP herunterladen"}
+            onLaden={async () => saveFile(paketName(app.name, o.paket!), await zipPaket(o.paket!, app.name, o.req?.ergebnisDatei ?? undefined))} />}
           {fertig && !o.paket && step && <DateiKnoepfe app={app} text={o.text ?? ""} titel={step.name} haupt={o.req?.ergebnisDatei ?? null} roh={{ name: slug(step.name), endung: step.format === "json" ? "json" : step.format === "text" ? "txt" : "md" }} />}
           {o.req && step && Array.isArray(o.req.dateien) && (
             <details>

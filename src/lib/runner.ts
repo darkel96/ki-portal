@@ -20,7 +20,7 @@ export type OutState = {
 };
 
 export const STATUS_LABEL: Record<OutState["status"], string> = {
-  wartet: "wartet", laeuft: "läuft", fertig: "fertig", simuliert: "Simulation", uebersprungen: "übersprungen", fehler: "Fehler", gestoppt: "gestoppt",
+  wartet: "Wartet", laeuft: "Läuft", fertig: "Fertig", simuliert: "Simulation", uebersprungen: "Übersprungen", fehler: "Fehler", gestoppt: "Gestoppt",
 };
 
 /** Werte der Eingabefelder als Text, so wie sie in Prompts eingesetzt werden. */
@@ -155,7 +155,7 @@ export async function ablaufStarten(opts: {
         setOut(s.id, (prev) => ({ ...(prev ?? {}), status: "gestoppt" }));
         return false;
       }
-      setOut(s.id, (prev) => ({ ...(prev ?? {}), status: "fehler", meldung: e instanceof Error ? e.message : "Die Verbindung zur KI ist abgebrochen. Starte erneut." }));
+      setOut(s.id, (prev) => ({ ...(prev ?? {}), status: "fehler", meldung: fehlerText(e) }));
       return false;
     }
   };
@@ -184,6 +184,13 @@ function mitlesen(zeigen: (text: string) => void) {
     },
     ende: () => { aus = true; cancelAnimationFrame(geplant); },
   };
+}
+
+/** Fehlermeldung für Menschen: Technisches („Failed to fetch“) in einen Satz mit nächstem Schritt übersetzen. */
+function fehlerText(e: unknown): string {
+  const t = e instanceof Error ? e.message : "";
+  if (!t || /failed to fetch|networkerror|load failed/i.test(t)) return "Die Verbindung zur KI ist abgebrochen. Prüf die Internetverbindung und versuch es erneut.";
+  return t;
 }
 
 const lower = (o: Record<string, string>) => Object.fromEntries(Object.entries(o).map(([k, v]) => [k.toLowerCase(), v]));

@@ -1,5 +1,7 @@
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { ChevronLeft } from "lucide-react";
+import { useBlocker } from "react-router";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
 import { isFieldType, type App, type Block } from "@/lib/schema";
 import { fieldsOf, seiteMit, seitenTitel, seitenVon, stepsFor, walk } from "@/lib/model";
@@ -61,13 +63,13 @@ function vorschau(k: Kachel, outs: Record<string, OutState>): string {
   for (const id of k.stepIds) {
     const o = outs[id];
     if (!o) continue;
-    if (o.status === "laeuft") return "Wird erstellt …";
+    if (o.status === "laeuft") return "Wird erstellt\u00a0…";
     if (o.status === "simuliert") return "Simulation: Die Anfrage ist vorbereitet, es gibt keine KI-Antwort.";
     if ((o.status === "uebersprungen" || o.status === "fehler") && o.meldung) return o.meldung;
     if (o.paket) return `${o.paket.dateien.length} ${o.paket.dateien.length === 1 ? "Datei" : "Dateien"}${o.paket.hinweis ? `: ${o.paket.hinweis}` : ""}`;
     if (o.text) return o.text.replace(/```[\s\S]*?```/g, " ").replace(/<[^>]+>/g, " ").replace(/[#*_`>|]+/g, " ").replace(/-{3,}/g, " ").replace(/\s+/g, " ").trim().slice(0, 260);
   }
-  return "Wird erstellt, sobald der Ablauf startet.";
+  return "Wird erstellt, sobald du „Ergebnisse erstellen“ startest.";
 }
 
 function Uebersicht({ kacheln, outs, laeuft, geaendert, onStart, onOeffnen }: {
@@ -75,13 +77,14 @@ function Uebersicht({ kacheln, outs, laeuft, geaendert, onStart, onOeffnen }: {
   onStart: () => void; onOeffnen: (id: string) => void;
 }) {
   const stati = kacheln.map((k) => kachelStatus(k, outs));
-  const fertig = stati.filter((s) => FERTIG.has(s)).length;
+  const fertig = stati.filter((s) => s === "fertig" || s === "simuliert").length;
+  const mitFehler = stati.filter((s) => s === "fehler").length;
   const gestartet = stati.some((s) => s !== "wartet");
   return (
     <div className="e-uebersicht">
       <div className="e-kopf">
         <h2 className="o-h o-h2">Ergebnisse</h2>
-        <span className="e-stand" aria-live="polite">{laeuft ? `${fertig} von ${kacheln.length} fertig, der Ablauf läuft …` : gestartet ? `${fertig} von ${kacheln.length} fertig` : "Noch nicht erstellt"}</span>
+        <span className="e-stand" aria-live="polite">{laeuft ? `${fertig} von ${kacheln.length} fertig, der Ablauf läuft\u00a0…` : gestartet ? `${fertig} von ${kacheln.length} fertig${mitFehler ? `, ${mitFehler} mit Fehler` : ""}` : "Noch nicht erstellt"}</span>
         <span className="flex-1" />
         {geaendert && !laeuft && gestartet && <span className="e-hinweis">Die Eingaben wurden seitdem geändert.</span>}
         <button type="button" className={`o-btn ${gestartet && !laeuft ? "outline" : ""}`} style={{ "--btn": "var(--signal)", "--btn-ink": "var(--signal-ink)" } as CSSProperties} onClick={onStart}>
@@ -91,9 +94,9 @@ function Uebersicht({ kacheln, outs, laeuft, geaendert, onStart, onOeffnen }: {
       <ul className="e-kacheln">
         {kacheln.map((k, i) => (
           <li key={k.id}>
-            <button type="button" className="e-kachel" data-s={stati[i]} onClick={() => onOeffnen(k.id)}>
-              <span className="e-kachel-kopf"><span className="e-titel">{k.titel}</span><span className="status-pill" data-s={stati[i]}>{STATUS_LABEL[stati[i]]}</span></span>
-              <span className="e-text">{vorschau(k, outs)}</span>
+            <button type="button" className="e-kachel" data-s={stati[i]} onClick={() => onOeffnen(k.id)} aria-labelledby={`et-${k.id}`} aria-describedby={`es-${k.id}`}>
+              <span className="e-kachel-kopf"><span className="e-titel" id={`et-${k.id}`}>{k.titel}</span><span className="status-pill" id={`es-${k.id}`} data-s={stati[i]}>{STATUS_LABEL[stati[i]]}</span></span>
+              <span className="e-text" aria-hidden="true">{vorschau(k, outs)}</span>
               <span className="e-oeffnen">Öffnen</span>
             </button>
           </li>
@@ -112,6 +115,9 @@ export const RunApp = forwardRef<RunAppHandle, {
   const [werte, setWerte] = useState<Werte>({});
   const [files, setFiles] = useState<Record<string, FileInfo>>({});
   const [dateiInfo, setDateiInfo] = useState<Record<string, string>>({});
+  /** Dateien, die gerade gelesen werden bzw. nicht gelesen werden konnten */
+  const [liest, setLiest] = useState<Set<string>>(new Set());
+  const [dateiFehler, setDateiFehler] = useState<Set<string>>(new Set());
   const [fehler, setFehler] = useState<Set<string>>(new Set());
   const [outs, setOuts] = useState<Record<string, OutState>>({});
   const [laeuft, setLaeuft] = useState<string | null>(null);
@@ -165,7 +171,8 @@ export const RunApp = forwardRef<RunAppHandle, {
     const k = fokusNach.current;
     fokusNach.current = null;
     const ziel = k ? frame.current?.querySelector<HTMLElement>(`[data-key="${k}"] input, [data-key="${k}"] textarea, [data-key="${k}"] select`) : null;
-    (ziel ?? blatt.current)?.focus({ preventScroll: true });
+    if (ziel) { ziel.focus({ preventScroll: true }); ziel.scrollIntoView({ block: "center" }); }
+    else blatt.current?.focus({ preventScroll: true });
   }, [ansicht]);
 
   useImperativeHandle(ref, () => ({
@@ -188,15 +195,22 @@ export const RunApp = forwardRef<RunAppHandle, {
   }), [app.blocks, werte, files]);
 
   const setDatei = useCallback(async (key: string, f: File | null) => {
+    const mit = (set: Set<string>, an: boolean) => { const n = new Set(set); if (an) n.add(key); else n.delete(key); return n; };
+    setDateiFehler((x) => mit(x, false));
     if (!f) { setFiles(({ [key]: _, ...rest }) => rest); setDateiInfo((d) => ({ ...d, [key]: "" })); return; }
-    setDateiInfo((d) => ({ ...d, [key]: `${f.name} wird gelesen …` }));
+    setDateiInfo((d) => ({ ...d, [key]: `${f.name} wird gelesen\u00a0…` }));
+    setLiest((x) => mit(x, true));
     try {
       const info = await readFileInfo(f);
       setFiles((x) => ({ ...x, [key]: info }));
+      setFehler((x) => mit(x, false));
       setDateiInfo((d) => ({ ...d, [key]: info.text.trim() ? `${f.name} gelesen (${info.text.length.toLocaleString("de-DE")} Zeichen${info.text.length >= 60000 ? ", gekürzt" : ""})` : `${f.name} enthält keinen lesbaren Text, zum Beispiel ein eingescanntes PDF.` }));
     } catch (e) {
       setFiles(({ [key]: _, ...rest }) => rest);
-      setDateiInfo((d) => ({ ...d, [key]: e instanceof UnsupportedFormatError ? "Dieses Format kann nicht gelesen werden. Speichere die Datei als .docx, .xlsx, .pdf, .csv oder .txt." : "Die Datei konnte nicht gelesen werden." }));
+      setDateiFehler((x) => mit(x, true));
+      setDateiInfo((d) => ({ ...d, [key]: e instanceof UnsupportedFormatError ? "Dieses Format kann nicht gelesen werden. Speichere die Datei als .docx, .xlsx, .pdf, .csv oder .txt." : "Die Datei konnte nicht gelesen werden. Versuch es noch einmal oder wähl eine andere Datei." }));
+    } finally {
+      setLiest((x) => mit(x, false));
     }
   }, []);
 
@@ -210,6 +224,7 @@ export const RunApp = forwardRef<RunAppHandle, {
     if (ctl.current) { ctl.current.abort(); return; }
     const steps = stepsFor(app, aktion);
     if (!steps.length) return;
+    if (liest.size) { toast.info("Die Datei wird noch gelesen. Einen Moment, dann noch einmal starten."); return; }
     const fehlend = fehlendePflichtfelder(app, steps, werte, files);
     setFehler(new Set(fehlend));
     if (fehlend.length) {
@@ -222,7 +237,13 @@ export const RunApp = forwardRef<RunAppHandle, {
     }
     const vor = fehlendeVorstufe(app, steps, ergebnisse.current);
     if (vor) {
-      setOuts((o) => ({ ...o, [vor.step.id]: { status: "fehler", meldung: `„${vor.step.name}“ braucht das Ergebnis von „${vor.fehlt.name}“. Starte zuerst „${vor.fehlt.name}“.` } }));
+      // Den Button nennen und zeigen, der die fehlende Vorstufe startet; Schrittnamen sieht man in der App nicht
+      let knopf: Extract<Block, { type: "button" }> | undefined;
+      walk(app.blocks, (b) => { if (!knopf && b.type === "button" && stepsFor(app, b.props.aktion).includes(vor.fehlt)) knopf = b; });
+      const wie = knopf ? `Starte zuerst „${knopf.props.text}“.` : `Starte zuerst „${vor.fehlt.name}“.`;
+      setOuts((o) => ({ ...o, [vor.step.id]: { status: "fehler", meldung: `Dafür fehlt noch ein Ergebnis. ${wie}` } }));
+      toast.error(`Dafür fehlt noch ein Ergebnis. ${wie}`);
+      if (knopf) { const i = eingabeIdxMit((b) => b.id === knopf!.id); if (i >= 0 && (i !== akt || detail || imUeberblick)) wechseln(i); }
       return;
     }
     const c = new AbortController();
@@ -231,7 +252,11 @@ export const RunApp = forwardRef<RunAppHandle, {
     setStand(JSON.stringify(werte) + Object.keys(files).join("|"));
     // Wohin? Steht das Ergebnis des ersten Schritts auf einer Eingabeseite, dorthin; sonst in die Ergebnisübersicht.
     const inline = eingabeIdxMit((b) => b.type === "output" && b.props.quelle === steps[0].id);
-    if (inline >= 0) { if (inline !== akt || detail) wechseln(inline); }
+    if (inline >= 0) {
+      if (inline !== akt || detail) wechseln(inline);
+      // Ergebnis ins Bild holen, falls es unterhalb der Eingaben steht
+      else requestAnimationFrame(() => frame.current?.querySelector(`[data-src="${steps[0].id}"]`)?.scrollIntoView({ block: "nearest", behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" }));
+    }
     else if (mitUebersicht && !imUeberblick) wechseln(uebersichtIdx);
     const gelaufen: Record<string, OutState> = {};
     try {
@@ -247,11 +272,11 @@ export const RunApp = forwardRef<RunAppHandle, {
       setLaeuft(null);
       if (Object.keys(gelaufen).length) onLaufFertig?.(gelaufen);
     }
-  }, [onLaufFertig, app, werte, files, akt, detail, imUeberblick, mitUebersicht, uebersichtIdx, wechseln, eingabeIdxMit]);
+  }, [onLaufFertig, app, werte, files, liest, akt, detail, imUeberblick, mitUebersicht, uebersichtIdx, wechseln, eingabeIdxMit]);
 
   const nochNichtGelaufen = app.steps.every((s) => !outs[s.id]);
-  /** Blättern; wer von den Eingaben in die Übersicht wechselt, startet den Ablauf automatisch (einmal, sobald alle Pflichtfelder gefüllt sind). */
-  const blaettern = (i: number) => {
+  /** „Weiter“ in die Übersicht startet den Ablauf automatisch (einmal); Punkte und Bild-Tasten blättern nur. */
+  const weiterKlick = (i: number) => {
     if (mitUebersicht && i === uebersichtIdx && nochNichtGelaufen && !laeuft && app.steps.length) { void starten("uebersicht", "alle"); return; }
     wechseln(i);
   };
@@ -263,7 +288,7 @@ export const RunApp = forwardRef<RunAppHandle, {
     return out;
   }, [app.blocks]);
 
-  const ctx: RunCtx = { werte, setWert: (k, v) => { setWerte((w) => ({ ...w, [k]: v })); setFehler((f) => { if (!f.has(k)) return f; const n = new Set(f); n.delete(k); return n; }); }, files, dateiInfo, setDatei: (k, f) => void setDatei(k, f), fehler, outs, laeuft, ebenen, starten: (b, a) => void starten(b, a) };
+  const ctx: RunCtx = { werte, setWert: (k, v) => { setWerte((w) => ({ ...w, [k]: v })); setFehler((f) => { if (!f.has(k)) return f; const n = new Set(f); n.delete(k); return n; }); }, files, dateiInfo, dateiFehler, setDatei: (k, f) => void setDatei(k, f), fehler, outs, laeuft, ebenen, starten: (b, a) => void starten(b, a) };
 
   const renderList: RenderList = (blocks: Block[]) => inReihen(blocks, (b) => <BlockContent key={b.id} b={b} app={app} mode="run" renderList={renderList} />);
 
@@ -273,7 +298,7 @@ export const RunApp = forwardRef<RunAppHandle, {
   useLayoutEffect(() => {
     const el = blatt.current;
     if (el && dicht < 2 && el.scrollHeight > el.clientHeight + 2) setDicht(dicht + 1);
-  });
+  }, [ansicht, dicht]);
   useEffect(() => {
     const el = frame.current;
     if (!el) return;
@@ -287,6 +312,25 @@ export const RunApp = forwardRef<RunAppHandle, {
     return () => ro.disconnect();
   }, []);
 
+  const fuellen = useMemo(() => {
+    if (!p) return false;
+    let n = 0;
+    walk(p.children ?? [], (b) => { if (b.type === "textarea") n++; });
+    return n === 1;
+  }, [p]);
+
+  // Ungesicherte Eingaben bzw. laufender Ablauf: vor dem Verlassen fragen
+  const hatEingaben = Object.values(werte).some((v) => v !== "" && v !== false) || Object.keys(files).length > 0;
+  const ungesichert = !!laeuft || (hatEingaben && (!stand || stand !== JSON.stringify(werte) + Object.keys(files).join("|")));
+  const blocker = useBlocker(({ currentLocation, nextLocation }) => ungesichert && currentLocation.pathname !== nextLocation.pathname);
+  useEffect(() => {
+    if (!ungesichert) return;
+    const h = (e: BeforeUnloadEvent) => { e.preventDefault(); };
+    window.addEventListener("beforeunload", h);
+    return () => window.removeEventListener("beforeunload", h);
+  }, [ungesichert]);
+  useEffect(() => () => ctl.current?.abort(), []);
+
   const linearTitel = (i: number) => (i === uebersichtIdx && mitUebersicht ? "Ergebnisse" : seitenTitel(eingabeSeiten[i], seiten.indexOf(eingabeSeiten[i])));
   const kIdx = offen ? kacheln.indexOf(offen) : -1;
   const geaendert = !!stand && stand !== JSON.stringify(werte) + Object.keys(files).join("|");
@@ -294,11 +338,12 @@ export const RunApp = forwardRef<RunAppHandle, {
 
   return (
     <RunContext.Provider value={ctx}>
-      <div className="app-frame" style={themeStyle(app.theme)} ref={frame} data-dicht={dicht}
+      <div className="app-frame" style={themeStyle(app.theme)} ref={frame} data-dicht={dicht} data-fuellen={fuellen && !offen && !imUeberblick ? "1" : undefined}
         onKeyDown={(e) => {
           if (offen) blaetterTaste(e, kIdx, kacheln.length, (i) => oeffnen(kacheln[i].id));
-          else blaetterTaste(e, akt, anzahl, blaettern);
+          else blaetterTaste(e, akt, anzahl, wechseln);
           if (!(e.ctrlKey || e.metaKey) || e.key !== "Enter") return;
+          if ((imUeberblick || offen) && app.steps.length) { e.preventDefault(); void starten("uebersicht", "alle"); return; }
           let erster: Extract<Block, { type: "button" }> | undefined;
           // Erst ein Button auf der aktuellen Seite, sonst der erste der App.
           walk(p?.children ?? [], (b) => { if (!erster && b.type === "button") erster = b; });
@@ -319,12 +364,24 @@ export const RunApp = forwardRef<RunAppHandle, {
           ) : p && renderList(p.children ?? [], `${p.id}:c`)}
         </Blatt>
         {offen ? (
-          <Pager className="app-pager" label="Ergebnis" seite={kIdx} anzahl={kacheln.length} titel={(i) => kacheln[i].titel}
+          <Pager className="app-pager" label="Ergebnis" mehrzahl="Ergebnisse" seite={kIdx} anzahl={kacheln.length} titel={(i) => kacheln[i].titel}
             weiter={kacheln[kIdx + 1] ? `Weiter: ${kacheln[kIdx + 1].titel}` : undefined} onWechsel={(i) => oeffnen(kacheln[i].id)} />
         ) : (
-          <Pager className="app-pager" seite={akt} anzahl={anzahl} titel={linearTitel} weiter={naechste} onWechsel={blaettern} />
+          <Pager className="app-pager" seite={akt} anzahl={anzahl} titel={linearTitel} weiter={naechste} onWechsel={wechseln} onWeiter={() => weiterKlick(akt + 1)} />
         )}
       </div>
+      <AlertDialog open={blocker.state === "blocked"} onOpenChange={(o) => { if (!o) blocker.reset?.(); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{laeuft ? "Der Ablauf läuft noch" : "Eingaben verwerfen?"}</AlertDialogTitle>
+            <AlertDialogDescription>{laeuft ? "Wenn du die Seite verlässt, wird der Ablauf abgebrochen und die Ergebnisse gehen verloren." : "Deine Eingaben sind noch nicht ausgeführt und gehen verloren. Tipp: Über „Voreinstellungen“ kannst du sie speichern."}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Hierbleiben</AlertDialogCancel>
+            <AlertDialogAction onClick={() => { ctl.current?.abort(); blocker.proceed?.(); }}>{laeuft ? "Abbrechen und verlassen" : "Verwerfen und verlassen"}</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </RunContext.Provider>
   );
 });

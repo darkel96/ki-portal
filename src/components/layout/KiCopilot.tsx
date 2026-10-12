@@ -63,16 +63,23 @@ function messungText(): string {
 export function KiCopilotStatus({ konto, onKonto }: { konto: string | null; onKonto: () => void }) {
   const v = copilotVerbindung();
   const [laeuft, setLaeuft] = useState<"" | "anmelden" | "fragen">("");
+  /** Ergebnis der letzten Prüfung, direkt im Menü sichtbar */
+  const [ergebnis, setErgebnis] = useState<{ ok: boolean; text: string; technisch?: string } | null>(null);
   const testen = async () => {
+    setErgebnis(null);
     try {
       setLaeuft("anmelden");
       await graphToken();
       onKonto();
       setLaeuft("fragen");
-      const antwort = await kiFragen("Antworte nur mit dem Wort: Verbunden", undefined, () => undefined);
-      toast.success(`Copilot antwortet: „${antwort.slice(0, 120)}“`, { description: messungText(), duration: 10_000 });
+      await kiFragen("Antworte nur mit dem Wort: Verbunden", undefined, () => undefined);
+      setErgebnis({ ok: true, text: `Copilot antwortet${letzteMessung ? ` (${sek(letzteMessung.anmeldung + letzteMessung.gespraech + letzteMessung.antwort)})` : ""}.` });
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : String(e), { duration: 20_000 });
+      const technisch = e instanceof Error ? e.message : String(e);
+      // Fest eingerichtete Verbindung: Anwender können an der App-Registrierung nichts ändern, also an die IT verweisen
+      setErgebnis(v?.quelle === "build"
+        ? { ok: false, text: `Copilot ist gerade nicht erreichbar. Versuch es später noch einmal; bleibt es dabei, wende dich an die IT${/AADSTS\d+/.test(technisch) ? ` (Code ${/AADSTS\d+/.exec(technisch)![0]})` : ""}.`, technisch }
+        : { ok: false, text: technisch });
     } finally {
       setLaeuft("");
     }
@@ -83,22 +90,29 @@ export function KiCopilotStatus({ konto, onKonto }: { konto: string | null; onKo
     kiModusGeaendert();
     toast.success("Copilot-Testverbindung entfernt.");
   };
+  const abmeldenKlick = () => abmelden().then(() => { onKonto(); setErgebnis(null); toast.success("Abgemeldet. Beim nächsten KI-Aufruf meldest du dich wieder an."); }, () => toast.error("Abmelden hat nicht geklappt. Lade die Seite neu und versuch es erneut."));
   if (!v) return null;
   return (
     <div className="mt-3 flex flex-col gap-2 border-t pt-3">
       <p className="text-muted-foreground">
-        {konto ? `Angemeldet als ${konto}.` : "Noch nicht angemeldet. Die Anmeldung öffnet sich beim ersten KI-Aufruf oder mit „Verbindung testen“."}
+        {konto ? <>Angemeldet als <b className="text-foreground">{konto}</b>.</> : "Noch nicht angemeldet. Die Anmeldung mit deinem Firmenkonto öffnet sich beim ersten KI-Aufruf."}
         {v.quelle === "browser" ? " Die Verbindung ist nur in diesem Browser eingetragen." : ""}
       </p>
       <div className="flex flex-wrap gap-2">
         <Button size="sm" className="rounded-full" onClick={testen} disabled={!!laeuft}>
-          {laeuft === "anmelden" ? "Anmeldung …" : laeuft === "fragen" ? "Copilot antwortet …" : "Verbindung testen"}
+          {laeuft === "anmelden" ? "Anmeldung\u00a0…" : laeuft === "fragen" ? "Copilot antwortet\u00a0…" : konto ? "Verbindung prüfen" : "Jetzt anmelden"}
         </Button>
-        {konto && <Button size="sm" variant="outline" className="rounded-full" onClick={() => abmelden().then(onKonto)} disabled={!!laeuft}>Abmelden</Button>}
+        {konto && <Button size="sm" variant="outline" className="rounded-full" onClick={abmeldenKlick} disabled={!!laeuft}>Abmelden</Button>}
         {v.quelle === "browser" && <Button size="sm" variant="outline" className="rounded-full" onClick={entfernen} disabled={!!laeuft}>Entfernen</Button>}
       </div>
+      <p aria-live="polite" className={ergebnis ? (ergebnis.ok ? "ki-ok" : "ki-fehler") : "sr-only"} role={ergebnis && !ergebnis.ok ? "alert" : undefined}>
+        {ergebnis ? `${ergebnis.ok ? "✓ " : ""}${ergebnis.text}` : ""}
+      </p>
+      {ergebnis?.technisch && v.quelle === "build" && (
+        <Button size="sm" variant="ghost" className="self-start rounded-full" onClick={() => navigator.clipboard.writeText(ergebnis.technisch!).then(() => toast.success("Details kopiert. Schick sie an die IT."), () => toast.error("Kopieren nicht möglich."))}>Details für die IT kopieren</Button>
+      )}
       <details className="text-[12px] text-muted-foreground">
-        <summary className="cursor-pointer">Technische Angaben</summary>
+        <summary className="cursor-pointer">Technische Angaben (für die IT)</summary>
         <dl className="mt-1.5 grid gap-1">
           <dt className="font-semibold">Client-ID</dt><dd className="break-all">{v.clientId}</dd>
           <dt className="font-semibold">Tenant</dt><dd className="break-all">{v.tenantId}</dd>

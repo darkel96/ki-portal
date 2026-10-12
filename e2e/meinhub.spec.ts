@@ -40,7 +40,7 @@ test("Mein Hub: Voreinstellung, Auftrag, Ausführen und Verlauf", async ({ page 
   await page.getByRole("tab", { name: /Verlauf/ }).click();
   const lauf = page.locator(".mh-lauf").first();
   await expect(lauf).toContainText("Wöchentliche Stellenanzeige");
-  await expect(lauf.locator(".status-pill")).toHaveText("fertig");
+  await expect(lauf.locator(".status-pill")).toHaveText(/^fertig$/i);
   await expect.poll(() => page.evaluate(() => document.documentElement.scrollHeight - window.innerHeight)).toBeLessThanOrEqual(1);
   await page.screenshot({ path: `screenshots/${info.project.name}-meinhub.png` });
   await lauf.click();

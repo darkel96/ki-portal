@@ -66,7 +66,7 @@ async function laufen(page: Page, id: string) {
   if (await mehr.isVisible()) { await mehr.click(); await page.getByRole("menuitem", { name: "Beispieldaten einsetzen" }).click(); }
   else await page.getByRole("button", { name: "Beispieldaten einsetzen" }).click();
   await page.getByRole("navigation", { name: "Seiten blättern" }).getByRole("button", { name: /Ergebnisse erstellen|^Weiter$|Ausführen/ }).click();
-  await expect(page.locator(".e-kachel .status-pill")).toHaveText(["fertig", "fertig"], { timeout: 15_000 });
+  await expect(page.locator(".e-kachel .status-pill")).toHaveText(["Fertig", "Fertig"], { timeout: 15_000 });
 }
 
 test("Unabhängige Schritte laufen gleichzeitig (Meeting-Protokoll)", async ({ page }) => {

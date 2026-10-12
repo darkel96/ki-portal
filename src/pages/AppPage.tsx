@@ -32,7 +32,15 @@ export function AppPage() {
   const a = find(id);
   const vorlagen = a?.id ? mh.vorlagenFuer(a.id) : [];
   const letzter = a?.id ? mh.letzterLauf(a.id) : undefined;
-  const laden = (v: Voreinstellung) => { runRef.current?.setzen(v.werte, v.dateien); setVorlage(v); toast.success(`Voreinstellung „${v.name}“ geladen.`); };
+  /** Eingaben ersetzen, mit „Rückgängig“ für den vorherigen Stand */
+  const ersetzen = (tun: () => void, meldung: string, vorher: Voreinstellung | null) => {
+    const alt = runRef.current?.stand();
+    tun();
+    toast.success(meldung, alt ? { action: { label: "Rückgängig", onClick: () => { runRef.current?.setzen(alt.werte, alt.dateien); setVorlage(vorher); } } } : undefined);
+  };
+  const laden = (v: Voreinstellung) => ersetzen(() => { runRef.current?.setzen(v.werte, v.dateien); setVorlage(v); }, `Voreinstellung „${v.name}“ geladen.`, vorlage);
+  const beispiele = () => ersetzen(() => runRef.current?.beispieleEinsetzen(), "Beispieldaten eingesetzt.", vorlage);
+  const pinUmschalten = (id: string) => { const war = mh.istGepinnt(id); mh.pinUmschalten(id); toast.success(war ? "Aus Mein Hub entfernt." : "Zu Mein Hub hinzugefügt."); };
   // Aus Mein Hub: /app/:id?vorlage=… öffnet die App mit dieser Voreinstellung.
   const vorlageParam = sp.get("vorlage");
   useEffect(() => {
@@ -41,7 +49,8 @@ export function AppPage() {
     if (v) requestAnimationFrame(() => { runRef.current?.setzen(v.werte, v.dateien); setVorlage(v); });
     setSp((p) => { const n = new URLSearchParams(p); n.delete("vorlage"); return n; }, { replace: true });
   }, [vorlageParam, mh.geladen, a?.id]); // eslint-disable-line react-hooks/exhaustive-deps
-  if (!a) return geladen ? <NotFoundPage /> : <p className="hint">Applikation wird geladen …</p>;
+  useEffect(() => { if (a) document.title = `${a.name} – KI-Hub`; }, [a?.name]); // eslint-disable-line react-hooks/exhaustive-deps
+  if (!a) return geladen ? <NotFoundPage /> : <p className="hint">Applikation wird geladen\u00a0…</p>;
   const ci = areaIdx(a.bereich);
   const hatBeispiele = fieldsOf(a).some((f) => f.type !== "file" && f.props.beispiel);
   const eigene = a._src === "eigene";
@@ -57,7 +66,7 @@ export function AppPage() {
         {a.typ !== "link" && (
           <Popover>
             <PopoverTrigger asChild><Button variant="ghost" size="sm">Details</Button></PopoverTrigger>
-            <PopoverContent align="start" className="w-72 rounded-none text-sm">
+            <PopoverContent align="start" className="w-72 text-sm">
               <dl className="kv">
                 <dt>Version</dt><dd>{a.version || 1}</dd>
                 <dt>Status</dt><dd>{STATUS[a.status]}</dd>
@@ -71,7 +80,7 @@ export function AppPage() {
         <span className="flex-1" />
         {a.typ !== "link" && a.id && (
           <span className="nur-breit app-aktionen">
-            <Button variant={mh.istGepinnt(a.id) ? "secondary" : "outline"} className="rounded-full" aria-pressed={mh.istGepinnt(a.id)} onClick={() => { mh.pinUmschalten(a.id!); toast.success(mh.istGepinnt(a.id!) ? "Aus Mein Hub entfernt." : "Zu Mein Hub hinzugefügt."); }}>
+            <Button variant={mh.istGepinnt(a.id) ? "secondary" : "outline"} className="rounded-full" aria-pressed={mh.istGepinnt(a.id)} onClick={() => pinUmschalten(a.id!)}>
               {mh.istGepinnt(a.id) ? <><Haken aria-hidden="true" />In Mein Hub</> : <><Plus aria-hidden="true" />Zu Mein Hub</>}
             </Button>
             <DropdownMenu>
@@ -91,7 +100,7 @@ export function AppPage() {
           </span>
         )}
         <span className="nur-breit app-aktionen">
-          {hatBeispiele && <Button variant="ghost" className="rounded-full" onClick={() => runRef.current?.beispieleEinsetzen()}>Beispieldaten einsetzen</Button>}
+          {hatBeispiele && <Button variant="outline" className="rounded-full" onClick={beispiele}>Beispieldaten einsetzen</Button>}
           <Button variant="outline" className="rounded-full" onClick={bearbeiten}>{bearbeitenText}</Button>
           {eigene && <Button variant="ghost" className="rounded-full" onClick={() => setLoeschen(true)}>Löschen</Button>}
         </span>
@@ -101,7 +110,7 @@ export function AppPage() {
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-72">
             {a.typ !== "link" && a.id && <>
-              <DropdownMenuItem onSelect={() => { mh.pinUmschalten(a.id!); toast.success(mh.istGepinnt(a.id!) ? "Aus Mein Hub entfernt." : "Zu Mein Hub hinzugefügt."); }}>{mh.istGepinnt(a.id) ? "Aus Mein Hub entfernen" : "Zu Mein Hub hinzufügen"}</DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => pinUmschalten(a.id!)}>{mh.istGepinnt(a.id) ? "Aus Mein Hub entfernen" : "Zu Mein Hub hinzufügen"}</DropdownMenuItem>
               {vorlagen.map((v) => <DropdownMenuItem key={v.id} onSelect={() => laden(v)}>Voreinstellung laden: {v.name}</DropdownMenuItem>)}
               <DropdownMenuItem onSelect={() => setVorlageDlg(true)}>Eingaben als Voreinstellung speichern …</DropdownMenuItem>
               {vorlagen.length > 0 && <DropdownMenuItem onSelect={() => setVerwaltenDlg(true)}>Voreinstellungen verwalten …</DropdownMenuItem>}
@@ -109,7 +118,7 @@ export function AppPage() {
               {letzter && <DropdownMenuItem onSelect={() => nav(`/mein?lauf=${letzter.id}`, { viewTransition: true })}>Letztes Ergebnis ansehen ({datumZeit(letzter.start)})</DropdownMenuItem>}
               <DropdownMenuSeparator />
             </>}
-            {hatBeispiele && <DropdownMenuItem onSelect={() => runRef.current?.beispieleEinsetzen()}>Beispieldaten einsetzen</DropdownMenuItem>}
+            {hatBeispiele && <DropdownMenuItem onSelect={beispiele}>Beispieldaten einsetzen</DropdownMenuItem>}
             <DropdownMenuItem onSelect={bearbeiten}>{bearbeitenText}</DropdownMenuItem>
             {eigene && <DropdownMenuItem variant="destructive" onSelect={() => setLoeschen(true)}>Löschen</DropdownMenuItem>}
           </DropdownMenuContent>
