@@ -23,11 +23,28 @@ async function post(url: string, body: unknown, token: string, signal?: AbortSig
       signal: ctl.signal,
     });
     const text = await res.text();
-    if (!res.ok) throw new Error(`Copilot antwortet mit Fehler ${res.status}: ${text.slice(0, 300)}`);
+    if (!res.ok) throw graphFehler(res.status, text);
     return text ? JSON.parse(text) : {};
+  } catch (e) {
+    if (e instanceof DOMException && e.name === "AbortError" && !signal?.aborted) throw new Error("Copilot hat nicht innerhalb von 3 Minuten geantwortet.");
+    if (e instanceof TypeError) throw new Error("Keine Verbindung zu Microsoft Graph. Netzwerk oder Proxy prüfen.");
+    throw e;
   } finally {
     clearTimeout(timer);
   }
+}
+
+/** Graph-Fehler mit dem Hinweis, woran es meist liegt; die Meldung von Graph hängt zur Fehlersuche an. */
+function graphFehler(status: number, text: string): Error {
+  let meldung = text.slice(0, 300);
+  try { meldung = (JSON.parse(text) as { error?: { message?: string } }).error?.message ?? meldung; } catch { /* kein JSON */ }
+  const hinweis =
+    status === 401 ? "Die Anmeldung wurde nicht akzeptiert. Abmelden und neu anmelden."
+    : status === 403 ? "Kein Zugriff auf Copilot. Meist fehlt die Microsoft-365-Copilot-Lizenz oder eine der Graph-Berechtigungen (Sites.Read.All, Mail.Read, People.Read.All, OnlineMeetingTranscript.Read.All, Chat.Read, ChannelMessage.Read.All, ExternalItem.Read.All) samt Administratorzustimmung."
+    : status === 404 ? "Die Copilot-Schnittstelle wurde nicht gefunden. Sie ist in diesem Tenant evtl. nicht verfügbar oder hat sich geändert (Beta)."
+    : status === 429 ? "Zu viele Anfragen an Copilot. Kurz warten und erneut versuchen."
+    : `Copilot antwortet mit Fehler ${status}.`;
+  return new Error(`${hinweis} Meldung von Graph: ${meldung}`);
 }
 
 function letzterText(antwort: unknown, frage: string): string {

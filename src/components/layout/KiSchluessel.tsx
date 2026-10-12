@@ -9,7 +9,10 @@ import { apiSchluessel, apiSchluesselGemerkt, apiSchluesselSetzen } from "@/lib/
 const EREIGNIS = "kihub-ki-modus";
 const abonnieren = (cb: () => void) => { window.addEventListener(EREIGNIS, cb); window.addEventListener("storage", cb); return () => { window.removeEventListener(EREIGNIS, cb); window.removeEventListener("storage", cb); }; };
 
-/** Aktueller KI-Modus; aktualisiert sich, sobald ein API-Schlüssel eingetragen oder entfernt wird. */
+/** Meldet allen Anzeigen, dass sich der KI-Modus geändert hat (Schlüssel oder Copilot-Testverbindung). */
+export const kiModusGeaendert = () => window.dispatchEvent(new Event(EREIGNIS));
+
+/** Aktueller KI-Modus; aktualisiert sich, sobald ein API-Schlüssel oder eine Copilot-Verbindung eingetragen oder entfernt wird. */
 export const useKiModus = () => useSyncExternalStore(abonnieren, kiModus, kiModus);
 
 /** Eigener Anthropic-API-Schlüssel für die öffentliche Testseite. */
@@ -21,12 +24,12 @@ export function KiSchluessel() {
     if (!/^sk-ant-/.test(wert.trim())) { toast.error("Das sieht nicht nach einem Anthropic-API-Schlüssel aus (beginnt mit „sk-ant-“)."); return; }
     apiSchluesselSetzen(wert, merken);
     setWert("");
-    window.dispatchEvent(new Event(EREIGNIS));
+    kiModusGeaendert();
     toast.success("Claude ist verbunden. KI-Schritte laufen jetzt über deinen Schlüssel.");
   };
   const entfernen = () => {
     apiSchluesselSetzen("", false);
-    window.dispatchEvent(new Event(EREIGNIS));
+    kiModusGeaendert();
     toast.success("Schlüssel entfernt. Der Hub läuft wieder als Simulation.");
   };
   if (vorhanden) return (

@@ -25,11 +25,23 @@ Werte in `.env.local` eintragen (Vorlage: [.env.example](.env.example)):
 |---|---|
 | `VITE_ENTRA_CLIENT_ID` | Client-ID der zentralen Azure-Anwendung (App-Registrierung) |
 | `VITE_ENTRA_TENANT_ID` | Tenant-ID |
-| `VITE_GRAPH_SCOPES` | Delegierte Graph-Berechtigungen, durch Leerzeichen getrennt |
+| `VITE_GRAPH_SCOPES` | Delegierte Graph-Berechtigungen, durch Leerzeichen getrennt; leer = die sieben der Copilot-Chat-API (siehe unten) |
 | `VITE_APP_STORE` | `local` (Browser) oder `sharepoint` |
 | `VITE_SP_SITE_ID`, `VITE_SP_ORDNER` | Nur bei `sharepoint`: Website und Ordner für die App-Dateien |
 
 In der App-Registrierung als Redirect-URI (Typ „Single-page application“) `https://<host>/auth-redirect.html` eintragen.
+
+## Copilot testen
+
+Ohne Build-Konfiguration lässt sich Copilot direkt im Browser testen, z. B. am Firmenrechner auf der Testseite oder mit `npm run dev`:
+
+1. **App-Registrierung** in Microsoft Entra ID (bestehende oder neue):
+   - „Authentifizierung“ → Plattform **„Single-page application“** mit der Weiterleitungsadresse, die das KI-Menü anzeigt (z. B. `https://darkel96.github.io/ki-portal/auth-redirect.html` oder `http://localhost:5173/auth-redirect.html`). Als „Web“ eingetragen klappt die Anmeldung aus dem Browser nicht.
+   - „API-Berechtigungen“ → Microsoft Graph, **delegiert**, alle sieben, die die Copilot-Chat-API verlangt: `Sites.Read.All`, `Mail.Read`, `People.Read.All`, `OnlineMeetingTranscript.Read.All`, `Chat.Read`, `ChannelMessage.Read.All`, `ExternalItem.Read.All`, jeweils mit **Administratorzustimmung**.
+2. Nutzer mit **Microsoft-365-Copilot-Lizenz**.
+3. Im Hub oben rechts das KI-Menü öffnen → „Mit Copilot testen“ → Client-ID und Tenant-ID eintragen (bleiben im Browser) → „Verbindung testen“. Fehler werden mit Hinweis angezeigt, was in der Registrierung fehlt (z. B. AADSTS50011 = Weiterleitungsadresse fehlt, Graph 403 = Lizenz oder Berechtigung fehlt).
+
+Die Copilot-Chat-API ist Beta (`/beta/copilot/conversations`); Microsoft unterstützt sie nicht für den Produktivbetrieb.
 
 ## Prüfen
 
