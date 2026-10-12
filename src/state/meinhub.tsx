@@ -3,7 +3,7 @@ import { toast } from "sonner";
 import { useApps } from "./apps";
 import { aktuellesKonto } from "@/lib/ki/auth";
 import {
-  AuftragSchema, LaufSchema, LokalerMeinHubSpeicher, MeinHubSchema, VoreinstellungSchema, ausfuehren, kurz, naechsterLauf, neueId,
+  AuftragSchema, LaufSchema, LokalerMeinHubSpeicher, MeinHubSchema, VoreinstellungSchema, ausfuehren, hatInhalt, kurz, naechsterLauf, neueId, zusammenfuehren,
   type Auftrag, type Lauf, type MeinHub, type MeinHubSpeicher, type Voreinstellung,
 } from "@/lib/meinhub";
 import type { App } from "@/lib/schema";
@@ -12,10 +12,13 @@ import type { OutState } from "@/lib/runner";
 type Ctx = {
   daten: MeinHub;
   geladen: boolean;
-  nutzerName: string;
+  /** Name aus der Anmeldung; null, solange (noch) niemand angemeldet ist */
+  nutzerName: string | null;
   laufend: Lauf | null;
   istGepinnt: (appId: string) => boolean;
   pinUmschalten: (appId: string) => void;
+  /** App gezielt übernehmen oder entfernen, z. B. für „Rückgängig“; `stelle` = alte Position */
+  pinSetzen: (appId: string, an: boolean, stelle?: number) => void;
   vorlagenFuer: (appId: string) => Voreinstellung[];
   vorlageSpeichern: (v: Omit<Voreinstellung, "id" | "erstellt" | "geaendert"> & { id?: string }) => Voreinstellung;
   vorlageLoeschen: (id: string) => void;
@@ -37,33 +40,75 @@ type Ctx = {
 const C = createContext<Ctx | null>(null);
 const speicher: MeinHubSpeicher = new LokalerMeinHubSpeicher();
 const PRUEFEN_MS = 30_000;
+/** Die stille Anmeldung kommt oft erst nach dem Laden: so lange (alle 2 s) nach dem Konto schauen */
+const KONTO_MS = 2_000, KONTO_VERSUCHE = 15;
+const KI_EREIGNIS = "kihub-ki-modus";
 
 export function MeinHubProvider({ children }: { children: ReactNode }) {
   const { find, geladen: appsGeladen } = useApps();
   const [daten, setDaten] = useState<MeinHub>(() => MeinHubSchema.parse({}));
   const [geladen, setGeladen] = useState(false);
-  const [nutzerName, setNutzerName] = useState("Testnutzer");
+  const [nutzerName, setNutzerName] = useState<string | null>(null);
   const [laufend, setLaufend] = useState<Lauf | null>(null);
   const datenRef = useRef(daten);
   datenRef.current = daten;
   const schlange = useRef<string[]>([]);
   const ctl = useRef<AbortController | null>(null);
+  const nutzerRef = useRef<string | null>(null);
+  const speicherTimer = useRef<number | null>(null);
 
   // Nutzer: mit Anmeldung aus Entra ID, bis dahin ein lokaler Testnutzer je Browser.
+  // Kommt das Konto erst später, auf dessen Speicher umziehen und die lokalen Daten einmal übernehmen.
   useEffect(() => {
-    void (async () => {
-      let id = "lokal";
+    let aus = false, beschaeftigt = false;
+    const pruefen = async () => {
+      if (aus || beschaeftigt) return;
+      beschaeftigt = true;
       try {
-        const k = await aktuellesKonto();
-        if (k) { id = k.homeAccountId || k.localAccountId; setNutzerName(k.name || k.username); }
-      } catch { /* ohne Anmeldung */ }
-      setDaten(await speicher.laden(id));
-      setGeladen(true);
-    })();
+        const k = await aktuellesKonto().catch(() => null);
+        if (aus) return;
+        const id = k ? k.homeAccountId || k.localAccountId : null;
+        if (k) setNutzerName(k.name || k.username);
+        // Ohne Konto bleibt der bisherige Speicher (auch nach einer Abmeldung im KI-Menü)
+        if (nutzerRef.current && (!id || id === nutzerRef.current)) return;
+        const ziel = id ?? "lokal";
+        const vorher = nutzerRef.current;
+        // Ausstehendes Speichern zuerst schreiben
+        if (vorher && speicherTimer.current) {
+          window.clearTimeout(speicherTimer.current);
+          speicherTimer.current = null;
+          await speicher.speichern(datenRef.current).catch(() => undefined);
+        }
+        let d = await speicher.laden(ziel);
+        let uebernommen = false;
+        if (ziel !== "lokal") {
+          const lokal = vorher === "lokal" ? datenRef.current : await speicher.laden("lokal");
+          if (hatInhalt(lokal)) {
+            d = zusammenfuehren(d, lokal);
+            try { await speicher.speichern(d); await speicher.loeschen("lokal"); uebernommen = true; } catch { /* lokal bleibt erhalten, nächster Versuch beim nächsten Start */ }
+          }
+        }
+        if (aus) return;
+        nutzerRef.current = ziel;
+        datenRef.current = d;
+        setDaten(d);
+        setGeladen(true);
+        if (uebernommen && vorher === "lokal") toast.success("Angemeldet. Deine bisherigen Einträge in Mein Hub gehören jetzt zu deinem Konto.");
+      } finally { beschaeftigt = false; }
+    };
+    void pruefen();
+    let n = 0;
+    const t = window.setInterval(() => {
+      if (++n > KONTO_VERSUCHE || (nutzerRef.current && nutzerRef.current !== "lokal")) window.clearInterval(t);
+      else void pruefen();
+    }, KONTO_MS);
+    const h = () => { void pruefen(); };
+    window.addEventListener("focus", h);
+    window.addEventListener(KI_EREIGNIS, h);
+    return () => { aus = true; window.clearInterval(t); window.removeEventListener("focus", h); window.removeEventListener(KI_EREIGNIS, h); };
   }, []);
 
   // Speichern gebündelt (höchstens alle 800 ms), damit häufige Zwischenstände den Browser nicht ausbremsen.
-  const speicherTimer = useRef<number | null>(null);
   const sichern = useCallback((d: MeinHub) => {
     if (speicherTimer.current) window.clearTimeout(speicherTimer.current);
     speicherTimer.current = window.setTimeout(() => {
@@ -144,6 +189,11 @@ export function MeinHubProvider({ children }: { children: ReactNode }) {
     istGepinnt: (appId) => daten.pins.some((p) => p.appId === appId),
     pinUmschalten: (appId) => aendern((d) => {
       d.pins = d.pins.some((p) => p.appId === appId) ? d.pins.filter((p) => p.appId !== appId) : [...d.pins, { appId, seit: new Date().toISOString() }];
+    }),
+    pinSetzen: (appId, an, stelle) => aendern((d) => {
+      const da = d.pins.some((p) => p.appId === appId);
+      if (!an) d.pins = d.pins.filter((p) => p.appId !== appId);
+      else if (!da) d.pins.splice(stelle ?? d.pins.length, 0, { appId, seit: new Date().toISOString() });
     }),
     vorlagenFuer: (appId) => daten.voreinstellungen.filter((v) => v.appId === appId),
     vorlageSpeichern: (v) => {
