@@ -31,6 +31,16 @@ Werte in `.env.local` eintragen (Vorlage: [.env.example](.env.example)):
 
 In der App-Registrierung als Redirect-URI (Typ „Single-page application“) `https://<host>/auth-redirect.html` eintragen.
 
+## Anmeldung (Betrieb mit Copilot)
+
+Ist die Copilot-Anbindung eingerichtet (Build-Umgebung), ist der Hub erst nach der Anmeldung mit dem Firmenkonto nutzbar. Der Ablauf ist auf „kein Klick“ ausgelegt:
+
+1. **Still**: zuerst der Zwischenspeicher (angemeldet bleiben über Tabs und Neustarts), sonst Single Sign-on über die bestehende Microsoft-Sitzung des Browsers (höchstens 3 s).
+2. **Automatische Weiterleitung**: klappt das nicht, leitet der Hub einmal je Browsersitzung zu Microsoft weiter (kein Pop-up, auch auf dem Handy). Mit angemeldetem Windows-/Microsoft-Konto geht das ohne Eingabe durch; zurück geht es auf dieselbe Seite.
+3. **Anmeldemaske**: nur wenn die Weiterleitung mit einem Fehler zurückkommt oder abgebrochen wurde, erscheint eine Maske mit „Mit Firmenkonto anmelden“ und einem verständlichen Hinweis (technische Details für die IT kopierbar).
+
+Die Weiterleitung nutzt die registrierte Seite `auth-redirect.html`; in der App-Registrierung ist nichts weiter nötig. „Abmelden“ im KI-Menü vergisst das Konto nur im Hub (die Microsoft-Sitzung bleibt). Eine im KI-Menü eingetragene Testverbindung leitet nie von selbst weiter, sondern zeigt die Maske.
+
 ## Copilot testen
 
 Ohne Build-Konfiguration lässt sich Copilot direkt im Browser testen, z. B. am Firmenrechner auf der Testseite oder mit `npm run dev`:

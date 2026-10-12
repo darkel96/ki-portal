@@ -119,6 +119,53 @@ export async function graphTokenStill(): Promise<string | null> {
   }
 }
 
+/**
+ * Beim Seitenstart: erst eine zurückkommende Weiterleitungs-Anmeldung übernehmen, dann still anmelden
+ * (Zwischenspeicher, sonst Single Sign-on über die Microsoft-Sitzung des Browsers). Kein Fenster, keine Weiterleitung.
+ * fehler: verständliche Meldung, wenn die Weiterleitung mit einem Fehler zurückkam (z. B. fehlende Zustimmung).
+ */
+export async function anmeldungStart(): Promise<{ konto: AccountInfo | null; fehler: string | null }> {
+  const v = copilotVerbindung();
+  if (!v) return { konto: null, fehler: null };
+  const a = await app();
+  let fehler: string | null = null;
+  try {
+    const r = await a.handleRedirectPromise();
+    if (r) a.setActiveAccount(r.account);
+  } catch (e) {
+    fehler = anmeldefehler(e).message;
+  }
+  let konto = a.getActiveAccount() ?? a.getAllAccounts()[0] ?? null;
+  if (!konto && !fehler) {
+    try {
+      // Höchstens 3 s warten: Ohne Microsoft-Sitzung (oder ohne Drittanbieter-Cookies) läuft das versteckte
+      // Anmeldefenster sonst bis zum Zeitlimit der Bibliothek; die Weiterleitung ist dann der schnellere Weg.
+      const r = await Promise.race([
+        a.ssoSilent({ scopes: v.scopes }),
+        new Promise<never>((_, nein) => setTimeout(() => nein(new Error("sso_timeout")), 3000)),
+      ]);
+      a.setActiveAccount(r.account);
+      konto = r.account;
+    } catch { /* keine Browsersitzung bei Microsoft: Weiterleitung nötig */ }
+  }
+  return { konto, fehler };
+}
+
+/**
+ * Anmeldung per Weiterleitung zu Microsoft: kein Pop-up (also auch auf dem Handy und ohne Pop-up-Freigabe),
+ * mit bestehender Windows-/Microsoft-Sitzung meist ohne jede Eingabe. Kommt auf dieselbe Seite zurück.
+ */
+export async function anmeldenWeiterleitung(): Promise<void> {
+  const v = copilotVerbindung();
+  if (!v) throw new Error("Die zentrale KI-Anbindung ist nicht konfiguriert.");
+  const a = await app();
+  try {
+    await a.loginRedirect({ scopes: v.scopes, redirectStartPage: window.location.href });
+  } catch (e) {
+    throw anmeldefehler(e);
+  }
+}
+
 /** Meldet in diesem Browser ab (nur lokal; das Microsoft-Konto bleibt angemeldet). */
 export async function abmelden() {
   if (!pca) return;
