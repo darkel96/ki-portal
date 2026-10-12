@@ -7,6 +7,7 @@
 @import "./styles/app.css";
 @import "./styles/builder.css";
 @import "./styles/meinhub.css";
+@import "./styles/renderer.css";
 
 @custom-variant dark (&:is(.dark *));
 
@@ -95,34 +96,6 @@
   color-scheme: light;
 }
 
-.dark {
-  --bg: #0b0f15;
-  --surface: #151a21;
-  --surface-2: #1f252d;
-  --ink: var(--k-warm-grey-lightest);
-  --muted-ink: var(--k-warm-grey-dark);
-  --line: #2e353e;
-  --line-strong: var(--k-neutral-dark);
-  --brand: var(--k-blue-light);
-  --brand-ink: var(--k-neutral-darkest);
-  --brand-soft: #0f2752;
-  --brand-deep: var(--k-blue-lighter);
-  --tool: var(--k-light-orange);
-  --tool-soft: #3a2a10;
-  --tool-text: var(--k-light-orange);
-  --danger: var(--k-error-dark-bg);
-  --danger-soft: #3d1a18;
-  --grid-dot: #252b33;
-  --a0: var(--k-blue-light); --a0i: var(--k-neutral-darkest);
-  --a1: var(--k-blue-lighter); --a1i: var(--k-neutral-darkest);
-  --a2: #7fb0ff; --a2i: var(--k-neutral-darkest);
-  --a3: var(--k-warm-grey-dark); --a3i: var(--k-neutral-darkest);
-  --a4: var(--k-blue); --a4i: var(--k-white);
-  --a5: var(--k-warm-grey); --a5i: var(--k-neutral-darkest);
-  --a6: var(--k-neutral-lighter); --a6i: var(--k-neutral-darkest);
-  --signal-soft: #3a3410;
-  color-scheme: dark;
-}
 
 @layer base {
   * { @apply border-border outline-ring/50; }
