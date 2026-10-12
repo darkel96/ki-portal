@@ -4,7 +4,8 @@ import { inkFor } from "@/lib/model";
 
 const FONTS: Record<Theme["font"], string> = { sans: "var(--k-font-body)", serif: '"Source Serif 4", Georgia, serif', display: "var(--k-font-display)", mono: "var(--k-font-mono)" };
 const HEADS: Record<Theme["font"], string> = { sans: "var(--k-font-display)", serif: '"Source Serif 4", Georgia, serif', display: "var(--k-font-display)", mono: "var(--k-font-mono)" };
-const RADIUS: Record<Theme["radius"], string> = { s: "0px", m: "4px", l: "14px" };
+// Standard „m“ wie die Karten im KSCA-Portal (Charlestown)
+const RADIUS: Record<Theme["radius"], string> = { s: "2px", m: "10px", l: "18px" };
 const WIDTH: Record<Theme["width"], string> = { s: "760px", m: "1600px", l: "100%" };
 
 export function themeStyle(t: Theme): CSSProperties {

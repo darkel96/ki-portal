@@ -7,14 +7,16 @@ async function scrolltNicht(page: Page) {
 
 async function bereichWaehlen(page: Page, name: string) {
   const breit = (page.viewportSize()?.width ?? 0) > 900;
-  if (breit) await page.getByRole("button", { name: new RegExp(`^${name}`) }).click();
+  if (breit) await page.getByRole("group", { name: "Bereiche" }).getByRole("button", { name: new RegExp(`^${name}`) }).click();
   else await page.getByRole("combobox", { name: "Bereich" }).selectOption(name === "Alle Bereiche" ? "Alle" : name);
 }
 
 test("Startseite: Kacheln blättern, Bereichsfilter und Suche", async ({ page }, info) => {
   await page.goto("/");
   await expect(page.getByRole("heading", { level: 1 })).toContainText("Welche Aufgabe");
-  await expect(page.getByText("9 Applikationen")).toBeVisible();
+  // Breit steht die Anzahl neben der Suche, schmal in der Bereichsauswahl
+  if ((page.viewportSize()?.width ?? 0) > 900) await expect(page.getByText("9 Applikationen")).toBeVisible();
+  else await expect(page.getByRole("combobox", { name: "Bereich" })).toContainText("Alle Bereiche (9)");
   const kacheln = page.locator(".tiles-raster a.tile:not(.tile-new)");
   await expect(kacheln.first()).toBeVisible();
   await scrolltNicht(page);
