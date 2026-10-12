@@ -66,10 +66,23 @@ function KeyField({ b, x }: { b: Builder; x: Block }) {
     p.key = nk; p.keyAuto = false;
   });
   return (
-    <Fld label="Platzhalter" htmlFor="insp-key" hint={<>So setzt du dieses Feld in eine Aufgabe für die KI ein: <code>{`{{${key}}}`}</code></>}>
+    <Fld label="Kurzname für den KI-Ablauf" htmlFor="insp-key" hint={<>In der KI-Aufgabe steht dieses Feld als <code>{`{{${key}}}`}</code>.</>}>
       <Input id="insp-key" className="font-mono text-[13px]" value={v} onChange={(e) => setV(e.target.value)} onBlur={commit} onKeyDown={(e) => { if (e.key === "Enter") commit(); }} />
     </Fld>
   );
+}
+
+/** Optionen als Rohtext: Erst beim Verlassen des Felds wird zerlegt, damit Leerzeichen und neue Zeilen tippbar bleiben. */
+function OptionenFld({ werte, onCommit }: { werte: string[]; onCommit: (v: string[]) => void }) {
+  const text = werte.join("\n");
+  const [roh, setRoh] = useState(text);
+  useEffect(() => setRoh(text), [text]);
+  const commit = () => {
+    const neu = roh.split("\n").map((s) => s.trim()).filter(Boolean);
+    if (neu.join("\n") !== text) onCommit(neu);
+    else setRoh(text);
+  };
+  return <TextFld label="Optionen (eine pro Zeile)" multiline rows={4} value={roh} onChange={setRoh} onBlur={commit} />;
 }
 
 function PassBox({ b, x }: { b: Builder; x: Block }) {
@@ -211,8 +224,8 @@ export function Inspector({ b, onDelete, bereiche, onSeite }: { b: Builder; onDe
           if (p.keyAuto) { const nk = uniqueKey(slug(v), allKeys(d, l.b)); if (nk !== p.key) { renameRefs(d, p.key, nk); p.key = nk; } }
         }, `${id}:label`)} />
         <KeyField b={b} x={x} />
-        {["input", "textarea", "number"].includes(x.type) && <TextFld label="Platzhaltertext" value={P.placeholder ?? ""} onChange={(v) => set("placeholder", v, true)} />}
-        {(x.type === "select" || x.type === "radio") && <TextFld label="Optionen (eine pro Zeile)" multiline rows={4} value={fp.optionen.join("\n")} onChange={(v) => set("optionen", v.split("\n").map((s) => s.trim()).filter(Boolean), true)} />}
+        {["input", "textarea", "number"].includes(x.type) && <TextFld label="Beispiel im leeren Feld (grau)" value={P.placeholder ?? ""} onChange={(v) => set("placeholder", v, true)} />}
+        {(x.type === "select" || x.type === "radio") && <OptionenFld werte={fp.optionen} onCommit={(v) => set("optionen", v)} />}
         {x.type === "textarea" && <Seg label="Höhe" value={x.props.rows} options={[[3, "Klein"], [5, "Mittel"], [9, "Groß"]]} onChange={(v) => set("rows", v)} />}
         <TextFld label="Hilfetext" value={fp.hilfe} placeholder="Optional, steht unter dem Feld" onChange={(v) => set("hilfe", v, true)} />
         {x.type !== "file" && <TextFld label="Beispielwert zum Testen" multiline={x.type === "textarea"} value={fp.beispiel} onChange={(v) => set("beispiel", v, true)} />}
