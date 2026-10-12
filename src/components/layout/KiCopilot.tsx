@@ -33,8 +33,9 @@ export function KiCopilotEinrichten() {
     toast.success("Copilot ist eingerichtet. Im KI-Menü mit „Verbindung testen“ anmelden.");
   };
   return (
-    <form className="mt-3 flex flex-col gap-2 border-t pt-3" onSubmit={(e) => { e.preventDefault(); speichern(); }}>
-      <p className="font-semibold">Mit Copilot testen</p>
+    <details className="mt-3 border-t pt-3">
+      <summary className="cursor-pointer font-semibold">Mit Copilot testen</summary>
+      <form className="mt-2 flex flex-col gap-2" onSubmit={(e) => { e.preventDefault(); speichern(); }}>
       <p className="text-muted-foreground">Client- und Tenant-ID der App-Registrierung in Microsoft Entra ID eintragen. Sie bleiben in diesem Browser. Dort muss diese Adresse unter „Authentifizierung“ → „Single-page application“ eingetragen sein:</p>
       <Weiterleitung />
       <label htmlFor="ki-client" className="sr-only">Client-ID</label>
@@ -42,7 +43,8 @@ export function KiCopilotEinrichten() {
       <label htmlFor="ki-tenant" className="sr-only">Tenant-ID</label>
       <Input id="ki-tenant" autoComplete="off" spellCheck={false} placeholder="Tenant-ID (Verzeichnis-ID)" value={tenantId} onChange={(e) => setTenantId(e.target.value)} />
       <div><Button size="sm" type="submit" className="rounded-full" disabled={!clientId.trim() || !tenantId.trim()}>Copilot einrichten</Button></div>
-    </form>
+      </form>
+    </details>
   );
 }
 

@@ -18,10 +18,12 @@ export function Shell() {
   // Fenstertitel je Bereich; App-Seiten setzen ihren eigenen
   useEffect(() => {
     if (loc.pathname.startsWith("/app/")) return;
-    const t = loc.pathname === "/" ? "Applikationen" : loc.pathname.startsWith("/mein") ? "Mein Hub" : loc.pathname.startsWith("/baukasten") ? "Baukasten" : loc.pathname === "/neu" ? "Neue Applikation" : "";
-    document.title = t ? `${t} – KI-Hub` : "KI-Hub";
+    const t = loc.pathname === "/" ? "Applikationen" : loc.pathname.startsWith("/mein") ? "Mein Hub" : loc.pathname.startsWith("/baukasten") ? "Baukasten" : loc.pathname === "/neu" ? "Neue Applikation" : "Seite nicht gefunden";
+    document.title = `${t} – KI-Hub`;
   }, [loc.pathname]);
   const imBaukasten = loc.pathname.startsWith("/baukasten") || loc.pathname === "/neu";
+  // Eine geöffnete Applikation gehört zur Übersicht: der Menüpunkt bleibt dort markiert
+  const inUebersicht = loc.pathname === "/" || loc.pathname.startsWith("/app/");
 
   return (
     <div className="shell">
@@ -33,7 +35,7 @@ export function Shell() {
             <span className="brand-org" translate="no">KSCA</span>
           </Link>
           <nav className="nav" aria-label="Hauptnavigation">
-            <NavLink to="/" end viewTransition>Applikationen</NavLink>
+            <Link to="/" viewTransition aria-current={inUebersicht ? "page" : undefined}>Applikationen</Link>
             <NavLink to="/mein" viewTransition>Mein Hub</NavLink>
             <NavLink to="/baukasten" viewTransition>Baukasten</NavLink>
           </nav>
@@ -75,7 +77,7 @@ export function Shell() {
           </Popover>
         </div>
       </header>
-      <main id="inhalt" className={`wrap page ${imBaukasten ? "wide" : ""}`}>
+      <main id="inhalt" tabIndex={-1} className={`wrap page ${imBaukasten ? "wide" : ""}`}>
         <Outlet />
       </main>
       <footer className="fuss">

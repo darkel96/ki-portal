@@ -1,6 +1,8 @@
+import { useEffect } from "react";
 import { Link, useRouteError } from "react-router";
 
 export function NotFoundPage() {
+  useEffect(() => { document.title = "Seite nicht gefunden – KI-Hub"; }, []);
   return (
     <section className="hero hero-meldung">
       <div className="hero-text">

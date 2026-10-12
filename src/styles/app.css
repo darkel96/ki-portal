@@ -601,7 +601,7 @@ a.mh-titel:hover { text-decoration: underline; text-underline-offset: 4px; }
 
 /* Touch: Trefferflächen mindestens 40 px (Tablet und Handy) */
 @media (pointer: coarse) {
-  .nav a, .pill, .dir-wahl select, .filter .search input, .pg-btn, .link-back, .mh-titel { min-height: 40px; display: inline-flex; align-items: center; }
+  .nav a, .pill, .dir-wahl select, .filter .search input, .pg-btn, .link-back { min-height: 40px; display: inline-flex; align-items: center; }
   .ki-pill { min-width: 40px; min-height: 40px; }
   button[data-slot="button"] { min-height: 40px; }
   button[data-slot="button"][data-size^="icon"] { min-width: 40px; }

@@ -29,11 +29,15 @@ type Ctx = {
   letzterLauf: (appId: string) => Lauf | undefined;
   auftragSpeichern: (a: Omit<Auftrag, "id" | "naechsterLauf" | "letzterLauf" | "erstellt"> & { id?: string }) => Auftrag;
   auftragLoeschen: (id: string) => void;
+  /** Gelöschten Auftrag wieder einsetzen („Rückgängig“) */
+  auftragZurueck: (a: Auftrag) => void;
   auftragAktiv: (id: string, aktiv: boolean) => void;
   /** Auftrag sofort ausführen (in die Warteschlange) */
   jetztAusfuehren: (auftragId: string) => void;
   abbrechen: () => void;
   laufLoeschen: (id: string) => void;
+  /** Gelöschtes Ergebnis wieder in den Verlauf einsortieren („Rückgängig“) */
+  laufZurueck: (l: Lauf) => void;
   setAutomatisch: (an: boolean) => void;
 };
 
@@ -236,6 +240,7 @@ export function MeinHubProvider({ children }: { children: ReactNode }) {
       return neu;
     },
     auftragLoeschen: (id) => aendern((d) => { d.auftraege = d.auftraege.filter((a) => a.id !== id); }),
+    auftragZurueck: (a) => aendern((d) => { if (!d.auftraege.some((x) => x.id === a.id)) d.auftraege.push(a); }),
     auftragAktiv: (id, aktiv) => aendern((d) => {
       const a = d.auftraege.find((x) => x.id === id);
       if (a) { a.aktiv = aktiv; if (aktiv) a.naechsterLauf = naechsterLauf(a.zeitplan).toISOString(); }
@@ -243,6 +248,7 @@ export function MeinHubProvider({ children }: { children: ReactNode }) {
     jetztAusfuehren: (id) => einreihen(id),
     abbrechen: () => { schlange.current = []; ctl.current?.abort(); },
     laufLoeschen: (id) => aendern((d) => { d.laeufe = d.laeufe.filter((l) => l.id !== id); }),
+    laufZurueck: (l) => aendern((d) => { if (!d.laeufe.some((x) => x.id === l.id)) d.laeufe = [...d.laeufe, l].sort((x, y) => y.start.localeCompare(x.start)); }),
     setAutomatisch: (an) => aendern((d) => { d.automatisch = an; }),
   }), [daten, geladen, nutzerName, laufend, aendern, einreihen]);
 

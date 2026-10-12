@@ -3,6 +3,7 @@ test("Copilot im KI-Menü einrichten", async ({ page }) => {
   await page.goto("/");
   await page.locator(".ki-pill").click();
   await expect(page.getByText("Mit Copilot testen")).toBeVisible();
+  await page.getByText("Mit Copilot testen").click(); // Einrichtung ist eingeklappt
   await expect(page.getByText("/auth-redirect.html").first()).toBeVisible();
   await page.getByPlaceholder("Client-ID (Anwendungs-ID)").fill("nicht-gueltig");
   await page.getByPlaceholder("Tenant-ID (Verzeichnis-ID)").fill("firma.onmicrosoft.com");
