@@ -6,7 +6,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import type { App, Step } from "@/lib/schema";
-import { DATEI_ZUSATZ, allKeys, appWarnings, fieldsOf, makeStep, renameRefs, rid, slug, stepText, stepsUsing, uniqueKey, varsIn, walk } from "@/lib/model";
+import { DATEI_ZUSATZ, agentName, allKeys, appWarnings, fieldsOf, makeStep, renameRefs, rid, slug, stepName, stepText, stepsUsing, uniqueKey, varsIn, walk } from "@/lib/model";
 import { FORMAT_LABEL, MODELL_LABEL, QUELL_TYP, buildRequest, graphPreview } from "@/lib/request";
 import { KI_ZENTRAL } from "@/lib/ki/config";
 import { kiModus } from "@/lib/ki";
@@ -16,14 +16,19 @@ import { geloeschtToast, type Builder } from "./useBuilder";
 const DATEI_OPTIONEN: [string, string][] = [["keine", "Keine (nur anzeigen)"], ["pdf", "PDF"], ["docx", "Word (.docx)"], ["xlsx", "Excel (.xlsx)"], ["pptx", "PowerPoint (.pptx)"], ["wunsch", "Wie in Aufgabe oder Eingabe verlangt"]];
 const BED_OP: [NonNullable<Step["bedingung"]>["op"], string][] = [["gleich", "ist gleich"], ["ungleich", "ist nicht"], ["gefuellt", "ist ausgefüllt"], ["leer", "ist leer"]];
 
-/** Fügt einen Platzhalter an der Cursorposition ein. */
+/** Fügt einen Platzhalter an der Cursorposition ein; war das Feld noch nie fokussiert, ans Ende. Leerzeichen zu den Nachbarn werden ergänzt. */
 function insertAt(el: HTMLTextAreaElement | null, text: string, apply: (v: string) => void) {
   if (!el) return;
-  const s = el.selectionStart ?? el.value.length, e = el.selectionEnd ?? s;
-  const v = el.value.slice(0, s) + text + el.value.slice(e);
-  apply(v);
-  requestAnimationFrame(() => { el.focus(); el.selectionStart = el.selectionEnd = s + text.length; });
+  const v0 = el.value;
+  const unberuehrt = !el.dataset.beruehrt;
+  const s = unberuehrt ? v0.length : (el.selectionStart ?? v0.length), e = unberuehrt ? v0.length : (el.selectionEnd ?? s);
+  const vor = v0.slice(0, s), nach = v0.slice(e);
+  const t = (vor && !/\s$/.test(vor) ? " " : "") + text + (nach && !/^\s/.test(nach) ? " " : "");
+  apply(vor + t + nach);
+  requestAnimationFrame(() => { el.focus(); el.selectionStart = el.selectionEnd = s + t.length; });
 }
+/** Merkt sich, dass ein Feld einmal fokussiert war (für insertAt). */
+const beruehrt = (e: React.FocusEvent<HTMLTextAreaElement>) => { e.currentTarget.dataset.beruehrt = "1"; };
 
 function VarChips({ app, i, onInsert }: { app: App; i: number; onInsert: (t: string) => void }) {
   return (
@@ -33,7 +38,7 @@ function VarChips({ app, i, onInsert }: { app: App; i: number; onInsert: (t: str
       {fieldsOf(app).filter((b) => b.type === "file").flatMap((b) => DATEI_ZUSATZ.map((z) => (
         <button key={`${b.id}-${z.key}`} type="button" className="var" title={`Setzt {{${b.props.key}_${z.key}}} ein`} onClick={() => onInsert(`{{${b.props.key}_${z.key}}}`)}><Plus size={11} aria-hidden="true" />{z.label}: {b.props.label}</button>
       )))}
-      {app.steps.slice(0, i).map((s) => <button key={s.id} type="button" className="var prev" title={`Setzt {{${s.key}}} ein`} onClick={() => onInsert(`{{${s.key}}}`)}><Plus size={11} aria-hidden="true" />Ergebnis: {s.name}</button>)}
+      {app.steps.slice(0, i).map((s, si) => <button key={s.id} type="button" className="var prev" title={`Setzt {{${s.key}}} ein`} onClick={() => onInsert(`{{${s.key}}}`)}><Plus size={11} aria-hidden="true" />Ergebnis: {stepName(s, si)}</button>)}
     </div>
   );
 }
@@ -63,7 +68,7 @@ function StepCard({ b, i, onAktiv }: { b: Builder; i: number; onAktiv: (id: stri
   const set = <K extends keyof Step>(k: K, v: Step[K], coalesce = false) => b.change((d) => { d.steps[i][k] = v; }, coalesce ? `${s.id}:${String(k)}` : undefined);
   const setTeam = (mut: (t: NonNullable<Step["team"]>) => void, coalesce?: string) => b.change((d) => { const t = d.steps[i].team; if (t) mut(t); }, coalesce);
   const fl = fieldsOf(b.app).filter((x) => stepsUsing(b.app, x.props.key).includes(i)).map((x) => x.props.label);
-  const prev = b.app.steps.slice(0, i).filter((p) => varsIn(stepText(s)).includes(p.key.toLowerCase())).map((p) => `Ergebnis von ${p.name}`);
+  const prev = b.app.steps.slice(0, i).flatMap((p, pi) => varsIn(stepText(s)).includes(p.key.toLowerCase()) ? [`Ergebnis von ${stepName(p, pi)}`] : []);
   let anzeigen = 0;
   walk(b.app.blocks, (x) => { if (x.type === "output" && x.props.quelle === s.id) anzeigen++; });
   const team = s.art === "team" && s.team;
@@ -71,13 +76,13 @@ function StepCard({ b, i, onAktiv }: { b: Builder; i: number; onAktiv: (id: stri
   const aktTeil = teil === "team" && !team ? "aufgabe" : teil;
 
   return (
-    <section className="panel srow ki-karte" aria-label={`Schritt ${i + 1}: ${s.name}`}>
+    <section className="panel srow ki-karte" aria-label={s.name.trim() ? `KI-Schritt ${i + 1}: ${s.name}` : `KI-Schritt ${i + 1}`}>
       <div className="srow-head">
-        <span className="step-no">Schritt {i + 1}</span>
-        <Input value={s.name} aria-label="Name des Schritts" className="flex-1 font-medium" onChange={(e) => set("name", e.target.value, true)} />
-        <Button variant="outline" size="icon-sm" aria-label="Schritt nach vorn" disabled={i === 0} onClick={() => b.change((d) => { [d.steps[i - 1], d.steps[i]] = [d.steps[i], d.steps[i - 1]]; })}><ArrowUp /></Button>
-        <Button variant="outline" size="icon-sm" aria-label="Schritt nach hinten" disabled={i === n - 1} onClick={() => b.change((d) => { [d.steps[i + 1], d.steps[i]] = [d.steps[i], d.steps[i + 1]]; })}><ArrowDown /></Button>
-        <Button variant="outline" size="icon-sm" aria-label="Schritt löschen" onClick={() => { const vorher = b.aktuell(); onAktiv(b.app.steps[i + 1]?.id ?? b.app.steps[i - 1]?.id ?? null); geloeschtToast(b, vorher, `„${s.name}“ gelöscht.`, () => onAktiv(s.id)); b.change((d) => {
+        <span className="step-no">KI-Schritt {i + 1}</span>
+        <Input value={s.name} aria-label="Name des KI-Schritts" className="flex-1 font-medium" onChange={(e) => set("name", e.target.value, true)} />
+        <Button variant="outline" size="icon-sm" aria-label="KI-Schritt nach vorn" disabled={i === 0} onClick={() => b.change((d) => { [d.steps[i - 1], d.steps[i]] = [d.steps[i], d.steps[i - 1]]; })}><ArrowUp /></Button>
+        <Button variant="outline" size="icon-sm" aria-label="KI-Schritt nach hinten" disabled={i === n - 1} onClick={() => b.change((d) => { [d.steps[i + 1], d.steps[i]] = [d.steps[i], d.steps[i + 1]]; })}><ArrowDown /></Button>
+        <Button variant="outline" size="icon-sm" aria-label="KI-Schritt löschen" onClick={() => { const vorher = b.aktuell(); onAktiv(b.app.steps[i + 1]?.id ?? b.app.steps[i - 1]?.id ?? null); geloeschtToast(b, vorher, `„${stepName(s, i)}“ gelöscht.`, () => onAktiv(s.id)); b.change((d) => {
           const id = d.steps[i].id;
           d.steps.splice(i, 1);
           walk(d.blocks, (x) => {
@@ -100,28 +105,28 @@ function StepCard({ b, i, onAktiv }: { b: Builder; i: number; onAktiv: (id: stri
           <TabsTrigger value="fein">Feineinstellungen</TabsTrigger>
           <TabsTrigger value="wissen">Wissen{s.quellen.length ? ` (${s.quellen.length})` : ""}</TabsTrigger>
         </TabsList>
-        <TabsContent value="aufgabe" className="ki-teil">
+        <TabsContent value="aufgabe" className="ki-teil" tabIndex={-1}>
       <Fld label={team ? "Aufgabe und Ausgangslage" : "Aufgabe für die KI"} htmlFor={`sp-${s.id}`}>
-        <Textarea id={`sp-${s.id}`} ref={promptRef} rows={9} className="mono-ta min-h-[220px]" value={s.prompt} placeholder={team ? "Wovon geht das Team aus? Setze Eingaben über die Platzhalter ein." : "Was soll die KI in diesem Schritt tun?"} onChange={(e) => set("prompt", e.target.value, true)} />
+        <Textarea id={`sp-${s.id}`} ref={promptRef} rows={9} className="mono-ta min-h-[220px]" value={s.prompt} onFocus={beruehrt} placeholder={team ? "Wovon geht das Team aus? Setze Eingaben über die Platzhalter ein." : "Was soll die KI in diesem KI-Schritt tun?"} onChange={(e) => set("prompt", e.target.value, true)} />
       </Fld>
       <VarChips app={b.app} i={i} onInsert={(t) => insertAt(promptRef.current, t, (v) => set("prompt", v))} />
         </TabsContent>
       {team && (
-        <TabsContent value="team" className="ki-teil">
+        <TabsContent value="team" className="ki-teil" tabIndex={-1}>
         <div className="box neutral">
-          <span style={{ fontWeight: 600, fontSize: 13 }}>Agenten-Team</span>
+          <span className="text-[13px] font-semibold">Agenten-Team</span>
           <p className="hint" style={{ margin: 0 }}>Die Agenten bekommen Ausgangslage und Ziel und finden den Weg selbst. Eine Moderation entscheidet in jeder Runde, wer spricht und wann das Ziel erreicht ist.</p>
           <Fld label="Ziel" htmlFor={`sz-${s.id}`} hint="Woran erkennt das Team, dass es fertig ist? Platzhalter sind erlaubt.">
-            <Textarea id={`sz-${s.id}`} ref={zielRef} rows={3} value={team.ziel} onChange={(e) => setTeam((t) => { t.ziel = e.target.value; }, `${s.id}:ziel`)} />
+            <Textarea id={`sz-${s.id}`} ref={zielRef} rows={3} value={team.ziel} onFocus={beruehrt} onChange={(e) => setTeam((t) => { t.ziel = e.target.value; }, `${s.id}:ziel`)} />
           </Fld>
           <VarChips app={b.app} i={i} onInsert={(t) => insertAt(zielRef.current, t, (v) => setTeam((tt) => { tt.ziel = v; }))} />
           <Sel label="Höchstens Runden" value={String(team.maxRunden)} options={[4, 6, 8, 10, 12, 16, 20].map((r) => [String(r), `${r} Runden`] as [string, string])} onChange={(v) => setTeam((t) => { t.maxRunden = Number(v); })} />
-          <span className="lbl" style={{ fontWeight: 600, fontSize: 13 }}>Agenten</span>
+          <span className="lbl text-[13px] font-semibold">Agenten</span>
           {team.agenten.map((a, ai) => (
             <div className="agent-row" key={a.id}>
               <Input aria-label={`Name von Agent ${ai + 1}`} value={a.name} onChange={(e) => setTeam((t) => { t.agenten[ai].name = e.target.value; }, `${a.id}:name`)} />
-              <Textarea aria-label={`Rolle von ${a.name}`} rows={2} value={a.rolle} placeholder="Aufgabe und Haltung dieses Agenten" onChange={(e) => setTeam((t) => { t.agenten[ai].rolle = e.target.value; }, `${a.id}:rolle`)} />
-              <Button variant="outline" size="icon-sm" aria-label={`${a.name} entfernen`} disabled={team.agenten.length <= 2} onClick={() => { const vorher = b.aktuell(); setTeam((t) => { t.agenten.splice(ai, 1); }); geloeschtToast(b, vorher, `„${a.name}“ entfernt.`); }}><Trash /></Button>
+              <Textarea aria-label={`Rolle von ${agentName(a, ai)}`} rows={2} value={a.rolle} placeholder="Aufgabe und Haltung dieses Agenten" onChange={(e) => setTeam((t) => { t.agenten[ai].rolle = e.target.value; }, `${a.id}:rolle`)} />
+              <Button variant="outline" size="icon-sm" aria-label={`${agentName(a, ai)} entfernen`} disabled={team.agenten.length <= 2} onClick={() => { const vorher = b.aktuell(); setTeam((t) => { t.agenten.splice(ai, 1); }); geloeschtToast(b, vorher, `„${agentName(a, ai)}“ entfernt.`); }}><Trash /></Button>
             </div>
           ))}
           <div><Button variant="outline" size="sm" disabled={team.agenten.length >= 6} onClick={() => setTeam((t) => { t.agenten.push({ id: rid("g"), name: `Agent ${t.agenten.length + 1}`, rolle: "" }); })}><Plus />Agent hinzufügen</Button></div>
@@ -129,7 +134,7 @@ function StepCard({ b, i, onAktiv }: { b: Builder; i: number; onAktiv: (id: stri
         </div>
         </TabsContent>
       )}
-        <TabsContent value="fein" className="ki-teil">
+        <TabsContent value="fein" className="ki-teil" tabIndex={-1}>
       {!team && <TextFld label="Rolle und Regeln für die KI" multiline rows={2} value={s.rolle} placeholder="z. B. Du bist Assistenz im Vertrieb. Du schreibst sachlich und erfindest keine Preise …" onChange={(v) => set("rolle", v, true)} />}
       <div className="three">
         <StepKey b={b} i={i} />
@@ -144,7 +149,7 @@ function StepCard({ b, i, onAktiv }: { b: Builder; i: number; onAktiv: (id: stri
       <Check label="Alle Eingaben automatisch anhängen" hint="Ohne Platzhalter: Jedes Feld kommt mit Bezeichnung unten an die Aufgabe." checked={s.autoAll} onChange={(v) => set("autoAll", v)} />
       <Check label="Websuche erlauben" hint="Wirkt nur mit Copilot." checked={s.web} onChange={(v) => set("web", v)} />
       <div className="flex flex-wrap items-center gap-2">
-        <span className="lbl" style={{ fontWeight: 600, fontSize: 13 }}>Nur ausführen, wenn</span>
+        <span className="lbl text-[13px] font-semibold">Nur ausführen, wenn</span>
         <select aria-label="Feld der Bedingung" className="h-9 rounded-[4px] border border-input bg-background px-2 text-sm" value={s.bedingung?.feld ?? ""}
           onChange={(e) => b.change((d) => { const st = d.steps[i]; st.bedingung = e.target.value ? { feld: e.target.value, op: st.bedingung?.op ?? "gleich", wert: st.bedingung?.wert ?? "" } : null; })}>
           <option value="">immer ausführen</option>
@@ -158,7 +163,7 @@ function StepCard({ b, i, onAktiv }: { b: Builder; i: number; onAktiv: (id: stri
         </>}
       </div>
         </TabsContent>
-        <TabsContent value="wissen" className="ki-teil">
+        <TabsContent value="wissen" className="ki-teil" tabIndex={-1}>
           <TextFld label="Hintergrundwissen als Text" multiline rows={4} value={s.wissen} placeholder="Feste Informationen, die die KI immer kennen soll, z. B. Richtlinien, Produktdaten, Textbausteine …" onChange={(v) => set("wissen", v, true)} />
           {s.quellen.map((q, qi) => (
             <div className="qrow" key={qi}>
@@ -199,7 +204,7 @@ export function KiTab({ b, fokusPruefung = 0 }: { b: Builder; fokusPruefung?: nu
   const step = app.steps[ai];
   const ctx: Record<string, string> = {};
   fieldsOf(app).forEach((x) => { ctx[x.props.key.toLowerCase()] = x.props.beispiel || `‹${x.props.label}›`; });
-  app.steps.forEach((s) => { ctx[s.key.toLowerCase()] = `‹Ergebnis von ${s.name}›`; });
+  app.steps.forEach((s, i) => { ctx[s.key.toLowerCase()] = `‹Ergebnis von ${stepName(s, i)}›`; });
   const req = step ? buildRequest(app, step, ctx) : null;
   const w = appWarnings(app);
   const harte = w.filter((x) => !x.weich);
@@ -209,7 +214,7 @@ export function KiTab({ b, fokusPruefung = 0 }: { b: Builder; fokusPruefung?: nu
     setAktivId(neu.id);
     setBereich("schritt");
   };
-  const offenJe = (s: Step) => harte.some((x) => x.text.includes(`„${s.name}“`));
+  const offenJe = (s: Step, i: number) => harte.some((x) => x.text.includes(`„${stepName(s, i)}“`));
 
   return (
     <div className="ki" data-bereich={bereich}>
@@ -226,9 +231,9 @@ export function KiTab({ b, fokusPruefung = 0 }: { b: Builder; fokusPruefung?: nu
             <li key={s.id}>
               <button type="button" aria-current={i === ai ? "step" : undefined} onClick={() => { setAktivId(s.id); setBereich("schritt"); }}>
                 <span className="s-no" aria-hidden="true">{i + 1}</span>
-                <span className="s-name">{s.name}</span>
+                <span className="s-name">{stepName(s, i)}</span>
                 {s.art === "team" && <Users size={13} role="img" aria-label="Agenten-Team" />}
-                {offenJe(s) && <i className="ki-offen" role="img" aria-label="hat offene Punkte" />}
+                {offenJe(s, i) && <i className="ki-offen" role="img" aria-label="hat offene Punkte" />}
               </button>
             </li>
           ))}
@@ -257,8 +262,8 @@ export function KiTab({ b, fokusPruefung = 0 }: { b: Builder; fokusPruefung?: nu
             <TabsTrigger value="vorschau">Technische Vorschau</TabsTrigger>
             <TabsTrigger value="anbindung">Anbindung</TabsTrigger>
           </TabsList>
-          <TabsContent value="vorschau" className="ki-teil">
-            {step && <p className="hint" style={{ margin: 0 }}>Für Fachleute: die Anfrage von Schritt {ai + 1} (<b style={{ color: "var(--ink)" }}>{step.name}</b>), wie sie an die KI geht.</p>}
+          <TabsContent value="vorschau" className="ki-teil" tabIndex={-1}>
+            {step && <p className="hint" style={{ margin: 0 }}>Für Fachleute: die Anfrage von KI-Schritt {ai + 1} (<b style={{ color: "var(--ink)" }}>{stepName(step, ai)}</b>), wie sie an die KI geht.</p>}
             <ToggleGroup type="single" variant="outline" size="sm" value={ansicht} onValueChange={(v) => v && setAnsicht(v as typeof ansicht)} className="justify-start" aria-label="Darstellung der Anfrage">
               <ToggleGroupItem value="neutral" className="rounded-full px-3">Neutral</ToggleGroupItem>
               <ToggleGroupItem value="graph" className="rounded-full px-3">Copilot (Microsoft Graph)</ToggleGroupItem>
@@ -266,10 +271,10 @@ export function KiTab({ b, fokusPruefung = 0 }: { b: Builder; fokusPruefung?: nu
             <p className="hint" style={{ margin: 0 }}>{ansicht === "graph" ? "So sendet die zentrale KI-Anbindung diese Anfrage an Copilot." : "Das übergibt die Applikation an die zentrale KI-Anbindung. Eingaben sind mit den Beispielwerten gefüllt."}{step?.art === "team" ? " Beim Agenten-Team ist das die Grundlage; Moderation und Agenten bekommen zusätzlich Ziel, Rollen und Verlauf." : ""}</p>
             <pre className="code ki-code">{req && step ? (ansicht === "graph" ? graphPreview(step, req) : JSON.stringify(req, null, 2)) : "Noch kein KI-Schritt angelegt."}</pre>
           </TabsContent>
-          <TabsContent value="pruefung" className="ki-teil">
+          <TabsContent value="pruefung" className="ki-teil" tabIndex={-1}>
             {w.length ? <ul className="warns">{w.map((x, i) => <li key={i} className={x.weich ? "soft" : ""}>{x.text}</li>)}</ul> : <p className="hint" style={{ margin: 0, color: "var(--brand)" }}>Alles verbunden. Bereit zum Speichern.</p>}
           </TabsContent>
-          <TabsContent value="anbindung" className="ki-teil">
+          <TabsContent value="anbindung" className="ki-teil" tabIndex={-1}>
             <p style={{ margin: 0 }}>Alle Applikationen nutzen die zentrale Anbindung des KI-Hubs. In der Applikation ist dafür nichts einzustellen.</p>
             <dl className="kv">
               <dt>Ziel</dt><dd>{KI_ZENTRAL.ziel}</dd>

@@ -90,7 +90,7 @@ test("App-Ansicht: Weiter auf der letzten Eingabeseite erstellt alle Ergebnisse"
   const mehr = page.getByRole("button", { name: "Weitere Aktionen" });
   if (await mehr.isVisible()) { await mehr.click(); await page.getByRole("menuitem", { name: "Beispieldaten einsetzen" }).click(); }
   else await page.getByRole("button", { name: "Beispieldaten einsetzen" }).click();
-  await page.getByRole("navigation", { name: "Seiten blättern" }).getByRole("button", { name: /Ergebnisse erstellen|^Weiter$/ }).click();
+  await page.getByRole("navigation", { name: "Seiten blättern" }).getByRole("button", { name: /Ergebnisse erstellen|^Weiter$|^Erstellen$/ }).click();
   await expect(page.locator(".e-kachel")).toHaveCount(2);
   await expect(page.locator(".e-kachel .status-pill").first()).toHaveText("Simulation");
 });

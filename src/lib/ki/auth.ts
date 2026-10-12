@@ -1,8 +1,10 @@
 /** Anmeldung über die zentrale Azure-Anwendung (MSAL, Single Sign-on). */
-import {
-  createStandardPublicClientApplication, InteractionRequiredAuthError,
-  type AccountInfo, type AuthenticationResult, type IPublicClientApplication,
-} from "@azure/msal-browser";
+import type { AccountInfo, AuthenticationResult, IPublicClientApplication } from "@azure/msal-browser";
+
+type Msal = typeof import("@azure/msal-browser");
+let msal: Msal | null = null;
+/** MSAL (rund 250 KB) erst laden, wenn eine Copilot-Verbindung eingerichtet ist und gebraucht wird. */
+const msalLaden = async (): Promise<Msal> => (msal ??= await import("@azure/msal-browser"));
 import { copilotVerbindung, redirectUri } from "./config";
 
 let pca: { schluessel: string; app: Promise<IPublicClientApplication> } | null = null;
@@ -14,7 +16,7 @@ function app(): Promise<IPublicClientApplication> {
   const schluessel = `${v.clientId}|${v.tenantId}`;
   if (pca?.schluessel !== schluessel) pca = {
     schluessel,
-    app: createStandardPublicClientApplication({
+    app: msalLaden().then((m) => m.createStandardPublicClientApplication({
       auth: {
         clientId: v.clientId,
         authority: `https://login.microsoftonline.com/${v.tenantId}`,
@@ -24,7 +26,7 @@ function app(): Promise<IPublicClientApplication> {
       // Angemeldet bleiben über Tabs und Neustarts hinweg; MSAL verschlüsselt den Zwischenspeicher
       // mit einem Schlüssel, der mit der Browsersitzung endet.
       cache: { cacheLocation: "localStorage" },
-    }),
+    })),
   };
   return pca.app;
 }
@@ -86,7 +88,7 @@ export async function graphToken(scopes?: string[]): Promise<string> {
     try {
       return (await a.acquireTokenSilent({ scopes, account: konto })).accessToken;
     } catch (e) {
-      if (e instanceof InteractionRequiredAuthError) {
+      if (msal && e instanceof msal.InteractionRequiredAuthError) {
         return await popup(a, () => a.acquireTokenPopup({ scopes, account: konto, overrideInteractionInProgress: true }));
       }
       throw e;

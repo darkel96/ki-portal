@@ -12,11 +12,15 @@ function table(rows: string[]): string {
   return `<div class="tbl"><table><thead><tr>${cells(head).map((c) => `<th>${inline(c)}</th>`).join("")}</tr></thead><tbody>${rest.map((r) => `<tr>${cells(r).map((c) => `<td>${inline(c)}</td>`).join("")}</tr>`).join("")}</tbody></table></div>`;
 }
 
+const blockStart = /^(#{1,4}\s|\s*[-*•]\s+|\s*\d+[.)]\s+|\s*\|.*\|\s*$|\s*(---|\*\*\*)\s*$|\s*```|\s*>)/;
+
 /** Einfaches Markdown für KI-Antworten. Das Ergebnis wird immer mit DOMPurify bereinigt. */
 export function markdown(src: string): string {
-  const lines = String(src).replace(/\r/g, "").split("\n");
+  return DOMPurify.sanitize(bloecke(String(src).replace(/\r/g, "").split("\n")), { USE_PROFILES: { html: true } });
+}
+
+function bloecke(lines: string[]): string {
   let html = "", i = 0;
-  const blockStart = /^(#{1,4}\s|\s*[-*•]\s+|\s*\d+[.)]\s+|\s*\|.*\|\s*$|\s*(---|\*\*\*)\s*$|\s*```)/;
   while (i < lines.length) {
     const l = lines[i];
     let m: RegExpMatchArray | null;
@@ -33,11 +37,13 @@ export function markdown(src: string): string {
     if (/^\s*[-*•]\s+/.test(l)) { html += "<ul>"; while (i < lines.length && /^\s*[-*•]\s+/.test(lines[i])) html += `<li>${inline(lines[i++].replace(/^\s*[-*•]\s+/, ""))}</li>`; html += "</ul>"; continue; }
     if (/^\s*\d+[.)]\s+/.test(l)) { html += "<ol>"; while (i < lines.length && /^\s*\d+[.)]\s+/.test(lines[i])) html += `<li>${inline(lines[i++].replace(/^\s*\d+[.)]\s+/, ""))}</li>`; html += "</ol>"; continue; }
     if (/^\s*(---|\*\*\*)\s*$/.test(l)) { html += "<hr>"; i++; continue; }
+    // Zitat/Rückfrage: „> Text“, auch mehrzeilig, innen wieder Markdown
+    if (/^\s*>/.test(l)) { const z: string[] = []; while (i < lines.length && /^\s*>/.test(lines[i])) z.push(lines[i++].replace(/^\s*>\s?/, "")); html += `<blockquote>${bloecke(z)}</blockquote>`; continue; }
     const para = [inline(lines[i++])];
     while (i < lines.length && lines[i].trim() && !blockStart.test(lines[i])) para.push(inline(lines[i++]));
     html += `<p>${para.join("<br>")}</p>`;
   }
-  return DOMPurify.sanitize(html, { USE_PROFILES: { html: true } });
+  return html;
 }
 
 export function renderResult(text: string, format: Step["format"]): string {

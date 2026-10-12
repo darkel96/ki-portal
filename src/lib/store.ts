@@ -18,21 +18,28 @@ export interface AppStore {
 }
 
 const LS_KEY = "kihub-apps-v3";
+const isObj = (v: unknown): v is Record<string, unknown> => !!v && typeof v === "object";
 
 class LocalStore implements AppStore {
   readonly name = "Dieser Browser";
   private read(): unknown[] {
     try { const v = JSON.parse(localStorage.getItem(LS_KEY) || "[]"); return Array.isArray(v) ? v : []; } catch { return []; }
   }
-  private write(apps: App[]) { localStorage.setItem(LS_KEY, JSON.stringify(apps)); }
-  async list() { return this.read().map(loadApp).filter((a): a is App => !!a && !!a.id); }
+  private write(apps: unknown[]) { localStorage.setItem(LS_KEY, JSON.stringify(apps)); }
+  /** Eine unlesbare App wird übersprungen, die anderen bleiben erhalten. */
+  async list() {
+    const out: App[] = [];
+    for (const r of this.read()) { const a = loadApp(r); if (a?.id) out.push(a); else console.warn("Gespeicherte Applikation übersprungen:", r); }
+    return out;
+  }
+  // Speichern und Löschen arbeiten auf den Rohdaten, damit eine übersprungene App nicht mitgelöscht wird.
   async save(app: App) {
-    const all = await this.list();
-    const i = all.findIndex((a) => a.id === app.id);
+    const all = this.read();
+    const i = all.findIndex((a) => isObj(a) && a.id === app.id);
     if (i >= 0) all[i] = app; else all.push(app);
     this.write(all);
   }
-  async remove(id: string) { this.write((await this.list()).filter((a) => a.id !== id)); }
+  async remove(id: string) { this.write(this.read().filter((a) => !(isObj(a) && a.id === id))); }
 }
 
 class SharePointStore implements AppStore {

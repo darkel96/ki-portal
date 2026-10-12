@@ -1,4 +1,4 @@
-import { useEffect, useId, useState, type FormEvent } from "react";
+import { useEffect, useId, useLayoutEffect, useRef, useState, type FormEvent } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,6 +17,27 @@ type Stand = () => { werte: Werte; dateien: Record<string, FileInfo> };
 
 const anzahl = (n: number, eins: string, mehr: string) => `${n} ${n === 1 ? eins : mehr}`;
 
+/**
+ * Merkt sich beim Öffnen das auslösende Element und gibt ihm beim Schließen den Fokus zurück.
+ * Kam der Klick aus einem Menü (das sich dabei schließt), zählt der Menüknopf; ist der Auslöser inzwischen weg, greift `ersatz`.
+ */
+export function useAusloeser(offen: boolean, ersatz?: () => HTMLElement | null | undefined) {
+  const ref = useRef<HTMLElement | null>(null);
+  useLayoutEffect(() => {
+    if (!offen) return;
+    let el = document.activeElement as HTMLElement | null;
+    const menue = el?.closest<HTMLElement>("[role=menu]");
+    if (menue) el = document.getElementById(menue.getAttribute("aria-labelledby") ?? "") ?? el;
+    ref.current = el && el !== document.body ? el : null;
+  }, [offen]);
+  return (e: Event) => {
+    const el = ref.current && document.contains(ref.current) ? ref.current : ersatz?.();
+    if (!el) return;
+    e.preventDefault();
+    el.focus();
+  };
+}
+
 /** Wie Sel aus dem Baukasten, aber einzelne Optionen lassen sich sperren (z. B. Ziele, die erst später kommen). */
 function SelMitSperre<T extends string>({ label, value, options, onChange }: { label: string; value: T; options: [T, string, boolean?][]; onChange: (v: T) => void }) {
   const id = useId();
@@ -30,13 +51,14 @@ function SelMitSperre<T extends string>({ label, value, options, onChange }: { l
   );
 }
 
-/** Aktuelle Eingaben einer App als Voreinstellung speichern (neu oder eine bestehende überschreiben). */
+/** Aktuelle Eingaben einer Applikation als Voreinstellung speichern (neu oder eine bestehende überschreiben). */
 export function VorlageDialog({ offen, onOffen, appId, appName, stand, aktiv, onGespeichert }: {
   offen: boolean; onOffen: (o: boolean) => void; appId: string; appName: string; stand: Stand;
   /** Gerade geladene Voreinstellung: wird zum Überschreiben angeboten */
   aktiv?: Voreinstellung | null; onGespeichert?: (v: Voreinstellung) => void;
 }) {
   const { vorlageSpeichern } = useMeinHub();
+  const fokusZurueck = useAusloeser(offen);
   const [name, setName] = useState("");
   const [ueberschreiben, setUeberschreiben] = useState(false);
   useEffect(() => { if (offen) { setName(aktiv?.name ?? ""); setUeberschreiben(!!aktiv); } }, [offen, aktiv]);
@@ -50,13 +72,13 @@ export function VorlageDialog({ offen, onOffen, appId, appName, stand, aktiv, on
   };
   return (
     <Dialog open={offen} onOpenChange={onOffen}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-md" onCloseAutoFocus={fokusZurueck}>
         <DialogHeader>
           <DialogTitle>Eingaben als Voreinstellung speichern</DialogTitle>
-          <DialogDescription>Alle ausgefüllten Felder und hochgeladenen Dateien werden gespeichert. Beim nächsten Öffnen ist die App damit schon ausgefüllt; Aufträge nutzen sie für regelmäßige Läufe.</DialogDescription>
+          <DialogDescription>Alle ausgefüllten Felder und hochgeladenen Dateien werden gespeichert. Beim nächsten Öffnen ist die Applikation damit schon ausgefüllt; Aufträge nutzen sie für regelmäßige Läufe.</DialogDescription>
         </DialogHeader>
         <Fld label="Name der Voreinstellung" htmlFor="vl-name">
-          <Input id="vl-name" value={name} autoComplete="off" placeholder="z. B. Jour fixe Kundenportal…" onChange={(e) => setName(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") speichern(); }} />
+          <Input id="vl-name" value={name} autoComplete="off" maxLength={80} placeholder="z. B. Jour fixe Kundenportal …" onChange={(e) => setName(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") speichern(); }} />
         </Fld>
         {aktiv && <Check label={`„${aktiv.name}“ überschreiben`} hint="Ohne Häkchen entsteht eine neue Voreinstellung." checked={ueberschreiben} onChange={setUeberschreiben} />}
         <DialogFooter>
@@ -79,6 +101,7 @@ export function AuftragDialog({ offen, onOffen, appId, appName, auftrag, stand, 
   vorlageVorschlag?: string | null;
 }) {
   const { vorlagenFuer, vorlageSpeichern, auftragSpeichern } = useMeinHub();
+  const fokusZurueck = useAusloeser(offen);
   const vorlagen = vorlagenFuer(appId);
   const [name, setName] = useState("");
   const [vorlage, setVorlage] = useState<string>(AKTUELL);
@@ -116,17 +139,17 @@ export function AuftragDialog({ offen, onOffen, appId, appName, auftrag, stand, 
 
   return (
     <Dialog open={offen} onOpenChange={onOffen}>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="sm:max-w-lg" onCloseAutoFocus={fokusZurueck}>
         <DialogHeader>
           <DialogTitle>{auftrag ? "Auftrag bearbeiten" : "Regelmäßig ausführen"}</DialogTitle>
           <DialogDescription>„{appName}“ läuft dann automatisch mit festen Eingaben. Das Ergebnis liegt im Verlauf von Mein Hub.</DialogDescription>
         </DialogHeader>
         <form className="mh-form" onSubmit={speichern}>
         <Fld label="Name des Auftrags" htmlFor="af-name">
-          <Input id="af-name" value={name} autoComplete="off" onChange={(e) => setName(e.target.value)} />
+          <Input id="af-name" value={name} autoComplete="off" maxLength={80} placeholder="z. B. Wöchentliches Protokoll …" onChange={(e) => setName(e.target.value)} />
         </Fld>
         {optionen.length ? <Sel label="Eingaben" value={vorlage} options={optionen} onChange={setVorlage} />
-          : <p className="hint" style={{ margin: 0 }}>Für diese App gibt es noch keine Voreinstellung. Öffne die App, füll sie aus und speichere die Eingaben als Voreinstellung.</p>}
+          : <p className="hint" style={{ margin: 0 }}>Für diese Applikation gibt es noch keine Voreinstellung. Öffne sie, füll sie aus und speichere die Eingaben als Voreinstellung.</p>}
         <Seg label="Wie oft" value={zeitplan.art} options={[["taeglich", "Täglich"], ["werktags", "Werktags"], ["woechentlich", "Wöchentlich"], ["monatlich", "Monatlich"]]} onChange={(v) => z("art", v)} />
         <div className="flex flex-wrap gap-3">
           {zeitplan.art === "woechentlich" && <Sel label="Wochentag" value={String(zeitplan.wochentag)} options={WOCHENTAG.map((t, i) => [String(i + 1), t] as [string, string])} onChange={(v) => z("wochentag", Number(v))} />}
@@ -149,9 +172,10 @@ export function AuftragDialog({ offen, onOffen, appId, appName, auftrag, stand, 
   );
 }
 
-/** Voreinstellungen einer App umbenennen oder löschen. */
-export function VorlagenVerwalten({ offen, onOffen, appId, appName }: { offen: boolean; onOffen: (o: boolean) => void; appId: string; appName: string }) {
+/** Voreinstellungen einer Applikation umbenennen oder löschen. */
+export function VorlagenVerwalten({ offen, onOffen, appId, appName, ersatz }: { offen: boolean; onOffen: (o: boolean) => void; appId: string; appName: string; /** Fokusziel nach dem Schließen, falls der Auslöser verschwunden ist (z. B. letzte Voreinstellung gelöscht) */ ersatz?: () => HTMLElement | null | undefined }) {
   const { vorlagenFuer, vorlageUmbenennen, vorlageLoeschen, daten } = useMeinHub();
+  const fokusZurueck = useAusloeser(offen, ersatz);
   const vorlagen = vorlagenFuer(appId);
   const [namen, setNamen] = useState<Record<string, string>>({});
   const [fragen, setFragen] = useState<string | null>(null);
@@ -163,7 +187,7 @@ export function VorlagenVerwalten({ offen, onOffen, appId, appName }: { offen: b
   };
   return (
     <Dialog open={offen} onOpenChange={onOffen}>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="sm:max-w-lg" onCloseAutoFocus={fokusZurueck}>
         <DialogHeader>
           <DialogTitle>Voreinstellungen verwalten</DialogTitle>
           <DialogDescription>Gespeicherte Eingaben für „{appName}“. Namen direkt im Feld ändern.</DialogDescription>
@@ -175,7 +199,7 @@ export function VorlagenVerwalten({ offen, onOffen, appId, appName }: { offen: b
               return (
                 <li key={v.id}>
                   <div className="vl-zeile">
-                    <Input aria-label={`Name der Voreinstellung ${v.name}`} autoComplete="off" value={namen[v.id] ?? v.name} onChange={(e) => setNamen((x) => ({ ...x, [v.id]: e.target.value }))}
+                    <Input aria-label={`Name der Voreinstellung ${v.name}`} autoComplete="off" maxLength={80} value={namen[v.id] ?? v.name} onChange={(e) => setNamen((x) => ({ ...x, [v.id]: e.target.value }))}
                       onBlur={() => umbenennen(v)} onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }} />
                     {fragen === v.id ? (
                       <>
@@ -192,7 +216,7 @@ export function VorlagenVerwalten({ offen, onOffen, appId, appName }: { offen: b
               );
             })}
           </ul>
-        ) : <p className="hint" style={{ margin: 0 }}>Für diese App gibt es keine Voreinstellungen.</p>}
+        ) : <p className="hint" style={{ margin: 0 }}>Für diese Applikation gibt es keine Voreinstellungen.</p>}
         <DialogFooter><Button onClick={() => onOffen(false)}>Fertig</Button></DialogFooter>
       </DialogContent>
     </Dialog>

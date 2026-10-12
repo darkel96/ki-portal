@@ -31,7 +31,7 @@ test("Mein Hub: Voreinstellung, Auftrag, Ausführen und Verlauf", async ({ page 
 
   // In Mein Hub ausführen
   await page.goto("/mein");
-  await expect(page.getByRole("heading", { name: "Deine Apps und Aufträge" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Deine Applikationen und Aufträge" })).toBeVisible();
   await expect(page.locator(".mh-karte")).toContainText("Stellenanzeige");
   await expect(page.locator(".mh-vorlagen")).toContainText("Buchhaltung Augsburg");
   await page.getByRole("tab", { name: /Aufträge/ }).click();
@@ -58,12 +58,17 @@ test("Mein Hub: letztes Ergebnis aus der App, Voreinstellung umbenennen und lös
   await page.getByRole("button", { name: "Speichern", exact: true }).click();
 
   // Direkt in der App ausführen: landet als letztes Ergebnis in Mein Hub
-  await page.getByRole("navigation", { name: "Seiten blättern" }).getByRole("button", { name: /Ergebnisse erstellen|^Weiter$/ }).click();
+  await page.getByRole("navigation", { name: "Seiten blättern" }).getByRole("button", { name: /Ergebnisse erstellen|^Weiter$|^Erstellen$/ }).click();
   await expect(page.locator(".e-kachel")).toHaveCount(2);
+  // „Letztes Ergebnis ansehen“ zeigt den Lauf im Dialog, ohne die App zu verlassen
   await menue(page, /Letztes Ergebnis ansehen/);
+  await expect(page.getByRole("dialog")).toContainText("Letztes Ergebnis: Stellenanzeige");
+  await page.keyboard.press("Escape");
+  await page.goto("/mein?tab=verlauf");
+  await page.locator(".mh-lauf").first().click();
   await expect(page.locator(".mh-detail")).toContainText("Stellenanzeige");
 
-  await page.getByRole("tab", { name: /Meine Apps/ }).click();
+  await page.getByRole("tab", { name: /Meine Applikationen/ }).click();
   await expect(page.locator(".mh-letzter")).toContainText("Letztes Ergebnis");
   await page.getByRole("button", { name: "Voreinstellungen verwalten" }).click();
   const feld = page.getByLabel("Name der Voreinstellung Alt");

@@ -22,16 +22,16 @@ export type RunAppHandle = {
   setzen: (werte: Werte, dateien: Record<string, FileInfo>) => void;
 };
 
-const KURZ = new Set(["input", "select", "radio", "checkbox", "number", "date", "file"]);
+const KURZ = new Set(["input", "select", "number", "date"]);
 const artVon = (b: Block) => (b.type === "textarea" ? "lang" : KURZ.has(b.type) ? "kurz" : null);
-/** Aufeinanderfolgende Eingaben gleicher Art nebeneinander setzen, damit die Seitenbreite genutzt wird. */
+/** Aufeinanderfolgende Eingaben gleicher Art nebeneinander setzen (höchstens drei), damit die Seitenbreite genutzt wird. Auswahlkästchen, Optionen und Dateien stehen allein. */
 function inReihen(blocks: Block[], render: (b: Block) => ReactNode): ReactNode[] {
   const out: ReactNode[] = [];
   for (let i = 0; i < blocks.length;) {
     const art = artVon(blocks[i]);
     let j = i + 1;
-    if (art) while (j < blocks.length && artVon(blocks[j]) === art) j++;
-    if (j - i > 1) out.push(<div key={`r-${blocks[i].id}`} className="o-reihe" data-art={art ?? ""}>{blocks.slice(i, j).map(render)}</div>);
+    if (art) while (j < blocks.length && j - i < 3 && artVon(blocks[j]) === art) j++;
+    if (j - i > 1) out.push(<div key={`r-${blocks[i].id}`} className="o-reihe" data-art={art ?? ""} data-n={j - i}>{blocks.slice(i, j).map(render)}</div>);
     else out.push(render(blocks[i]));
     i = j;
   }
@@ -46,6 +46,9 @@ function istErgebnisSeite(p: Block): boolean {
   return ausgabe && !eingabe;
 }
 
+/** Fokussierbares Element eines Feldes (bei Dateien der sichtbare Knopf, nicht das versteckte native Feld) */
+const feldZiel = (key: string) => `[data-key="${key}"] :is(input:not([type="file"]), textarea, select, .o-file-btn)`;
+
 type Kachel = { id: string; titel: string; seite?: Block; stepIds: string[] };
 const FERTIG = new Set<OutState["status"]>(["fertig", "simuliert", "uebersprungen", "fehler", "gestoppt"]);
 
@@ -59,7 +62,7 @@ function kachelStatus(k: Kachel, outs: Record<string, OutState>): OutState["stat
 }
 
 /** Kurzer Vorschautext ohne Markdown-Zeichen */
-function vorschau(k: Kachel, outs: Record<string, OutState>): string {
+function vorschau(k: Kachel, outs: Record<string, OutState>, laeuft: boolean): string {
   for (const id of k.stepIds) {
     const o = outs[id];
     if (!o) continue;
@@ -67,7 +70,10 @@ function vorschau(k: Kachel, outs: Record<string, OutState>): string {
     if (o.status === "simuliert") return "Simulation: Die Anfrage ist vorbereitet, es gibt keine KI-Antwort.";
     if ((o.status === "uebersprungen" || o.status === "fehler") && o.meldung) return o.meldung;
     if (o.paket) return `${o.paket.dateien.length} ${o.paket.dateien.length === 1 ? "Datei" : "Dateien"}${o.paket.hinweis ? `: ${o.paket.hinweis}` : ""}`;
-    if (o.text) return o.text.replace(/```[\s\S]*?```/g, " ").replace(/<[^>]+>/g, " ").replace(/[#*_`>|]+/g, " ").replace(/-{3,}/g, " ").replace(/\s+/g, " ").trim().slice(0, 260);
+    if (o.text) return o.text.replace(/```[\s\S]*?```/g, " ").replace(/<[^>]+>/g, " ").replace(/(^|\s)[-•]\s+/g, " ").replace(/[#*_`>|]+/g, " ").replace(/-{3,}/g, " ").replace(/\s+/g, " ").trim().slice(0, 260);
+    if (o.status === "gestoppt") return "Gestoppt, bevor ein Ergebnis da war.";
+    if (o.status === "fehler") return "Abgebrochen. Öffnen und „Erneut versuchen“.";
+    if (o.status === "wartet") return laeuft ? "Wartet, bis die vorherigen Schritte fertig sind\u00a0…" : "Nicht gestartet, weil der Ablauf vorher gestoppt wurde oder abgebrochen ist.";
   }
   return "Wird erstellt, sobald du „Ergebnisse erstellen“ startest.";
 }
@@ -96,7 +102,7 @@ function Uebersicht({ kacheln, outs, laeuft, geaendert, onStart, onOeffnen }: {
           <li key={k.id}>
             <button type="button" className="e-kachel" data-s={stati[i]} onClick={() => onOeffnen(k.id)} aria-labelledby={`et-${k.id}`} aria-describedby={`es-${k.id}`}>
               <span className="e-kachel-kopf"><span className="e-titel" id={`et-${k.id}`}>{k.titel}</span><span className="status-pill" id={`es-${k.id}`} data-s={stati[i]}>{STATUS_LABEL[stati[i]]}</span></span>
-              <span className="e-text" aria-hidden="true">{vorschau(k, outs)}</span>
+              <span className="e-text" aria-hidden="true">{vorschau(k, outs, laeuft)}</span>
               <span className="e-oeffnen">Öffnen</span>
             </button>
           </li>
@@ -107,11 +113,44 @@ function Uebersicht({ kacheln, outs, laeuft, geaendert, onStart, onOeffnen }: {
 }
 
 /** Applikation im Modus „run“: Eingaben aktiv, KI-Buttons starten den Ablauf. */
+/**
+ * Verlassen-Schutz als eigene Komponente: Der Router kennt nur den zuletzt registrierten Blocker. Eine
+ * eingebettete Vorschau (Baukasten, Neue Applikation) darf deshalb keinen anlegen, sonst gilt der der Seite nicht mehr.
+ */
+function VerlassenSchutz({ ungesichert, laeuft, blatt, onVerlassen }: { ungesichert: boolean; laeuft: boolean; blatt: React.RefObject<HTMLDivElement | null>; onVerlassen: () => void }) {
+  const blocker = useBlocker(({ currentLocation, nextLocation }) => ungesichert && currentLocation.pathname !== nextLocation.pathname);
+  /** Element, das den Verlassen-Dialog ausgelöst hat (bekommt nach „Hierbleiben“/Escape den Fokus zurück) */
+  const ausloeser = useRef<HTMLElement | null>(null);
+  useEffect(() => { if (blocker.state === "blocked") ausloeser.current = document.activeElement instanceof HTMLElement && document.activeElement !== document.body ? document.activeElement : null; }, [blocker.state]);
+  useEffect(() => {
+    if (!ungesichert) return;
+    const h = (e: BeforeUnloadEvent) => { e.preventDefault(); };
+    window.addEventListener("beforeunload", h);
+    return () => window.removeEventListener("beforeunload", h);
+  }, [ungesichert]);
+  return (
+    <AlertDialog open={blocker.state === "blocked"} onOpenChange={(o) => { if (!o) blocker.reset?.(); }}>
+      <AlertDialogContent onCloseAutoFocus={(e) => { e.preventDefault(); (ausloeser.current?.isConnected ? ausloeser.current : blatt.current)?.focus({ preventScroll: true }); }}>
+        <AlertDialogHeader>
+          <AlertDialogTitle>{laeuft ? "Der Ablauf läuft noch" : "Eingaben verwerfen?"}</AlertDialogTitle>
+          <AlertDialogDescription>{laeuft ? "Wenn du die Seite verlässt, wird der Ablauf abgebrochen und die Ergebnisse gehen verloren." : "Deine Eingaben sind noch nicht ausgeführt und gehen verloren. Tipp: Über „Voreinstellungen“ kannst du sie speichern."}</AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>Hierbleiben</AlertDialogCancel>
+          <AlertDialogAction onClick={() => { onVerlassen(); blocker.proceed?.(); }}>{laeuft ? "Abbrechen und verlassen" : "Verwerfen und verlassen"}</AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  );
+}
+
 export const RunApp = forwardRef<RunAppHandle, {
   app: App;
   /** Wird nach jedem Ablauf mit den Ergebnissen der gelaufenen Schritte aufgerufen (z. B. für den Verlauf in Mein Hub) */
   onLaufFertig?: (outs: Record<string, OutState>) => void;
-}>(function RunApp({ app, onLaufFertig }, ref) {
+  /** Als Vorschau in einer anderen Seite eingebettet: kein eigener Verlassen-Schutz (die Seite hat ihren eigenen) */
+  eingebettet?: boolean;
+}>(function RunApp({ app, onLaufFertig, eingebettet }, ref) {
   const [werte, setWerte] = useState<Werte>({});
   const [files, setFiles] = useState<Record<string, FileInfo>>({});
   const [dateiInfo, setDateiInfo] = useState<Record<string, string>>({});
@@ -170,7 +209,7 @@ export const RunApp = forwardRef<RunAppHandle, {
     gewechselt.current = false;
     const k = fokusNach.current;
     fokusNach.current = null;
-    const ziel = k ? frame.current?.querySelector<HTMLElement>(`[data-key="${k}"] input, [data-key="${k}"] textarea, [data-key="${k}"] select`) : null;
+    const ziel = k ? frame.current?.querySelector<HTMLElement>(feldZiel(k)) : null;
     if (ziel) { ziel.focus({ preventScroll: true }); ziel.scrollIntoView({ block: "center" }); }
     else blatt.current?.focus({ preventScroll: true });
   }, [ansicht]);
@@ -230,7 +269,7 @@ export const RunApp = forwardRef<RunAppHandle, {
     if (fehlend.length) {
       const i = eingabeIdxMit((b) => "key" in b.props && b.props.key === fehlend[0]);
       if (i >= 0 && (i !== akt || detail || imUeberblick)) wechseln(i, fehlend[0]);
-      else frame.current?.querySelector<HTMLElement>(`[data-key="${fehlend[0]}"] input, [data-key="${fehlend[0]}"] textarea, [data-key="${fehlend[0]}"] select`)?.focus();
+      else frame.current?.querySelector<HTMLElement>(feldZiel(fehlend[0]))?.focus();
       const namen = fieldsOf(app).filter((f) => fehlend.includes(f.props.key)).map((f) => f.props.label);
       toast.error(`Bitte ausfüllen: ${namen.join(", ")}.`);
       return;
@@ -257,7 +296,9 @@ export const RunApp = forwardRef<RunAppHandle, {
       // Ergebnis ins Bild holen, falls es unterhalb der Eingaben steht
       else requestAnimationFrame(() => frame.current?.querySelector(`[data-src="${steps[0].id}"]`)?.scrollIntoView({ block: "nearest", behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" }));
     }
-    else if (mitUebersicht && !imUeberblick) wechseln(uebersichtIdx);
+    else if (mitUebersicht && !imUeberblick && !detail) wechseln(uebersichtIdx);
+    // Alte Ergebnisse der gestarteten Schritte zurücksetzen, sonst steht „Fertig“ mit altem Text neben dem laufenden Schritt
+    setOuts((o) => ({ ...o, ...Object.fromEntries(steps.map((s) => [s.id, { status: "wartet" as const }])) }));
     const gelaufen: Record<string, OutState> = {};
     try {
       ergebnisse.current = await ablaufStarten({
@@ -292,12 +333,13 @@ export const RunApp = forwardRef<RunAppHandle, {
 
   const renderList: RenderList = (blocks: Block[]) => inReihen(blocks, (b) => <BlockContent key={b.id} b={b} app={app} mode="run" renderList={renderList} />);
 
-  // Passt eine Seite nicht auf den Bildschirm, wird sie stufenweise verdichtet (kleinere Abstände, flachere Textfelder).
+  // Passt eine Seite nicht auf den Bildschirm, wird sie stufenweise verdichtet:
+  // 1 engere Abstände, 2 Einleitungstexte weg und Textfelder auf 3 Zeilen, 3 (Notfall) Textfelder auf 2 Zeilen.
   const [dicht, setDicht] = useState(0);
   useLayoutEffect(() => { setDicht(0); }, [ansicht]);
   useLayoutEffect(() => {
     const el = blatt.current;
-    if (el && dicht < 2 && el.scrollHeight > el.clientHeight + 2) setDicht(dicht + 1);
+    if (el && dicht < 3 && el.scrollHeight > el.clientHeight + 2) setDicht(dicht + 1);
   }, [ansicht, dicht]);
   useEffect(() => {
     const el = frame.current;
@@ -311,6 +353,51 @@ export const RunApp = forwardRef<RunAppHandle, {
     ro.observe(el);
     return () => ro.disconnect();
   }, []);
+  // Scrollt das Blatt trotzdem, zeigt eine Schattenkante unten an, dass es weitergeht (bis ganz unten gescrollt ist).
+  const scrollKante = useCallback(() => {
+    const el = blatt.current;
+    if (!el) return;
+    const weiter = el.scrollHeight > el.clientHeight + 2 && el.scrollTop + el.clientHeight < el.scrollHeight - 4;
+    if (weiter) el.dataset.scrollt = "1"; else delete el.dataset.scrollt;
+  }, []);
+  useEffect(scrollKante);
+  useEffect(() => {
+    const el = blatt.current;
+    if (!el) return;
+    el.addEventListener("scroll", scrollKante, { passive: true });
+    const ro = new ResizeObserver(scrollKante);
+    ro.observe(el);
+    return () => { el.removeEventListener("scroll", scrollKante); ro.disconnect(); };
+  }, [ansicht, scrollKante]);
+
+  // Nach dem Aufruf per Tastatur (Enter auf einer Kachel) soll der Fokus im Blatt stehen, nicht auf body.
+  useEffect(() => {
+    const a = document.activeElement;
+    if (!a || a === document.body) blatt.current?.focus({ preventScroll: true });
+  }, []);
+
+  // Strg+Enter startet den Ablauf von überall auf der Seite, außer in Dialogen/Menüs und in fremden Eingabefeldern.
+  const tasteRef = useRef<(e: KeyboardEvent) => void>(() => {});
+  tasteRef.current = (e: KeyboardEvent) => {
+    if (!(e.ctrlKey || e.metaKey) || e.key !== "Enter") return;
+    const t = e.target as HTMLElement | null;
+    if (document.querySelector("[role='dialog'], [role='alertdialog'], [role='menu'], [data-slot='popover-content']")) return;
+    if (t?.closest("input, textarea, select, [contenteditable='true']") && !frame.current?.contains(t)) return;
+    if ((imUeberblick || offen) && app.steps.length) { e.preventDefault(); void starten("uebersicht", "alle"); return; }
+    let erster: Extract<Block, { type: "button" }> | undefined;
+    // Erst ein Button auf der aktuellen Seite, sonst der erste der App.
+    walk(p?.children ?? [], (b) => { if (!erster && b.type === "button") erster = b; });
+    walk(app.blocks, (b) => { if (!erster && b.type === "button") erster = b; });
+    if (erster) { e.preventDefault(); void starten(erster.id, erster.props.aktion); }
+    else if (app.steps.length) { e.preventDefault(); void starten("uebersicht", "alle"); }
+  };
+  useEffect(() => {
+    const h = (e: KeyboardEvent) => tasteRef.current(e);
+    document.addEventListener("keydown", h);
+    return () => document.removeEventListener("keydown", h);
+  }, []);
+
+  const mitPflicht = useMemo(() => { let ja = false; walk(p?.children ?? [], (b) => { if (isFieldType(b.type) && "pflicht" in b.props && b.props.pflicht) ja = true; }); return ja; }, [p]);
 
   const fuellen = useMemo(() => {
     if (!p) return false;
@@ -322,13 +409,6 @@ export const RunApp = forwardRef<RunAppHandle, {
   // Ungesicherte Eingaben bzw. laufender Ablauf: vor dem Verlassen fragen
   const hatEingaben = Object.values(werte).some((v) => v !== "" && v !== false) || Object.keys(files).length > 0;
   const ungesichert = !!laeuft || (hatEingaben && (!stand || stand !== JSON.stringify(werte) + Object.keys(files).join("|")));
-  const blocker = useBlocker(({ currentLocation, nextLocation }) => ungesichert && currentLocation.pathname !== nextLocation.pathname);
-  useEffect(() => {
-    if (!ungesichert) return;
-    const h = (e: BeforeUnloadEvent) => { e.preventDefault(); };
-    window.addEventListener("beforeunload", h);
-    return () => window.removeEventListener("beforeunload", h);
-  }, [ungesichert]);
   useEffect(() => () => ctl.current?.abort(), []);
 
   const linearTitel = (i: number) => (i === uebersichtIdx && mitUebersicht ? "Ergebnisse" : seitenTitel(eingabeSeiten[i], seiten.indexOf(eingabeSeiten[i])));
@@ -342,14 +422,6 @@ export const RunApp = forwardRef<RunAppHandle, {
         onKeyDown={(e) => {
           if (offen) blaetterTaste(e, kIdx, kacheln.length, (i) => oeffnen(kacheln[i].id));
           else blaetterTaste(e, akt, anzahl, wechseln);
-          if (!(e.ctrlKey || e.metaKey) || e.key !== "Enter") return;
-          if ((imUeberblick || offen) && app.steps.length) { e.preventDefault(); void starten("uebersicht", "alle"); return; }
-          let erster: Extract<Block, { type: "button" }> | undefined;
-          // Erst ein Button auf der aktuellen Seite, sonst der erste der App.
-          walk(p?.children ?? [], (b) => { if (!erster && b.type === "button") erster = b; });
-          walk(app.blocks, (b) => { if (!erster && b.type === "button") erster = b; });
-          if (erster) { e.preventDefault(); void starten(erster.id, erster.props.aktion); }
-          else if (app.steps.length) { e.preventDefault(); void starten("uebersicht", "alle"); }
         }}>
         <Blatt id={ansicht} innerRef={blatt} className="app-inner innen-scroll" aria-label={offen ? offen.titel : imUeberblick ? "Ergebnisse" : linearTitel(akt)}>
           {offen ? (
@@ -361,27 +433,16 @@ export const RunApp = forwardRef<RunAppHandle, {
           ) : imUeberblick ? (
             <Uebersicht kacheln={kacheln} outs={outs} laeuft={!!laeuft} geaendert={geaendert}
               onStart={() => void starten("uebersicht", "alle")} onOeffnen={oeffnen} />
-          ) : p && renderList(p.children ?? [], `${p.id}:c`)}
+          ) : p && <>{renderList(p.children ?? [], `${p.id}:c`)}{mitPflicht && <p className="o-pflicht o-help"><em aria-hidden="true">*</em> Pflichtfeld</p>}</>}
         </Blatt>
         {offen ? (
           <Pager className="app-pager" label="Ergebnis" mehrzahl="Ergebnisse" seite={kIdx} anzahl={kacheln.length} titel={(i) => kacheln[i].titel}
             weiter={kacheln[kIdx + 1] ? `Weiter: ${kacheln[kIdx + 1].titel}` : undefined} onWechsel={(i) => oeffnen(kacheln[i].id)} />
         ) : (
-          <Pager className="app-pager" seite={akt} anzahl={anzahl} titel={linearTitel} weiter={naechste} onWechsel={wechseln} onWeiter={() => weiterKlick(akt + 1)} />
+          <Pager className="app-pager" seite={akt} anzahl={anzahl} titel={linearTitel} weiter={naechste} weiterKurz={naechste === "Ergebnisse erstellen" ? "Erstellen" : undefined} onWechsel={wechseln} onWeiter={() => weiterKlick(akt + 1)} />
         )}
       </div>
-      <AlertDialog open={blocker.state === "blocked"} onOpenChange={(o) => { if (!o) blocker.reset?.(); }}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>{laeuft ? "Der Ablauf läuft noch" : "Eingaben verwerfen?"}</AlertDialogTitle>
-            <AlertDialogDescription>{laeuft ? "Wenn du die Seite verlässt, wird der Ablauf abgebrochen und die Ergebnisse gehen verloren." : "Deine Eingaben sind noch nicht ausgeführt und gehen verloren. Tipp: Über „Voreinstellungen“ kannst du sie speichern."}</AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Hierbleiben</AlertDialogCancel>
-            <AlertDialogAction onClick={() => { ctl.current?.abort(); blocker.proceed?.(); }}>{laeuft ? "Abbrechen und verlassen" : "Verwerfen und verlassen"}</AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      {!eingebettet && <VerlassenSchutz ungesichert={ungesichert} laeuft={!!laeuft} blatt={blatt} onVerlassen={() => ctl.current?.abort()} />}
     </RunContext.Provider>
   );
 });

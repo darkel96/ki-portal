@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { App, Block, PropsOf } from "@/lib/schema";
 import { isFieldType } from "@/lib/schema";
-import { allKeys, cloneBlock, locate, removeVar, renameRefs, seiteMit, seitenTitel, seitenVon, setCols, slug, uniqueKey, varsIn, stepText } from "@/lib/model";
+import { allKeys, cloneBlock, locate, removeVar, renameRefs, seiteMit, seitenTitel, seitenVon, setCols, slug, stepName, uniqueKey, varsIn, stepText } from "@/lib/model";
 import { loadImage } from "@/lib/files";
 import { BT } from "./catalog";
 import { Check, Fld, PALETTES, Seg, Sel, Swatches, TextFld } from "./controls";
@@ -27,7 +27,7 @@ function AppSettings({ b, alleBereiche }: { b: Builder; alleBereiche: string[] }
           <TabsTrigger value="design">Gestaltung</TabsTrigger>
           <TabsTrigger value="freigabe">Freigabe</TabsTrigger>
         </TabsList>
-        <TabsContent value="allgemein" className="ki-teil">
+        <TabsContent value="allgemein" className="ki-teil" tabIndex={-1}>
           <Fld label="Bereich" htmlFor="insp-first" hint="Neuen Bereich einfach eintippen.">
             <Input id="insp-first" list="ap-bereiche" value={b.app.bereich} onChange={(e) => b.change((d) => { d.bereich = e.target.value; }, "bereich")} />
             <datalist id="ap-bereiche">{alleBereiche.map((x) => <option key={x} value={x} />)}</datalist>
@@ -35,14 +35,14 @@ function AppSettings({ b, alleBereiche }: { b: Builder; alleBereiche: string[] }
           <TextFld label="Kurzbeschreibung für die Kachel" multiline rows={3} value={b.app.beschreibung} onChange={(v) => b.change((d) => { d.beschreibung = v; }, "beschreibung")} />
           <p className="hint" style={{ margin: 0 }}>Klick einen Baustein auf der Fläche an, um ihn zu bearbeiten, oder einen Seiten-Reiter für die Seite. Entf löscht den gewählten Baustein, Strg+Z macht rückgängig.</p>
         </TabsContent>
-        <TabsContent value="design" className="ki-teil">
+        <TabsContent value="design" className="ki-teil" tabIndex={-1}>
           <Swatches label="Akzentfarbe" value={t.accent} colors={PALETTES.akzent} onChange={(v) => setTheme("accent", v)} />
           <Swatches label="Hintergrund" value={t.bg} colors={PALETTES.grund} onChange={(v) => setTheme("bg", v)} />
           <Seg label="Schrift" value={t.font} options={[["sans", "Modern"], ["serif", "Klassisch"], ["display", "Markant"], ["mono", "Technisch"]]} onChange={(v) => setTheme("font", v)} />
           <Seg label="Ecken" value={t.radius} options={[["s", "Eckig"], ["m", "Leicht"], ["l", "Rund"]]} onChange={(v) => setTheme("radius", v)} />
           <Seg label="Breite" value={t.width} options={[["s", "Schmal"], ["m", "Normal"], ["l", "Breit"]]} onChange={(v) => setTheme("width", v)} />
         </TabsContent>
-        <TabsContent value="freigabe" className="ki-teil">
+        <TabsContent value="freigabe" className="ki-teil" tabIndex={-1}>
           <Seg label="Status" value={b.app.status} options={STATUS} onChange={(v) => b.change((d) => { d.status = v; })} />
           <TextFld label="Verantwortlich" value={b.app.owner} placeholder="Name oder Abteilung" onChange={(v) => b.change((d) => { d.owner = v; }, "owner")} />
           <Seg label="Schutzklasse der Daten" value={b.app.schutz} options={SCHUTZ} onChange={(v) => b.change((d) => { d.schutz = v; })} />
@@ -91,12 +91,12 @@ function PassBox({ b, x }: { b: Builder; x: Block }) {
   if (!b.app.steps.length) return <div className="box"><span className="hint">Leg zuerst im KI-Ablauf einen Schritt an.</span></div>;
   return (
     <div className="box">
-      <span style={{ fontWeight: 600, fontSize: 13, color: "var(--brand)" }}>An die KI übergeben</span>
+      <span className="text-[13px] font-semibold text-[var(--brand)]">An die KI übergeben</span>
       {b.app.steps.map((s, i) => {
         const inText = varsIn(stepText(s)).includes(k);
         return (
           <Check key={s.id} checked={s.autoAll || inText} disabled={s.autoAll && !inText}
-            label={`Schritt ${i + 1}: ${s.name}`} hint={s.autoAll && !inText ? "bekommt alle Eingaben automatisch" : undefined}
+            label={s.name.trim() ? `KI-Schritt ${i + 1}: ${s.name}` : `KI-Schritt ${i + 1}`} hint={s.autoAll && !inText ? "bekommt alle Eingaben automatisch" : undefined}
             onChange={(on) => b.change((d) => {
               const st = d.steps[i];
               if (on) { if (!varsIn(stepText(st)).includes(k)) st.prompt = (st.prompt.trim() ? st.prompt.replace(/\s+$/, "") + "\n\n" : "") + `${P.label}:\n{{${P.key}}}`; }
@@ -142,7 +142,7 @@ export function Inspector({ b, onDelete, bereiche, onSeite }: { b: Builder; onDe
     if (l) (l.b.props as Record<string, unknown>)[k] = v;
   }, coalesce ? `${id}:${k}` : undefined);
   const P = x.props as Record<string, never>;
-  const steps: [string, string][] = b.app.steps.map((s) => [s.id, s.name]);
+  const steps: [string, string][] = b.app.steps.map((s, i) => [s.id, stepName(s, i)]);
   const { label, icon: Icon } = BT[x.type];
   let f: React.ReactNode;
   switch (x.type) {

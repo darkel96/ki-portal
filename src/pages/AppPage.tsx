@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router";
 import { toast } from "sonner";
 import { Check as Haken, ChevronDown, MoreHorizontal, Plus } from "lucide-react";
@@ -10,12 +10,54 @@ import { AuftragDialog, VorlageDialog, VorlagenVerwalten } from "@/components/me
 import { datumZeit, type Voreinstellung } from "@/lib/meinhub";
 import { useApps } from "@/state/apps";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { areaIdx, fieldsOf } from "@/lib/model";
+import { parsePaket } from "@/lib/paket";
+import { ergebnisDateiFuer } from "@/lib/request";
+import type { OutState } from "@/lib/runner";
+import type { App } from "@/lib/schema";
+import type { Lauf } from "@/lib/meinhub";
 import { RunApp, type RunAppHandle } from "@/components/renderer/RunApp";
+import { OutputView } from "@/components/renderer/OutputView";
+import { RunContext, type RunCtx } from "@/components/renderer/runContext";
+import { themeStyle } from "@/components/renderer/theme";
 import { NotFoundPage } from "./NotFoundPage";
 
 const STATUS = { entwurf: "Entwurf", pruefung: "In Prüfung", freigegeben: "Freigegeben" } as const;
 const SCHUTZ = { oeffentlich: "Öffentlich", intern: "Intern", vertraulich: "Vertraulich" } as const;
+
+/** Letztes Ergebnis dieser Applikation im Dialog, ohne die Seite (und die Eingaben) zu verlassen. */
+function LetzterLaufDialog({ lauf, app, offen, onOffen }: { lauf: Lauf; app: App; offen: boolean; onOffen: (o: boolean) => void }) {
+  const eintrag = (s: { id: string; key: string }) => lauf.ergebnisse[s.id] ?? Object.values(lauf.ergebnisse).find((e) => e.key === s.key);
+  const steps = app.steps.filter((s) => eintrag(s));
+  const outs = useMemo(() => {
+    const o: Record<string, OutState> = {};
+    for (const s of steps) {
+      const e = eintrag(s)!;
+      const status = e.status as OutState["status"];
+      o[s.id] = { status, text: status === "simuliert" ? undefined : e.text, meldung: e.meldung, paket: s.format === "dateien" && e.text ? parsePaket(e.text) : undefined, req: { nachricht: e.text ?? "", ergebnisDatei: ergebnisDateiFuer(s, e.text ?? "") } as never };
+    }
+    return o;
+  }, [lauf]); // eslint-disable-line react-hooks/exhaustive-deps
+  const ctx: RunCtx = { werte: {}, setWert: () => {}, files: {}, dateiInfo: {}, setDatei: () => {}, fehler: new Set(), outs, laeuft: null, ebenen: {}, starten: () => {} };
+  return (
+    <Dialog open={offen} onOpenChange={onOffen}>
+      <DialogContent className="sm:max-w-3xl lauf-dialog">
+        <DialogHeader>
+          <DialogTitle>Letztes Ergebnis: {lauf.titel}</DialogTitle>
+          <DialogDescription>{datumZeit(lauf.start)}{lauf.meldung ? ` – ${lauf.meldung}` : ""}. Alle Ergebnisse stehen im <a href={`/mein?lauf=${lauf.id}`} target="_blank" rel="noopener">Verlauf von Mein Hub</a> (neues Fenster).</DialogDescription>
+        </DialogHeader>
+        {steps.length ? (
+          <RunContext.Provider value={ctx}>
+            <div className="app-frame lauf-dialog-inhalt innen-scroll" style={themeStyle(app.theme)}>
+              {steps.map((s) => <OutputView key={s.id} app={app} titel={s.name} stepId={s.id} stil="card" mode="run" />)}
+            </div>
+          </RunContext.Provider>
+        ) : <p className="hint">{Object.keys(lauf.ergebnisse).length ? "Die Ergebnisse passen nicht mehr zur aktuellen Version der Applikation." : "Dieser Lauf hat keine Ergebnisse."}</p>}
+      </DialogContent>
+    </Dialog>
+  );
+}
 
 export function AppPage() {
   const { id } = useParams();
@@ -29,6 +71,7 @@ export function AppPage() {
   const [vorlageDlg, setVorlageDlg] = useState(false);
   const [auftragDlg, setAuftragDlg] = useState(false);
   const [verwaltenDlg, setVerwaltenDlg] = useState(false);
+  const [laufDlg, setLaufDlg] = useState(false);
   const a = find(id);
   const vorlagen = a?.id ? mh.vorlagenFuer(a.id) : [];
   const letzter = a?.id ? mh.letzterLauf(a.id) : undefined;
@@ -59,14 +102,14 @@ export function AppPage() {
 
   return (
     <>
-      <div className="app-bar">
+      <div className="app-bar app-bar-lauf">
         <Link to="/" viewTransition className="link-back">Zur Übersicht</Link>
         <span className="area" style={{ "--ac": `var(--a${ci})` } as React.CSSProperties}><i aria-hidden="true" />{a.bereich}</span>
         {a.status !== "freigegeben" && <span className="tag draft">{STATUS[a.status]}</span>}
         {a.typ !== "link" && (
           <Popover>
             <PopoverTrigger asChild><Button variant="ghost" size="sm">Details</Button></PopoverTrigger>
-            <PopoverContent align="start" className="w-72 text-sm">
+            <PopoverContent align="start" collisionPadding={16} className="w-72 text-sm">
               <dl className="kv">
                 <dt>Version</dt><dd>{a.version || 1}</dd>
                 <dt>Status</dt><dd>{STATUS[a.status]}</dd>
@@ -94,7 +137,7 @@ export function AppPage() {
                 <DropdownMenuItem onSelect={() => setVorlageDlg(true)}>Eingaben als Voreinstellung speichern …</DropdownMenuItem>
                 {vorlagen.length > 0 && <DropdownMenuItem onSelect={() => setVerwaltenDlg(true)}>Voreinstellungen verwalten …</DropdownMenuItem>}
                 <DropdownMenuItem onSelect={() => setAuftragDlg(true)}>Regelmäßig ausführen …</DropdownMenuItem>
-                {letzter && <><DropdownMenuSeparator /><DropdownMenuItem onSelect={() => nav(`/mein?lauf=${letzter.id}`, { viewTransition: true })}>Letztes Ergebnis ansehen ({datumZeit(letzter.start)})</DropdownMenuItem></>}
+                {letzter && <><DropdownMenuSeparator /><DropdownMenuItem onSelect={() => setLaufDlg(true)}>Letztes Ergebnis ansehen ({datumZeit(letzter.start)})</DropdownMenuItem></>}
               </DropdownMenuContent>
             </DropdownMenu>
           </span>
@@ -115,7 +158,7 @@ export function AppPage() {
               <DropdownMenuItem onSelect={() => setVorlageDlg(true)}>Eingaben als Voreinstellung speichern …</DropdownMenuItem>
               {vorlagen.length > 0 && <DropdownMenuItem onSelect={() => setVerwaltenDlg(true)}>Voreinstellungen verwalten …</DropdownMenuItem>}
               <DropdownMenuItem onSelect={() => setAuftragDlg(true)}>Regelmäßig ausführen …</DropdownMenuItem>
-              {letzter && <DropdownMenuItem onSelect={() => nav(`/mein?lauf=${letzter.id}`, { viewTransition: true })}>Letztes Ergebnis ansehen ({datumZeit(letzter.start)})</DropdownMenuItem>}
+              {letzter && <DropdownMenuItem onSelect={() => setLaufDlg(true)}>Letztes Ergebnis ansehen ({datumZeit(letzter.start)})</DropdownMenuItem>}
               <DropdownMenuSeparator />
             </>}
             {hatBeispiele && <DropdownMenuItem onSelect={beispiele}>Beispieldaten einsetzen</DropdownMenuItem>}
@@ -128,6 +171,7 @@ export function AppPage() {
         <VorlageDialog offen={vorlageDlg} onOffen={setVorlageDlg} appId={a.id} appName={a.name} aktiv={vorlage} onGespeichert={setVorlage}
           stand={() => runRef.current?.stand() ?? { werte: {}, dateien: {} }} />
         <VorlagenVerwalten offen={verwaltenDlg} onOffen={setVerwaltenDlg} appId={a.id} appName={a.name} />
+        {letzter && <LetzterLaufDialog lauf={letzter} app={a} offen={laufDlg} onOffen={setLaufDlg} />}
         <AuftragDialog offen={auftragDlg} onOffen={setAuftragDlg} appId={a.id} appName={a.name} vorlageVorschlag={vorlage?.id ?? null}
           stand={() => runRef.current?.stand() ?? { werte: {}, dateien: {} }} />
       </>}

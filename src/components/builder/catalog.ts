@@ -6,7 +6,7 @@ import type { BlockType } from "@/lib/schema";
 
 export const BT: Record<BlockType, { label: string; icon: LucideIcon; group: "Layout" | "Inhalt" | "Eingaben" | "KI" | "Seite" }> = {
   seite: { label: "Seite", icon: FileText, group: "Seite" },
-  section: { label: "Bereich", icon: Square, group: "Layout" },
+  section: { label: "Abschnitt", icon: Square, group: "Layout" },
   columns: { label: "Spalten", icon: Columns2, group: "Layout" },
   spacer: { label: "Abstand", icon: MoveVertical, group: "Layout" },
   divider: { label: "Trennlinie", icon: Minus, group: "Layout" },

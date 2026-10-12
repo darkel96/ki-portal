@@ -1,8 +1,8 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { Link, useSearchParams } from "react-router";
 import { Input } from "@/components/ui/input";
 import { useApps } from "@/state/apps";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, Plus } from "lucide-react";
 import { areaList, fieldsOf, initials } from "@/lib/model";
 import type { HubApp } from "@/lib/schema";
 import { Blatt, Pager, blaetterTaste } from "@/components/layout/Pager";
@@ -25,6 +25,12 @@ export function kuerzel(apps: HubApp[]): Map<string, string> {
 }
 
 const STATUS_TILE: Record<HubApp["status"], string> = { entwurf: "Entwurf", pruefung: "In Prüfung", freigegeben: "Bereit" };
+/** Die Eintrittsanimation läuft nur beim ersten Besuch der Startseite, nicht nach jedem Zurückkommen. */
+let schonAnimiert = false;
+const SCHMAL = "(max-width: 560px)";
+const schmalAbo = (cb: () => void) => { const m = matchMedia(SCHMAL); m.addEventListener("change", cb); return () => m.removeEventListener("change", cb); };
+/** Handy-Breite? Reagiert auf Drehen des Geräts. */
+const useSchmal = () => useSyncExternalStore(schmalAbo, () => matchMedia(SCHMAL).matches, () => false);
 
 export function Tile({ a, mono }: { a: HubApp; mono: string }) {
   const nf = fieldsOf(a).length;
@@ -56,14 +62,31 @@ export function HubPage() {
   const q = sp.get("q") ?? "";
   const setParam = (k: string, v: string) => setSp((p) => { const n = new URLSearchParams(p); if (v && v !== "Alle") n.set(k, v); else n.delete(k); return n; }, { replace: k === "q" });
   const setBereich = (v: string) => setParam("bereich", v);
-  const setQ = (v: string) => setParam("q", v);
+  // Das Suchfeld hält seinen Text selbst; die Adresse folgt mit kurzer Verzögerung (sonst gehen bei schnellem Tippen Zeichen verloren).
+  const [eingabe, setEingabe] = useState(q);
+  const geschrieben = useRef(q);
+  const tippTimer = useRef(0);
+  useEffect(() => { if (q !== geschrieben.current) { geschrieben.current = q; setEingabe(q); } }, [q]);
+  useEffect(() => () => window.clearTimeout(tippTimer.current), []);
+  const tippen = (v: string) => {
+    setEingabe(v);
+    window.clearTimeout(tippTimer.current);
+    tippTimer.current = window.setTimeout(() => { geschrieben.current = v; setParam("q", v); }, 200);
+  };
   const bereiche = useMemo(() => areaList(apps), [apps]);
   const aktiv = bereich !== "Alle" && !bereiche.includes(bereich) ? "Alle" : bereich;
-  const query = q.trim().toLowerCase();
+  const query = eingabe.trim().toLowerCase();
+  const schmal = useSchmal();
+  // Unbekannter Bereich oder leeres q: aus der Adresse nehmen
+  useEffect(() => {
+    if (!geladen) return;
+    const leerQ = sp.has("q") && !sp.get("q"), falschB = sp.has("bereich") && aktiv !== bereich;
+    if (leerQ || falschB) setSp((p) => { const n = new URLSearchParams(p); if (leerQ) n.delete("q"); if (falschB) n.delete("bereich"); return n; }, { replace: true });
+  }, [geladen, sp, aktiv, bereich]); // eslint-disable-line react-hooks/exhaustive-deps
   const monos = useMemo(() => kuerzel(apps), [apps]);
   const suche = useRef<HTMLInputElement>(null);
   const feld = useRef<HTMLDivElement>(null);
-  const { spalten, zeilen, hoehe, abstand } = useRaster(feld, { breite: 300, hoehe: 196, maxHoehe: 236, hoeheSchmal: 112, abstand: 20, abstandSchmal: 10 });
+  const { spalten, zeilen, hoehe, abstand } = useRaster(feld, { breite: 300, hoehe: 170, maxHoehe: 236, hoeheSchmal: 96, abstand: 20, abstandSchmal: 10 });
   // Seite steht in der Adresse: Nach dem Öffnen einer App führt „Zurück“ wieder hierher
   const seite = Math.max(0, Number(sp.get("seite") ?? 1) - 1) || 0;
   const setSeite = (i: number | ((alt: number) => number)) => {
@@ -80,16 +103,30 @@ export function HubPage() {
   // Animationen wie im KSCA-Portal: beim ersten Laden tauchen die Kacheln nacheinander auf, beim Filtern gleiten sie
   const raster = useRef<HTMLDivElement>(null);
   useGleiten(raster, sichtbar.map((a) => (a === "neu" ? "neu" : a.id)).join("|"), aktiv);
-  const [erst, setErst] = useState(true);
+  const [erst, setErst] = useState(!schonAnimiert);
   useEffect(() => {
-    if (!geladen) return;
-    const t = setTimeout(() => setErst(false), 450 + 70 * proSeite);
+    if (!geladen || schonAnimiert) return;
+    const t = setTimeout(() => { schonAnimiert = true; setErst(false); }, 450 + 70 * proSeite);
     return () => clearTimeout(t);
   }, [geladen]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Neuer Filter oder neue Suche: wieder vorn anfangen (nicht beim ersten Laden, sonst ginge die gemerkte Seite verloren).
-  const ersterFilter = useRef(true);
-  useEffect(() => { if (ersterFilter.current) { ersterFilter.current = false; return; } setSeite(0); }, [aktiv, query]); // eslint-disable-line react-hooks/exhaustive-deps
+  // Neuer Filter oder neue Suche: wieder vorn anfangen. Nur bei echter Änderung, damit die Seite aus der Adresse erhalten bleibt (auch unter StrictMode).
+  const letzterFilter = useRef({ aktiv, query });
+  useEffect(() => {
+    if (letzterFilter.current.aktiv === aktiv && letzterFilter.current.query === query) return;
+    letzterFilter.current = { aktiv, query };
+    setSeite(0);
+  }, [aktiv, query]); // eslint-disable-line react-hooks/exhaustive-deps
+  // Bereichs-Pills: eine Tab-Station, Pfeiltasten wandern (Pos1/Ende an den Rand)
+  const pillTaste = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    const pills = [...e.currentTarget.querySelectorAll<HTMLButtonElement>("button")];
+    const i = pills.indexOf(e.target as HTMLButtonElement);
+    if (i < 0) return;
+    const ziel = e.key === "ArrowRight" || e.key === "ArrowDown" ? (i + 1) % pills.length : e.key === "ArrowLeft" || e.key === "ArrowUp" ? (i - 1 + pills.length) % pills.length : e.key === "Home" ? 0 : e.key === "End" ? pills.length - 1 : -1;
+    if (ziel < 0) return;
+    e.preventDefault();
+    pills[ziel].focus();
+  };
   useEffect(() => {
     const h = (e: KeyboardEvent) => {
       if (e.key === "/" && !e.ctrlKey && !e.metaKey && !(e.target as HTMLElement).closest("input,textarea,select,[contenteditable]")) {
@@ -112,19 +149,22 @@ export function HubPage() {
           <h1>Welche Aufgabe soll die KI für dich erledigen?</h1>
           <p className="lede">Der gemeinsame Einstieg für alle Bereiche. Eine Kachel wählen und direkt arbeiten, oder dir von der KI eine eigene Applikation bauen lassen.</p>
         </div>
-        <dl className="zahlen">
-          <div><dt>Applikationen</dt><dd>{geladen ? apps.length : "–"}</dd></div>
-          <div><dt>Bereiche</dt><dd>{geladen ? bereiche.length : "–"}</dd></div>
-          <div className="blau"><dt>Eigene</dt><dd>{geladen ? eigene : "–"}</dd></div>
-        </dl>
+        <div className="hero-seite">
+          <dl className="zahlen">
+            <div><dt>Applikationen</dt><dd>{geladen ? apps.length : "–"}</dd></div>
+            <div><dt>Bereiche</dt><dd>{geladen ? bereiche.length : "–"}</dd></div>
+            <div className="blau"><dt>Eigene</dt><dd>{geladen ? eigene : "–"}</dd></div>
+          </dl>
+          <Link to="/neu" viewTransition className="knopf-neu"><Plus size={16} aria-hidden="true" />Neue Applikation</Link>
+        </div>
       </section>
       {fehler && <p role="alert" className="hint" style={{ color: "var(--danger)" }}>{fehler}</p>}
       <section className="hub-liste" aria-labelledby="liste-titel">
         <h2 id="liste-titel" className="sr-only">{aktiv === "Alle" ? "Alle Applikationen" : aktiv}</h2>
         <div className="filter">
-          <div className="pills" role="group" aria-label="Bereiche">
+          <div className="pills" role="group" aria-label="Bereiche" onKeyDown={pillTaste}>
             {[["Alle", apps.length] as const, ...bereiche.map((b) => [b, apps.filter((x) => x.bereich === b).length] as const)].map(([name, n]) => (
-              <button key={name} type="button" className="pill" aria-pressed={aktiv === name} onClick={() => setBereich(name)}>
+              <button key={name} type="button" className="pill" aria-pressed={aktiv === name} tabIndex={aktiv === name ? 0 : -1} onClick={() => setBereich(name)}>
                 {name === "Alle" ? "Alle Bereiche" : name}<small>{n}</small>
               </button>
             ))}
@@ -137,18 +177,18 @@ export function HubPage() {
             </select>
           </label>
           <div className="search">
-            <span className="hint" aria-live="polite">{!geladen ? "" : query ? `${liste.length} Treffer für „${q.trim()}“` : `${liste.length} ${liste.length === 1 ? "Applikation" : "Applikationen"}`}</span>
+            <span className="hint" aria-live="polite">{!geladen ? "" : query ? `${liste.length} Treffer für „${eingabe.trim()}“` : `${liste.length} ${liste.length === 1 ? "Applikation" : "Applikationen"}`}</span>
             <label>
               <span className="sr-only">Applikationen durchsuchen</span>
-              <Input ref={suche} type="search" aria-keyshortcuts="/" value={q} onChange={(e) => setQ(e.target.value)} name="q" placeholder="Suchen, z. B. Protokoll …" autoComplete="off" />
+              <Input ref={suche} type="search" aria-keyshortcuts="/" value={eingabe} onChange={(e) => tippen(e.target.value)} name="q" placeholder={schmal ? "Suchen …" : "Suchen, z. B. Protokoll …"} autoComplete="off" />
             </label>
             <kbd className="kbd nur-breit" aria-hidden="true" title="Taste / springt in die Suche">/</kbd>
           </div>
         </div>
         {!geladen && <p className="empty">Applikationen werden geladen\u00a0…</p>}
         {geladen && !liste.length && (
-          <p className="empty">Keine Applikation passt zu „{q.trim() || aktiv}“.{" "}
-            <button type="button" className="link-back" onClick={() => setSp(new URLSearchParams())}>Suche und Filter zurücksetzen</button>
+          <p className="empty">Keine Applikation passt zu „{eingabe.trim() || aktiv}“.{" "}
+            <button type="button" className="link-back" onClick={() => { window.clearTimeout(tippTimer.current); geschrieben.current = ""; setEingabe(""); setSp(new URLSearchParams()); suche.current?.focus(); }}>Suche und Filter zurücksetzen</button>
             {" "}oder <Link to="/neu" viewTransition className="link-back">lass dir eine passende bauen</Link>.
           </p>
         )}

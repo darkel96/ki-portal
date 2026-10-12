@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { Link, useSearchParams } from "react-router";
 import { toast } from "sonner";
 import { ChevronLeft, Play, Square, Trash, X } from "lucide-react";
@@ -8,9 +8,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { useApps } from "@/state/apps";
 import { useMeinHub } from "@/state/meinhub";
-import { Blatt, Pager } from "@/components/layout/Pager";
+import { Blatt, Pager, blaetterTaste } from "@/components/layout/Pager";
 import { useRaster } from "@/components/layout/useRaster";
-import { AuftragDialog, VorlagenVerwalten } from "@/components/meinhub/Dialoge";
+import { AuftragDialog, VorlagenVerwalten, useAusloeser } from "@/components/meinhub/Dialoge";
 import { OutputView } from "@/components/renderer/OutputView";
 import { RunContext, type RunCtx } from "@/components/renderer/runContext";
 import { themeStyle } from "@/components/renderer/theme";
@@ -33,23 +33,33 @@ const SCHRITT_STATUS: Record<OutState["status"], string> = {
 };
 const anzahl = (n: number, eins: string, mehr: string) => `${n} ${n === 1 ? eins : mehr}`;
 const LAEDT = <p className="hint">Mein Hub wird geladen&nbsp;…</p>;
+/** Fokusziel, wenn der Auslöser eines Dialogs verschwunden ist: der aktive Reiter */
+const aktiverReiter = () => document.querySelector<HTMLElement>(".mh-reiter [role=tab][aria-selected=true]");
 
-/** Blättert eine Liste von Karten so, dass nie gescrollt werden muss. */
-function KartenRaster<T>({ items, render, leer, hoehe = 200, hoeheSchmal = Math.min(hoehe, 150), breite = 300, schluessel }: {
-  items: T[]; render: (x: T) => ReactNode; leer: ReactNode; hoehe?: number; hoeheSchmal?: number; breite?: number; schluessel: (x: T) => string;
+/** Blättert eine Liste von Karten so, dass nie gescrollt werden muss; Bild↓/Bild↑ blättern. */
+function KartenRaster<T>({ items, render, leer, hoehe = 200, hoeheSchmal = Math.min(hoehe, 150), maxHoehe = 300, breite = 300, schluessel }: {
+  items: T[]; render: (x: T) => ReactNode; leer: ReactNode; hoehe?: number; hoeheSchmal?: number; maxHoehe?: number; breite?: number; schluessel: (x: T) => string;
 }) {
   const feld = useRef<HTMLDivElement>(null);
   const r = useRaster(feld, { breite, hoehe, breiteSchmal: 300, hoeheSchmal });
   const [seite, setSeite] = useState(0);
+  // Passen alle Karten in weniger Zeilen, als Platz wäre, werden sie höher (bis maxHoehe) statt die Fläche halb leer zu lassen
+  const zeilen = Math.max(1, Math.min(r.zeilen, Math.ceil(items.length / r.spalten)));
+  const kartenHoehe = Math.min(maxHoehe, Math.floor((r.hoehe * r.zeilen) / zeilen));
   const pro = r.spalten * r.zeilen;
   const seiten = Math.max(1, Math.ceil(items.length / pro));
   const akt = Math.min(seite, seiten - 1);
+  useEffect(() => {
+    const h = (e: KeyboardEvent) => blaetterTaste(e, akt, seiten, setSeite);
+    window.addEventListener("keydown", h);
+    return () => window.removeEventListener("keydown", h);
+  }, [akt, seiten]);
   return (
     <div className="mh-liste">
       <div className="tiles-feld" ref={feld}>
         {items.length ? (
           <Blatt id={`${akt}|${pro}|${items.length}`} className="tiles-blatt">
-            <div className="mh-raster" style={{ gridTemplateColumns: `repeat(${r.spalten}, minmax(0, 1fr))`, gridAutoRows: `${r.hoehe - 12}px` }}>
+            <div className="mh-raster" style={{ gridTemplateColumns: `repeat(${r.spalten}, minmax(0, 1fr))`, gridAutoRows: `${kartenHoehe - 12}px` }}>
               {items.slice(akt * pro, (akt + 1) * pro).map((x) => <div key={schluessel(x)} className="mh-zelle">{render(x)}</div>)}
             </div>
           </Blatt>
@@ -63,6 +73,7 @@ function KartenRaster<T>({ items, render, leer, hoehe = 200, hoeheSchmal = Math.
 function AppKarte({ a, onLauf }: { a: HubApp; onLauf: (id: string) => void }) {
   const mh = useMeinHub();
   const [verwalten, setVerwalten] = useState(false);
+  const titel = useRef<HTMLAnchorElement>(null);
   const letzter = mh.letzterLauf(a.id!);
   const ci = areaIdx(a.bereich);
   const ac = a.theme.accent || `var(--a${ci})`;
@@ -80,7 +91,7 @@ function AppKarte({ a, onLauf }: { a: HubApp; onLauf: (id: string) => void }) {
       <div className="mh-karte-kopf">
         <span className="mono" aria-hidden="true">{initials(a.name)}</span>
         <div className="min-w-0 flex-1">
-          <Link to={`/app/${a.id}`} viewTransition className="mh-titel">{a.name}</Link>
+          <Link ref={titel} to={`/app/${a.id}`} viewTransition className="mh-titel">{a.name}</Link>
           <span className="mh-meta">{a.bereich}{auftraege.length ? `, ${auftraege.length} ${auftraege.length === 1 ? "Auftrag" : "Aufträge"}` : ""}</span>
         </div>
         <button type="button" className="mh-x" aria-label={`${a.name} aus Mein Hub entfernen`} title="Aus Mein Hub entfernen" onClick={entfernen}><X size={16} aria-hidden="true" /></button>
@@ -88,7 +99,7 @@ function AppKarte({ a, onLauf }: { a: HubApp; onLauf: (id: string) => void }) {
       <div className="mh-vorlagen">
         {vorlagen.length ? vorlagen.slice(0, 4).map((v) => (
           <Link key={v.id} to={`/app/${a.id}?vorlage=${v.id}`} viewTransition className="var" title="Mit dieser Voreinstellung öffnen">{v.name}</Link>
-        )) : <span className="hint">Noch keine Voreinstellung. Öffne die App, füll sie aus und speichere die Eingaben.</span>}
+        )) : <span className="hint">Noch keine Voreinstellung. Öffne die Applikation, füll sie aus und speichere die Eingaben.</span>}
         {vorlagen.length > 4 && <span className="hint">+{vorlagen.length - 4} weitere</span>}
       </div>
       <div className="mh-letzter">
@@ -99,7 +110,7 @@ function AppKarte({ a, onLauf }: { a: HubApp; onLauf: (id: string) => void }) {
         <Button asChild size="sm" className="rounded-full"><Link to={`/app/${a.id}`} viewTransition>Öffnen</Link></Button>
         {vorlagen.length > 0 && <Button size="sm" variant="ghost" className="rounded-full" onClick={() => setVerwalten(true)}>Voreinstellungen verwalten</Button>}
       </div>
-      <VorlagenVerwalten offen={verwalten} onOffen={setVerwalten} appId={a.id!} appName={a.name} />
+      <VorlagenVerwalten offen={verwalten} onOffen={setVerwalten} appId={a.id!} appName={a.name} ersatz={() => titel.current} />
     </article>
   );
 }
@@ -123,8 +134,8 @@ function AuftragKarte({ a, app, onBearbeiten, onLoeschen }: { a: Auftrag; app?: 
       </div>
       <dl className="kv mh-kv">
         <dt>Zeitplan</dt><dd>{zeitplanText(a.zeitplan)}</dd>
-        <dt>Nächster Lauf</dt><dd>{a.aktiv ? datumZeit(a.naechsterLauf) : "pausiert"}</dd>
-        <dt>Letzter Lauf</dt><dd>{laeuft ? <span className="status-pill" data-s="laeuft">Läuft</span> : letzter ? <>{datumZeit(letzter.start)} <span className="status-pill" data-s={LAUF_STATUS[letzter.status][1]}>{LAUF_STATUS[letzter.status][0]}</span></> : "noch nie"}</dd>
+        <dt>Nächster Lauf</dt><dd>{a.aktiv ? datumZeit(a.naechsterLauf) : "Pausiert"}</dd>
+        <dt>Letzter Lauf</dt><dd>{laeuft ? <span className="status-pill" data-s="laeuft">Läuft</span> : letzter ? <>{datumZeit(letzter.start)} <span className="status-pill" data-s={LAUF_STATUS[letzter.status][1]}>{LAUF_STATUS[letzter.status][0]}</span></> : "Noch nie"}</dd>
         <dt>Ergebnis</dt><dd>{ZIEL_LABEL[a.ziel.art]}</dd>
       </dl>
       <div className="mh-fuss">
@@ -142,6 +153,7 @@ function LaufDetail({ lauf, app, onZurueck }: { lauf: Lauf; app?: HubApp; onZuru
   const mh = useMeinHub();
   const [i, setI] = useState(0);
   const [fragen, setFragen] = useState(false);
+  const fokusZurueck = useAusloeser(fragen, aktiverReiter);
   const laeuft = mh.laufend?.id === lauf.id;
   // Schritt über die ID finden, sonst über den Namen des Ergebnisses (falls die App inzwischen umgebaut wurde)
   const eintrag = (s: { id: string; key: string }) => lauf.ergebnisse[s.id] ?? Object.values(lauf.ergebnisse).find((e) => e.key === s.key);
@@ -182,14 +194,14 @@ function LaufDetail({ lauf, app, onZurueck }: { lauf: Lauf; app?: HubApp; onZuru
         </RunContext.Provider>
       ) : !lauf.meldung && <p className="hint">{!app ? "Die Applikation gibt es nicht mehr." : Object.keys(lauf.ergebnisse).length ? "Die Ergebnisse dieses Laufs passen nicht mehr zur aktuellen Version der Applikation." : "Dieser Lauf hat keine Ergebnisse."}</p>}
       <AlertDialog open={fragen} onOpenChange={setFragen}>
-        <AlertDialogContent>
+        <AlertDialogContent onCloseAutoFocus={fokusZurueck}>
           <AlertDialogHeader>
             <AlertDialogTitle>Ergebnis „{lauf.titel}“ löschen?</AlertDialogTitle>
             <AlertDialogDescription>Das Ergebnis vom {datumZeit(lauf.start)} verschwindet aus dem Verlauf. Auftrag und Voreinstellung bleiben erhalten.</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Abbrechen</AlertDialogCancel>
-            <AlertDialogAction className="bg-destructive text-white hover:bg-destructive/90" onClick={() => { mh.laufLoeschen(lauf.id); onZurueck(); toast.success("Ergebnis gelöscht."); }}>Löschen</AlertDialogAction>
+            <AlertDialogAction className="bg-destructive text-white hover:bg-destructive/90" onClick={() => { mh.laufLoeschen(lauf.id); onZurueck(); toast(`Ergebnis „${lauf.titel}“ gelöscht.`, { action: { label: "Rückgängig", onClick: () => mh.laufZurueck(lauf) } }); }}>Löschen</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
@@ -204,6 +216,7 @@ export function MeinHubPage() {
   const [loeschen, setLoeschen] = useState<Auftrag | null>(null);
   // Name getrennt merken, damit der Titel beim Schließen nicht leer aufblitzt
   const [loeschName, setLoeschName] = useState("");
+  const fokusNachLoeschen = useAusloeser(!!loeschen, aktiverReiter);
   // Reiter und offenes Ergebnis stehen in der Adresse: /mein?tab=verlauf&lauf=<id> (z. B. aus „Letztes Ergebnis ansehen“ in der App).
   const [sp, setSp] = useSearchParams();
   const offenerLauf = sp.get("lauf");
@@ -217,19 +230,26 @@ export function MeinHubPage() {
   }, { replace: true });
   const zumLauf = (id: string) => adresse("verlauf", id);
   const meine = mh.daten.pins.map((p) => apps.find((a) => a.id === p.appId)).filter((a): a is HubApp => !!a);
-  const auftraege = [...mh.daten.auftraege].sort((x, y) => (x.naechsterLauf || "z").localeCompare(y.naechsterLauf || "z"));
+  // Feste Reihenfolge (Anlage), damit Karten nach dem Bearbeiten oder einem Lauf nicht springen
+  const auftraege = [...mh.daten.auftraege].sort((x, y) => x.erstellt.localeCompare(y.erstellt) || x.name.localeCompare(y.name, "de"));
   const laeufe = mh.daten.laeufe;
   const lauf = laeufe.find((l) => l.id === offenerLauf);
-  const bearbeitetesApp = bearbeiten ? find(bearbeiten.appId) : undefined;
+  // Dialog bleibt eingehängt, damit der Fokus nach dem Speichern zum Auslöser zurückkehrt; Applikation bis zum Schließen merken
+  const [bearbeitetesApp, setBearbeitetesApp] = useState<HubApp>();
+  const auftragBearbeiten = (a: Auftrag) => { const app = find(a.appId); if (app?.id) { setBearbeitetesApp(app); setBearbeiten(a); } };
+  const auftragLoeschen = (a: Auftrag) => {
+    mh.auftragLoeschen(a.id);
+    toast(`Auftrag „${a.name}“ gelöscht.`, { action: { label: "Rückgängig", onClick: () => mh.auftragZurueck(a) } });
+  };
 
   return (
     <div className="mh">
       <header className="hero mh-hero">
         <div className="hero-text">
           <p className="eyebrow">KI-Hub · Mein Hub</p>
-          <h1>Deine Apps und Aufträge</h1>
+          <h1>Deine Applikationen und Aufträge</h1>
           <p className="lede">
-            {mh.nutzerName ? <>Angemeldet als <b>{mh.nutzerName}</b>. </> : "Noch nicht angemeldet, Mein Hub wird in diesem Browser gespeichert. "}
+            {mh.nutzerName ? <>Angemeldet als <b>{mh.nutzerName}</b>. </> : "Du bist nicht angemeldet; Mein Hub wird deshalb in diesem Browser gespeichert. "}
             Gespeicherte Eingaben, regelmäßige Aufträge und ihre Ergebnisse an einem Ort.
           </p>
         </div>
@@ -244,23 +264,23 @@ export function MeinHubPage() {
       </header>
       <Tabs className="mh-reiter" value={reiterAkt} onValueChange={(v) => adresse(v as Reiter, null)}>
         <TabsList className="rounded-full">
-          <TabsTrigger value="apps" className="rounded-full px-4">Meine Apps ({meine.length})</TabsTrigger>
-          <TabsTrigger value="auftraege" className="rounded-full px-4">Aufträge ({auftraege.length})</TabsTrigger>
-          <TabsTrigger value="verlauf" className="rounded-full px-4">Verlauf ({laeufe.length})</TabsTrigger>
+          <TabsTrigger value="apps" className="rounded-full px-4">Meine Applikationen <span className="mh-zahl">({meine.length})</span></TabsTrigger>
+          <TabsTrigger value="auftraege" className="rounded-full px-4">Aufträge <span className="mh-zahl">({auftraege.length})</span></TabsTrigger>
+          <TabsTrigger value="verlauf" className="rounded-full px-4">Verlauf <span className="mh-zahl">({laeufe.length})</span></TabsTrigger>
         </TabsList>
 
         <TabsContent value="apps" className="mh-tab">
-          <KartenRaster items={meine} schluessel={(a) => a.id!} hoehe={250} hoeheSchmal={150} render={(a) => <AppKarte a={a} onLauf={zumLauf} />}
-            leer={mh.geladen ? <><p>Noch keine Apps in Mein Hub.</p><p className="hint">Öffne eine Applikation und wähle „Zu Mein Hub“. Gespeicherte Voreinstellungen und Aufträge bringen ihre App automatisch mit.</p><Button asChild className="rounded-full"><Link to="/" viewTransition>Zu den Applikationen</Link></Button></> : LAEDT} />
+          <KartenRaster items={meine} schluessel={(a) => a.id!} hoehe={250} hoeheSchmal={136} maxHoehe={320} breite={340} render={(a) => <AppKarte a={a} onLauf={zumLauf} />}
+            leer={mh.geladen ? <><p>Noch keine Applikationen in Mein Hub.</p><p className="hint">Öffne eine Applikation und wähle „Zu Mein Hub“. Gespeicherte Voreinstellungen und Aufträge bringen ihre Applikation automatisch mit.</p><Button asChild className="rounded-full"><Link to="/" viewTransition>Zur Übersicht</Link></Button></> : LAEDT} />
         </TabsContent>
         <TabsContent value="auftraege" className="mh-tab">
-          <KartenRaster items={auftraege} schluessel={(a) => a.id} hoehe={250} hoeheSchmal={230} breite={340}
-            render={(a) => <AuftragKarte a={a} app={find(a.appId)} onBearbeiten={() => setBearbeiten(a)} onLoeschen={() => { setLoeschen(a); setLoeschName(a.name); }} />}
+          <KartenRaster items={auftraege} schluessel={(a) => a.id} hoehe={250} hoeheSchmal={230} maxHoehe={300} breite={340}
+            render={(a) => <AuftragKarte a={a} app={find(a.appId)} onBearbeiten={() => auftragBearbeiten(a)} onLoeschen={() => { setLoeschen(a); setLoeschName(a.name); }} />}
             leer={mh.geladen ? <><p>Noch keine Aufträge.</p><p className="hint">Öffne eine Applikation, füll sie aus und wähle im Menü „Voreinstellungen“ den Punkt „Regelmäßig ausführen“. Dann läuft sie zum Beispiel jeden Montag um 7 Uhr von selbst.</p></> : LAEDT} />
         </TabsContent>
         <TabsContent value="verlauf" className="mh-tab">
           {lauf ? <LaufDetail key={lauf.id} lauf={lauf} app={find(lauf.appId)} onZurueck={() => adresse("verlauf", null)} /> : (
-            <KartenRaster items={laeufe} schluessel={(l) => l.id} hoehe={150} breite={280}
+            <KartenRaster items={laeufe} schluessel={(l) => l.id} hoehe={160} maxHoehe={190} breite={280}
               render={(l) => {
                 const fertig = Object.values(l.ergebnisse).filter((e) => e.status === "fertig" || e.status === "simuliert").length;
                 const status = [...new Set(Object.values(l.ergebnisse).map((e) => SCHRITT_STATUS[e.status as OutState["status"]] ?? e.status))].join(", ");
@@ -277,18 +297,18 @@ export function MeinHubPage() {
         </TabsContent>
       </Tabs>
 
-      {bearbeiten && bearbeitetesApp?.id && (
-        <AuftragDialog offen onOffen={(o) => { if (!o) setBearbeiten(null); }} appId={bearbeitetesApp.id} appName={bearbeitetesApp.name} auftrag={bearbeiten} />
+      {bearbeitetesApp?.id && (
+        <AuftragDialog offen={!!bearbeiten} onOffen={(o) => { if (!o) setBearbeiten(null); }} appId={bearbeitetesApp.id} appName={bearbeitetesApp.name} auftrag={bearbeiten} />
       )}
       <AlertDialog open={!!loeschen} onOpenChange={(o) => { if (!o) setLoeschen(null); }}>
-        <AlertDialogContent>
+        <AlertDialogContent onCloseAutoFocus={fokusNachLoeschen}>
           <AlertDialogHeader>
             <AlertDialogTitle>Auftrag „{loeschName}“ löschen?</AlertDialogTitle>
             <AlertDialogDescription>Der Auftrag läuft dann nicht mehr. Bisherige Ergebnisse bleiben im Verlauf, die Voreinstellung bleibt erhalten.</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Abbrechen</AlertDialogCancel>
-            <AlertDialogAction className="bg-destructive text-white hover:bg-destructive/90" onClick={() => { if (loeschen) mh.auftragLoeschen(loeschen.id); setLoeschen(null); }}>Löschen</AlertDialogAction>
+            <AlertDialogAction className="bg-destructive text-white hover:bg-destructive/90" onClick={() => { if (loeschen) auftragLoeschen(loeschen); setLoeschen(null); }}>Löschen</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

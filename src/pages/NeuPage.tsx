@@ -14,7 +14,7 @@ import { KiSimulation } from "@/lib/ki";
 import { useKiModus } from "@/components/layout/KiSchluessel";
 import { Blatt } from "@/components/layout/Pager";
 import { RunApp, type RunAppHandle } from "@/components/renderer/RunApp";
-import { Seg, TextFld } from "@/components/builder/controls";
+import { Fld, Seg, TextFld } from "@/components/builder/controls";
 
 const BEISPIELE = [
   "Eine Checkliste (Excel) hochladen und auswerten: offene Punkte, Risiken und eine Zusammenfassung für die Leitung",
@@ -64,7 +64,8 @@ export function NeuPage() {
   const wechseln = (i: number) => { fokusNachWechsel.current = true; setSchritt(i); };
 
   // Ein ungespeicherter Entwurf geht beim Verlassen verloren: nachfragen.
-  const warnen = !!entwurf && !speichert;
+  // Schützenswert: ein fertiger Entwurf, ein laufender Bau oder eine schon getippte Beschreibung (Schritt 1)
+  const warnen = !speichert && (!!entwurf || !!laeuft || beschreibung.trim().length > 20);
   const blocker = useBlocker(({ currentLocation, nextLocation }) => warnen && !frei.current && currentLocation.pathname !== nextLocation.pathname);
   useEffect(() => {
     if (!warnen) return;
@@ -146,18 +147,16 @@ export function NeuPage() {
             <h2 id="neu-was">Was soll die Applikation tun?</h2>
             <p className="hint neu-erklaerung" style={{ margin: 0 }}>Beschreib die Aufgabe so, wie du sie jemandem im Team erklären würdest: welche Angaben oder Dateien hineinkommen und was am Ende herauskommen soll. Die KI baut daraus Seiten, Eingaben und den KI-Ablauf.</p>
             <label htmlFor="neu-beschreibung" className="sr-only">Beschreibung der Applikation</label>
-            <Textarea id="neu-beschreibung" rows={6} className="min-h-[150px]" value={beschreibung} disabled={!!laeuft} onChange={(e) => setBeschreibung(e.target.value)}
+            <Textarea id="neu-beschreibung" rows={6} className="min-h-[150px]" value={beschreibung} disabled={!!laeuft} onChange={(e) => { setBeschreibung(e.target.value); setMeldung(""); }}
               placeholder="z. B. Mitarbeitende laden ein Besprechungsprotokoll hoch. Die KI erstellt daraus eine Aufgabenliste mit Verantwortlichen und Terminen und einen kurzen Bericht für die Abteilungsleitung …" />
             <div className="ai-sugg neu-beispiele">{BEISPIELE.map((v) => <button key={v} type="button" disabled={!!laeuft} onClick={() => setBeschreibung(v)}>{v}</button>)}</div>
             <div className="neu-zwei">
-              <TextFld label="Hintergrundwissen und Regeln (optional)" multiline rows={3} value={wissen} onChange={setWissen}
+              <TextFld label="Hintergrundwissen und Regeln (optional)" multiline rows={3} value={wissen} onChange={setWissen} disabled={!!laeuft}
                 placeholder="z. B. Freigabegrenzen, Tonalität, Fachbegriffe, was die KI nie tun soll …" />
-              <div className="fld">
-                <label htmlFor="neu-bereich" style={{ fontSize: 13, fontWeight: 600 }}>Bereich</label>
-                <Input id="neu-bereich" list="neu-bereiche" value={bereich} onChange={(e) => setBereich(e.target.value)} />
+              <Fld label="Bereich" htmlFor="neu-bereich" hint="Neuen Bereich einfach eintippen.">
+                <Input id="neu-bereich" list="neu-bereiche" value={bereich} disabled={!!laeuft} onChange={(e) => setBereich(e.target.value)} />
                 <datalist id="neu-bereiche">{bereiche.map((x) => <option key={x} value={x} />)}</datalist>
-                <span className="hint">Neuen Bereich einfach eintippen.</span>
-              </div>
+              </Fld>
             </div>
             {meldung && <p className="hint neu-fehler" role="alert">{meldung}</p>}
             <div className="neu-aktion">
@@ -168,7 +167,8 @@ export function NeuPage() {
                 </>
               ) : (
                 <>
-                  <Link to="/baukasten" viewTransition className="link-back">Lieber selbst im Baukasten bauen</Link>
+                  {laeuft ? <span className="link-back" aria-disabled="true">Lieber selbst im Baukasten bauen</span>
+                    : <Link to="/baukasten" viewTransition className="link-back">Lieber selbst im Baukasten bauen</Link>}
                   <span className="flex-1" />
                   {laeuft === "bauen" && <span className="status-pill mit-icon" data-s="laeuft" aria-hidden="true"><Loader2 size={12} className="animate-spin motion-reduce:animate-none" />Die KI baut den Entwurf, meist 30 bis 90 Sekunden</span>}
                   {laeuft === "bauen"
@@ -194,15 +194,16 @@ export function NeuPage() {
               <span className="flex-1" />
               {fieldsOf(entwurf).some((f) => f.type !== "file" && f.props.beispiel) && <Button size="sm" variant="outline" onClick={() => runRef.current?.beispieleEinsetzen()}>Beispieldaten einsetzen</Button>}
             </div>
-            <RunApp key={nr} ref={runRef} app={entwurf} />
+            <RunApp key={nr} ref={runRef} app={entwurf} eingebettet />
           </div>
           <aside className="panel neu-seite" data-sichtbar={testBereich === "anpassen"} aria-label="Entwurf anpassen">
             <h2>{entwurf.name}</h2>
             <p className="hint" style={{ margin: 0 }}>{seitenVon(entwurf).length} Seiten, {fieldsOf(entwurf).length} Eingaben, {entwurf.steps.length} KI-Schritte{entwurf.steps.some((s) => s.art === "team") ? ", mit Agenten-Team" : ""}.</p>
             {verlauf.length > 0 && <ul className="ai-log">{verlauf.map((v, i) => <li key={i}><span>{v}</span></li>)}</ul>}
-            <label htmlFor="neu-aenderung" style={{ fontSize: 13, fontWeight: 600 }}>Was soll anders werden?</label>
-            <Textarea id="neu-aenderung" rows={4} value={aenderung} disabled={!!laeuft} onChange={(e) => setAenderung(e.target.value)}
+            <Fld label="Was soll anders werden?" htmlFor="neu-aenderung">
+            <Textarea id="neu-aenderung" rows={4} value={aenderung} disabled={!!laeuft} onChange={(e) => { setAenderung(e.target.value); setMeldung(""); }}
               placeholder="z. B. Zusätzlich ein Feld für die Priorität. Das Ergebnis als Tabelle. Ruhiger in Dunkelblau …" />
+            </Fld>
             {meldung && <p className="hint neu-fehler" role="alert">{meldung}</p>}
             {laeuft === "aendern"
               ? <Button variant="outline" onClick={() => ctl.current?.abort()}><X aria-hidden="true" />Abbrechen</Button>
@@ -223,11 +224,10 @@ export function NeuPage() {
             <h2 id="neu-speichern">Speichern und im Hub zeigen</h2>
             <div className="neu-zwei">
               <TextFld label="Name" value={entwurf.name} inputRef={nameRef} fehler={nameFehler} onChange={(v) => { setNameFehler(""); setE((a) => { a.name = v.slice(0, 60); }); }} />
-              <div className="fld">
-                <label htmlFor="neu-bereich2" style={{ fontSize: 13, fontWeight: 600 }}>Bereich</label>
+              <Fld label="Bereich" htmlFor="neu-bereich2">
                 <Input id="neu-bereich2" list="neu-bereiche2" value={entwurf.bereich} onChange={(e) => setE((a) => { a.bereich = e.target.value.slice(0, 40); })} />
                 <datalist id="neu-bereiche2">{bereiche.map((x) => <option key={x} value={x} />)}</datalist>
-              </div>
+              </Fld>
             </div>
             <TextFld label="Kurzbeschreibung für die Kachel" multiline rows={2} value={entwurf.beschreibung} onChange={(v) => setE((a) => { a.beschreibung = v.slice(0, 300); })} />
             <div className="neu-zwei">
@@ -245,15 +245,16 @@ export function NeuPage() {
         </Blatt>
       )}
 
-      <AlertDialog open={blocker.state === "blocked"}>
-        <AlertDialogContent>
+      {/* Escape und „Weiter bearbeiten“ schließen den Dialog; der Fokus geht zurück aufs Blatt. */}
+      <AlertDialog open={blocker.state === "blocked"} onOpenChange={(o) => { if (!o) blocker.reset?.(); }}>
+        <AlertDialogContent onCloseAutoFocus={(e) => { e.preventDefault(); blattRef.current?.focus(); }}>
           <AlertDialogHeader>
             <AlertDialogTitle>Entwurf nicht gespeichert</AlertDialogTitle>
             <AlertDialogDescription>„{entwurf?.name || "Neue Applikation"}“ ist noch nicht gespeichert. Wenn du die Seite verlässt, geht der Entwurf verloren.</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => blocker.reset?.()}>Weiter bearbeiten</AlertDialogCancel>
-            <AlertDialogAction className="bg-destructive text-white hover:bg-destructive/90" onClick={() => blocker.proceed?.()}>Entwurf verwerfen</AlertDialogAction>
+            <AlertDialogCancel>Weiter bearbeiten</AlertDialogCancel>
+            <AlertDialogAction variant="destructive" onClick={() => blocker.proceed?.()}>Entwurf verwerfen</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

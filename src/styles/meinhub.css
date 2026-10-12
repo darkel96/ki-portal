@@ -34,3 +34,69 @@
 .hero-meldung .hero-links { display: flex; gap: 16px; margin: 6px 0 0; }
 button.link-back { border: 0; background: none; padding: 0; font: inherit; font-size: 14px; cursor: pointer; }
 @media (max-width: 560px) { .hero-meldung .lede { display: block; } }
+
+/* ===== Startseite: Ergänzungen (Audit A1/A4) ===== */
+/* Rechts im Hero: Zahlen und darunter der Einstieg „Neue Applikation“ in Körber-Blau */
+.hero-seite { display: flex; flex-direction: column; align-items: flex-end; gap: 18px; }
+.knopf-neu { display: inline-flex; align-items: center; gap: 8px; height: 40px; padding: 0 20px 0 16px; border-radius: 999px; background: var(--brand); color: var(--brand-ink); font: 600 14px/1 var(--k-font-body); text-decoration: none; white-space: nowrap; transition: background .18s ease; }
+.knopf-neu:hover { background: var(--k-blue-dark); }
+.knopf-neu svg { flex: none; }
+@media (max-width: 900px) { .hero-seite { flex-direction: row; align-items: center; justify-content: space-between; gap: 16px 28px; flex-wrap: wrap; } }
+@media (max-width: 560px) { .hero-seite { gap: 0; } .knopf-neu { height: 36px; font-size: 13px; } }
+/* Flache Fenster (Laptop 1366×768): Hero knapper, damit zwei Kachelreihen Platz haben */
+@media (max-height: 800px) and (min-width: 561px) {
+  .hero:not(.hero-meldung) { padding-block: 22px 18px; }
+  .hero:not(.hero-meldung) .lede { display: none; }
+  .hero:not(.hero-meldung) .zahlen dd { font-size: 26px; }
+  .hero:not(.hero-meldung) h1 { font-size: 28px; }
+  .hero:not(.hero-meldung) .hero-text { max-width: 900px; }
+  .hero-seite { flex-direction: row; align-items: center; gap: 28px; }
+  .tile { padding: 14px 20px; gap: 10px; }
+  .tile-foot { padding-top: 10px; }
+}
+/* Suche: Feld füllt sein Label, damit das „/“-Zeichen am Feldrand sitzt; der Trefferzähler bleibt für Vorleser da (nur unsichtbar) */
+@media (max-width: 900px) {
+  .filter .search > label { flex: 1; min-width: 0; display: block; }
+  .filter .search .hint { display: block; position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+}
+/* Beim Tippen weicht das „/“-Zeichen dem Löschkreuz des Suchfelds */
+.filter .search:has(input:focus, input:not(:placeholder-shown)) .kbd { display: none; }
+/* Sprungziel des Skip-Links ohne Rahmen */
+.page:focus { outline: none; }
+
+/* ===== Mein Hub: Ergänzungen (Audit A1/A4) ===== */
+/* Voreinstellungs-Chips und „Letztes Ergebnis“ kürzen statt umbrechen */
+.mh-vorlagen .var { max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: inline-block; line-height: 1.2; }
+.mh-vorlagen .hint { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
+.mh-letzter { flex: none; white-space: nowrap; }
+.mh-letzter > span:first-child { overflow: hidden; text-overflow: ellipsis; }
+/* Verlauf-Kacheln: Titel höchstens zwei Zeilen, Datum/Status bleibt sichtbar */
+.mh-lauf .e-titel { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.mh-lauf .e-text { flex: none; -webkit-line-clamp: 2; }
+/* Reiter: nie breiter als die Seite; auf dem Handy ohne Zähler */
+.mh-reiter [data-slot="tabs-list"] { max-width: 100%; }
+@media (max-width: 400px) { .mh-reiter [data-slot="tabs-list"] { width: 100%; } .mh-reiter [data-slot="tabs-trigger"] { padding-inline: 8px; } .mh-zahl { display: none; } }
+/* Handy: Karten zeigen das letzte Ergebnis wieder, nur die Chips fallen weg */
+@media (max-width: 560px) { .mh-letzter { display: flex; } }
+
+/* ===== Auftragsdialog ===== */
+/* Formular nie breiter als der Dialog; lange Auswahltexte werden gekürzt */
+.mh-form { grid-template-columns: minmax(0, 1fr); }
+.mh-form > *, .mh-form .fld { min-width: 0; }
+.mh-form [data-slot="select-trigger"] { max-width: 100%; }
+[data-slot="select-value"] { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.mh-form .flex-wrap > .fld { flex: 1 1 140px; }
+.mh-form [data-slot="toggle-group"] { max-width: 100%; }
+
+/* ===== Trefferflächen auf Touch-Geräten (mind. 40 px) ===== */
+@media (pointer: coarse) {
+  .mh-reiter [data-slot="tabs-list"] { height: auto; }
+  .mh-reiter [data-slot="tabs-trigger"] { min-height: 40px; }
+  .mh-aktiv, .mh-auto { padding-block: 10px; margin-block: -10px; }
+  /* Titel bleibt eine gekürzte Zeile (app.css macht ihn inline-flex); die Trefferfläche kommt über Innenabstand */
+  .mh-titel { display: block; min-height: 0; }
+  a.mh-titel { padding-block: 9px; margin-block: -9px; }
+  [role="dialog"] [data-slot="input"], [role="dialog"] [data-slot="select-trigger"], [role="dialog"] [data-slot="toggle-group-item"] { min-height: 40px; }
+  [role="dialog"] [data-slot="checkbox"]::after { inset: -12px; }
+  [role="dialog"] [data-slot="dialog-close"] { width: 40px; height: 40px; }
+}

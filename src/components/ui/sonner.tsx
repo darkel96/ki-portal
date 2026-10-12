@@ -1,18 +1,15 @@
-import { useEffect, useState } from "react";
 import { Toaster as Sonner, type ToasterProps } from "sonner";
 import { CircleCheckIcon, InfoIcon, TriangleAlertIcon, OctagonXIcon, Loader2Icon } from "lucide-react";
 
-/** Toasts folgen dem Hell/Dunkel-Modus des Systems. */
+/** Meldungen oben mittig unter der Kopfzeile, damit sie weder Blätterleiste noch Dialog-Knöpfe verdecken; nur heller Modus. */
 const Toaster = ({ ...props }: ToasterProps) => {
-  const [dark, setDark] = useState(() => document.documentElement.classList.contains("dark"));
-  useEffect(() => {
-    const obs = new MutationObserver(() => setDark(document.documentElement.classList.contains("dark")));
-    obs.observe(document.documentElement, { attributes: true, attributeFilter: ["class"] });
-    return () => obs.disconnect();
-  }, []);
   return (
     <Sonner
-      theme={dark ? "dark" : "light"}
+      theme="light"
+      position="top-center"
+      offset={{ top: 76 }}
+      mobileOffset={{ top: 64 }}
+      closeButton
       className="toaster group"
       icons={{
         success: <CircleCheckIcon className="size-4" />,
@@ -21,7 +18,7 @@ const Toaster = ({ ...props }: ToasterProps) => {
         error: <OctagonXIcon className="size-4" />,
         loading: <Loader2Icon className="size-4 animate-spin" />,
       }}
-      style={{ "--normal-bg": "var(--popover)", "--normal-text": "var(--popover-foreground)", "--normal-border": "var(--border)", "--border-radius": "0px" } as React.CSSProperties}
+      style={{ "--normal-bg": "var(--popover)", "--normal-text": "var(--popover-foreground)", "--normal-border": "var(--border)", "--border-radius": "var(--k-radius-card)" } as React.CSSProperties}
       {...props}
     />
   );

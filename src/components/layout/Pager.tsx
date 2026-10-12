@@ -1,12 +1,12 @@
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import { motion } from "motion/react";
+import { motion, useReducedMotion } from "motion/react";
 import type { ReactNode } from "react";
 
 /**
  * Blättern statt Scrollen: Zurück, Seitenpunkte, Weiter.
  * Die Farben kommen aus currentColor bzw. --pg-accent, damit der Pager auch in gestalteten Apps passt.
  */
-export function Pager({ seite, anzahl, titel, onWechsel, onWeiter, label = "Seite", mehrzahl = `${label}n`, weiter, className = "" }: {
+export function Pager({ seite, anzahl, titel, onWechsel, onWeiter, label = "Seite", mehrzahl = `${label}n`, weiter, weiterKurz, className = "" }: {
   seite: number;
   anzahl: number;
   titel?: (i: number) => string;
@@ -18,6 +18,8 @@ export function Pager({ seite, anzahl, titel, onWechsel, onWeiter, label = "Seit
   mehrzahl?: string;
   /** Eigener Text für „Weiter“, z. B. der Titel der nächsten Seite */
   weiter?: string;
+  /** Kurzfassung davon für schmale Bildschirme (sonst „Weiter“) */
+  weiterKurz?: string;
   className?: string;
 }) {
   if (anzahl <= 1) return null;
@@ -41,7 +43,7 @@ export function Pager({ seite, anzahl, titel, onWechsel, onWeiter, label = "Seit
       </div>
       <button type="button" className="pg-btn primaer" onClick={() => (onWeiter ? onWeiter() : onWechsel(seite + 1))} disabled={seite === anzahl - 1}>
         {weiter && seite < anzahl - 1
-          ? <><span className="pg-weiter pg-lang">{weiter}</span><span className="pg-kurz">Weiter</span></>
+          ? <><span className="pg-weiter pg-lang">{weiter}</span><span className="pg-kurz">{weiterKurz ?? "Weiter"}</span></>
           : <span className="pg-weiter">Weiter</span>} <ChevronRight aria-hidden="true" size={16} />
       </button>
     </nav>
@@ -50,9 +52,10 @@ export function Pager({ seite, anzahl, titel, onWechsel, onWeiter, label = "Seit
 
 /** Seitenwechsel als reine Überblendung (nur opacity, ease-out, 200 ms). */
 export function Blatt({ id, children, className, innerRef, "aria-label": label }: { id: string | number; children: ReactNode; className?: string; innerRef?: React.Ref<HTMLDivElement>; "aria-label"?: string }) {
+  const ruhig = useReducedMotion();
   return (
     <motion.div key={id} ref={innerRef} className={className} tabIndex={-1} role={label ? "region" : undefined} aria-label={label}
-      initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.2, ease: "easeOut" }}>
+      initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: ruhig ? 0 : 0.2, ease: "easeOut" }}>
       {children}
     </motion.div>
   );

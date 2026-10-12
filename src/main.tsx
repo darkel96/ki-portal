@@ -41,7 +41,7 @@ createRoot(document.getElementById("root")!).render(
         <AppsProvider>
           <MeinHubProvider>
             <RouterProvider router={router} />
-            <Toaster position="bottom-right" />
+            <Toaster />
           </MeinHubProvider>
         </AppsProvider>
       </TooltipProvider>

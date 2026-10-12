@@ -45,7 +45,7 @@ export const PropsSchemas = {
   textarea: z.object({ ...fieldBase, label: fieldBase.label.default("Textfeld"), rows: z.union([z.literal(3), z.literal(5), z.literal(9)]).default(5) }),
   select: z.object({ ...fieldBase, label: fieldBase.label.default("Auswahlliste"), optionen: z.array(z.string().min(1).max(120)).max(20).default(["Option A", "Option B"]) }),
   radio: z.object({ ...fieldBase, label: fieldBase.label.default("Auswahlknöpfe"), optionen: z.array(z.string().min(1).max(120)).max(20).default(["Option A", "Option B"]) }),
-  checkbox: z.object({ ...fieldBase, label: fieldBase.label.default("Ja, das trifft zu") }),
+  checkbox: z.object({ ...fieldBase, label: fieldBase.label.default("Bestätigung") }),
   number: z.object({ ...fieldBase, label: fieldBase.label.default("Zahl") }),
   date: z.object({ ...fieldBase, label: fieldBase.label.default("Datum") }),
   file: z.object({ ...fieldBase, label: fieldBase.label.default("Datei"), uebergabe: z.enum(["text", "referenz"]).default("text") }),

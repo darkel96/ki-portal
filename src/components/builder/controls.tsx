@@ -16,8 +16,8 @@ export function Fld({ label, hint, children, htmlFor }: { label: string; hint?: 
   );
 }
 
-export function TextFld({ label, value, onChange, onBlur, placeholder, hint, fehler, multiline, rows = 3, mono, id: idIn, inputRef }: {
-  label: string; value: string; onChange: (v: string) => void; onBlur?: () => void; placeholder?: string; hint?: ReactNode; multiline?: boolean; rows?: number; mono?: boolean; id?: string;
+export function TextFld({ label, value, onChange, onBlur, placeholder, hint, fehler, multiline, rows = 3, mono, id: idIn, inputRef, disabled }: {
+  label: string; value: string; onChange: (v: string) => void; onBlur?: () => void; placeholder?: string; hint?: ReactNode; multiline?: boolean; rows?: number; mono?: boolean; id?: string; disabled?: boolean;
   /** Fehlermeldung direkt unter dem Feld; setzt aria-invalid. */
   fehler?: string;
   inputRef?: React.Ref<HTMLInputElement | HTMLTextAreaElement>;
@@ -29,8 +29,8 @@ export function TextFld({ label, value, onChange, onBlur, placeholder, hint, feh
   return (
     <Fld label={label} hint={hint} htmlFor={id}>
       {multiline
-        ? <Textarea id={id} ref={inputRef as React.Ref<HTMLTextAreaElement>} rows={rows} value={value} placeholder={placeholder} onChange={(e) => onChange(e.target.value)} onBlur={onBlur} className={mono ? "mono-ta" : undefined} {...a11y} />
-        : <Input id={id} ref={inputRef as React.Ref<HTMLInputElement>} value={value} placeholder={placeholder} onChange={(e) => onChange(e.target.value)} onBlur={onBlur} className={mono ? "font-mono text-[13px]" : undefined} {...a11y} />}
+        ? <Textarea id={id} ref={inputRef as React.Ref<HTMLTextAreaElement>} rows={rows} value={value} placeholder={placeholder} disabled={disabled} onChange={(e) => onChange(e.target.value)} onBlur={onBlur} className={mono ? "mono-ta" : undefined} {...a11y} />
+        : <Input id={id} ref={inputRef as React.Ref<HTMLInputElement>} value={value} placeholder={placeholder} disabled={disabled} onChange={(e) => onChange(e.target.value)} onBlur={onBlur} className={mono ? "font-mono text-[13px]" : undefined} {...a11y} />}
       {fehler && <span id={fid} className="fld-fehler">{fehler}</span>}
     </Fld>
   );
