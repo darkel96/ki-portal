@@ -31,12 +31,18 @@ test("Copilot-Antworten: entdoppeln, JSON, Streaming", async ({ page }) => {
     // Trennzeichen vor der Zweitfassung
     const getrennt = await c.streamLesen(sse([conv(lang), conv(lang + "\n\n---\n\n" + lang.slice(0, 30)), conv(lang + "\n\n---\n\n" + lang)]), "FRAGE", () => {}, 0, {});
     const getrenntEnde = c.entdoppeln(lang + "\n\n---\n\n" + lang);
+    // Abweichung mitten im Text: erste Quellenzeile korrigiert, danach noch eine zweite Quellenzeile
+    const mitteA = "Das Hardening muss aus dem Security Design abgeleitet und dokumentiert werden. Dafür wäre das Template erforderlich.\n\nQuelle: https://x.sharepoint.com/Training/CRA%20Schulung%20Termin%201%20(1.docx)  \nQuelle: https://x.sharepoint.com/KPSS%20Templates/Archive/CRA_Anforderungen_Vereinfacht.docx";
+    const mitteB = mitteA.replace("(1.docx)", "(1).docx");
+    const mitteTeile: string[] = [];
+    const mitte = await c.streamLesen(sse([conv(mitteA), conv(mitteA + mitteB.slice(0, 60)), conv(mitteA + mitteB.slice(0, 200)), conv(mitteA + mitteB)]), "FRAGE", (t) => mitteTeile.push(t), 0, {});
+    const mitteEnde = c.entdoppeln(mitteA + mitteB);
     const jsonNicht = new Response(JSON.stringify({ messages: [{ text: "FRAGE" }, { text: "Antwort" }] }), { headers: { "content-type": "application/json" } });
     const ohneStream = await c.streamLesen(jsonNicht, "FRAGE", () => {}, 0, {});
     return {
       doppelt: c.entdoppeln(A + A), doppeltLeer: c.entdoppeln(A + "\n\n" + A), einfach: c.entdoppeln(A), kurz: c.entdoppeln("abab"),
       json: k.jsonAus('Hier: {"a":"}{","b":{"c":1}}{"a":"}{","b":{"c":1}}'), jsonFence: k.jsonAus('```json\n{"x":"\\"}"}\n```'),
-      kum, teile, delta, geteilt, ohneStream, umgeschrieben, streamDoppelt, doppelTeile, lang, korrigiert, korrigiertTeile, korrigiertEnde, dann, erst, getrennt, getrenntEnde,
+      kum, teile, delta, geteilt, ohneStream, umgeschrieben, streamDoppelt, doppelTeile, lang, korrigiert, korrigiertTeile, korrigiertEnde, dann, erst, getrennt, getrenntEnde, mitte, mitteTeile, mitteEnde, mitteB,
     };
   });
   expect(r.doppelt).toBe("## Variante 1\nText mit genug Länge für den Test.");
@@ -54,6 +60,9 @@ test("Copilot-Antworten: entdoppeln, JSON, Streaming", async ({ page }) => {
   expect(r.korrigiert).toBe(r.dann);
   expect(r.korrigiertTeile).toEqual([r.erst, r.dann]);
   expect(r.korrigiertEnde).toBe(r.dann);
+  expect(r.mitte).toBe(r.mitteB);
+  expect(r.mitteTeile.length).toBe(2);
+  expect(r.mitteEnde).toBe(r.mitteB);
   expect(r.getrennt).toBe(r.lang);
   expect(r.getrenntEnde).toBe(r.lang);
   expect(r.doppelTeile).toEqual([r.lang.slice(0, 30), r.lang]);

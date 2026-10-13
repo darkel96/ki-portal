@@ -72,10 +72,33 @@ function letzterText(antwort: unknown, frage: string): string {
   return text;
 }
 
-/** Zwei Texte sind (fast) gleich: gleicher Anfang über mindestens 90 % der Länge, Längen höchstens 12 Zeichen auseinander */
-function fastGleich(a: string, b: string): boolean {
+/** Länge des gemeinsamen Endes zweier Texte */
+function gemeinsamesEnde(a: string, b: string): number {
+  const n = Math.min(a.length, b.length);
+  let i = 0;
+  while (i < n && a.charCodeAt(a.length - 1 - i) === b.charCodeAt(b.length - 1 - i)) i++;
+  return i;
+}
+/**
+ * Zwei Texte sind (fast) gleich: gemeinsamer Anfang plus gemeinsames Ende decken mindestens 90 % der Länge ab,
+ * die Längen liegen höchstens 12 Zeichen auseinander. So zählt auch eine Abweichung mitten im Text (z. B. eine
+ * korrigierte Adresse in der ersten von zwei Quellenzeilen) noch als Doppel.
+ */
+export function fastGleich(a: string, b: string): boolean {
   if (Math.abs(a.length - b.length) > 12) return false;
-  return gemeinsamerAnfang(a, b) >= Math.min(a.length, b.length) * 0.9;
+  const n = Math.min(a.length, b.length);
+  if (!n) return false;
+  const vorn = gemeinsamerAnfang(a, b);
+  const hinten = Math.min(gemeinsamesEnde(a, b), n - vorn);
+  return vorn + hinten >= n * 0.9;
+}
+/** Ist „rest“ der (noch wachsende) Anfang einer Zweitfassung von „text“? Kleine Längenverschiebungen sind erlaubt. */
+function zweitfassung(text: string, rest: string): boolean {
+  for (let d = -12; d <= 12; d++) {
+    const z = text.slice(0, rest.length + d);
+    if (z.length >= 20 && fastGleich(rest, z)) return true;
+  }
+  return false;
 }
 
 /**
@@ -88,7 +111,8 @@ export function entdoppeln(text: string): string {
   const mitte = Math.floor(t.length / 2);
   for (let k = mitte - 12; k <= mitte + 12; k++) {
     if (k < 20 || k > t.length) continue;
-    const a = t.slice(0, k).trim(), b = t.slice(k).trim();
+    // Trennzeichen („---“) zwischen den Fassungen gehören zu keiner von beiden
+    const a = t.slice(0, k).trim().replace(/(?:\n\s*[-*_]{3,}\s*)+$/, ""), b = t.slice(k).trim().replace(/^(?:[-*_]{3,}\s*\n\s*)+/, "");
     if (a.length >= 20 && b.length >= 20 && fastGleich(a, b)) return b;
   }
   return t;
@@ -141,7 +165,7 @@ export async function streamLesen(res: Response, frage: string, onTeil: (t: stri
       // Vor der Zweitfassung stehen manchmal noch Trennzeichen („---“, „***“): den Anfang des Texts darin suchen
       const anfang = text.length >= 40 ? rest.indexOf(text.slice(0, 25)) : -1;
       if (anfang > 0 && anfang <= 12) rest = rest.slice(anfang);
-      if (text.length >= 40 && rest.length >= 20 && gemeinsamerAnfang(text, rest) >= Math.min(text.length, rest.length) * 0.9) {
+      if (text.length >= 40 && rest.length >= 20 && zweitfassung(text, rest)) {
         // Zweitfassung wächst noch: nichts anzeigen; ist sie (fast) vollständig, gilt die spätere Fassung
         if (rest.length >= text.length - 12) text = rest;
       } else text = t;
