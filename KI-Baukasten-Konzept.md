@@ -886,3 +886,44 @@ MeinHub {
 - Tempo und Anmeldung: Schritte, die nicht aufeinander aufbauen (keine Platzhalter auf das Ergebnis des anderen, keine Bedingung darauf), laufen gleichzeitig. Text-Ergebnisse wachsen sichtbar mit (Copilot `chatOverStream`, Rückfall auf `/chat`, wenn der Tenant kein Streaming anbietet). Nach jedem Aufruf liegt schon das nächste Copilot-Gespräch bereit. Beim Seitenstart meldet der Hub still an (Zwischenspeicher bzw. Single Sign-on, ohne Fenster) und bereitet ein Gespräch vor; der MSAL-Zwischenspeicher liegt in `localStorage`, damit die Anmeldung über Tabs hinweg hält. Doppelt gelieferte Copilot-Antworten (A + A) werden bereinigt, JSON wird mit Klammerzählung ausgelesen. Im KI-Menü zeigt „Verbindung testen“ die Dauer je Phase; die letzte Rohantwort von Graph lässt sich zur Prüfung kopieren.
 - Gestaltung nach dem KSCA-Portal „Charlestown“: weiße Kopfzeile mit Körber-Logo und „KSCA“, Warmgrau-Band mit Rubrik, Titel, Einleitung und Kennzahlen, Bereichsfilter als Pillen (aktiv Körber-Blau), Kacheln als weiße Karten (Radius 10 px, Haarlinie, Symbolfläche in Hellblau, Rubrik in gesperrten Großbuchstaben, Fußzeile mit Status-Punkt und Pfeil), gestrichelte Karte „Neue Applikation“, Fußzeilen-Band. Eine Schrift (Noto Sans) in Normal und Fett; KI-Aktionen und Hauptschaltflächen in Körber-Blau; nur heller Modus.
 - Anmeldetor (`src/components/layout/Anmeldung.tsx`): Mit Copilot-Anbindung ist der Hub erst nach der Anmeldung nutzbar. Reihenfolge still (Zwischenspeicher, `ssoSilent` mit 3-s-Grenze) → einmal je Sitzung automatische Weiterleitung (`loginRedirect`, Rückkehr über `auth-redirect.html` und `handleRedirectPromise`) → Maske mit Knopf nur bei Fehler. Kopfzeile zeigt Initialen und Namen; „Jetzt anmelden“ im KI-Menü nutzt ebenfalls die Weiterleitung.
+
+## 25. Prüfseite, Dateipakete mit Vorlagen und Leitlinien aus dem Serviceangebot-Piloten
+
+Der Pilot „Serviceangebot vorbereiten“ (Nachbau der Serviceangebote-App auf CHARLESTOWN) hat den Baukasten um drei
+Fähigkeiten und eine Reihe von Leitlinien erweitert. Sie gelten für alle Apps und sind dem KI-Assistenten als Wissen
+mitgegeben (`src/lib/assistant.ts`).
+
+### 25.1 Prüfseite (Felder aus einem KI-Ergebnis)
+
+- Ein Schritt mit Ausgabeformat „JSON-Daten“ liest eine Datei oder einen Text. Eingabefelder tragen `aus: "<key>.<pfad>"`
+  (Baukasten: „Vorbelegen aus KI-Ergebnis“). Sobald der Schritt fertig ist, stehen die Werte in den Feldern; Auswahllisten
+  werden auf ihre Optionen abgebildet, Ankreuzfelder auf ja/nein, Datum und Zahl werden normalisiert (`src/lib/vorbelegung.ts`).
+- Je Feld darf die KI ein Objekt `{"wert", "hinweis", "klaeren"}` liefern: Hinweis unter dem Feld, `klaeren: true` markiert
+  es gelb mit „Zu klären“, bis die Person es setzt. Eine Auswahl ohne passende Option gilt automatisch als zu klären.
+- „Weiter“ auf eine Prüfseite startet den Lese-Schritt im Hintergrund; eine Leiste zeigt „läuft“, Fehler mit „Erneut
+  versuchen“, Simulation. Solange er läuft oder Pflichtfelder für ihn fehlen, ist „Weiter“ gesperrt (Tooltip nennt den Grund).
+- Von Hand geänderte Werte bleiben bei einem erneuten Lauf erhalten. Lese-Schritte bekommen keine Ergebnis-Kachel; die
+  Ergebnisübersicht startet sie nie mit.
+- Ein Ergebnis-Element kann mit `pfad` nur einen Teil eines JSON zeigen (Text als Markdown, Listen, Tabellen).
+
+### 25.2 Dateipakete mit Originalvorlagen aus SharePoint
+
+- Ein Schritt mit Format „Dateipaket“ und einer Wissensquelle vom Typ SharePoint (Ordneradresse) bekommt vor dem Aufruf die
+  Dateiliste des Ordners (`src/lib/ki/vorlagen.ts`: Website → Bibliothek → Pfad, ohne Archivordner, gleiche Namen mit gleichem
+  Hash einmal, mit unterschiedlichem Hash markiert).
+- Das Paket darf `ordner` (leere Ordner) und `kopien` (`quelle` aus der Liste → `ziel`) enthalten; beim ZIP lädt der Hub die
+  Kopien unverändert (Dateiname bleibt), Fehler landen in `FEHLENDE_VORLAGEN.txt`.
+- Word-Dateien werden mit Kästchen gelesen (`src/lib/docx.ts`): Inhaltssteuerelemente, alte Formularfelder, Wingdings-Symbole
+  und gezeichnete Kästchen (kleine Textfelder mit „x“) als ☒/☐, Tabellen zeilenweise mit „|“.
+
+### 25.3 Leitlinien
+
+1. So schlank wie möglich: nur Schritte und Seiten, die der Prozess braucht; keine optionalen Zusatzschritte, keine Erklärkästen.
+2. „Weiter“ trägt den Ablauf; Buttons nur, wenn ein Schritt bewusst von Hand gestartet werden soll.
+3. Jede Seite ohne Scrollen: höchstens etwa 9 Felder, gleichartige Felder in Zeilen zu dritt, sonst auf mehrere Seiten verteilen.
+   Der Baukasten warnt ab 10 Feldern je Seite.
+4. Die KI entscheidet nichts, der Mensch bestätigt: gelesene Werte in Auswahlfeldern mit festen Optionen, Unklares markiert.
+5. Fachregeln vollständig und wörtlich im Prompt des Schritts, als Liste; nichts erfinden, Unklares als offenen Punkt nennen.
+6. Pflichtfelder nur für das, was der nächste Schritt zwingend braucht.
+
+Vorbild: `src/lib/seedServiceangebot.ts` (Produkte, Ordner, Dokumente je Sprache nach `regeln.py` und `checkliste.py` der Originalapp).

@@ -12,10 +12,10 @@ import type { AssistScope } from "@/lib/sanitize";
 import type { Builder } from "./useBuilder";
 
 const VORSCHLAEGE = [
+  "Lies die hochgeladene Datei und lass die Werte auf einer Prüfseite mit Auswahlfeldern bestätigen",
+  "Erzeuge am Ende ein ZIP mit Ordnerstruktur und den Originalvorlagen aus SharePoint",
   "Verteile die Eingaben auf zwei Seiten",
-  "Füge oben einen Hinweis zum Datenschutz ein",
   "Gestalte es seriös in Dunkelblau mit runden Ecken",
-  "Teile den Ablauf in zwei Schritte: erst analysieren, dann Antwort formulieren",
   "Mach daraus ein Agenten-Team aus Planer, Fachexperte und Prüfer",
 ];
 /** Wortlaut der Erfolgsmeldung je Umfang: „Nur Design“ darf keine Strukturänderungen behaupten. */

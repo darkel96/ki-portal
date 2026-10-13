@@ -146,6 +146,8 @@ function StepCard({ b, i, onAktiv }: { b: Builder; i: number; onAktiv: (id: stri
           onChange={(v) => set("datei", v === "keine" ? "" : (v as Step["datei"]))} />
       )}
       {s.format !== "json" && <p className="hint" style={{ margin: 0 }}>Der Hub erzeugt die Datei selbst aus dem Ergebnis, die KI liefert nur den Inhalt. Unter jedem Ergebnis lässt sich außerdem jede andere Datei-Art herunterladen.</p>}
+      {s.format === "json" && <p className="hint" style={{ margin: 0 }}>Prüfseite: Eingabefelder können aus diesem JSON vorbelegt werden (am Feld „Vorbelegen aus KI-Ergebnis“, z. B. „{s.key}.kunde“). Liefert die KI je Feld ein Objekt {"{"}"wert", "hinweis", "klaeren"{"}"}, steht der Hinweis unter dem Feld und „klaeren: true“ markiert es gelb. Der Schritt startet von selbst, wenn die Person auf die Prüfseite blättert; er braucht kein Ergebnis-Element.</p>}
+      {s.format === "dateien" && s.quellen.some((q) => q.typ === "sharepoint" && q.url.trim()) && <p className="hint" style={{ margin: 0 }}>Vorlagen aus SharePoint: Der Hub listet den Ordner der Wissensquelle vor dem Aufruf auf. Die KI darf im Paket „ordner“ (leere Ordner) und „kopien“ (Quelle aus der Liste → Ziel im Paket) angeben; die Kopien werden beim ZIP unverändert geladen. Die Regeln, welche Vorlage wohin gehört, stehen in der Aufgabe.</p>}
       <Check label="Alle Eingaben automatisch anhängen" hint="Ohne Platzhalter: Jedes Feld kommt mit Bezeichnung unten an die Aufgabe." checked={s.autoAll} onChange={(v) => set("autoAll", v)} />
       <Check label="Websuche erlauben" hint="Wirkt nur mit Copilot." checked={s.web} onChange={(v) => set("web", v)} />
       <div className="flex flex-wrap items-center gap-2">

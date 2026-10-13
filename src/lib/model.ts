@@ -333,7 +333,18 @@ export function appWarnings(app: App): Warnung[] {
   });
   if (app.steps.length && !hasBtn) hard("Auf der Oberfläche fehlt ein KI-Button, der den Ablauf startet.");
   seitenVon(app).forEach((p, i) => { if (!p.children?.length) soft(`Seite ${i + 1} „${(p.props as PropsOf<"seite">).titel}“ ist leer.`); });
-  app.steps.forEach((s, i) => { if (!outSrc.has(s.id)) soft(`Für „${stepName(s, i)}“ gibt es kein Ergebnis-Element. Das Ergebnis erscheint als Kachel in der Ergebnisübersicht der App.`); });
+  const ausKeys = new Set(fieldsOf(app).map((b) => b.props.aus.trim().split(".")[0].toLowerCase()).filter(Boolean));
+  app.steps.forEach((s, i) => {
+    if (outSrc.has(s.id)) return;
+    // Lese-Schritte einer Prüfseite: ihr Ergebnis sind die vorbelegten Felder, keine Kachel nötig
+    if (ausKeys.has(s.key.toLowerCase())) return;
+    soft(`Für „${stepName(s, i)}“ gibt es kein Ergebnis-Element. Das Ergebnis erscheint als Kachel in der Ergebnisübersicht der App.`);
+  });
+  seitenVon(app).forEach((p, i) => {
+    let n = 0;
+    walk(p.children ?? [], (b) => { if (isFieldType(b.type)) n++; });
+    if (n > 9) soft(`Seite ${i + 1} „${(p.props as PropsOf<"seite">).titel}“ hat ${n} Eingabefelder und passt vermutlich nicht ohne Scrollen auf den Bildschirm. Auf zwei Seiten verteilen.`);
+  });
   fieldsOf(app).forEach((b) => { if (!stepsUsing(app, b.props.key).length) soft(`Die Eingabe „${b.props.label}“ geht an keinen KI-Schritt.`); });
   // Vorbelegung aus einem KI-Ergebnis: der Schritt muss existieren und JSON liefern
   fieldsOf(app).forEach((b) => {
