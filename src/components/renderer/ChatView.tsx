@@ -9,6 +9,7 @@ import { markdown } from "@/lib/markdown";
 import { FILE_ACCEPT, UnsupportedFormatError, loadImage, readFileInfo } from "@/lib/files";
 import { diktatKorrigieren, fachbegriffe } from "@/lib/diktat";
 import { linkQuellen } from "@/lib/links";
+import { NACHSCHLAGEN, NACHSCHLAGEN_REGEL, nachschlagenAus } from "@/lib/nachschlagen";
 
 import { useRun } from "./runContext";
 import type { Mode } from "./BlockContent";
@@ -20,6 +21,8 @@ type Nachricht = { von: "mensch" | "experte"; text: string; simulation?: string;
 const MAX_VERLAUF = 12;   // Beiträge, die die KI als Verlauf mitbekommt
 const MAX_ANHANG_TEXT = 30_000;   // Zeichen je Dokument in der Anfrage
 const MAX_BILDER = 4;   // Bilder, die eine volle Anfrage höchstens mitnimmt (die jüngsten)
+const MAX_NACHSCHLAGEN = 2;   // weitere Suchdurchläufe je Frage, wenn die Auszüge auf andere Dokumente verweisen
+
 const CHAT_ACCEPT = `${FILE_ACCEPT},image/*`;
 
 /** Anhänge als Text für die Anfrage: Dokumente mit Inhalt, Bilder als Hinweis (sie liegen der Anfrage bei) */
@@ -142,6 +145,7 @@ export function ChatView({ app, b, mode }: { app: App; b: Extract<Block, { type:
     const setzeAntwort = (patch: Partial<Nachricht>) => setVerlauf((v) => v.map((n, i) => (i === v.length - 1 ? { ...n, ...patch } : n)));
     // Suchtext für die Wissensquellen: die Frage, davor die letzten beiden Fragen der Person als Zusammenhang („was beinhaltet er“)
     const suche = [...bisher.filter((n) => n.von === "mensch").slice(-2).map((n) => n.text), f].join(" | ");
+    const mitRegel = (rolle: string) => `${rolle.trim()}\n\n${NACHSCHLAGEN_REGEL}`;
     const mitAnhang = (prompt: string, a: Anhang[]) => (a.length ? `${prompt.trim()}\n\n${anhangText(a)}` : prompt);
     const bilderVon = (a: Anhang[]) => a.filter((x) => x.art === "bild" && x.daten).slice(-MAX_BILDER).map((x) => ({ name: x.name, daten: x.daten! }));
     // Volle Anfrage: Rolle, Wissen, Auszüge, Verlauf als Text (nur die letzten Beiträge), alle Anhänge des Gesprächs und die Frage
@@ -154,20 +158,30 @@ export function ChatView({ app, b, mode }: { app: App; b: Extract<Block, { type:
       const alle = [...gesendet.current, ...neu];
       // Links aus allen Fragen des Gesprächs bleiben als Quellen dabei
       const links = linkQuellen([...bisher.filter((n) => n.von === "mensch").map((n) => n.text), f].join("\n"));
-      const chatStep = { ...step, prompt: mitAnhang(fill(prompt, ctx), alle), format: "markdown" as const, quellen: [...step.quellen, ...links] };
+      const chatStep = { ...step, rolle: mitRegel(step.rolle), prompt: mitAnhang(fill(prompt, ctx), alle), format: "markdown" as const, quellen: [...step.quellen, ...links] };
       const req = await anfrageVorbereiten(app, chatStep, ctx, run.files, c.signal, (m) => setStand(m), suche);
       return { ...req, bilder: bilderVon(alle) };
+    };
+    // Nachschlagen: Auszüge zu den Begriffen holen und die Frage damit noch einmal stellen (im Gespräch kurz, sonst mit Rolle)
+    const nachschlagen = async (begriffe: string, letzter: boolean) => {
+      setStand(`Schlägt nach: ${begriffe}\u00a0…`);
+      const ctx = { ...kontext(app, run.werte, run.files), frage: frageText, verlauf: "" };
+      const prompt = `Nachgeschlagen zu „${begriffe}“, die Auszüge stehen unten. Beantworte damit jetzt die Frage${letzter ? "; es wird nichts mehr nachgeschlagen, antworte endgültig, auch wenn etwas fehlt" : ""}.\n\nFrage: ${frageText}`;
+      const chatStep = { ...step, rolle: mitRegel(step.rolle), prompt, format: "markdown" as const, quellen: [...step.quellen, ...linkQuellen(f)] };
+      const req = await anfrageVorbereiten(app, chatStep, ctx, run.files, c.signal, (m) => setStand(m), begriffe);
+      return { ...req, system: gespraech.current ? "" : req.system, bilder: [] as { name: string; daten: string }[] };
     };
     // Folgefrage im weitergeführten Gespräch: nur die Frage, neue Anhänge und passende Auszüge, keine Rolle und kein Verlauf
     const kurz = async () => {
       const ctx = { ...kontext(app, run.werte, run.files), frage: frageText, verlauf: "" };
-      const chatStep = { ...step, prompt: mitAnhang(`Frage: ${frageText}`, neu), format: "markdown" as const, quellen: [...step.quellen, ...linkQuellen(f)] };
+      const chatStep = { ...step, rolle: mitRegel(step.rolle), prompt: mitAnhang(`Frage: ${frageText}`, neu), format: "markdown" as const, quellen: [...step.quellen, ...linkQuellen(f)] };
       const req = await anfrageVorbereiten(app, chatStep, ctx, run.files, c.signal, (m) => setStand(m), suche);
       return { ...req, system: "", bilder: bilderVon(neu) };
     };
     const senden = (req: Awaited<ReturnType<typeof voll>>) => {
       setStand(req.bilder?.length ? "Bilder werden übergeben\u00a0…" : "");
-      return kiSenden(req, c.signal, (t) => { if (!c.signal.aborted) { bisherText = t; setzeAntwort({ text: t }); } }, { gespraech: gespraech.current ?? undefined, onGespraech: (id) => { gespraech.current = id; } });
+      // Eine „NACHSCHLAGEN:“-Zeile ist keine Antwort und wird nicht angezeigt
+      return kiSenden(req, c.signal, (t) => { if (!c.signal.aborted && !NACHSCHLAGEN.test(t.trim().slice(0, 40))) { bisherText = t; setzeAntwort({ text: t }); } }, { gespraech: gespraech.current ?? undefined, onGespraech: (id) => { gespraech.current = id; } });
     };
     try {
       let text: string;
@@ -179,6 +193,13 @@ export function ChatView({ app, b, mode }: { app: App; b: Extract<Block, { type:
         gespraech.current = null;
         text = await abbrechbar(senden(await abbrechbar(voll(), c.signal)), c.signal);
       }
+      // Verweisen die Auszüge auf andere Dokumente: dort nachschlagen und erneut fragen (höchstens MAX_NACHSCHLAGEN-mal)
+      for (let runde = 1; runde <= MAX_NACHSCHLAGEN; runde++) {
+        const begriffe = nachschlagenAus(text);
+        if (!begriffe) break;
+        text = await abbrechbar(senden(await abbrechbar(nachschlagen(begriffe, runde === MAX_NACHSCHLAGEN), c.signal)), c.signal);
+      }
+      if (nachschlagenAus(text)) text = "Dazu habe ich in den hinterlegten Unterlagen nichts gefunden.";
       gesendet.current = [...gesendet.current, ...neu];
       setzeAntwort({ text });
     } catch (e) {
