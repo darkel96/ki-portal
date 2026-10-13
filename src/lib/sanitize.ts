@@ -94,18 +94,20 @@ export function sanitizeApp(raw: unknown, base: App): App {
     ueberschrift: "heading", absatz: "text", paragraph: "text", hinweis: "callout", abschnitt: "section", spalten: "columns",
     ergebnis: "output", knopf: "button", bild: "image", page: "seite",
   };
-  function sb(b: unknown, depth: number): Block[] {
-    if (!isObj(b) || typeof b.type !== "string" || depth > 5) return [];
-    if (!(BLOCK_TYPES as string[]).includes(b.type)) {
-      const t = SYNONYME[b.type.toLowerCase().replace(/ä/g, "ae").replace(/ö/g, "oe").replace(/ü/g, "ue")];
+  function sb(roh: unknown, depth: number): Block[] {
+    if (!isObj(roh) || typeof roh.type !== "string" || depth > 5) return [];
+    const b: Obj = roh;
+    let typName: string = roh.type;
+    if (!(BLOCK_TYPES as string[]).includes(typName)) {
+      const t = SYNONYME[typName.toLowerCase().replace(/ä/g, "ae").replace(/ö/g, "oe").replace(/ü/g, "ue")];
       if (!t) return [];
-      b = { ...b, type: t };
+      typName = t;
     }
-    if (b.type === "seite" && depth > 0) return [];   // Seiten nur auf oberster Ebene
+    if (typName === "seite" && depth > 0) return [];   // Seiten nur auf oberster Ebene
     // „columns“ mit children statt cols (häufiger KI-Fehler): die Felder stehen dann einfach nacheinander;
     // gleichartige Felder ordnet die App ohnehin zu dritt nebeneinander an
-    if (b.type === "columns" && !Array.isArray(b.cols) && Array.isArray(b.children)) return liste(b.children, depth);
-    const type = b.type as BlockType;
+    if (typName === "columns" && !Array.isArray(b.cols) && Array.isArray(b.children)) return liste(b.children, depth);
+    const type = typName as BlockType;
     const props = objectLenient(PropsSchemas[type] as z.ZodObject, b.props) as Obj;
     const nb = { id: cleanId(b.id, "b"), type, props } as Block;
     if (isFieldType(type)) {
