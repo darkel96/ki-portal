@@ -17,6 +17,8 @@ export const SA_PRODUKTE: { key: string; titel: string; sap: string; ordner: str
   { key: "residentmaintenance", titel: "Resident Maintenance", sap: "Z61", ordner: "RS_{nr}_Resident_Maintenance", suppliers: [], kalkulation: "Resident Maintenance_Servicekalkulation.xltm" },
 ];
 const STATUS = ["Ja", "Nein", "Unklar", "Widersprüchlich"];
+/** Vorlagenordner wie in konfiguration.py der Serviceangebote-App: Website aberle-doc, Bibliothek Prozessdokumente */
+export const SA_VORLAGEN_URL = "https://koerbergroup.sharepoint.com/sites/aberle-doc/Prozessdokumente/Service/Vorlagen und Formblätter";
 const STANDARD = ["01_Request", "02_Offer", "02_Offer/Rev00", "03_Calculation", "03_Calculation/Rev00", "04_Suppliers", "05_Layout", "06_Configuration", "07_Correspondence", "08_Pictures"];
 const PLATZHALTER = "1900xxxxx";
 
@@ -162,7 +164,7 @@ ${ANGABEN}` },
 
 ${ANGABEN}` },
       { id: "sa-struktur", name: "Angebotsstruktur", key: "struktur", rolle, modell: "complex", format: "dateien",
-        quellen: [{ typ: "sharepoint", titel: "Service/Vorlagen und Formblätter (SharePoint aberle-doc)", url: "" }],
+        quellen: [{ typ: "sharepoint", titel: "Vorlagen und Formblätter (SharePoint aberle-doc, Prozessdokumente)", url: SA_VORLAGEN_URL }],
         prompt: `Auftrag: Baue die Angebotsstruktur als Dateipaket mit leeren Ordnern ("ordner"), Kopien der Originalvorlagen ("kopien") und zwei Textdateien ("dateien").
 
 ${STRUKTUR_REGELN}
