@@ -84,7 +84,7 @@ test("Serviceangebot: Checkliste lesen, Prüfseite korrigieren, ZIP", async ({ p
   // Korrektur von Hand bleibt erhalten und geht in die nächsten Schritte
   await page.getByLabel("Resident Maintenance (Z61)").selectOption("Nein");
 
-  await page.getByRole("navigation", { name: "Seiten blättern" }).getByRole("button", { name: /Weiter/ }).click();
+  // Hinweise stehen auf derselben Seite wie die Korrekturen (wie im Original), alle optional
   await page.getByRole("button", { name: "Checkliste plausibilisieren" }).click();
   await expect(page.locator('[data-src][data-status="fertig"]', { hasText: "Plausibilisierung" })).toBeVisible({ timeout: 10_000 });
   expect(prompts.at(-1)).toContain("Resident Maintenance (Z61): Status Nein");

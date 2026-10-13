@@ -1,7 +1,7 @@
 /**
  * Vorlage „Serviceangebot vorbereiten“: der Ablauf der Serviceangebote-App (CHARLESTOWN) als Hub-Applikation.
- * 1 Checkliste hochladen → Copilot liest sie (JSON) → 2 Prüfseite: gelesene Werte korrigieren → 3 Hinweise von
- * Copilot (plausibilisieren, unklare Kästchen, Rückfrage) → Zusammenfassung (Word) und Angebotsstruktur als ZIP
+ * 1 Checkliste hochladen → Copilot liest sie (JSON) → 2 Prüfseite: gelesene Werte in Auswahlfeldern korrigieren, daneben
+ * die optionalen Hinweise von Copilot (unklare Kästchen, plausibilisieren, Rückfrage) → Zusammenfassung (Word) und Angebotsstruktur als ZIP
  * mit den Originalvorlagen aus SharePoint. Copilot entscheidet nichts: Welche Produkte angelegt werden, bestimmt
  * der Status, den die Person auf der Prüfseite bestätigt. Produkte, Ordner und Dokumente: regeln.py der Serviceangebote-App.
  */
@@ -94,17 +94,17 @@ export function serviceangebotApp(): App {
       ]),
       block("section", { pad: "m", border: true }, [
         block("heading", { text: "Produkte: Status bestätigen", level: 3 }),
+        block("text", { text: "Der Status kommt aus dem Kreuz in der Checkliste. Bei Unklar oder Widersprüchlich hier von Hand setzen; nur „Ja“ bekommt einen Ordner.", size: "s" }),
         { id: id(), type: "columns", props: { count: 2 }, cols: [produktFelder(SA_PRODUKTE.slice(0, 3)), produktFelder(SA_PRODUKTE.slice(3))] } as Block,
       ]),
-    ]),
-    seite("Hinweise von Copilot", [
-      block("heading", { text: "Hinweise von Copilot", level: 2 }),
-      block("text", { text: "Copilot liest die geprüften Angaben samt Korrekturen. Die Hinweise ändern nichts; die Entscheidung bleibt beim Sales-Service.", size: "s" }),
+      // Wie in der Serviceangebote-App: die KI-Hinweise stehen auf derselben Seite wie die Korrekturen, alle optional
       block("section", { pad: "m", border: true }, [
-        block("button", { text: "Checkliste plausibilisieren", aktion: "sa-plausibel", stil: "outline" }),
-        block("output", { titel: "Plausibilisierung", quelle: "sa-plausibel", stil: "card" }),
+        block("heading", { text: "Hinweise von Copilot (optional)", level: 3 }),
+        block("text", { text: "Copilot liest die geprüften Angaben samt Korrekturen. Die Hinweise ändern nichts; die Entscheidung bleibt beim Sales-Service.", size: "s" }),
         block("button", { text: "Unklare Kästchen erklären", aktion: "sa-kaestchen", stil: "outline" }),
         block("output", { titel: "Unklare Kästchen", quelle: "sa-kaestchen", stil: "card" }),
+        block("button", { text: "Checkliste plausibilisieren", aktion: "sa-plausibel", stil: "outline" }),
+        block("output", { titel: "Plausibilisierung", quelle: "sa-plausibel", stil: "card" }),
         feld("textarea", { label: "Frage an Copilot", key: "frage", rows: 3, placeholder: "z. B. Welche Laufzeit steht beim Wartungsvertrag?", beispiel: "Welche Laufzeit steht beim Wartungsvertrag?" }),
         block("button", { text: "Fragen", aktion: "sa-frage", stil: "outline" }),
         block("output", { titel: "Antwort", quelle: "sa-frage", stil: "card" }),
