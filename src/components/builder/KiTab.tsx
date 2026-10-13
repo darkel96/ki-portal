@@ -6,7 +6,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import type { App, Step } from "@/lib/schema";
-import { DATEI_ZUSATZ, agentName, allKeys, appWarnings, fieldsOf, makeStep, renameRefs, rid, slug, stepName, stepText, stepsUsing, uniqueKey, varsIn, walk } from "@/lib/model";
+import { CHAT_KEYS, DATEI_ZUSATZ, agentName, allKeys, appWarnings, chatSteps, fieldsOf, makeStep, renameRefs, rid, slug, stepName, stepText, stepsUsing, uniqueKey, varsIn, walk } from "@/lib/model";
 import { FORMAT_LABEL, MODELL_LABEL, buildRequest, graphPreview } from "@/lib/request";
 import { WISSEN_MODUS_LABEL } from "@/lib/schema";
 import { QuellenEditor } from "./QuellenEditor";
@@ -32,10 +32,14 @@ function insertAt(el: HTMLTextAreaElement | null, text: string, apply: (v: strin
 /** Merkt sich, dass ein Feld einmal fokussiert war (für insertAt). */
 const beruehrt = (e: React.FocusEvent<HTMLTextAreaElement>) => { e.currentTarget.dataset.beruehrt = "1"; };
 
+const CHAT_LABEL: Record<(typeof CHAT_KEYS)[number], string> = { frage: "Frage im Chat", verlauf: "Bisheriger Verlauf" };
+
 function VarChips({ app, i, onInsert }: { app: App; i: number; onInsert: (t: string) => void }) {
+  const imChat = chatSteps(app).has(app.steps[i].id);
   return (
     <div className="vars" role="group" aria-label="Eingaben und Ergebnisse einsetzen">
       <span className="hint">Einsetzen:</span>
+      {imChat && CHAT_KEYS.map((k) => <button key={k} type="button" className="var" title={`Setzt {{${k}}} ein`} onClick={() => onInsert(`{{${k}}}`)}><Plus size={11} aria-hidden="true" />{CHAT_LABEL[k]}</button>)}
       {fieldsOf(app).map((b) => <button key={b.id} type="button" className="var" title={`Setzt {{${b.props.key}}} ein`} onClick={() => onInsert(`{{${b.props.key}}}`)}><Plus size={11} aria-hidden="true" />{b.props.label}</button>)}
       {fieldsOf(app).filter((b) => b.type === "file").flatMap((b) => DATEI_ZUSATZ.map((z) => (
         <button key={`${b.id}-${z.key}`} type="button" className="var" title={`Setzt {{${b.props.key}_${z.key}}} ein`} onClick={() => onInsert(`{{${b.props.key}_${z.key}}}`)}><Plus size={11} aria-hidden="true" />{z.label}: {b.props.label}</button>
@@ -72,7 +76,11 @@ function StepCard({ b, i, onAktiv }: { b: Builder; i: number; onAktiv: (id: stri
   const fl = fieldsOf(b.app).filter((x) => stepsUsing(b.app, x.props.key).includes(i)).map((x) => x.props.label);
   const prev = b.app.steps.slice(0, i).flatMap((p, pi) => varsIn(stepText(s)).includes(p.key.toLowerCase()) ? [`Ergebnis von ${stepName(p, pi)}`] : []);
   let anzeigen = 0;
-  walk(b.app.blocks, (x) => { if (x.type === "output" && x.props.quelle === s.id) anzeigen++; });
+  const chats: string[] = [];
+  walk(b.app.blocks, (x) => {
+    if (x.type === "output" && x.props.quelle === s.id) anzeigen++;
+    if (x.type === "chat" && x.props.quelle === s.id) chats.push(x.props.titel);
+  });
   const team = s.art === "team" && s.team;
   const [teil, setTeil] = useState("aufgabe");
   const aktTeil = teil === "team" && !team ? "aufgabe" : teil;
@@ -178,7 +186,7 @@ function StepCard({ b, i, onAktiv }: { b: Builder; i: number; onAktiv: (id: stri
       </Tabs>
       <div className="ki-fuss">
         <span className="hint">{[...fl, ...prev].length ? <>Bekommt: <b style={{ color: "var(--ink)", fontWeight: 600 }}>{[...fl, ...prev].join(", ")}</b></> : "Bekommt noch keine Eingaben."}</span>
-        <span className="hint" style={!anzeigen ? { color: "var(--tool-text)" } : undefined}>{anzeigen ? `Wird in ${anzeigen} Ergebnis-Element${anzeigen > 1 ? "en" : ""} angezeigt.` : "Kein Ergebnis-Element auf der Oberfläche. Das Ergebnis erscheint als Kachel in der Ergebnisübersicht."}</span>
+        <span className="hint" style={!anzeigen && !chats.length ? { color: "var(--tool-text)" } : undefined}>{chats.length ? `Antwortet als Experte im Chat „${chats.join("“, „")}“.` : anzeigen ? `Wird in ${anzeigen} Ergebnis-Element${anzeigen > 1 ? "en" : ""} angezeigt.` : "Kein Ergebnis-Element auf der Oberfläche. Das Ergebnis erscheint als Kachel in der Ergebnisübersicht."}</span>
       </div>
     </section>
   );

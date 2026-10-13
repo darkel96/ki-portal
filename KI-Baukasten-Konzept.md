@@ -953,4 +953,11 @@ Vorbild: `src/lib/seedServiceangebot.ts` (Produkte, Ordner, Dokumente je Sprache
 - Nicht halluzinieren ist eine Kombination: Wissensmodus „eingaben“ (Systemtext mit Wissensgrenze), Auszüge aus den
   Quellen in der Anfrage, Belegregel in der Rolle (Quelle nennen, Unbelegtes benennen, Zitat und Einordnung trennen).
   Vorlage `fachexperteCra()` in `src/lib/seeds.ts`.
-- Der Assistent kennt das Muster „Fachexperten-Chat“.
+- Der Assistent kennt das Muster „Fachexperten-Chat“. In der Prüfung und in den Einsetzen-Chips gelten `{{frage}}` und
+  `{{verlauf}}` für Schritte, die ein Chat als Experte nutzt (`CHAT_KEYS` in `src/lib/model.ts`).
+- Tempo: Bei Copilot führt der Chat dasselbe Gespräch weiter (`kiSenden(…, { gespraech, onGespraech })`): Die erste
+  Frage geht mit Rolle, Wissen, Auszügen und Verlauf, jede Folgefrage nur noch als „Frage: …“ plus frische Auszüge,
+  ohne Systemtext. Meldet Copilot das Gespräch als verfallen (`GespraechVerfallen`, 404), wiederholt der Chat die Frage
+  einmal mit vollem Kontext in einem neuen Gespräch. Dazu kommen der Gesprächs-Vorrat (nächstes Gespräch liegt schon
+  bereit) und ein Dateicache von 10 Minuten für einzelne Dateien als Wissensquelle (`src/lib/ki/wissen.ts`). Die
+  Antwortzeit von Copilot selbst (meist 5–20 s) lässt sich vom Hub aus nicht verkürzen.

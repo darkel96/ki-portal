@@ -6,6 +6,7 @@
 import { combinedMessage, type KiRequest } from "../request";
 import { copilotKonfiguriert } from "./config";
 import { copilotFragen } from "./copilot";
+export { GespraechVerfallen } from "./copilot";
 import { claudeFragen, imClaudeViewer } from "./claudeTest";
 import { apiSchluessel, claudeApiFragen } from "./claudeApi";
 
@@ -22,13 +23,14 @@ export class KiSimulation extends Error {
  * Sendet eine neutrale Anfrage. Wirft KiSimulation, wenn keine KI angebunden ist.
  * onTeil bekommt den bisher geschriebenen Text, solange die Antwort entsteht (Copilot und eigener Schlüssel).
  */
-export async function kiSenden(req: KiRequest, signal?: AbortSignal, onTeil?: (text: string) => void): Promise<string> {
+export type Gespraech = { gespraech?: string; onGespraech?: (id: string) => void };
+export async function kiSenden(req: KiRequest, signal?: AbortSignal, onTeil?: (text: string) => void, gespraech: Gespraech = {}): Promise<string> {
   const modus = kiModus();
   if (modus === "simulation") throw new KiSimulation(req);
   if (modus === "claude-test") return claudeFragen(combinedMessage(req), { signal, modell: req.modell });
   if (modus === "claude-api") return claudeApiFragen(combinedMessage(req), { signal, modell: req.modell, onTeil });
   const dateien = req.wissensquellen.filter((q) => q.typ === "datei" && q.url).map((q) => q.url);
-  return copilotFragen(combinedMessage(req), { web: req.websuche, dateien, signal, onTeil });
+  return copilotFragen(combinedMessage(req), { web: req.websuche, dateien, signal, onTeil, ...gespraech });
 }
 
 /** Freie Anfrage (KI-Assistent, Moderation im Agenten-Team). */

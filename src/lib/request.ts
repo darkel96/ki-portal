@@ -124,7 +124,7 @@ export function buildRequest(app: App, step: Step, ctx: Record<string, string>, 
 }
 
 /** Die Nachricht, wie sie als ein Text an Copilot geht (Copilot kennt keine getrennte System-Nachricht). */
-export const combinedMessage = (req: Pick<KiRequest, "system" | "nachricht">) => `${req.system}\n\n---\n\n${req.nachricht}`;
+export const combinedMessage = (req: Pick<KiRequest, "system" | "nachricht">) => (req.system ? `${req.system}\n\n---\n\n${req.nachricht}` : req.nachricht);
 
 /** Lesbare Darstellung der Graph-Aufrufe der zentralen KI-Anbindung (Anfrage-Vorschau). */
 export function graphPreview(step: Pick<Step, "modell">, req: KiRequest): string {

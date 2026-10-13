@@ -72,8 +72,8 @@ Serviceangebote-App auf CHARLESTOWN):
 ## Fachexperten-Chat
 
 Der Baustein „Chat“ (Gruppe KI) macht einen KI-Schritt zum Gesprächspartner: Rolle, Wissen, Quellen und Wissensmodus
-stehen am Schritt, jede Frage wird eine eigene Anfrage mit Verlauf und Auszügen aus den Quellen, die Antwort wächst
-sichtbar mit. Der Schritt läuft nie im Durchlauf, nur auf Frage. Vorlage: „Fachexperte Cyber Resilience Act“ mit
+stehen am Schritt, die erste Frage geht mit Rolle, Wissen und Auszügen aus den Quellen an die KI, die Antwort wächst
+sichtbar mit. Bei Copilot wird dasselbe Gespräch weitergeführt, Folgefragen bleiben kurz. Der Schritt läuft nie im Durchlauf, nur auf Frage. Vorlage: „Fachexperte Cyber Resilience Act“ mit
 Belegregel (nur aus Unterlagen, Quelle nennen, Unbelegtes als solches sagen); die Unterlagen trägt man unter
 App-Einstellungen → Wissen ein.
 

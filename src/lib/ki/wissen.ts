@@ -38,8 +38,19 @@ async function sharepointAuszuege(q: Quelle, suche: string, token: string, signa
   return { titel: q.titel || q.url, url: q.url, text: teile.join("\n\n").slice(0, MAX_JE_QUELLE) };
 }
 
+/** Gelesene Dateien bleiben zehn Minuten im Speicher: Ein Chat fragt sie bei jeder Frage, der Inhalt ändert sich dabei nicht */
+const dateiCache = new Map<string, { zeit: number; auszug: Auszug }>();
+const DATEI_CACHE_MS = 10 * 60_000;
+
 /** Inhalt einer einzelnen Datei (SharePoint/OneDrive-Adresse), als Text wie bei einem Upload */
 async function dateiAuszug(q: Quelle, token: string, signal?: AbortSignal): Promise<Auszug> {
+  const alt = dateiCache.get(q.url.trim());
+  if (alt && Date.now() - alt.zeit < DATEI_CACHE_MS) return { ...alt.auszug, titel: q.titel || alt.auszug.titel };
+  const auszug = await dateiLaden(q, token, signal);
+  dateiCache.set(q.url.trim(), { zeit: Date.now(), auszug });
+  return auszug;
+}
+async function dateiLaden(q: Quelle, token: string, signal?: AbortSignal): Promise<Auszug> {
   const r = await fetch(`${GRAPH}/shares/${shareId(q.url)}/driveItem`, { headers: { Authorization: `Bearer ${token}` }, signal });
   if (!r.ok) throw new Error(r.status === 403 ? "kein Lesezugriff" : r.status === 404 ? "Datei nicht gefunden" : `HTTP ${r.status}`);
   const meta = (await r.json()) as { name?: string; "@microsoft.graph.downloadUrl"?: string };
