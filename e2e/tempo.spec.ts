@@ -12,7 +12,9 @@ test("Copilot-Antworten: entdoppeln, JSON, Streaming", async ({ page }) => {
     const conv = (t: string) => `data: ${JSON.stringify({ id: "c1", messages: [{ text: "FRAGE" }, { text: t }] })}\n\n`;
     const teile: string[] = [];
     const kum = await c.streamLesen(sse([conv("Hal"), conv("Hallo Wel"), conv("Hallo Welt")]), "FRAGE", (t) => teile.push(t), 0, {});
-    const delta = await c.streamLesen(sse([conv("Hal"), conv("lo "), "data: [DONE]\n\n", conv("Welt")]), "FRAGE", () => {}, 0, {});
+    // Umgeschriebener Anfang (Personen-Markierung wird zum Link): jedes Ereignis ersetzt den alten Stand, nie anhängen
+    const personTeile: string[] = [];
+    const person = await c.streamLesen(sse([conv("<Person>Dario Keller</Person"), conv("[Dario Keller](https://www.office.com/search?q=Dario+Keller)"), conv("[Dario Keller](https://www.office.com/search?q=Dario+Keller) übernimmt"), "data: [DONE]\n\n", conv("[Dario Keller](https://www.office.com/search?q=Dario+Keller) übernimmt ab 2027 die Rolle des PSSA.")]), "FRAGE", (t) => personTeile.push(t), 0, {});
     // Ereignis über zwei Netzwerk-Pakete verteilt
     const geteilt = await c.streamLesen(sse([conv("Hallo").slice(0, 20), conv("Hallo").slice(20)]), "FRAGE", () => {}, 0, {});
     // Copilot schreibt den bisherigen Text um (Quellenzeile erst als Markdown-Link, dann als nackte Adresse): kein Anhängen
@@ -42,7 +44,7 @@ test("Copilot-Antworten: entdoppeln, JSON, Streaming", async ({ page }) => {
     return {
       doppelt: c.entdoppeln(A + A), doppeltLeer: c.entdoppeln(A + "\n\n" + A), einfach: c.entdoppeln(A), kurz: c.entdoppeln("abab"),
       json: k.jsonAus('Hier: {"a":"}{","b":{"c":1}}{"a":"}{","b":{"c":1}}'), jsonFence: k.jsonAus('```json\n{"x":"\\"}"}\n```'),
-      kum, teile, delta, geteilt, ohneStream, umgeschrieben, streamDoppelt, doppelTeile, lang, korrigiert, korrigiertTeile, korrigiertEnde, dann, erst, getrennt, getrenntEnde, mitte, mitteTeile, mitteEnde, mitteB,
+      kum, teile, person, personTeile, geteilt, ohneStream, umgeschrieben, streamDoppelt, doppelTeile, lang, korrigiert, korrigiertTeile, korrigiertEnde, dann, erst, getrennt, getrenntEnde, mitte, mitteTeile, mitteEnde, mitteB,
     };
   });
   expect(r.doppelt).toBe("## Variante 1\nText mit genug Länge für den Test.");
@@ -53,7 +55,9 @@ test("Copilot-Antworten: entdoppeln, JSON, Streaming", async ({ page }) => {
   expect(r.jsonFence).toEqual({ x: '"}' });
   expect(r.kum).toBe("Hallo Welt");
   expect(r.teile).toEqual(["Hal", "Hallo Wel", "Hallo Welt"]);
-  expect(r.delta).toBe("Hallo Welt");
+  expect(r.person).toBe("[Dario Keller](https://www.office.com/search?q=Dario+Keller) übernimmt ab 2027 die Rolle des PSSA.");
+  expect(r.personTeile.length).toBe(4);
+  expect(r.personTeile.every((t: string) => t.split("Dario Keller").length <= 2)).toBe(true);
   expect(r.geteilt).toBe("Hallo");
   expect(r.ohneStream).toBe("Antwort");
   expect(r.streamDoppelt).toBe(r.lang);

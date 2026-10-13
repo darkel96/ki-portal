@@ -976,10 +976,10 @@ Vorbild: `src/lib/seedServiceangebot.ts` (Produkte, Ordner, Dokumente je Sprache
   und gibt die Adresse als Datei mit; dafür fordert der Hub den Token zusätzlich mit `Files.ReadWrite.AppFolder` an
   (im Tenant mit Administratorzustimmung; ohne sie erscheint das Zustimmungsfenster mit „Genehmigung erforderlich“). Im weitergeführten Gespräch gehen nur neue Anhänge mit, in einer
   vollen Anfrage alle Anhänge des Gesprächs (Bilder: die jüngsten vier).
-- Streaming: Copilot schreibt den bisherigen Text im Stream manchmal um (Quellenzeile erst als Markdown-Link, dann als
-  nackte Adresse). `streamLesen` erkennt ein Ereignis mit langem gemeinsamem Anfang (`gemeinsamerAnfang`, mindestens 30
-  Zeichen oder 60 % des bisherigen Texts) als neuen Gesamttext statt als Stück zum Anhängen; vorher verdoppelte sich die
-  Antwort bei jedem weiteren Ereignis. Hängt Copilot die fertige Antwort ein zweites Mal an (A + A), bleibt der Rest, der
+- Streaming: Jedes SSE-Ereignis von chatOverStream trägt den ganzen bisherigen Text der Antwort (Momentaufnahme der
+  Nachricht) und ersetzt den alten Stand; `streamLesen` hängt nie an. Copilot schreibt den bisherigen Text im Stream
+  nämlich um: eine Personen-Markierung „<Person>…</Person>“ wird zum Link, eine Quellenzeile vom Markdown-Link zur
+  nackten Adresse. Jede Anhänge-Heuristik verdoppelte die Antwort dann mit jedem weiteren Ereignis. Hängt Copilot die fertige Antwort ein zweites Mal an (A + A), bleibt der Rest, der
   mit dem Anfang des bisherigen Texts übereinstimmt (ab 20 Zeichen, gemeinsamer Anfang über 90 % der Länge), schon im
   Stream unsichtbar; ist die Zweitfassung fast vollständig, gilt sie als die gültige (Copilot korrigiert darin z. B. eine
   Adresse). `entdoppeln()` am Ende prüft ebenso tolerant und behält die spätere Fassung. `fastGleich` zählt gemeinsamen Anfang
