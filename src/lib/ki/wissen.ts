@@ -85,6 +85,6 @@ export async function wissenAuszuege(quellen: Quelle[], suche: string, signal?: 
 /** Text für die Anfrage */
 export function auszuegeText(a: Auszug[]): string {
   if (!a.length) return "";
-  return "Auszüge aus den hinterlegten Wissensquellen (nur diese Inhalte gelten als belegt). Nutze alle passenden Dokumente und Stellen, nicht nur das erste. Quellenangaben schreibst du als Markdown-Link auf den Link des Dokuments und nennst die Stelle: die Überschrift oder den Abschnitt, unter dem der Inhalt in der Stelle steht, sonst die Nummer der Stelle, z. B. [CRA Q&A, Abschnitt Scope](https://…) oder [CRA Schulung, Stelle 3](https://…):\n\n" + a.map((x) =>
+  return "Auszüge aus den hinterlegten Wissensquellen (nur diese Inhalte gelten als belegt). Nutze alle passenden Dokumente und Stellen, nicht nur das erste. Quellenangaben schreibst du als Markdown-Link auf den Link des Dokuments und nennst die Stelle: die Überschrift oder den Abschnitt, unter dem der Inhalt in der Stelle steht, sonst die Nummer der Stelle, z. B. [CRA Q&A, Abschnitt Scope](https://…) oder [CRA Schulung, Stelle 3](https://…). Gib nie die nackte Adresse aus, immer Linktext in eckigen Klammern und Adresse in runden Klammern:\n\n" + a.map((x) =>
     x.fehler ? `### ${x.titel}\n(konnte nicht gelesen werden: ${x.fehler})` : `### ${x.titel}\n${x.text ? `${x.quelleTyp === "datei" ? `Link: ${x.url}\n` : ""}${x.text}` : "(keine passenden Inhalte gefunden)"}`).join("\n\n");
 }
