@@ -157,3 +157,22 @@ test("Diktat: Fachbegriffe korrigieren", async ({ page }, info) => {
     "Cyber Resilience Act, ab wann?",
   ]);
 });
+
+test("Markdown: nackte Adressen bekommen einen lesbaren Namen", async ({ page }, info) => {
+  test.skip(info.project.name !== "desktop", "einmal reicht");
+  await page.goto("/");
+  const r = await page.evaluate(async () => {
+    const m = await import("/src/lib/markdown.ts");
+    return {
+      datei: m.markdown("Quelle: https://x.sharepoint.com/sites/KSC/Library/Training/CyRPS%20Training%202026%20de-DE.pptx; https://x.sharepoint.com/sites/KSC/Legal%20&%20Sales/KSCAL_Vorlage_OT_CRA_V1.0.docx"),
+      seite: m.markdown("Siehe https://x.sharepoint.com/sites/KSC/SitePages/CRA-QA.aspx."),
+      link: m.markdown("[CRA Q&A, Scope](https://x.sharepoint.com/sites/KSC/SitePages/CRA-QA.aspx)"),
+    };
+  });
+  expect(r.datei).toContain('>CyRPS Training 2026 de DE.pptx</a>');
+  expect(r.datei).toContain('>KSCAL Vorlage OT CRA V1.0.docx</a>');
+  expect(r.datei).toContain('href="https://x.sharepoint.com/sites/KSC/Legal%20&amp;%20Sales/KSCAL_Vorlage_OT_CRA_V1.0.docx"');
+  expect(r.seite).toContain('>CRA QA</a>.');
+  expect(r.link).toContain('>CRA Q&amp;A, Scope</a>');
+  expect(r.link).toContain('target="_blank"');
+});

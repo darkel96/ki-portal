@@ -6,11 +6,22 @@ const esc = (s: string) => s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&
 DOMPurify.addHook("afterSanitizeAttributes", (node) => {
   if (node.tagName === "A") { node.setAttribute("target", "_blank"); node.setAttribute("rel", "noopener noreferrer"); }
 });
-const link = (href: string, text: string) => `<a href="${href}">${text}</a>`;
+const link = (href: string, text: string, title = "") => `<a href="${href}"${title ? ` title="${title}"` : ""}>${text}</a>`;
+/** Lesbarer Name für eine nackte Adresse: der Dateiname bzw. letzte Pfadteil ohne Prozentzeichen, sonst der Host */
+export function linkName(url: string): string {
+  try {
+    const u = new URL(url.replace(/&amp;/g, "&"));
+    const teile = u.pathname.split("/").filter(Boolean);
+    let letzter = teile.at(-1) ?? "";
+    try { letzter = decodeURIComponent(letzter); } catch { /* ungültige Kodierung: so lassen */ }
+    letzter = letzter.replace(/\.aspx$/i, "").replace(/[_-]+/g, " ").trim();
+    return esc(letzter || u.hostname);
+  } catch { return url; }
+}
 const inline = (s: string) => esc(s)
   // [Text](https://…) und nackte Adressen (nicht schon Teil eines Links); Satzzeichen am Ende bleiben draußen
   .replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, (_, t: string, u: string) => link(u, t))
-  .replace(/(^|[^"&>\w/])(https?:\/\/[^\s<]*[^\s<.,;:)!?])/g, (_, vor: string, u: string) => vor + link(u, u))
+  .replace(/(^|[^"&>\w/])(https?:\/\/[^\s<]*[^\s<.,;:)!?])/g, (_, vor: string, u: string) => vor + link(u, linkName(u), u))
   .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>").replace(/`([^`]+)`/g, "<code>$1</code>");
 
 function table(rows: string[]): string {

@@ -71,7 +71,7 @@ export function systemText(app: AppWissen, step: Step, wissenText: string): stri
     step.rolle,
     wissenText ? `Hintergrundwissen:\n${wissenText}` : "",
     w.quellen.length ? "Hinterlegte Wissensquellen:\n" + w.quellen.map((x) => `- ${x.titel || x.url} (${QUELL_TYP[x.typ] ?? "Quelle"})${x.url ? ": " + x.url : ""}`).join("\n")
-      + "\nQuellenangaben schreibst du als Markdown-Link [Dokument, Abschnitt](Adresse), sobald du die Adresse des Dokuments kennst (aus den Auszügen oder dieser Liste); so öffnet sich die Quelle direkt." : "",
+      + "\nQuellenangaben schreibst du als Markdown-Link [Dokument, Abschnitt](Adresse), sobald du die Adresse des Dokuments kennst (aus den Auszügen oder dieser Liste); so öffnet sich die Quelle direkt. Nie die nackte Adresse ausgeben, der Linktext ist der Name des Dokuments mit der Stelle." : "",
     WISSEN_TEXT[w.modus],
     FORMAT_HINT[step.format],
   ].filter(Boolean).join("\n\n");
