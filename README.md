@@ -68,9 +68,17 @@ Serviceangebote-App auf CHARLESTOWN):
 - Liefert die KI für ein Feld ein Objekt `{"wert", "hinweis", "klaeren"}`, steht der Hinweis unter dem Feld
   (z. B. Fundstelle) und `klaeren: true` markiert es gelb mit „Zu klären“, bis die Person es setzt.
 - Schritte, deren Ergebnis nur Felder vorbelegt, erscheinen nicht als Kachel in der Ergebnisübersicht.
-- Wissensgrenze je Schritt („Nur Eingaben und hinterlegte Quellen nutzen“ in den Feineinstellungen): Die KI bekommt
-  die Anweisung, kein weiteres Wissen aus Microsoft 365 und keine Websuche zu verwenden. Wissensquellen (SharePoint,
-  Datei, Webseite) und Hintergrundwissen stehen im Reiter „Wissen“ des Schritts.
+
+## Wissen steuern
+
+- **App-Einstellungen → Wissen:** Modus für alle Schritte („Nur Eingaben und hinterlegte Quellen“, „Zusätzlich Wissen
+  aus Microsoft 365“, „Zusätzlich Websuche“), Hintergrundwissen als Text und Wissensquellen (SharePoint-Bereich,
+  einzelne Datei, Webseite). Einzelne KI-Schritte können im Reiter „Wissen“ davon abweichen und eigene Quellen ergänzen.
+- **Quellen wirken:** Vor jedem Schritt holt der Hub passende Auszüge aus SharePoint-Bereichen (Copilot Retrieval API)
+  und den Inhalt einzelner Dateien und hängt sie der Anfrage an (`src/lib/ki/wissen.ts`). Webseiten bleiben ein Hinweis.
+- **Wissensbibliothek:** Mit dem Lesezeichen an einer Quelle landet sie in der Bibliothek (`src/lib/wissensbibliothek.ts`,
+  im Browser) und ist in jeder App über „Aus der Wissensbibliothek …“ wählbar.
+- Der Modus ist eine Anweisung an Copilot; technisch abschaltbar ist nur die Websuche.
 - Ein Ergebnis-Element kann mit „Nur diesen Teil zeigen“ einen Teil des JSON als Text, Liste oder Tabelle zeigen.
 - Buttons starten einzelne Schritte („Nur: …“), mehrere Schritte oder „Ab: …“ bis zum Ende; die Ergebnisübersicht
   startet dann nur die Schritte ihrer Kacheln, nicht den Lese-Schritt.

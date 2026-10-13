@@ -50,7 +50,28 @@ function Editor({ start, ungespeichert }: { start: App; ungespeichert: boolean }
   const bereiche = useMemo(() => areaList(apps), [apps]);
   const harte = appWarnings(b.app).filter((w) => !w.weich);
 
-  const blocker = useBlocker(({ currentLocation, nextLocation }) => b.dirty && !speichert && currentLocation.pathname !== nextLocation.pathname);
+  /** Nach „Verwerfen“ oder „Speichern und verlassen“ darf die Seite ohne weitere Rückfrage verlassen werden */
+  const freigabe = useRef(false);
+  const blocker = useBlocker(({ currentLocation, nextLocation }) => !freigabe.current && b.dirty && !speichert && currentLocation.pathname !== nextLocation.pathname);
+  const blockerRef = useRef(blocker);
+  blockerRef.current = blocker;
+  const pfadRef = useRef(window.location.hash || window.location.pathname);
+  pfadRef.current = window.location.hash || window.location.pathname;
+  /**
+   * Blockierte Navigation fortsetzen. Der Router setzt sie selbst fort; bleibt die Seite trotzdem stehen (z. B. weil
+   * der Blocker zwischenzeitlich zurückgesetzt wurde), navigiert der Hub nach kurzer Zeit selbst zum Ziel.
+   */
+  const verlassen = () => {
+    const bl = blockerRef.current;
+    if (bl.state !== "blocked") return;
+    const ziel = bl.location;
+    const start = pfadRef.current;
+    freigabe.current = true;
+    bl.proceed();
+    window.setTimeout(() => {
+      if (pfadRef.current === start) nav(ziel.pathname + ziel.search + ziel.hash);
+    }, 500);
+  };
   useEffect(() => {
     const h = (e: BeforeUnloadEvent) => { if (b.dirty && !speichert) e.preventDefault(); };
     window.addEventListener("beforeunload", h);
@@ -142,8 +163,8 @@ function Editor({ start, ungespeichert }: { start: App; ungespeichert: boolean }
     }
   };
   const speichernUndVerlassen = async () => {
-    if (await speichern(true)) blocker.proceed?.();
-    else blocker.reset?.();
+    if (await speichern(true)) verlassen();
+    else blockerRef.current.reset?.();
   };
 
   speichernRef.current = speichern;
@@ -197,7 +218,7 @@ function Editor({ start, ungespeichert }: { start: App; ungespeichert: boolean }
         </UiDnd>
       )}
 
-      <AlertDialog open={blocker.state === "blocked"} onOpenChange={(o) => { if (!o) blocker.reset?.(); }}>
+      <AlertDialog open={blocker.state === "blocked"} onOpenChange={(o) => { if (!o && !freigabe.current) blockerRef.current.reset?.(); }}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Ungespeicherte Änderungen</AlertDialogTitle>
@@ -205,7 +226,7 @@ function Editor({ start, ungespeichert }: { start: App; ungespeichert: boolean }
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Weiter bearbeiten</AlertDialogCancel>
-            <AlertDialogAction variant="destructive" disabled={speichert} onClick={() => blocker.proceed?.()}>Änderungen verwerfen</AlertDialogAction>
+            <AlertDialogAction variant="destructive" disabled={speichert} onClick={verlassen}>Änderungen verwerfen</AlertDialogAction>
             <Button disabled={speichert} onClick={() => void speichernUndVerlassen()}>{speichert ? <><Loader2 className="animate-spin motion-reduce:animate-none" aria-hidden="true" />Speichert …</> : "Speichern und verlassen"}</Button>
           </AlertDialogFooter>
         </AlertDialogContent>

@@ -1,6 +1,6 @@
 import type { App, Step } from "./schema";
 import { fieldsOf, stepsFor, stepsUsing, stepText, varsIn } from "./model";
-import { buildRequest, type FileInfo, type KiRequest } from "./request";
+import { buildRequest, wissenFuer, type FileInfo, type KiRequest } from "./request";
 import { KiSimulation, kiSenden } from "./ki";
 import { parsePaket, type Paket } from "./paket";
 import { teamAusfuehren, type Beitrag } from "./team";
@@ -133,7 +133,18 @@ export async function ablaufStarten(opts: {
           }
         }
       }
-      const req = buildRequest(app, s, ctx, files, vorlagen);
+      // Wissensquellen: passende Auszüge aus SharePoint und einzelne Dateien an die Anfrage hängen (nicht der Vorlagenordner eines Dateipakets)
+      let auszuege = "";
+      const wq = wissenFuer(app, s).quellen.filter((q) => !(vorlagenQuelle && q.url.trim() === vorlagenQuelle.url.trim()));
+      if (wq.some((q) => (q.typ === "sharepoint" || q.typ === "datei") && q.url.trim())) {
+        const w = await import("./ki/wissen");
+        if (w.wissenMoeglich()) {
+          setOut(s.id, (prev) => ({ ...(prev ?? { status: "laeuft" }), status: "laeuft", meldung: "Wissensquellen werden gelesen\u00a0…" }));
+          const vorab = buildRequest(app, s, ctx, files);
+          auszuege = w.auszuegeText(await w.wissenAuszuege(wq, `${s.name}: ${vorab.nachricht.slice(0, 1200)}`, signal));
+        }
+      }
+      const req = buildRequest(app, s, ctx, files, vorlagen, auszuege);
       setOut(s.id, (prev) => ({ ...(prev ?? { status: "laeuft" }), status: "laeuft", req, meldung: undefined }));
       let text: string;
       if (s.art === "team") {

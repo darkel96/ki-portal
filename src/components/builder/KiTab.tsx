@@ -7,7 +7,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import type { App, Step } from "@/lib/schema";
 import { DATEI_ZUSATZ, agentName, allKeys, appWarnings, fieldsOf, makeStep, renameRefs, rid, slug, stepName, stepText, stepsUsing, uniqueKey, varsIn, walk } from "@/lib/model";
-import { FORMAT_LABEL, MODELL_LABEL, QUELL_TYP, buildRequest, graphPreview } from "@/lib/request";
+import { FORMAT_LABEL, MODELL_LABEL, buildRequest, graphPreview } from "@/lib/request";
+import { WISSEN_MODUS_LABEL } from "@/lib/schema";
+import { QuellenEditor } from "./QuellenEditor";
 import { KI_ZENTRAL } from "@/lib/ki/config";
 import { kiModus } from "@/lib/ki";
 import { Check, Fld, Sel, TextFld } from "./controls";
@@ -149,8 +151,6 @@ function StepCard({ b, i, onAktiv }: { b: Builder; i: number; onAktiv: (id: stri
       {s.format === "json" && <p className="hint" style={{ margin: 0 }}>Prüfseite: Eingabefelder können aus diesem JSON vorbelegt werden (am Feld „Vorbelegen aus KI-Ergebnis“, z. B. „{s.key}.kunde“). Liefert die KI je Feld ein Objekt {"{"}"wert", "hinweis", "klaeren"{"}"}, steht der Hinweis unter dem Feld und „klaeren: true“ markiert es gelb. Der Schritt startet von selbst, wenn die Person auf die Prüfseite blättert; er braucht kein Ergebnis-Element.</p>}
       {s.format === "dateien" && s.quellen.some((q) => q.typ === "sharepoint" && q.url.trim()) && <p className="hint" style={{ margin: 0 }}>Vorlagen aus SharePoint: Der Hub listet den Ordner der Wissensquelle vor dem Aufruf auf. Die KI darf im Paket „ordner“ (leere Ordner) und „kopien“ (Quelle aus der Liste → Ziel im Paket) angeben; die Kopien werden beim ZIP unverändert geladen. Die Regeln, welche Vorlage wohin gehört, stehen in der Aufgabe.</p>}
       <Check label="Alle Eingaben automatisch anhängen" hint="Ohne Platzhalter: Jedes Feld kommt mit Bezeichnung unten an die Aufgabe." checked={s.autoAll} onChange={(v) => set("autoAll", v)} />
-      <Check label="Nur Eingaben und hinterlegte Quellen nutzen" hint="Die KI bekommt die Anweisung, kein weiteres Wissen aus Microsoft 365 (Dokumente, E-Mails, Chats) und keine Internetsuche zu verwenden. Für Apps, die nur das Hochgeladene oder Eingetippte verarbeiten sollen." checked={s.wissenBegrenzt} onChange={(v) => set("wissenBegrenzt", v)} />
-      <Check label="Websuche erlauben" hint={s.wissenBegrenzt ? "Ausgeschaltet, solange nur Eingaben und hinterlegte Quellen genutzt werden." : "Wirkt nur mit Copilot."} checked={s.web && !s.wissenBegrenzt} onChange={(v) => set("web", v)} />
       <div className="flex flex-wrap items-center gap-2">
         <span className="lbl text-[13px] font-semibold">Nur ausführen, wenn</span>
         <select aria-label="Feld der Bedingung" className="h-9 rounded-[4px] border border-input bg-background px-2 text-sm" value={s.bedingung?.feld ?? ""}
@@ -167,19 +167,13 @@ function StepCard({ b, i, onAktiv }: { b: Builder; i: number; onAktiv: (id: stri
       </div>
         </TabsContent>
         <TabsContent value="wissen" className="ki-teil" tabIndex={-1}>
-          <TextFld label="Hintergrundwissen als Text" multiline rows={4} value={s.wissen} placeholder="Feste Informationen, die die KI immer kennen soll, z. B. Richtlinien, Produktdaten, Textbausteine …" onChange={(v) => set("wissen", v, true)} />
-          {s.quellen.map((q, qi) => (
-            <div className="qrow" key={qi}>
-              <select aria-label="Art der Quelle" className="h-9 rounded-[4px] border border-input bg-background px-2 text-sm" value={q.typ} onChange={(e) => b.change((d) => { d.steps[i].quellen[qi].typ = e.target.value as typeof q.typ; })}>
-                {Object.entries(QUELL_TYP).map(([k, t]) => <option key={k} value={k}>{t}</option>)}
-              </select>
-              <Input aria-label="Bezeichnung der Quelle" placeholder="z. B. QM-Handbuch …" value={q.titel} onChange={(e) => b.change((d) => { d.steps[i].quellen[qi].titel = e.target.value; }, `${s.id}:q${qi}t`)} />
-              <Input aria-label="Adresse der Quelle" placeholder="https://firma.sharepoint.com/sites/QM/Freigegebene Dokumente" value={q.url} onChange={(e) => b.change((d) => { d.steps[i].quellen[qi].url = e.target.value; }, `${s.id}:q${qi}u`)} />
-              <Button variant="outline" size="icon-sm" aria-label="Quelle entfernen" onClick={() => { const vorher = b.aktuell(); b.change((d) => { d.steps[i].quellen.splice(qi, 1); }); geloeschtToast(b, vorher, `Wissensquelle${q.titel ? ` „${q.titel}“` : ""} entfernt.`); }}><Trash /></Button>
-            </div>
-          ))}
-          <div><Button variant="outline" size="sm" onClick={() => b.change((d) => { d.steps[i].quellen.push({ typ: "sharepoint", titel: "", url: "" }); })}><Plus />Wissensquelle</Button></div>
-          <p className="hint" style={{ margin: 0 }}>SharePoint-Bereiche, Dateien oder Webseiten, in denen die KI nachschlagen soll. Die zentrale KI-Anbindung durchsucht sie über Microsoft Graph bzw. übergibt sie als Datei.</p>
+          <Sel label="Wissensmodus" value={s.wissenModus} onChange={(v) => set("wissenModus", v)}
+            options={[["app", `Wie die App (${WISSEN_MODUS_LABEL[b.app.wissen.modus]})`], ...(Object.entries(WISSEN_MODUS_LABEL) as [Step["wissenModus"], string][])]} />
+          <p className="hint" style={{ margin: 0 }}>Der Modus der App steht in den App-Einstellungen unter „Wissen“, zusammen mit Quellen und Hintergrundwissen für alle Schritte. Hier kommt dazu, was nur dieser Schritt braucht.</p>
+          <TextFld label="Hintergrundwissen nur für diesen Schritt" multiline rows={4} value={s.wissen} placeholder="Feste Informationen, die die KI in diesem Schritt kennen soll …" onChange={(v) => set("wissen", v, true)} />
+          <span className="lbl">Wissensquellen nur für diesen Schritt{b.app.wissen.quellen.length ? ` (dazu ${b.app.wissen.quellen.length} aus der App)` : ""}</span>
+          <QuellenEditor id={`sq-${s.id}`} quellen={s.quellen} onChange={(q) => b.change((d) => { d.steps[i].quellen = q; }, `${s.id}:quellen`)} />
+          <p className="hint" style={{ margin: 0 }}>SharePoint-Bereiche und einzelne Dateien liest der Hub vor dem Aufruf aus und gibt passende Auszüge mit; bei Dateipaketen ist ein SharePoint-Ordner die Quelle für kopierte Vorlagen. Webseiten bleiben ein Hinweis an die KI.</p>
         </TabsContent>
       </Tabs>
       <div className="ki-fuss">

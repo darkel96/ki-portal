@@ -1,4 +1,4 @@
-import type { App, Step } from "./schema";
+import type { App, Quelle, Step, WissenModus } from "./schema";
 import { fieldsOf, fill, varsIn } from "./model";
 import { DATEI_ART, DATEI_HINWEIS, dateiWunsch, type DateiArt } from "./dokument";
 
@@ -37,19 +37,39 @@ export type KiRequest = {
   variablen: Record<string, string | null>;
 };
 
-const quellenOf = (s: Step) => s.quellen.filter((q) => q.url || q.titel);
+type AppWissen = Pick<App, "name" | "wissen">;
 
-/** Systemtext, wenn ein Schritt nur mit den Eingaben und den hinterlegten Quellen arbeiten darf */
-export const WISSEN_BEGRENZT = "Wissensgrenze: Nutze ausschließlich die Angaben in dieser Anfrage und die hinterlegten Wissensquellen. Ziehe keine anderen Dokumente, E-Mails, Chats oder Besprechungen aus Microsoft 365 heran und keine Internetsuche. Fehlt eine Information, sage das, statt sie zu ergänzen.";
+/**
+ * Wirksames Wissen eines Schritts: Modus, Quellen und fester Text der App plus die des Schritts.
+ * Der Schritt kann den Modus der App überschreiben („wissenModus“ ungleich "app").
+ */
+export function wissenFuer(app: Pick<App, "wissen">, step: Step): { modus: WissenModus; quellen: Quelle[]; text: string } {
+  const modus = step.wissenModus === "app" ? app.wissen.modus : step.wissenModus;
+  const gesehen = new Set<string>();
+  const quellen = [...app.wissen.quellen, ...step.quellen].filter((q) => {
+    if (!(q.url || q.titel)) return false;
+    const k = (q.url || q.titel).trim().toLowerCase();
+    if (gesehen.has(k)) return false;
+    gesehen.add(k); return true;
+  });
+  return { modus, quellen, text: [app.wissen.text, step.wissen].filter((t) => t.trim()).join("\n\n") };
+}
 
-export function systemText(app: Pick<App, "name">, step: Step, wissen: string): string {
-  const q = quellenOf(step);
+/** Systemtext je Wissensmodus */
+export const WISSEN_TEXT: Record<WissenModus, string> = {
+  eingaben: "Wissensgrenze: Nutze ausschließlich die Angaben in dieser Anfrage, die hinterlegten Wissensquellen und die mitgelieferten Auszüge daraus. Ziehe keine anderen Dokumente, E-Mails, Chats oder Besprechungen aus Microsoft 365 heran und keine Internetsuche. Fehlt eine Information, sage das, statt sie zu ergänzen.",
+  m365: "Du darfst zusätzlich Wissen aus Microsoft 365 heranziehen (Dokumente, E-Mails, Chats, auf die die angemeldete Person Zugriff hat). Nenne dann die Quelle. Keine Internetsuche.",
+  web: "Du darfst zusätzlich Wissen aus Microsoft 365 und die Internetsuche nutzen. Nenne dann die Quelle.",
+};
+
+export function systemText(app: AppWissen, step: Step, wissenText: string): string {
+  const w = wissenFuer(app, step);
   return [
     `Du arbeitest in der Applikation „${app.name}“ eines internen KI-Hubs. Antworte auf Deutsch.`,
     step.rolle,
-    wissen ? `Hintergrundwissen:\n${wissen}` : "",
-    q.length ? "Hinterlegte Wissensquellen:\n" + q.map((x) => `- ${x.titel || x.url} (${QUELL_TYP[x.typ] ?? "Quelle"})${x.url ? ": " + x.url : ""}`).join("\n") : "",
-    step.wissenBegrenzt ? WISSEN_BEGRENZT : "",
+    wissenText ? `Hintergrundwissen:\n${wissenText}` : "",
+    w.quellen.length ? "Hinterlegte Wissensquellen:\n" + w.quellen.map((x) => `- ${x.titel || x.url} (${QUELL_TYP[x.typ] ?? "Quelle"})${x.url ? ": " + x.url : ""}`).join("\n") : "",
+    WISSEN_TEXT[w.modus],
     FORMAT_HINT[step.format],
   ].filter(Boolean).join("\n\n");
 }
@@ -63,9 +83,10 @@ export function ergebnisDateiFuer(step: Step, nachricht: string): DateiArt | nul
 /** Zusatz zum Systemtext, wenn ein Dateipaket Vorlagen aus SharePoint kopieren darf */
 export const KOPIEN_HINWEIS = 'Vorlagen kopieren: Das Paket darf zusätzlich "ordner": ["Pfad/leerer Ordner"] (leere Ordner, die angelegt werden) und "kopien": [{"quelle": "Pfad aus der Vorlagenliste", "ziel": "Ordner/Dateiname im Paket"}] enthalten. Kopien werden unverändert aus dem Vorlagenordner übernommen; "quelle" muss genau einem Eintrag der Vorlagenliste entsprechen, und der Dateiname im "ziel" bleibt exakt der Dateiname der Quelle (auch mit Leerzeichen und Umlauten; die Regel „ohne Umlaute und Leerzeichen“ gilt nur für Dateien, die du selbst schreibst). Einträge mit dem Vermerk „inhaltsgleich“ darfst du kopieren; Einträge mit „unterschiedlichem Inhalt, nicht kopieren“ und Vorlagen, die nicht in der Liste stehen, kopierst du nicht und nennst das als offenen Punkt.';
 
-export function buildRequest(app: App, step: Step, ctx: Record<string, string>, files?: Record<string, FileInfo>, vorlagen?: { url: string; text: string }): KiRequest {
+export function buildRequest(app: App, step: Step, ctx: Record<string, string>, files?: Record<string, FileInfo>, vorlagen?: { url: string; text: string }, auszuege = ""): KiRequest {
+  const w = wissenFuer(app, step);
   const inPrompt = new Set(varsIn(step.prompt));
-  const used = new Set(varsIn(step.prompt + " " + step.wissen));
+  const used = new Set(varsIn(step.prompt + " " + w.text));
   let nachricht = fill(step.prompt, ctx);
   if (step.autoAll) {
     const rest = fieldsOf(app).filter((b) => !inPrompt.has(b.props.key.toLowerCase()));
@@ -73,6 +94,7 @@ export function buildRequest(app: App, step: Step, ctx: Record<string, string>, 
     if (rest.length) nachricht = (nachricht.trim() ? nachricht.trim() + "\n\n" : "") + "Eingaben:\n\n" +
       rest.map((b) => `${b.props.label}:\n${ctx[b.props.key.toLowerCase()] ?? ""}`).join("\n\n");
   }
+  if (auszuege) nachricht = `${nachricht.trim()}\n\n${auszuege}`;
   if (vorlagen) nachricht = `${nachricht.trim()}\n\n${vorlagen.text}`;
   const ergebnisDatei = ergebnisDateiFuer(step, nachricht);
   const variablen: Record<string, string | null> = {};
@@ -89,11 +111,11 @@ export function buildRequest(app: App, step: Step, ctx: Record<string, string>, 
     modell: step.modell,
     ausgabeformat: step.format,
     ergebnisDatei,
-    websuche: step.web && !step.wissenBegrenzt,
-    wissensquellen: quellenOf(step).map((q) => ({ typ: q.typ, titel: q.titel, url: q.url })),
+    websuche: w.modus === "web",
+    wissensquellen: w.quellen.map((q) => ({ typ: q.typ, titel: q.titel, url: q.url })),
     dateien,
     vorlagenUrl: vorlagen?.url,
-    system: [systemText(app, step, fill(step.wissen, ctx)), vorlagen ? KOPIEN_HINWEIS : "", !ergebnisDatei ? "" : step.format === "dateien"
+    system: [systemText(app, step, fill(w.text, ctx)), vorlagen ? KOPIEN_HINWEIS : "", !ergebnisDatei ? "" : step.format === "dateien"
       ? `Dokumente im Paket (Berichte, Dokumentationen, Protokolle) schreibst du als Markdown-Dateien mit Endung .md, niemals als HTML zum Ausdrucken. Der Hub wandelt sie beim Herunterladen selbst in ${DATEI_ART[ergebnisDatei].label}-Dateien um.`
       : DATEI_HINWEIS[ergebnisDatei]].filter(Boolean).join("\n\n"),
     nachricht,
@@ -105,14 +127,15 @@ export function buildRequest(app: App, step: Step, ctx: Record<string, string>, 
 export const combinedMessage = (req: Pick<KiRequest, "system" | "nachricht">) => `${req.system}\n\n---\n\n${req.nachricht}`;
 
 /** Lesbare Darstellung der Graph-Aufrufe der zentralen KI-Anbindung (Anfrage-Vorschau). */
-export function graphPreview(step: Step, req: KiRequest): string {
+export function graphPreview(step: Pick<Step, "modell">, req: KiRequest): string {
   const parts: string[] = [];
+  void step;
   parts.push("// Zentrale KI-Anbindung des KI-Hubs (Azure-Anwendung)\n// Token: MSAL mit Single Sign-on, delegierte Graph-Berechtigungen.\n// Header bei jedem Aufruf: Authorization: Bearer <Token>");
   const refs = req.dateien.filter((d) => d.uebergabe === "referenz");
-  const files = quellenOf(step).filter((q) => q.typ === "datei" && q.url).map((q) => ({ uri: q.url }));
+  const files = req.wissensquellen.filter((q) => q.typ === "datei" && q.url).map((q) => ({ uri: q.url }));
   refs.forEach((d) => files.push({ uri: `<OneDrive-Adresse von ${d.name ?? d.feld}>` }));
   if (refs.length) parts.push("// 0) Hochgeladene Datei(en) nach OneDrive legen\nPUT https://graph.microsoft.com/v1.0/me/drive/root:/KI-Hub/<dateiname>:/content\n<Dateiinhalt>");
-  const sp = quellenOf(step).filter((q) => q.typ === "sharepoint" && q.url);
+  const sp = req.wissensquellen.filter((q) => q.typ === "sharepoint" && q.url);
   if (sp.length) parts.push("// 1) Passende Inhalte aus SharePoint holen (Retrieval API)\nPOST https://graph.microsoft.com/v1.0/copilot/retrieval\n" +
     JSON.stringify({ queryString: "<Suchbegriffe aus Aufgabe und Eingaben>", dataSource: "sharePoint", filterExpression: sp.map((q) => `path:"${q.url}"`).join(" OR "), maximumNumberOfResults: 10 }, null, 2));
   parts.push("// 2) Gespräch anlegen\nPOST https://graph.microsoft.com/beta/copilot/conversations\n{}");

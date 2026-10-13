@@ -927,3 +927,19 @@ mitgegeben (`src/lib/assistant.ts`).
 6. Pflichtfelder nur für das, was der nächste Schritt zwingend braucht.
 
 Vorbild: `src/lib/seedServiceangebot.ts` (Produkte, Ordner, Dokumente je Sprache nach `regeln.py` und `checkliste.py` der Originalapp).
+
+## 26. Wissen steuern: Modus, Quellen, Bibliothek
+
+- **App-Ebene** (`app.wissen`): `modus` (eingaben | m365 | web), `text` (Hintergrundwissen für alle Schritte), `quellen`.
+  Schritte haben `wissenModus` ("app" oder eigener Modus) und ergänzen `wissen` und `quellen`. `wissenFuer()` in
+  `src/lib/request.ts` bildet das wirksame Wissen; der Systemtext nennt den Modus (`WISSEN_TEXT`).
+- **Quellen wirken** (`src/lib/ki/wissen.ts`): SharePoint-Bereiche über die Copilot Retrieval API
+  (`POST /v1.0/copilot/retrieval`, `filterExpression: path:"<url>"`), einzelne Dateien über `shares/{id}/driveItem/content`
+  und den Dateileser des Hubs. Die Auszüge hängen als „Auszüge aus den hinterlegten Wissensquellen“ an der Anfrage;
+  Fehler je Quelle stehen im Text, der Schritt läuft trotzdem. Der Vorlagenordner eines Dateipakets wird nicht zusätzlich
+  durchsucht. Nur mit Copilot-Anmeldung; sonst bleiben Quellen ein Hinweis.
+- **Wissensbibliothek** (`src/lib/wissensbibliothek.ts`): Quellen mit Bezeichnung und Beschreibung, im Browser gespeichert,
+  vorbelegt mit dem Vorlagenordner des Sales-Service. Zielbild: zentral in SharePoint gepflegt, vom Hub beim Start geladen.
+- **Grenzen:** Der Modus ist eine Anweisung an Copilot; die Copilot-Schnittstelle bietet keinen Schalter, der den
+  Zugriff auf Microsoft-365-Daten je Anfrage abschaltet. Hart abschaltbar ist nur die Websuche.
+- Ältere Apps: `web` und `wissenBegrenzt` am Schritt werden beim Laden zum `wissenModus`.

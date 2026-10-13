@@ -4,7 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { App, Block, PropsOf } from "@/lib/schema";
-import { isFieldType } from "@/lib/schema";
+import { WISSEN_MODUS_LABEL, isFieldType } from "@/lib/schema";
+import { QuellenEditor } from "./QuellenEditor";
 import { allKeys, ausQuelle, cloneBlock, locate, removeVar, renameRefs, seiteMit, seitenTitel, seitenVon, setCols, slug, stepName, uniqueKey, varsIn, stepText } from "@/lib/model";
 import { loadImage } from "@/lib/files";
 import { BT } from "./catalog";
@@ -25,6 +26,7 @@ function AppSettings({ b, alleBereiche }: { b: Builder; alleBereiche: string[] }
         <TabsList variant="line" aria-label="Einstellungen der Applikation">
           <TabsTrigger value="allgemein">Allgemein</TabsTrigger>
           <TabsTrigger value="design">Gestaltung</TabsTrigger>
+          <TabsTrigger value="wissen">Wissen</TabsTrigger>
           <TabsTrigger value="freigabe">Freigabe</TabsTrigger>
         </TabsList>
         <TabsContent value="allgemein" className="ki-teil" tabIndex={-1}>
@@ -41,6 +43,20 @@ function AppSettings({ b, alleBereiche }: { b: Builder; alleBereiche: string[] }
           <Seg label="Schrift" value={t.font} options={[["sans", "Modern"], ["serif", "Klassisch"], ["display", "Markant"], ["mono", "Technisch"]]} onChange={(v) => setTheme("font", v)} />
           <Seg label="Ecken" value={t.radius} options={[["s", "Eckig"], ["m", "Leicht"], ["l", "Rund"]]} onChange={(v) => setTheme("radius", v)} />
           <Seg label="Breite" value={t.width} options={[["s", "Schmal"], ["m", "Normal"], ["l", "Breit"]]} onChange={(v) => setTheme("width", v)} />
+        </TabsContent>
+        <TabsContent value="wissen" className="ki-teil" tabIndex={-1}>
+          <Sel label="Womit die KI arbeiten darf" value={b.app.wissen.modus} onChange={(v) => b.change((d) => { d.wissen.modus = v; })}
+            options={Object.entries(WISSEN_MODUS_LABEL) as [App["wissen"]["modus"], string][]} />
+          <p className="hint" style={{ margin: 0 }}>
+            {b.app.wissen.modus === "eingaben" ? "Die KI nutzt nur, was die Person eingibt oder hochlädt, plus die Quellen und das Hintergrundwissen unten. Kein weiteres Wissen aus Microsoft 365, keine Internetsuche. Das ist eine Anweisung an Copilot, keine technische Sperre."
+              : b.app.wissen.modus === "m365" ? "Die KI darf zusätzlich Dokumente, E-Mails und Chats aus Microsoft 365 heranziehen, auf die die angemeldete Person Zugriff hat. Keine Internetsuche."
+              : "Die KI darf zusätzlich Wissen aus Microsoft 365 und die Internetsuche nutzen."}
+            {" "}Einzelne KI-Schritte können davon abweichen (KI-Ablauf → Wissen).
+          </p>
+          <TextFld label="Hintergrundwissen für alle Schritte" multiline rows={4} value={b.app.wissen.text} placeholder="Richtlinien, Standardbedingungen, Produktdaten, Textbausteine …" onChange={(v) => b.change((d) => { d.wissen.text = v; }, "wissen-text")} />
+          <span className="lbl">Wissensquellen für alle Schritte</span>
+          <QuellenEditor id="app-quellen" quellen={b.app.wissen.quellen} onChange={(q) => b.change((d) => { d.wissen.quellen = q; }, "wissen-quellen")} />
+          <p className="hint" style={{ margin: 0 }}>SharePoint-Bereiche und einzelne Dateien liest der Hub vor jedem Schritt aus und gibt passende Auszüge mit. Mit dem Lesezeichen landet eine Quelle in der Wissensbibliothek und ist in jeder App wählbar.</p>
         </TabsContent>
         <TabsContent value="freigabe" className="ki-teil" tabIndex={-1}>
           <Seg label="Status" value={b.app.status} options={STATUS} onChange={(v) => b.change((d) => { d.status = v; })} />

@@ -442,6 +442,9 @@ pre.code { margin: 0; white-space: pre-wrap; font: 12.5px/1.5 var(--k-font-mono)
 .agent-row { display: grid; grid-template-columns: 160px minmax(0, 1fr) 36px; gap: 8px; align-items: start; }
 @media (max-width: 640px) { .agent-row { grid-template-columns: 1fr 36px; } .agent-row textarea { grid-column: 1; } }
 .qrow { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr) minmax(0, 1.6fr) 36px; gap: 6px; align-items: center; }
+/* Wissensquelle als kleine Karte: Art und Knöpfe oben, Bezeichnung und Adresse in voller Breite; passt auch in schmale Seitenleisten */
+.qkarte { display: grid; grid-template-columns: minmax(0, 1fr) 36px 36px; gap: 6px; align-items: center; padding: 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--surface, #fff); }
+.qkarte-voll { grid-column: 1 / -1; }
 @media (max-width: 640px) { .qrow { grid-template-columns: 1fr 36px; } }
 
 /* ===== Seitenwechsel (View Transitions): höchstens 400 ms, ease-out beim Erscheinen, ease-in beim Verschwinden ===== */
