@@ -47,7 +47,7 @@ Ohne Build-Konfiguration lässt sich Copilot direkt im Browser testen, z. B. am 
 
 1. **App-Registrierung** in Microsoft Entra ID (bestehende oder neue):
    - „Authentifizierung“ → Plattform **„Single-page application“** mit der Weiterleitungsadresse, die das KI-Menü anzeigt (z. B. `https://darkel96.github.io/ki-portal/auth-redirect.html` oder `http://localhost:5173/auth-redirect.html`). Als „Web“ eingetragen klappt die Anmeldung aus dem Browser nicht.
-   - „API-Berechtigungen“ → Microsoft Graph, **delegiert**, alle sieben, die die Copilot-Chat-API verlangt: `Sites.Read.All`, `Mail.Read`, `People.Read.All`, `OnlineMeetingTranscript.Read.All`, `Chat.Read`, `ChannelMessage.Read.All`, `ExternalItem.Read.All`, jeweils mit **Administratorzustimmung**.
+   - „API-Berechtigungen“ → Microsoft Graph, **delegiert**, alle sieben, die die Copilot-Chat-API verlangt: `Sites.Read.All`, `Mail.Read`, `People.Read.All`, `OnlineMeetingTranscript.Read.All`, `Chat.Read`, `ChannelMessage.Read.All`, `ExternalItem.Read.All`, jeweils mit **Administratorzustimmung**. Für Bilder im Fachexperten-Chat dazu `Files.ReadWrite.AppFolder` (delegiert, nur der App-eigene OneDrive-Ordner), ebenfalls mit Administratorzustimmung; ohne sie funktionieren Chat und Dokument-Anhänge trotzdem.
    - Automatisch: [scripts/entra-einrichten.ps1](scripts/entra-einrichten.ps1) (PowerShell mit Azure CLI) legt die Registrierung „KI-Hub“ an oder erweitert eine bestehende (`-ClientId …`), trägt Weiterleitungsadressen und Berechtigungen ein und versucht die Administratorzustimmung.
 2. Nutzer mit **Microsoft-365-Copilot-Lizenz**.
 3. Im Hub oben rechts das KI-Menü öffnen → „Mit Copilot testen“ → Client-ID und Tenant-ID eintragen (bleiben im Browser) → „Verbindung testen“. Fehler werden mit Hinweis angezeigt, was in der Registrierung fehlt (z. B. AADSTS50011 = Weiterleitungsadresse fehlt, Graph 403 = Lizenz oder Berechtigung fehlt).
@@ -76,7 +76,7 @@ stehen am Schritt, die erste Frage geht mit Rolle, Wissen und Auszügen aus den 
 sichtbar mit. Bei Copilot wird dasselbe Gespräch weitergeführt, Folgefragen bleiben kurz. Quellen nennt der Experte als
 Link, der in einem neuen Tab öffnet. Im Chat lassen sich Dateien und Bilder anhängen (Büroklammer, Einfügen aus der
 Zwischenablage oder Ablegen im Chat): Word, Excel, PDF und Text gehen als Text mit, Bilder beim eigenen Schlüssel direkt
-als Bild, bei Copilot als Datei über OneDrive (braucht die zusätzliche Berechtigung `Files.ReadWrite`). Mit dem Mikrofon
+als Bild, bei Copilot als Datei über den App-Ordner in OneDrive (braucht die zusätzliche delegierte Berechtigung `Files.ReadWrite.AppFolder` mit Administratorzustimmung). Mit dem Mikrofon
 lässt sich eine Frage diktieren (Spracherkennung des Browsers, Chrome und Edge). Der Schritt läuft nie im Durchlauf, nur auf Frage. Vorlage: „Fachexperte Cyber Resilience Act“ mit
 Belegregel (nur aus Unterlagen, Quelle nennen, Unbelegtes als solches sagen); die Unterlagen trägt man unter
 App-Einstellungen → Wissen ein.

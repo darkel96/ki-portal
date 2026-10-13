@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ChangeEvent, type ClipboardEvent, type CSSProperties, type DragEvent, type KeyboardEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type ChangeEvent, type ClipboardEvent, type CSSProperties, type DragEvent, type KeyboardEvent } from "react";
 import { Copy, FileText, Mic, Paperclip, Send, Square, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 import type { App, Block } from "@/lib/schema";
@@ -7,6 +7,7 @@ import { GespraechVerfallen, KiSimulation, kiSenden } from "@/lib/ki";
 import { anfrageVorbereiten, kontext } from "@/lib/runner";
 import { markdown } from "@/lib/markdown";
 import { FILE_ACCEPT, UnsupportedFormatError, loadImage, readFileInfo } from "@/lib/files";
+import { diktatKorrigieren, fachbegriffe } from "@/lib/diktat";
 import { useRun } from "./runContext";
 import type { Mode } from "./BlockContent";
 
@@ -34,6 +35,15 @@ function erkennungAnlegen(): Erkennung | null {
   const K = w.SpeechRecognition ?? w.webkitSpeechRecognition;
   return K ? new K() : null;
 }
+/** Löst beim Abbruch sofort aus, auch wenn der laufende Vorgang (Anmeldefenster, Upload) das Signal nicht kennt */
+function abbrechbar<T>(p: Promise<T>, signal: AbortSignal): Promise<T> {
+  if (signal.aborted) return Promise.reject(new DOMException("abgebrochen", "AbortError"));
+  return new Promise<T>((ok, nein) => {
+    const stop = () => nein(new DOMException("abgebrochen", "AbortError"));
+    signal.addEventListener("abort", stop, { once: true });
+    p.then(ok, nein).finally(() => signal.removeEventListener("abort", stop));
+  });
+}
 const diktatMoeglich = () => { const w = window as unknown as Record<string, unknown>; return !!(w.SpeechRecognition ?? w.webkitSpeechRecognition); };
 
 /**
@@ -57,6 +67,8 @@ export function ChatView({ app, b, mode }: { app: App; b: Extract<Block, { type:
   const gespraech = useRef<string | null>(null);   // weitergeführtes Copilot-Gespräch
   const gesendet = useRef<Anhang[]>([]);   // alle Anhänge des Gesprächs (für eine volle Anfrage ohne Gespräch)
   const erkennung = useRef<Erkennung | null>(null);
+  const diktiert = useRef(false);   // die nächste Frage kam (auch) aus dem Diktat
+  const begriffe = useMemo(() => fachbegriffe(app), [app]);
   const liste = useRef<HTMLDivElement>(null);
   const eingabe = useRef<HTMLTextAreaElement>(null);
   const dateiwahl = useRef<HTMLInputElement>(null);
@@ -99,7 +111,8 @@ export function ChatView({ app, b, mode }: { app: App; b: Extract<Block, { type:
     r.onresult = (e) => {
       let text = "";
       for (let i = 0; i < e.results.length; i++) text += e.results[i][0].transcript;
-      setFrage(basis + text.trim());
+      diktiert.current = true;
+      setFrage(basis + diktatKorrigieren(text, begriffe));
     };
     r.onerror = (e) => { if (e.error !== "aborted" && e.error !== "no-speech") toast.error(e.error === "not-allowed" ? "Das Mikrofon ist für diese Seite gesperrt." : `Spracheingabe: ${e.error}`); };
     r.onend = () => { setHoert(false); erkennung.current = null; eingabe.current?.focus(); };
@@ -114,19 +127,23 @@ export function ChatView({ app, b, mode }: { app: App; b: Extract<Block, { type:
     if (!f || !step || laeuft || liest || !run) return;
     const neu = anhaenge;
     const bisher = verlauf;
+    // Diktierte Fragen: Die KI soll Erkennungsfehler bei Fachbegriffen sinngemäß verstehen
+    const frageText = diktiert.current ? `${f}\n(Die Frage wurde diktiert; Erkennungsfehler bei Namen und Fachbegriffen bitte sinngemäß verstehen.)` : f;
+    diktiert.current = false;
     setVerlauf([...bisher, { von: "mensch", text: f, anhaenge: neu }, { von: "experte", text: "" }]);
     setFrage("");
     setAnhaenge([]);
     setLaeuft(true);
     const c = new AbortController();
     ctl.current = c;
+    let bisherText = "";   // schon gestreamter Teil der Antwort (bleibt beim Stoppen stehen)
     const setzeAntwort = (patch: Partial<Nachricht>) => setVerlauf((v) => v.map((n, i) => (i === v.length - 1 ? { ...n, ...patch } : n)));
     const mitAnhang = (prompt: string, a: Anhang[]) => (a.length ? `${prompt.trim()}\n\n${anhangText(a)}` : prompt);
     const bilderVon = (a: Anhang[]) => a.filter((x) => x.art === "bild" && x.daten).slice(-MAX_BILDER).map((x) => ({ name: x.name, daten: x.daten! }));
     // Volle Anfrage: Rolle, Wissen, Auszüge, Verlauf als Text (nur die letzten Beiträge), alle Anhänge des Gesprächs und die Frage
     const voll = async () => {
       const verlaufText = bisher.slice(-MAX_VERLAUF).filter((n) => n.text.trim()).map((n) => `${n.von === "mensch" ? "Person" : "Experte"}: ${n.text.trim()}`).join("\n\n");
-      const ctx = { ...kontext(app, run.werte, run.files), frage: f, verlauf: verlaufText || "(noch keiner)" };
+      const ctx = { ...kontext(app, run.werte, run.files), frage: frageText, verlauf: verlaufText || "(noch keiner)" };
       // Der Prompt des Schritts darf {{frage}} und {{verlauf}} nutzen; fehlen sie, hängt der Chat beides an
       const hatFrage = /\{\{\s*frage\s*\}\}/i.test(step.prompt);
       const prompt = hatFrage ? step.prompt : `${step.prompt.trim()}\n\nBisheriger Verlauf:\n{{verlauf}}\n\nFrage: {{frage}}`;
@@ -137,30 +154,30 @@ export function ChatView({ app, b, mode }: { app: App; b: Extract<Block, { type:
     };
     // Folgefrage im weitergeführten Gespräch: nur die Frage, neue Anhänge und passende Auszüge, keine Rolle und kein Verlauf
     const kurz = async () => {
-      const ctx = { ...kontext(app, run.werte, run.files), frage: f, verlauf: "" };
-      const chatStep = { ...step, prompt: mitAnhang(`Frage: ${f}`, neu), format: "markdown" as const };
+      const ctx = { ...kontext(app, run.werte, run.files), frage: frageText, verlauf: "" };
+      const chatStep = { ...step, prompt: mitAnhang(`Frage: ${frageText}`, neu), format: "markdown" as const };
       const req = await anfrageVorbereiten(app, chatStep, ctx, run.files, c.signal, (m) => setStand(m));
       return { ...req, system: "", bilder: bilderVon(neu) };
     };
     const senden = (req: Awaited<ReturnType<typeof voll>>) => {
       setStand(req.bilder?.length ? "Bilder werden übergeben\u00a0…" : "");
-      return kiSenden(req, c.signal, (t) => setzeAntwort({ text: t }), { gespraech: gespraech.current ?? undefined, onGespraech: (id) => { gespraech.current = id; } });
+      return kiSenden(req, c.signal, (t) => { if (!c.signal.aborted) { bisherText = t; setzeAntwort({ text: t }); } }, { gespraech: gespraech.current ?? undefined, onGespraech: (id) => { gespraech.current = id; } });
     };
     try {
       let text: string;
       try {
-        text = await senden(gespraech.current ? await kurz() : await voll());
+        text = await abbrechbar(senden(gespraech.current ? await abbrechbar(kurz(), c.signal) : await abbrechbar(voll(), c.signal)), c.signal);
       } catch (e) {
         // Copilot kennt das Gespräch nicht mehr: einmal mit vollem Kontext in einem neuen Gespräch wiederholen
         if (!(e instanceof GespraechVerfallen)) throw e;
         gespraech.current = null;
-        text = await senden(await voll());
+        text = await abbrechbar(senden(await abbrechbar(voll(), c.signal)), c.signal);
       }
       gesendet.current = [...gesendet.current, ...neu];
       setzeAntwort({ text });
     } catch (e) {
       if (e instanceof KiSimulation) setzeAntwort({ text: "", simulation: "nachricht" in e.req ? e.req.nachricht : "" });
-      else if (c.signal.aborted) setzeAntwort({ text: (verlauf.at(-1)?.text ?? "") || "(gestoppt)" });
+      else if (c.signal.aborted) setzeAntwort({ text: bisherText ? `${bisherText}\n\n(gestoppt)` : "(gestoppt)" });
       else setzeAntwort({ text: e instanceof Error ? e.message : String(e), fehler: true });
     } finally {
       setStand("");
