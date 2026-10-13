@@ -72,14 +72,24 @@ function letzterText(antwort: unknown, frage: string): string {
   return text;
 }
 
-/** Copilot liefert manche Antworten zweimal hintereinander (A + A); dann nur einmal übernehmen. */
+/** Zwei Texte sind (fast) gleich: gleicher Anfang über mindestens 90 % der Länge, Längen höchstens 12 Zeichen auseinander */
+function fastGleich(a: string, b: string): boolean {
+  if (Math.abs(a.length - b.length) > 12) return false;
+  return gemeinsamerAnfang(a, b) >= Math.min(a.length, b.length) * 0.9;
+}
+
+/**
+ * Copilot liefert manche Antworten zweimal hintereinander (A + A); dann nur einmal übernehmen. Die Zweitfassung kann
+ * sich am Ende leicht unterscheiden (z. B. eine korrigierte Adresse), deshalb gilt sie als Doppel, wenn sie fast gleich
+ * ist, und die spätere Fassung bleibt stehen.
+ */
 export function entdoppeln(text: string): string {
   const t = text.trim();
   const mitte = Math.floor(t.length / 2);
-  for (let k = mitte - 2; k <= mitte + 2; k++) {
+  for (let k = mitte - 12; k <= mitte + 12; k++) {
     if (k < 20 || k > t.length) continue;
-    const a = t.slice(0, k).trim();
-    if (a.length >= 20 && a === t.slice(k).trim()) return a;
+    const a = t.slice(0, k).trim(), b = t.slice(k).trim();
+    if (a.length >= 20 && b.length >= 20 && fastGleich(a, b)) return b;
   }
   return t;
 }
@@ -128,7 +138,10 @@ export async function streamLesen(res: Response, frage: string, onTeil: (t: stri
       // Copilot hängt manche Antworten ein zweites Mal an (A + A): Ein Rest, der mit dem Anfang des bisherigen Texts
       // übereinstimmt, wird nicht angezeigt, sonst flackert die Antwort doppelt, bis entdoppeln() am Ende greift
       const rest = t.slice(text.length).replace(/^\s+/, "");
-      if (!(text.length >= 40 && rest.length >= 20 && text.startsWith(rest))) text = t;
+      if (text.length >= 40 && rest.length >= 20 && gemeinsamerAnfang(text, rest) >= Math.min(text.length, rest.length) * 0.9) {
+        // Zweitfassung wächst noch: nichts anzeigen; ist sie (fast) vollständig, gilt die spätere Fassung
+        if (rest.length >= text.length - 12) text = rest;
+      } else text = t;
     }
     else if (text.startsWith(t)) { /* kürzer als bekannt: nichts Neues */ }
     else if (gemeinsamerAnfang(text, t) >= Math.min(30, Math.ceil(text.length * 0.6))) text = t;
