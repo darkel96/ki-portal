@@ -8,6 +8,8 @@ import { anfrageVorbereiten, kontext } from "@/lib/runner";
 import { markdown } from "@/lib/markdown";
 import { FILE_ACCEPT, UnsupportedFormatError, loadImage, readFileInfo } from "@/lib/files";
 import { diktatKorrigieren, fachbegriffe } from "@/lib/diktat";
+import { linkQuellen } from "@/lib/links";
+
 import { useRun } from "./runContext";
 import type { Mode } from "./BlockContent";
 
@@ -150,14 +152,16 @@ export function ChatView({ app, b, mode }: { app: App; b: Extract<Block, { type:
       const hatFrage = /\{\{\s*frage\s*\}\}/i.test(step.prompt);
       const prompt = hatFrage ? step.prompt : `${step.prompt.trim()}\n\nBisheriger Verlauf:\n{{verlauf}}\n\nFrage: {{frage}}`;
       const alle = [...gesendet.current, ...neu];
-      const chatStep = { ...step, prompt: mitAnhang(fill(prompt, ctx), alle), format: "markdown" as const };
+      // Links aus allen Fragen des Gesprächs bleiben als Quellen dabei
+      const links = linkQuellen([...bisher.filter((n) => n.von === "mensch").map((n) => n.text), f].join("\n"));
+      const chatStep = { ...step, prompt: mitAnhang(fill(prompt, ctx), alle), format: "markdown" as const, quellen: [...step.quellen, ...links] };
       const req = await anfrageVorbereiten(app, chatStep, ctx, run.files, c.signal, (m) => setStand(m), suche);
       return { ...req, bilder: bilderVon(alle) };
     };
     // Folgefrage im weitergeführten Gespräch: nur die Frage, neue Anhänge und passende Auszüge, keine Rolle und kein Verlauf
     const kurz = async () => {
       const ctx = { ...kontext(app, run.werte, run.files), frage: frageText, verlauf: "" };
-      const chatStep = { ...step, prompt: mitAnhang(`Frage: ${frageText}`, neu), format: "markdown" as const };
+      const chatStep = { ...step, prompt: mitAnhang(`Frage: ${frageText}`, neu), format: "markdown" as const, quellen: [...step.quellen, ...linkQuellen(f)] };
       const req = await anfrageVorbereiten(app, chatStep, ctx, run.files, c.signal, (m) => setStand(m), suche);
       return { ...req, system: "", bilder: bilderVon(neu) };
     };

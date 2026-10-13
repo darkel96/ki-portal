@@ -181,3 +181,25 @@ test("Markdown: nackte Adressen bekommen einen lesbaren Namen", async ({ page },
   expect(r.link).toContain('>CRA Q&amp;A, Scope</a>');
   expect(r.link).toContain('target="_blank"');
 });
+
+test("Chat: SharePoint-Links in der Frage werden zur Wissensquelle", async ({ page }, info) => {
+  test.skip(info.project.name !== "desktop", "einmal reicht");
+  const { prompts } = await kiNachbau(page);
+  await page.goto("/app/cra-experte");
+  const r = await page.evaluate(async () => {
+    const l = await import("/src/lib/links.ts");
+    const office = "https://firma.sharepoint.com/:w:/r/sites/KSC/_layouts/15/Doc.aspx?sourcedoc=%7B2D321872-5ACB-456D-8096-D07B439804CA%7D&file=CyRPS_CRA_Attest.docx&action=default&mobileredirect=true";
+    return {
+      office: l.officeLink(office),
+      quellen: l.linkQuellen(`was steht in ${office} und in https://firma.sharepoint.com/sites/KSC/Lib/Training/CRA%20Schulung.pptx? Nicht: https://firma.sharepoint.com/sites/KSC/SitePages/Start.aspx`),
+    };
+  });
+  expect(r.office).toEqual({ name: "CyRPS_CRA_Attest.docx", site: "https://firma.sharepoint.com/sites/KSC" });
+  expect(r.quellen.map((q: { titel: string }) => q.titel)).toEqual(["CyRPS_CRA_Attest.docx", "CRA Schulung.pptx"]);
+  // In der Anfrage steht die verlinkte Datei als Wissensquelle
+  const chat = page.locator(".o-chat");
+  await chat.getByLabel("Frage", { exact: true }).fill("Was steht in https://firma.sharepoint.com/sites/KSC/Lib/CyRPS_CRA_Attest.docx ?");
+  await chat.getByLabel("Frage", { exact: true }).press("Enter");
+  await expect(chat.locator(".o-chat-n.von-experte").last()).toContainText("Art. 13", { timeout: 10_000 });
+  expect(prompts[0]).toContain("CyRPS_CRA_Attest.docx (Einzelne Datei (SharePoint/OneDrive)): https://firma.sharepoint.com/sites/KSC/Lib/CyRPS_CRA_Attest.docx");
+});

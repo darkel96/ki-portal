@@ -77,7 +77,8 @@ sichtbar mit. Bei Copilot wird dasselbe Gespräch weitergeführt, Folgefragen bl
 Link, der in einem neuen Tab öffnet. Im Chat lassen sich Dateien und Bilder anhängen (Büroklammer, Einfügen aus der
 Zwischenablage oder Ablegen im Chat): Word, Excel, PDF und Text gehen als Text mit, Bilder beim eigenen Schlüssel direkt
 als Bild, bei Copilot als Datei über den App-Ordner in OneDrive (braucht die zusätzliche delegierte Berechtigung `Files.ReadWrite.AppFolder` mit Administratorzustimmung). Mit dem Mikrofon
-lässt sich eine Frage diktieren (Spracherkennung des Browsers, Chrome und Edge). Der Schritt läuft nie im Durchlauf, nur auf Frage. Vorlage: „Fachexperte Cyber Resilience Act“ mit
+lässt sich eine Frage diktieren (Spracherkennung des Browsers, Chrome und Edge). Steht in einer Frage ein SharePoint-Link
+auf eine Datei, liest der Experte diese Datei direkt, auch Office-Links aus der Adressleiste (`Doc.aspx?…&file=…`). Der Schritt läuft nie im Durchlauf, nur auf Frage. Vorlage: „Fachexperte Cyber Resilience Act“ mit
 Belegregel (nur aus Unterlagen, Quelle nennen, Unbelegtes als solches sagen); die Unterlagen trägt man unter
 App-Einstellungen → Wissen ein.
 

@@ -991,6 +991,11 @@ Vorbild: `src/lib/seedServiceangebot.ts` (Produkte, Ordner, Dokumente je Sprache
   (Levenshtein-Ähnlichkeit, Schwellen 0,65–0,72, Randwörter ohne Beitrag bleiben draußen); Großschreibung und
   Fragezeichen werden ergänzt. Diktierte Fragen bekommen in der Anfrage den Hinweis, Erkennungsfehler sinngemäß zu
   verstehen.
+- Links in Fragen (`src/lib/links.ts`): SharePoint-Dateilinks in einer Frage werden für diese Anfrage zu Quellen vom
+  Typ „datei“ (im weitergeführten Gespräch nur die neuen, in einer vollen Anfrage alle Links des Gesprächs); der Hub
+  liest die Datei dann direkt, unabhängig davon, ob die Suche sie unter den Treffern hatte. Office-Links
+  (`…/_layouts/15/Doc.aspx?sourcedoc=…&file=Name.docx`, auch `/:w:/r/…`) löst `dateiFinden` in `wissen.ts` über die
+  Graph-Suche (`POST /search/query`, `filename:"…" path:"<Website>"`) auf, normale Adressen über die Freigabe-API.
 - Diktat: Web Speech API (`SpeechRecognition`/`webkitSpeechRecognition`, `de-DE`, laufend mit Zwischenergebnissen); der
   Knopf erscheint nur, wenn der Browser sie bietet. Der erkannte Text landet im Eingabefeld, gesendet wird weiterhin
   per Knopf oder Enter.

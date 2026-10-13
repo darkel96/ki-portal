@@ -6,6 +6,7 @@
 import { graphToken } from "./auth";
 import { kiModus } from "./index";
 import { shareId } from "./vorlagen";
+import { officeLink } from "../links";
 import type { Quelle } from "../schema";
 
 const GRAPH = "https://graph.microsoft.com/v1.0";
@@ -56,11 +57,36 @@ async function dateiAuszug(q: Quelle, token: string, signal?: AbortSignal): Prom
   dateiCache.set(q.url.trim(), { zeit: Date.now(), auszug });
   return auszug;
 }
+
+type Element = { name?: string; inhaltUrl: string };
+/**
+ * Laufwerkselement zu einer Dateiadresse: Freigabe-API für normale Adressen und Freigabelinks; Office-Links
+ * (Doc.aspx mit sourcedoc/file) findet die Graph-Suche über Dateiname und Website.
+ */
+async function dateiFinden(url: string, token: string, signal?: AbortSignal): Promise<Element> {
+  const kopf = { headers: { Authorization: `Bearer ${token}` }, signal };
+  const office = officeLink(url);
+  if (!office) {
+    const r = await fetch(`${GRAPH}/shares/${shareId(url)}/driveItem`, kopf);
+    if (!r.ok) throw new Error(r.status === 403 ? "kein Lesezugriff" : r.status === 404 ? "Datei nicht gefunden" : `HTTP ${r.status}`);
+    const meta = (await r.json()) as { name?: string };
+    return { name: meta.name, inhaltUrl: `${GRAPH}/shares/${shareId(url)}/driveItem/content` };
+  }
+  const r = await fetch(`${GRAPH}/search/query`, {
+    method: "POST", signal, headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ requests: [{ entityTypes: ["driveItem"], query: { queryString: `filename:"${office.name.replace(/"/g, "")}" path:"${office.site}"` }, from: 0, size: 10 }] }),
+  });
+  if (!r.ok) throw new Error(r.status === 403 ? "kein Lesezugriff" : `Suche HTTP ${r.status}`);
+  const j = (await r.json()) as { value?: { hitsContainers?: { hits?: { resource?: { id?: string; name?: string; parentReference?: { driveId?: string } } }[] }[] }[] };
+  const treffer = (j.value ?? []).flatMap((v) => v.hitsContainers ?? []).flatMap((c) => c.hits ?? []).map((h) => h.resource).filter((x): x is NonNullable<typeof x> => !!x?.id && !!x.parentReference?.driveId);
+  const genau = treffer.find((t) => t.name?.toLowerCase() === office.name.toLowerCase()) ?? treffer[0];
+  if (!genau) throw new Error(`Datei „${office.name}“ in ${office.site} nicht gefunden`);
+  return { name: genau.name ?? office.name, inhaltUrl: `${GRAPH}/drives/${genau.parentReference!.driveId}/items/${genau.id}/content` };
+}
+
 async function dateiLaden(q: Quelle, token: string, signal?: AbortSignal): Promise<Auszug> {
-  const r = await fetch(`${GRAPH}/shares/${shareId(q.url)}/driveItem`, { headers: { Authorization: `Bearer ${token}` }, signal });
-  if (!r.ok) throw new Error(r.status === 403 ? "kein Lesezugriff" : r.status === 404 ? "Datei nicht gefunden" : `HTTP ${r.status}`);
-  const meta = (await r.json()) as { name?: string; "@microsoft.graph.downloadUrl"?: string };
-  const inhalt = await fetch(`${GRAPH}/shares/${shareId(q.url)}/driveItem/content`, { headers: { Authorization: `Bearer ${token}` }, signal });
+  const meta = await dateiFinden(q.url, token, signal);
+  const inhalt = await fetch(meta.inhaltUrl, { headers: { Authorization: `Bearer ${token}` }, signal });
   if (!inhalt.ok) throw new Error(`Download HTTP ${inhalt.status}`);
   const blob = await inhalt.blob();
   const { extractText } = await import("../files");
