@@ -357,7 +357,10 @@ export const RunApp = forwardRef<RunAppHandle, {
     setStand(JSON.stringify(werte) + Object.keys(files).join("|"));
     // Wohin? Steht das Ergebnis des ersten Schritts auf einer Eingabeseite, dorthin; sonst in die Ergebnisübersicht.
     const inline = eingabeIdxMit((b) => b.type === "output" && b.props.quelle === steps[0].id);
+    // Prüfseite: Füllt der erste Schritt Felder einer Seite vor, dorthin (die Person korrigiert dort, während es läuft)
+    const pruef = eingabeIdxMit((b) => isFieldType(b.type) && "aus" in b.props && b.props.aus.trim().split(".")[0].toLowerCase() === steps[0].key.toLowerCase());
     if (bleiben) { /* Start im Hintergrund, z. B. Lese-Schritt beim Wechsel auf die Prüfseite: Ansicht bleibt */ }
+    else if (pruef >= 0) { if (pruef !== akt || detail || imUeberblick) wechseln(pruef); }
     else if (inline >= 0) {
       if (inline !== akt || detail) wechseln(inline);
       // Ergebnis ins Bild holen, falls es unterhalb der Eingaben steht

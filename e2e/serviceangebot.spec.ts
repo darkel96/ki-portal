@@ -64,17 +64,18 @@ test("Serviceangebot: Checkliste lesen, Prüfseite korrigieren, ZIP", async ({ p
   await page.locator('input[type="file"]').setInputFiles({ name: "Service_Checkliste.docx", mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document", buffer: await checklisteDocx() });
   await expect(page.getByText(/Service_Checkliste\.docx gelesen/)).toBeVisible();
   // „Weiter“ auf die Prüfseite startet den Lese-Schritt von selbst; die Felder füllen sich, sobald er fertig ist
-  await page.getByRole("navigation", { name: "Seiten blättern" }).getByRole("button", { name: /Weiter/ }).click();
-  await expect(page.getByRole("heading", { name: "Gelesene Werte prüfen" })).toBeVisible();
+  const weiter = () => page.getByRole("navigation", { name: "Seiten blättern" }).getByRole("button", { name: /Weiter/ }).click();
+  await weiter();
+  await expect(page.getByRole("heading", { name: "Gelesene Werte prüfen (1 von 2)" })).toBeVisible();
   await expect(page.getByLabel("Kunde")).toHaveValue("Beispielkunde GmbH", { timeout: 10_000 });
-  await expect(page.getByLabel("Wartungsvertrag (Z50)")).toHaveValue("Ja");
-  await expect(page.getByLabel("Resident Maintenance (Z61)")).toHaveValue("Widersprüchlich");
+  await expect(page.getByLabel("Remote Service (Z30)")).toHaveValue("Ja");
   await expect(page.getByLabel("Angebotsnummer Remote Service")).toHaveValue("190014105");
-  // Hinweise der KI stehen am Feld; nicht eindeutige Felder sind markiert, bis die Person sie setzt
-  await expect(page.getByText("Pos. 4: Ja angekreuzt; 4.4 Schichtbetrieb 2-Schicht")).toBeVisible();
-  await expect(page.locator(".o-field.klaeren")).toHaveCount(2);
-  await expect(page.locator('[data-key="status_itservices"] .o-klaeren-marke')).toHaveText("Zu klären");
+  await expect(page.getByLabel("Angekreuzt bei Remote Service")).toHaveValue("RA, SM");
   await page.screenshot({ path: "screenshots/desktop-serviceangebot-pruefseite.png" });
+  // Hinweise der KI stehen am Feld; nicht eindeutige Felder sind markiert, bis die Person sie setzt
+  await expect(page.getByText("Pos. 1: Ja angekreuzt; RA und SM")).toBeVisible();
+  await expect(page.locator(".o-field.klaeren")).toHaveCount(1);
+  await expect(page.locator('[data-key="status_itservices"] .o-klaeren-marke')).toHaveText("Zu klären");
   // Die Prüfseite passt ohne Scrollen auf den Bildschirm
   expect(await page.locator(".app-inner").evaluate((el) => el.scrollHeight - el.clientHeight)).toBeLessThanOrEqual(2);
   // Der Word-Leser hat die Kästchen erhalten: angekreuzt ☒, leer ☐, bei allen drei Arten, dazu die Tabelle
@@ -84,11 +85,20 @@ test("Serviceangebot: Checkliste lesen, Prüfseite korrigieren, ZIP", async ({ p
   expect(lese).toContain("Schulung Ja ☒ Nein ☐");
   expect(lese).toContain("| Standort | St. Gallen |");
   expect(lese).not.toContain("FORMCHECKBOX");
-  // Korrektur von Hand bleibt erhalten, nimmt die Markierung weg und geht in die nächsten Schritte
-  await page.getByLabel("Resident Maintenance (Z61)").selectOption("Nein");
-  await expect(page.locator(".o-field.klaeren")).toHaveCount(1);
 
-  await page.getByRole("navigation", { name: "Seiten blättern" }).getByRole("button", { name: /Weiter/ }).click();
+  await weiter();
+  await expect(page.getByRole("heading", { name: "Gelesene Werte prüfen (2 von 2)" })).toBeVisible();
+  await expect(page.getByLabel("Wartungsvertrag (Z50)")).toHaveValue("Ja");
+  await expect(page.getByLabel("Angekreuzt bei Wartungsvertrag")).toHaveValue("4.4 Schichtbetrieb: 2-Schicht");
+  await expect(page.getByLabel("Resident Maintenance (Z61)")).toHaveValue("Widersprüchlich");
+  await expect(page.getByText("Pos. 6: beide Kästchen angekreuzt")).toBeVisible();
+  expect(await page.locator(".app-inner").evaluate((el) => el.scrollHeight - el.clientHeight)).toBeLessThanOrEqual(2);
+  // Korrektur von Hand bleibt erhalten, nimmt die Markierung weg und geht in die nächsten Schritte
+  await expect(page.locator(".o-field.klaeren")).toHaveCount(1);
+  await page.getByLabel("Resident Maintenance (Z61)").selectOption("Nein");
+  await expect(page.locator(".o-field.klaeren")).toHaveCount(0);
+
+  await weiter();
   await page.getByRole("button", { name: "Checkliste plausibilisieren" }).click();
   await expect(page.locator('[data-src][data-status="fertig"]', { hasText: "Plausibilisierung" })).toBeVisible({ timeout: 10_000 });
   expect(prompts.at(-1)).toContain("Resident Maintenance (Z61): Status Nein");
