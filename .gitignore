@@ -9,3 +9,4 @@ dist-artifact
 .impeccable/hook.cache.json
 *.tsbuildinfo
 .claude/settings.local.json
+screenshots/audit/
