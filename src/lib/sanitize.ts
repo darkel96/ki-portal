@@ -132,9 +132,9 @@ export function fixRefs(app: App, stepMap?: Map<string, string>) {
     if (b.type === "button") {
       const a = b.props.aktion;
       const ab = a.startsWith("ab:");
-      const id = ab ? a.slice(3) : a;
-      const nid = stepMap?.get(id) ?? id;
-      b.props.aktion = a === "alle" || !ids.has(nid) ? "alle" : ab ? `ab:${nid}` : nid;
+      // Eine ID, „ab:“ + ID oder mehrere IDs mit Komma; unbekannte fallen weg, ohne gültige bleibt „alle“
+      const neu = (ab ? a.slice(3) : a).split(",").map((x) => x.trim()).map((id) => stepMap?.get(id) ?? id).filter((id) => ids.has(id));
+      b.props.aktion = a === "alle" || !neu.length ? "alle" : ab ? `ab:${neu[0]}` : neu.join(",");
     }
     if (b.type === "output") {
       const nid = stepMap?.get(b.props.quelle) ?? b.props.quelle;

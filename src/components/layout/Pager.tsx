@@ -1,4 +1,4 @@
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, LayoutGrid } from "lucide-react";
 import { motion, useReducedMotion } from "motion/react";
 import type { ReactNode } from "react";
 
@@ -6,7 +6,7 @@ import type { ReactNode } from "react";
  * Blättern statt Scrollen: Zurück, Seitenpunkte, Weiter.
  * Die Farben kommen aus currentColor bzw. --pg-accent, damit der Pager auch in gestalteten Apps passt.
  */
-export function Pager({ seite, anzahl, titel, onWechsel, onWeiter, label = "Seite", mehrzahl = `${label}n`, weiter, weiterKurz, className = "" }: {
+export function Pager({ seite, anzahl, titel, onWechsel, onWeiter, label = "Seite", mehrzahl = `${label}n`, weiter, weiterKurz, ende, onEnde, className = "" }: {
   seite: number;
   anzahl: number;
   titel?: (i: number) => string;
@@ -20,6 +20,9 @@ export function Pager({ seite, anzahl, titel, onWechsel, onWeiter, label = "Seit
   weiter?: string;
   /** Kurzfassung davon für schmale Bildschirme (sonst „Weiter“) */
   weiterKurz?: string;
+  /** Auf der letzten Seite statt eines ausgegrauten „Weiter“: eigene Aktion, z. B. „Alle Ergebnisse“ */
+  ende?: string;
+  onEnde?: () => void;
   className?: string;
 }) {
   if (anzahl <= 1) return null;
@@ -41,11 +44,16 @@ export function Pager({ seite, anzahl, titel, onWechsel, onWeiter, label = "Seit
           {titel ? <><b>{name(seite)}</b><span>{seite + 1} von {anzahl}</span></> : <span>{label} {seite + 1} von {anzahl}</span>}
         </span>
       </div>
-      <button type="button" className="pg-btn primaer" onClick={() => (onWeiter ? onWeiter() : onWechsel(seite + 1))} disabled={seite === anzahl - 1}>
-        {weiter && seite < anzahl - 1
-          ? <><span className="pg-weiter pg-lang">{weiter}</span><span className="pg-kurz">{weiterKurz ?? "Weiter"}</span></>
-          : <span className="pg-weiter">Weiter</span>} <ChevronRight aria-hidden="true" size={16} />
-      </button>
+      {seite < anzahl - 1 ? (
+        <button type="button" className="pg-btn primaer" onClick={() => (onWeiter ? onWeiter() : onWechsel(seite + 1))}>
+          {weiter
+            ? <><span className="pg-weiter pg-lang">{weiter}</span><span className="pg-kurz">{weiterKurz ?? "Weiter"}</span></>
+            : <span className="pg-weiter">Weiter</span>} <ChevronRight aria-hidden="true" size={16} />
+        </button>
+      ) : ende && onEnde ? (
+        // Letzte Seite: kein ausgegrautes „Weiter“, sondern der Weg zurück zur Übersicht
+        <button type="button" className="pg-btn" onClick={onEnde}><LayoutGrid aria-hidden="true" size={16} /> <span className="pg-weiter">{ende}</span></button>
+      ) : <span className="pg-platz" aria-hidden="true" />}
     </nav>
   );
 }

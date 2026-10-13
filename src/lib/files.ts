@@ -17,8 +17,14 @@ export async function extractText(file: File): Promise<string> {
     return sheets.map((s) => `## Tabellenblatt: ${s.sheet}\n` + s.data.map((row) => row.map((c) => (c == null ? "" : String(c))).join(";")).join("\n")).join("\n\n");
   }
   if (n.endsWith(".docx")) {
+    // Eigener Leser: behält Kästchen (☒/☐) und Tabellen von Formularen wie der Service-Checkliste; sonst mammoth
+    const daten = await file.arrayBuffer();
+    try {
+      const text = await (await import("./docx")).docxAlsText(daten);
+      if (text.trim()) return text;
+    } catch { /* ungewöhnliche Datei: unten der allgemeine Leser */ }
     const mammoth = await import("mammoth");
-    const res = await mammoth.extractRawText({ arrayBuffer: await file.arrayBuffer() });
+    const res = await mammoth.extractRawText({ arrayBuffer: daten });
     return res.value;
   }
   if (n.endsWith(".pdf")) {

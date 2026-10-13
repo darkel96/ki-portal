@@ -83,7 +83,7 @@ export function bedingungErfuellt(s: Step, ctx: Record<string, string>): boolean
 }
 
 /** Schritte dieses Laufs, deren Ergebnis ein Schritt braucht (Platzhalter oder Bedingung). */
-function abhaengigkeiten(s: Step, steps: Step[]): Step[] {
+export function abhaengigkeiten(s: Step, steps: Step[]): Step[] {
   const text = [stepText(s), s.rolle, s.team?.moderation ?? "", ...(s.team?.agenten.map((a) => a.rolle) ?? [])].join(" ");
   const used = new Set(varsIn(text));
   if (s.bedingung?.feld) used.add(s.bedingung.feld.toLowerCase());
