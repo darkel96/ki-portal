@@ -22,12 +22,18 @@ test("Copilot-Antworten: entdoppeln, JSON, Streaming", async ({ page }) => {
     const lang = "Der Cyber Resilience Act ist eine EU-Verordnung für Produkte mit digitalen Elementen.";
     const doppelTeile: string[] = [];
     const streamDoppelt = await c.streamLesen(sse([conv(lang.slice(0, 30)), conv(lang), conv(lang + "\n\n" + lang.slice(0, 25)), conv(lang + "\n\n" + lang)]), "FRAGE", (t) => doppelTeile.push(t), 0, {});
+    // Zweitfassung mit korrigierter Adresse am Ende (erst „(1.docx)“, dann „(1).docx“): die spätere Fassung bleibt, einmal
+    const erst = "Der CRA beinhaltet für unsere Produkte vor allem Security by Design.\n\nQuelle: https://x.sharepoint.com/Termin%201%20(1.docx)";
+    const dann = "Der CRA beinhaltet für unsere Produkte vor allem Security by Design.\n\nQuelle: https://x.sharepoint.com/Termin%201%20(1).docx";
+    const korrigiertTeile: string[] = [];
+    const korrigiert = await c.streamLesen(sse([conv(erst), conv(erst + dann.slice(0, 40)), conv(erst + dann)]), "FRAGE", (t) => korrigiertTeile.push(t), 0, {});
+    const korrigiertEnde = c.entdoppeln(erst + dann);
     const jsonNicht = new Response(JSON.stringify({ messages: [{ text: "FRAGE" }, { text: "Antwort" }] }), { headers: { "content-type": "application/json" } });
     const ohneStream = await c.streamLesen(jsonNicht, "FRAGE", () => {}, 0, {});
     return {
       doppelt: c.entdoppeln(A + A), doppeltLeer: c.entdoppeln(A + "\n\n" + A), einfach: c.entdoppeln(A), kurz: c.entdoppeln("abab"),
       json: k.jsonAus('Hier: {"a":"}{","b":{"c":1}}{"a":"}{","b":{"c":1}}'), jsonFence: k.jsonAus('```json\n{"x":"\\"}"}\n```'),
-      kum, teile, delta, geteilt, ohneStream, umgeschrieben, streamDoppelt, doppelTeile, lang,
+      kum, teile, delta, geteilt, ohneStream, umgeschrieben, streamDoppelt, doppelTeile, lang, korrigiert, korrigiertTeile, korrigiertEnde, dann, erst,
     };
   });
   expect(r.doppelt).toBe("## Variante 1\nText mit genug Länge für den Test.");
@@ -42,6 +48,9 @@ test("Copilot-Antworten: entdoppeln, JSON, Streaming", async ({ page }) => {
   expect(r.geteilt).toBe("Hallo");
   expect(r.ohneStream).toBe("Antwort");
   expect(r.streamDoppelt).toBe(r.lang);
+  expect(r.korrigiert).toBe(r.dann);
+  expect(r.korrigiertTeile).toEqual([r.erst, r.dann]);
+  expect(r.korrigiertEnde).toBe(r.dann);
   expect(r.doppelTeile).toEqual([r.lang.slice(0, 30), r.lang]);
   expect(r.umgeschrieben).toBe("Für uns als Hersteller bedeutet der CRA vor allem: Cybersicherheit über den Lebenszyklus.\n\nQuelle: https://x.sharepoint.com/Termin%201%20(1).docx\n\nSoll ich weitermachen?");
 });
