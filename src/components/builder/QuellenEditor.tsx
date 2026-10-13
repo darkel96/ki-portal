@@ -32,7 +32,7 @@ export function QuellenEditor({ quellen, onChange, id }: { quellen: Quelle[]; on
       <div className="flex flex-wrap items-center gap-2">
         <Button variant="outline" size="sm" onClick={() => onChange([...quellen, { typ: "sharepoint", titel: "", url: "" }])}><Plus />Wissensquelle</Button>
         {frei.length > 0 && (
-          <select aria-label="Aus der Wissensbibliothek übernehmen" className="h-8 rounded-full border border-input bg-background px-3 text-sm" value="" id={`${id}-lib`}
+          <select aria-label="Aus der Wissensbibliothek übernehmen" className="h-8 min-w-0 max-w-full rounded-full border border-input bg-background px-3 text-sm" value="" id={`${id}-lib`}
             onChange={(e) => { const x = frei.find((f) => f.id === e.target.value); if (x) onChange([...quellen, { typ: x.typ, titel: x.titel, url: x.url }]); }}>
             <option value="">Aus der Wissensbibliothek …</option>
             {frei.map((e) => <option key={e.id} value={e.id} title={e.beschreibung}>{e.titel}{e.beschreibung ? ` – ${e.beschreibung.slice(0, 60)}` : ""}</option>)}
