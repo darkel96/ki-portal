@@ -66,13 +66,15 @@ const seite = (titel: string, children: Block[]): Block => ({ id: id(), type: "s
 
 export function serviceangebotApp(): App {
   n = 0;
-  /** Je Produkt: Status (vorbelegt, mit Hinweis der KI) und Angebotsnummer; drei Produkte nebeneinander */
-  const produkt = (p: (typeof SA_PRODUKTE)[number]): Block[] => [
-    feld("select", { label: `${p.titel} (${p.sap})`, key: `status_${p.key}`, optionen: STATUS, aus: `lesen.produkte.${p.key}.status`, hilfe: "Status laut Kreuz in der Checkliste." }),
-    feld("input", { label: `Angebotsnummer ${p.titel}`, key: `nummer_${p.key}`, aus: `lesen.produkte.${p.key}.nummer`, placeholder: PLATZHALTER }),
-    feld("textarea", { label: `Angekreuzt bei ${p.titel}`, key: `angaben_${p.key}`, rows: 3, aus: `lesen.produkte.${p.key}.angaben`, placeholder: "Unterpunkte mit ☒ / ☐ aus der Checkliste" }),
+  /**
+   * Drei Produkte nebeneinander, als Zeilen gleicher Art: erst die drei Status, dann die drei Angebotsnummern, dann die
+   * drei Unterpunkt-Felder. So stehen die Felder spaltenweise bündig, auch wenn ein KI-Hinweis unter einem Status länger ist.
+   */
+  const produkte = (teil: typeof SA_PRODUKTE): Block[] => [
+    ...teil.map((p) => feld("select", { label: `${p.titel} (${p.sap})`, key: `status_${p.key}`, optionen: STATUS, aus: `lesen.produkte.${p.key}.status`, hilfe: "Status laut Kreuz in der Checkliste." })),
+    ...teil.map((p) => feld("input", { label: `Angebotsnummer ${p.titel}`, key: `nummer_${p.key}`, aus: `lesen.produkte.${p.key}.nummer`, placeholder: PLATZHALTER })),
+    ...teil.map((p) => feld("textarea", { label: `Angekreuzt bei ${p.titel}`, key: `angaben_${p.key}`, rows: 5, aus: `lesen.produkte.${p.key}.angaben`, placeholder: "Unterpunkte mit ☒ / ☐ aus der Checkliste" })),
   ];
-  const spalten = (teil: typeof SA_PRODUKTE): Block => ({ id: id(), type: "columns", props: { count: 3 }, cols: teil.map(produkt) } as Block);
   const blocks: Block[] = [
     seite("Checkliste", [
       block("heading", { text: "Serviceangebot vorbereiten", level: 1 }),
@@ -93,12 +95,12 @@ export function serviceangebotApp(): App {
         feld("input", { label: "Projekt", key: "projekt", aus: "lesen.projekt", pflicht: true }),
         feld("input", { label: "Standort der Anlage", key: "standort", aus: "lesen.standort" }),
       ]),
-      block("section", { pad: "s", border: true }, [spalten(SA_PRODUKTE.slice(0, 3))]),
+      block("section", { pad: "s", border: true }, produkte(SA_PRODUKTE.slice(0, 3))),
     ]),
     seite("Prüfen: Wartung, Ersatzteile, Resident", [
       block("heading", { text: "Gelesene Werte prüfen (2 von 2)", level: 2 }),
       block("text", { text: "Status und angekreuzte Unterpunkte je Produkt. Gelb markierte Felder bitte prüfen und von Hand setzen.", size: "s" }),
-      block("section", { pad: "s", border: true }, [spalten(SA_PRODUKTE.slice(3))]),
+      block("section", { pad: "s", border: true }, produkte(SA_PRODUKTE.slice(3))),
     ]),
     seite("Hinweise von Copilot", [
       block("heading", { text: "Hinweise von Copilot (optional)", level: 2 }),
