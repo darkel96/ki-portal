@@ -121,6 +121,7 @@ export const StepSchema = z.object({
     .describe('Ergebnis zusätzlich als fertige Datei: "pdf", "docx" (Word), "xlsx" (Excel), "pptx" (PowerPoint), "wunsch" = die Datei, die in Aufgabe oder Eingaben verlangt wird; "" = keine'),
   autoAll: z.boolean().default(false),
   web: z.boolean().default(false),
+  wissenBegrenzt: z.boolean().default(false).describe("true = die KI nutzt nur die Eingaben dieser Anfrage und die hinterlegten Wissensquellen; kein weiteres Wissen aus Microsoft 365 (Dokumente, E-Mails, Chats), keine Websuche"),
   quellen: z.array(QuelleSchema).max(20).default([]),
   bedingung: BedingungSchema.nullable().default(null),
   team: TeamSchema.optional(),

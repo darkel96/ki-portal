@@ -331,7 +331,21 @@ export function appWarnings(app: App): Warnung[] {
     }
     if ((b.type === "select" || b.type === "radio") && !b.props.optionen.length) hard(`„${b.props.label}“ hat noch keine Optionen.`);
   });
-  if (app.steps.length && !hasBtn) hard("Auf der Oberfläche fehlt ein KI-Button, der den Ablauf startet.");
+  // Ohne Button laufen Schritte trotzdem: Lese-Schritte beim Wechsel auf die Prüfseite, Ergebnis-Schritte beim Wechsel in die
+  // Ergebnisse (Kachel oder eigene Ergebnisseite). Nur ein Schritt, dessen Ergebnis auf einer Eingabeseite steht, braucht einen Button.
+  if (app.steps.length && !hasBtn) {
+    const ausKeysB = new Set(fieldsOf(app).map((b) => b.props.aus.trim().split(".")[0].toLowerCase()).filter(Boolean));
+    const ergebnisSeiten = new Set<string>();
+    seitenVon(app).forEach((p) => {
+      let eingabe = false; const ids: string[] = [];
+      walk(p.children ?? [], (b) => { if (isFieldType(b.type) || b.type === "button") eingabe = true; if (b.type === "output") ids.push(b.props.quelle); });
+      if (!eingabe) ids.forEach((id) => ergebnisSeiten.add(id));
+    });
+    app.steps.forEach((s, i) => {
+      const erreichbar = ausKeysB.has(s.key.toLowerCase()) || !outSrc.has(s.id) || ergebnisSeiten.has(s.id);
+      if (!erreichbar) hard(`„${stepName(s, i)}“ wird nirgends gestartet: Sein Ergebnis-Element steht auf einer Eingabeseite und es gibt keinen KI-Button. Button ergänzen oder das Ergebnis auf eine eigene Seite legen.`);
+    });
+  }
   seitenVon(app).forEach((p, i) => { if (!p.children?.length) soft(`Seite ${i + 1} „${(p.props as PropsOf<"seite">).titel}“ ist leer.`); });
   const ausKeys = new Set(fieldsOf(app).map((b) => b.props.aus.trim().split(".")[0].toLowerCase()).filter(Boolean));
   app.steps.forEach((s, i) => {

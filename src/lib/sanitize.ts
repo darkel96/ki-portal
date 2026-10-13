@@ -67,6 +67,7 @@ export function sanitizeApp(raw: unknown, base: App): App {
       datei: field(shape.datei, s.datei, ""),
       autoAll: !!s.autoAll,
       web: !!s.web,
+      wissenBegrenzt: !!s.wissenBegrenzt,
       quellen: (Array.isArray(s.quellen) ? s.quellen : []).slice(0, 20).map((q) => objectLenient(QuelleSchema, q)),
       bedingung: isObj(s.bedingung) && s.bedingung.feld ? field(BedingungSchema.nullable(), { op: "gleich", wert: "", ...s.bedingung, feld: slug(String(s.bedingung.feld)) }, null) : null,
     };

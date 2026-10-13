@@ -107,7 +107,7 @@ export function serviceangebotApp(): App {
     theme: { accent: "#0f2f5f" }, status: "freigegeben", version: 1,
     blocks,
     steps: [
-      { id: "sa-lesen", name: "Checkliste lesen", key: "lesen", format: "json", modell: "complex", rolle,
+      { id: "sa-lesen", name: "Checkliste lesen", key: "lesen", format: "json", modell: "complex", rolle, wissenBegrenzt: true,
         prompt: `Lies die Service-Checkliste und gib die Werte als JSON zurück; damit wird die Prüfseite ausgefüllt, auf der der Sales-Service die Werte bestätigt oder korrigiert.
 
 So liest du die Kästchen: Angekreuzte Kästchen stehen als ☒, leere als ☐, jeweils direkt vor oder in derselben Zeile wie ihr Begriff. Stehen mehrere Kästchen vor mehreren Begriffen, gilt die Reihenfolge (erstes Kästchen = erster Begriff). Bei jeder Position (Pos. 1 bis 6) gehört das erste Kästchen zu „Ja“ und das zweite zu „Nein“.
@@ -121,7 +121,7 @@ Produkte in der Reihenfolge der Checkliste: ${SA_PRODUKTE.map((p) => `${p.titel}
 
 Text der Checkliste ({{checkliste_name}}):
 {{checkliste}}` },
-      { id: "sa-struktur", name: "Angebotsstruktur", key: "struktur", rolle, modell: "complex", format: "dateien",
+      { id: "sa-struktur", name: "Angebotsstruktur", key: "struktur", rolle, modell: "complex", format: "dateien", wissenBegrenzt: true,
         quellen: [{ typ: "sharepoint", titel: "Vorlagen und Formblätter (SharePoint aberle-doc, Prozessdokumente)", url: SA_VORLAGEN_URL }],
         prompt: `Auftrag: Baue die Angebotsstruktur als Dateipaket mit leeren Ordnern ("ordner"), Kopien der Originalvorlagen ("kopien") und zwei Textdateien ("dateien").
 
