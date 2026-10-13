@@ -6,7 +6,7 @@ import type { ReactNode } from "react";
  * Blättern statt Scrollen: Zurück, Seitenpunkte, Weiter.
  * Die Farben kommen aus currentColor bzw. --pg-accent, damit der Pager auch in gestalteten Apps passt.
  */
-export function Pager({ seite, anzahl, titel, onWechsel, onWeiter, label = "Seite", mehrzahl = `${label}n`, weiter, weiterKurz, ende, onEnde, className = "" }: {
+export function Pager({ seite, anzahl, titel, onWechsel, onWeiter, label = "Seite", mehrzahl = `${label}n`, weiter, weiterKurz, ende, onEnde, weiterGesperrt, className = "" }: {
   seite: number;
   anzahl: number;
   titel?: (i: number) => string;
@@ -23,6 +23,8 @@ export function Pager({ seite, anzahl, titel, onWechsel, onWeiter, label = "Seit
   /** Auf der letzten Seite statt eines ausgegrauten „Weiter“: eigene Aktion, z. B. „Alle Ergebnisse“ */
   ende?: string;
   onEnde?: () => void;
+  /** „Weiter“ ausgegraut, solange z. B. die KI die Felder der nächsten Seite noch ausfüllt */
+  weiterGesperrt?: string;
   className?: string;
 }) {
   if (anzahl <= 1) return null;
@@ -45,7 +47,7 @@ export function Pager({ seite, anzahl, titel, onWechsel, onWeiter, label = "Seit
         </span>
       </div>
       {seite < anzahl - 1 ? (
-        <button type="button" className="pg-btn primaer" onClick={() => (onWeiter ? onWeiter() : onWechsel(seite + 1))}>
+        <button type="button" className="pg-btn primaer" disabled={!!weiterGesperrt} title={weiterGesperrt || undefined} aria-disabled={!!weiterGesperrt || undefined} onClick={() => (onWeiter ? onWeiter() : onWechsel(seite + 1))}>
           {weiter
             ? <><span className="pg-weiter pg-lang">{weiter}</span><span className="pg-kurz">{weiterKurz ?? "Weiter"}</span></>
             : <span className="pg-weiter">Weiter</span>} <ChevronRight aria-hidden="true" size={16} />

@@ -43,6 +43,7 @@ async function kiNachbau(page: Page) {
     const prompt = String(body?.messages?.[0]?.content ?? "");
     prompts.push(prompt);
     const text = /Antworte nur mit JSON dieser Form/.test(prompt) ? LESEN : /Dateipaket/.test(prompt) ? PAKET : "- **Hinweis**: Pos. 6 ist widersprüchlich.";
+    await new Promise((r) => setTimeout(r, 700));   // kurz „arbeiten“, damit sich Zwischenzustände prüfen lassen
     const ev = (type: string, data: object) => `event: ${type}\ndata: ${JSON.stringify({ type, ...data })}\n\n`;
     const sse = [
       ev("message_start", { message: { id: "m", type: "message", role: "assistant", model: "x", content: [], stop_reason: null, stop_sequence: null, usage: { input_tokens: 1, output_tokens: 1 } } }),
@@ -67,6 +68,13 @@ test("Serviceangebot: Checkliste lesen, Prüfseite korrigieren, ZIP", async ({ p
   const weiter = () => page.getByRole("navigation", { name: "Seiten blättern" }).getByRole("button", { name: /Weiter|Ergebnisse erstellen/ }).click();
   await weiter();
   await expect(page.getByRole("heading", { name: "Gelesene Werte prüfen (1 von 2)" })).toBeVisible();
+  // Solange Copilot liest: Hinweisleiste, „Weiter“ ausgegraut, Punkte blättern nicht vor
+  const weiterKnopf = page.getByRole("navigation", { name: "Seiten blättern" }).getByRole("button", { name: /Weiter/ });
+  await expect(page.getByText("„Checkliste lesen“ läuft, die Felder werden gleich ausgefüllt …")).toBeVisible();
+  await expect(weiterKnopf).toBeDisabled();
+  await page.getByRole("navigation", { name: "Seiten blättern" }).getByRole("button", { name: /Seite 3/ }).click();
+  await expect(page.getByRole("heading", { name: "Gelesene Werte prüfen (1 von 2)" })).toBeVisible();
+  await expect(weiterKnopf).toBeEnabled({ timeout: 10_000 });
   await expect(page.getByLabel("Kunde")).toHaveValue("Beispielkunde GmbH", { timeout: 10_000 });
   await expect(page.getByLabel("Angebotssprache")).toHaveValue("Deutsch");
   await expect(page.getByLabel("Remote Service (Z30)")).toHaveValue("Ja");
