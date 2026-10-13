@@ -19,10 +19,15 @@ function Field({ b, mode }: { b: Extract<Block, { type: "input" | "textarea" | "
   const dis = mode === "edit";
   const err = run?.fehler.has(P.key);
   const req = P.pflicht ? <em aria-hidden="true">*</em> : null;
-  const help = P.hilfe ? <span className="o-help" id={`${id}-hilfe`}>{P.hilfe}</span> : null;
+  const ki = run?.hinweise[P.key];
+  const klaeren = !!ki?.klaeren;
+  // Hinweis der KI zum vorbelegten Wert ersetzt den allgemeinen Hilfetext; „zu klären“ bekommt eine Markierung
+  const help = ki?.hinweis || klaeren
+    ? <span className={`o-help o-ki-hinweis ${klaeren ? "klaeren" : ""}`} id={`${id}-hilfe`}>{klaeren && <b className="o-klaeren-marke">Zu klären</b>}{ki?.hinweis ?? (klaeren ? "Nicht eindeutig gelesen. Bitte prüfen und von Hand setzen." : "")}</span>
+    : P.hilfe ? <span className="o-help" id={`${id}-hilfe`}>{P.hilfe}</span> : null;
   const v = run?.werte[P.key];
   const set = (val: string | boolean) => run?.setWert(P.key, val);
-  const described = [P.hilfe ? `${id}-hilfe` : "", err ? `${id}-fehler` : ""].filter(Boolean).join(" ") || undefined;
+  const described = [P.hilfe || ki?.hinweis || klaeren ? `${id}-hilfe` : "", err ? `${id}-fehler` : ""].filter(Boolean).join(" ") || undefined;
   const common = { id, name: P.key, autoComplete: "off", disabled: dis, tabIndex: dis ? -1 : undefined, "aria-invalid": err || undefined, "aria-describedby": described, "aria-required": P.pflicht || undefined };
   let ctl: ReactNode;
   switch (b.type) {
@@ -33,7 +38,7 @@ function Field({ b, mode }: { b: Extract<Block, { type: "input" | "textarea" | "
         {b.props.optionen.map((o) => <option key={o}>{o}</option>)}
       </select>); break;
     case "radio": return (
-      <fieldset className={`o-field ${err ? "err" : ""}`} data-key={P.key} style={{ border: 0, padding: 0, margin: 0 }} role="radiogroup" aria-required={P.pflicht || undefined} aria-invalid={err || undefined} aria-describedby={described}>
+      <fieldset className={`o-field ${err ? "err" : ""} ${klaeren ? "klaeren" : ""}`} data-key={P.key} style={{ border: 0, padding: 0, margin: 0 }} role="radiogroup" aria-required={P.pflicht || undefined} aria-invalid={err || undefined} aria-describedby={described}>
         <legend className="o-lbl">{P.label}{req}</legend>
         <div className="o-opts">{b.props.optionen.map((o) => (
           <label key={o}><input type="radio" name={`r-${P.key}`} value={o} disabled={dis} checked={v === o} onChange={() => set(o)} /> {o}</label>
@@ -41,7 +46,7 @@ function Field({ b, mode }: { b: Extract<Block, { type: "input" | "textarea" | "
         {help}{err && <span className="o-err" id={`${id}-fehler`}>Bitte auswählen.</span>}
       </fieldset>);
     case "checkbox": return (
-      <div className={`o-field ${err ? "err" : ""}`} data-key={P.key}>
+      <div className={`o-field ${err ? "err" : ""} ${klaeren ? "klaeren" : ""}`} data-key={P.key}>
         <label className="o-check"><input type="checkbox" {...common} checked={!!v} onChange={(e) => set(e.target.checked)} /> {P.label}{req}</label>
         {help}{err && <span className="o-err" id={`${id}-fehler`}>Bitte bestätigen.</span>}
       </div>);
@@ -66,7 +71,7 @@ function Field({ b, mode }: { b: Extract<Block, { type: "input" | "textarea" | "
     default: ctl = <input type="text" {...common} placeholder={P.placeholder} value={String(v ?? "")} onChange={(e) => set(e.target.value)} />;
   }
   return (
-    <div className={`o-field ${err ? "err" : ""}`} data-key={P.key}>
+    <div className={`o-field ${err ? "err" : ""} ${klaeren ? "klaeren" : ""}`} data-key={P.key}>
       <label htmlFor={id}>{P.label}{req}</label>
       {ctl}{help}
       {err && <span className="o-err" id={`${id}-fehler`}>{b.type === "select" ? "Bitte auswählen." : b.type === "file" ? "Bitte eine Datei auswählen." : "Bitte ausfüllen."}</span>}

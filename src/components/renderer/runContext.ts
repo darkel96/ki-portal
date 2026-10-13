@@ -11,6 +11,8 @@ export type RunCtx = {
   dateiFehler?: Set<string>;
   setDatei: (key: string, f: File | null) => void;
   fehler: Set<string>;
+  /** Hinweise der KI zu vorbelegten Feldern (Prüfseite): Text unter dem Feld, „klaeren“ hebt es hervor */
+  hinweise: Record<string, { hinweis?: string; klaeren?: boolean }>;
   outs: Record<string, OutState>;
   /** ID des Buttons, dessen Ablauf gerade läuft */
   laeuft: string | null;

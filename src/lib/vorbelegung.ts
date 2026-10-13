@@ -43,18 +43,36 @@ export function feldWert(b: FieldBlock, v: unknown): string | boolean | undefine
   return text;
 }
 
-/** Felder, die sich aus dem Ergebnis des Schritts mit diesem key vorbelegen, mit ihren Werten. Liefert null, wenn das Ergebnis kein JSON ist. */
-export function vorbelegungen(app: Pick<App, "blocks">, stepKey: string, text: string): Record<string, string | boolean> | null {
+/** Vorbelegung eines Feldes: Wert plus optionaler Hinweis der KI und Markierung „zu klären“ */
+export type Vorbelegung = { wert: string | boolean; hinweis?: string; klaeren?: boolean };
+
+/**
+ * Felder, die sich aus dem Ergebnis des Schritts mit diesem key vorbelegen, mit ihren Werten. Liefert null, wenn das
+ * Ergebnis kein JSON ist. Der Wert im JSON darf ein Objekt {"wert", "hinweis", "klaeren"} sein: dann steht der
+ * Hinweis unter dem Feld und „klaeren“ hebt es hervor (z. B. ein nicht eindeutig angekreuztes Kästchen).
+ */
+export function vorbelegungen(app: Pick<App, "blocks">, stepKey: string, text: string): Record<string, Vorbelegung> | null {
   const k = stepKey.toLowerCase();
   const felder = fieldsOf(app).filter((b) => b.type !== "file" && b.props.aus.trim().split(".")[0].toLowerCase() === k);
   if (!felder.length) return null;
   let json: unknown;
   try { json = jsonAus(text); } catch { return null; }
-  const out: Record<string, string | boolean> = {};
+  const out: Record<string, Vorbelegung> = {};
   for (const b of felder) {
     const pfad = b.props.aus.trim().split(".").slice(1).join(".");
-    const w = feldWert(b, pfad ? wertUnter(json, pfad) : json);
-    if (w !== undefined) out[b.props.key] = w;
+    let roh = pfad ? wertUnter(json, pfad) : json;
+    let hinweis: string | undefined, klaeren: boolean | undefined;
+    if (roh && typeof roh === "object" && !Array.isArray(roh) && "wert" in (roh as object)) {
+      const o = roh as { wert?: unknown; hinweis?: unknown; klaeren?: unknown };
+      hinweis = typeof o.hinweis === "string" && o.hinweis.trim() ? o.hinweis.trim().slice(0, 500) : undefined;
+      klaeren = o.klaeren === true || /^(ja|true|1)$/i.test(String(o.klaeren ?? ""));
+      roh = o.wert;
+    }
+    const w = feldWert(b, roh);
+    if (w === undefined && !hinweis) continue;
+    // Auswahl ohne passende Option (z. B. „Unklar“ bei Ja/Nein) gilt als zu klären
+    if ((b.type === "select" || b.type === "radio") && w === "" && roh !== undefined && roh !== "") klaeren = true;
+    out[b.props.key] = { wert: w ?? "", hinweis, klaeren };
   }
   return out;
 }

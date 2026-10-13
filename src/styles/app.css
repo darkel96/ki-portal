@@ -218,6 +218,14 @@ a.tile:hover .tile-go svg { transform: translateX(5px); }
 .o-field textarea { resize: vertical; line-height: 1.5; }
 .o-field input:focus, .o-field textarea:focus, .o-field select:focus { outline: none; border-color: var(--app-accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--app-accent) 22%, transparent); }
 .o-field.err input, .o-field.err textarea, .o-field.err select { border-color: var(--danger); }
+/* Prüfseite: von der KI nicht eindeutig gelesen, bitte prüfen */
+.o-field.klaeren input, .o-field.klaeren textarea, .o-field.klaeren select { border-color: #d98c00; background: color-mix(in srgb, #f5a800 9%, var(--app-bg)); }
+.o-ki-hinweis { color: var(--app-ink); }
+.o-ki-hinweis.klaeren { color: #7a4d00; }
+.o-klaeren-marke { display: inline-block; margin-right: 6px; padding: 1px 7px; border-radius: 999px; background: #f5a800; color: #1a1200; font-size: 11px; font-weight: 700; letter-spacing: .02em; vertical-align: 1px; }
+.o-vorbelegung { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 10px 14px; border-radius: var(--app-radius); font-size: 14px; background: color-mix(in srgb, var(--app-accent) 10%, var(--app-bg)); border: 1px solid color-mix(in srgb, var(--app-accent) 25%, var(--app-bg)); }
+.o-vorbelegung[data-art="fehler"] { background: color-mix(in srgb, var(--danger) 9%, var(--app-bg)); border-color: color-mix(in srgb, var(--danger) 30%, var(--app-bg)); }
+.o-vorbelegung .o-btn { min-height: 32px; padding: 4px 12px; font-size: 13px; }
 .o-opts { display: flex; flex-wrap: wrap; gap: 8px 16px; }
 .o-opts label, .o-check { display: inline-flex; gap: 8px; align-items: center; font-size: 14px; }
 .o-field input[type="checkbox"], .o-field input[type="radio"] { accent-color: var(--app-accent); width: 16px; height: 16px; }
@@ -531,7 +539,7 @@ pre.code { margin: 0; white-space: pre-wrap; font: 12.5px/1.5 var(--k-font-mono)
 .app-frame[data-dicht="2"] .o-sec.p-m, .app-frame[data-dicht="2"] .o-sec.p-l { padding: 10px 14px; }
 .app-frame[data-dicht="2"] .o-h1 { font-size: 24px; }
 .app-frame[data-dicht="2"] .o-field textarea { max-height: 76px; }
-.app-frame[data-dicht="2"] .o-help:not([aria-live]) { display: none; }
+.app-frame[data-dicht="2"] .o-help:not([aria-live], .o-ki-hinweis) { display: none; }
 /* Notfall-Scrollen ohne klobige Pfeile */
 .innen-scroll { scrollbar-color: color-mix(in srgb, currentColor 25%, transparent) transparent; }
 

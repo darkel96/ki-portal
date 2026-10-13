@@ -171,7 +171,7 @@ function LaufDetail({ lauf, app, onZurueck }: { lauf: Lauf; app?: HubApp; onZuru
     }
     return o;
   }, [lauf, steps]); // eslint-disable-line react-hooks/exhaustive-deps
-  const ctx: RunCtx = { werte: {}, setWert: () => {}, files: {}, dateiInfo: {}, setDatei: () => {}, fehler: new Set(), outs, laeuft: null, ebenen: {}, starten: () => {} };
+  const ctx: RunCtx = { werte: {}, setWert: () => {}, files: {}, dateiInfo: {}, setDatei: () => {}, fehler: new Set(), hinweise: {}, outs, laeuft: null, ebenen: {}, starten: () => {} };
   const s = steps[Math.min(i, steps.length - 1)];
   return (
     <div className="mh-detail">

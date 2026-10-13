@@ -61,16 +61,21 @@ Serviceangebote-App auf CHARLESTOWN):
 
 - Ein KI-Schritt mit Ausgabeformat „JSON-Daten“ liest z. B. eine hochgeladene Checkliste.
 - Eingabefelder auf einer späteren Seite bekommen im Baukasten unter „Vorbelegen aus KI-Ergebnis“ den Pfad
-  `schritt.feld` (etwa `lesen.produkte.wartung.status`). Sobald der Schritt fertig ist, stehen die Werte in
+  `schritt.feld` (etwa `lesen.produkte.wartungsvertrag.status`). Sobald der Schritt fertig ist, stehen die Werte in
   den Feldern; Auswahllisten werden auf ihre Optionen abgebildet. Was die Person von Hand ändert, bleibt
-  bei einem erneuten Lauf erhalten.
+  bei einem erneuten Lauf erhalten. „Weiter“ auf eine solche Seite startet den Lese-Schritt von selbst, wenn er
+  noch nicht gelaufen ist; ein Hinweis auf der Seite zeigt Laufen, Fehler und „Erneut versuchen“.
+- Liefert die KI für ein Feld ein Objekt `{"wert", "hinweis", "klaeren"}`, steht der Hinweis unter dem Feld
+  (z. B. Fundstelle) und `klaeren: true` markiert es gelb mit „Zu klären“, bis die Person es setzt.
+- Schritte, deren Ergebnis nur Felder vorbelegt, erscheinen nicht als Kachel in der Ergebnisübersicht.
 - Ein Ergebnis-Element kann mit „Nur diesen Teil zeigen“ einen Teil des JSON als Text, Liste oder Tabelle zeigen.
 - Buttons starten einzelne Schritte („Nur: …“), mehrere Schritte oder „Ab: …“ bis zum Ende; die Ergebnisübersicht
   startet dann nur die Schritte ihrer Kacheln, nicht den Lese-Schritt.
 - Ausgabeformat „Dateipaket (ZIP)“ erzeugt eine Ordnerstruktur zum Herunterladen; Dateien mit Endung .docx,
   .xlsx, .pdf oder .pptx werden aus Markdown erzeugt.
 - Word-Dateien werden mit Kästchen gelesen: angekreuzt ☒, leer ☐ (Inhaltssteuerelemente, alte Formularfelder,
-  Wingdings-Symbole), Tabellen zeilenweise mit „|“.
+  Wingdings-Symbole und gezeichnete Kästchen, also kleine Textfelder mit „x“ wie in der Service-Checkliste),
+  Tabellen zeilenweise mit „|“.
 
 Die Vorlage „Serviceangebot vorbereiten“ zeigt den ganzen Ablauf: Checkliste hochladen, lesen, prüfen und
 korrigieren, Hinweise von Copilot (plausibilisieren, unklare Kästchen, Rückfrage), Zusammenfassung als Word
