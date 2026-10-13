@@ -68,6 +68,9 @@ Serviceangebote-App auf CHARLESTOWN):
 - Liefert die KI für ein Feld ein Objekt `{"wert", "hinweis", "klaeren"}`, steht der Hinweis unter dem Feld
   (z. B. Fundstelle) und `klaeren: true` markiert es gelb mit „Zu klären“, bis die Person es setzt.
 - Schritte, deren Ergebnis nur Felder vorbelegt, erscheinen nicht als Kachel in der Ergebnisübersicht.
+- Wissensgrenze je Schritt („Nur Eingaben und hinterlegte Quellen nutzen“ in den Feineinstellungen): Die KI bekommt
+  die Anweisung, kein weiteres Wissen aus Microsoft 365 und keine Websuche zu verwenden. Wissensquellen (SharePoint,
+  Datei, Webseite) und Hintergrundwissen stehen im Reiter „Wissen“ des Schritts.
 - Ein Ergebnis-Element kann mit „Nur diesen Teil zeigen“ einen Teil des JSON als Text, Liste oder Tabelle zeigen.
 - Buttons starten einzelne Schritte („Nur: …“), mehrere Schritte oder „Ab: …“ bis zum Ende; die Ergebnisübersicht
   startet dann nur die Schritte ihrer Kacheln, nicht den Lese-Schritt.

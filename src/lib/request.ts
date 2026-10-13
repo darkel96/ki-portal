@@ -39,6 +39,9 @@ export type KiRequest = {
 
 const quellenOf = (s: Step) => s.quellen.filter((q) => q.url || q.titel);
 
+/** Systemtext, wenn ein Schritt nur mit den Eingaben und den hinterlegten Quellen arbeiten darf */
+export const WISSEN_BEGRENZT = "Wissensgrenze: Nutze ausschließlich die Angaben in dieser Anfrage und die hinterlegten Wissensquellen. Ziehe keine anderen Dokumente, E-Mails, Chats oder Besprechungen aus Microsoft 365 heran und keine Internetsuche. Fehlt eine Information, sage das, statt sie zu ergänzen.";
+
 export function systemText(app: Pick<App, "name">, step: Step, wissen: string): string {
   const q = quellenOf(step);
   return [
@@ -46,6 +49,7 @@ export function systemText(app: Pick<App, "name">, step: Step, wissen: string): 
     step.rolle,
     wissen ? `Hintergrundwissen:\n${wissen}` : "",
     q.length ? "Hinterlegte Wissensquellen:\n" + q.map((x) => `- ${x.titel || x.url} (${QUELL_TYP[x.typ] ?? "Quelle"})${x.url ? ": " + x.url : ""}`).join("\n") : "",
+    step.wissenBegrenzt ? WISSEN_BEGRENZT : "",
     FORMAT_HINT[step.format],
   ].filter(Boolean).join("\n\n");
 }
@@ -85,7 +89,7 @@ export function buildRequest(app: App, step: Step, ctx: Record<string, string>, 
     modell: step.modell,
     ausgabeformat: step.format,
     ergebnisDatei,
-    websuche: step.web,
+    websuche: step.web && !step.wissenBegrenzt,
     wissensquellen: quellenOf(step).map((q) => ({ typ: q.typ, titel: q.titel, url: q.url })),
     dateien,
     vorlagenUrl: vorlagen?.url,
