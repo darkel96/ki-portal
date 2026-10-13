@@ -97,7 +97,7 @@ export class VorbereitungsFehler extends Error {}
  * Baut die Anfrage eines Schritts samt Wissen: Vorlagenliste eines Dateipakets (SharePoint-Ordner) und Auszüge aus den
  * Wissensquellen (SharePoint-Bereiche, Dateien). Gemeinsam für den Durchlauf und den Chat.
  */
-export async function anfrageVorbereiten(app: App, s: Step, ctx: Record<string, string>, files: Record<string, FileInfo>, signal?: AbortSignal, melden?: (text: string) => void): Promise<KiRequest> {
+export async function anfrageVorbereiten(app: App, s: Step, ctx: Record<string, string>, files: Record<string, FileInfo>, signal?: AbortSignal, melden?: (text: string) => void, suche?: string): Promise<KiRequest> {
   let vorlagen: { url: string; text: string } | undefined;
   const vorlagenQuelle = s.format === "dateien" ? wissenFuer(app, s).quellen.find((q) => q.typ === "sharepoint" && q.url.trim()) : undefined;
   if (vorlagenQuelle) {
@@ -119,8 +119,9 @@ export async function anfrageVorbereiten(app: App, s: Step, ctx: Record<string, 
     const w = await import("./ki/wissen");
     if (w.wissenMoeglich()) {
       melden?.("Wissensquellen werden gelesen\u00a0…");
-      const vorab = buildRequest(app, s, ctx, files);
-      auszuege = w.auszuegeText(await w.wissenAuszuege(wq, `${s.name}: ${vorab.nachricht.slice(0, 1200)}`, signal));
+      // Suchtext: im Chat die Frage (mit Vorfragen), sonst die Aufgabe mit Eingaben
+      const vorab = suche ?? buildRequest(app, s, ctx, files).nachricht;
+      auszuege = w.auszuegeText(await w.wissenAuszuege(wq, `${s.name}: ${vorab.slice(0, 1200)}`, signal));
     }
   }
   return buildRequest(app, s, ctx, files, vorlagen, auszuege);

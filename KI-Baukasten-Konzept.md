@@ -938,6 +938,10 @@ Vorbild: `src/lib/seedServiceangebot.ts` (Produkte, Ordner, Dokumente je Sprache
   und den Dateileser des Hubs. Die Auszüge hängen als „Auszüge aus den hinterlegten Wissensquellen“ an der Anfrage;
   Fehler je Quelle stehen im Text, der Schritt läuft trotzdem. Der Vorlagenordner eines Dateipakets wird nicht zusätzlich
   durchsucht. Nur mit Copilot-Anmeldung; sonst bleiben Quellen ein Hinweis.
+  Treffer: bis 20 je Bereich (`MAX_TREFFER`), bis 40.000 Zeichen je Quelle. Die Stellen werden je Dokument gebündelt
+  und nummeriert („Dokument / Link / Stelle 1, 2, …“), der Auszugskopf verlangt Quellenangaben mit Stelle (Überschrift
+  oder Abschnitt, sonst Nummer der Stelle) und die Nutzung aller passenden Dokumente. Suchtext: im Chat die Frage mit
+  den letzten beiden Vorfragen (`suche` in `anfrageVorbereiten`), sonst die Aufgabe mit Eingaben.
 - **Wissensbibliothek** (`src/lib/wissensbibliothek.ts`): Quellen mit Bezeichnung und Beschreibung, im Browser gespeichert,
   vorbelegt mit dem Vorlagenordner des Sales-Service. Zielbild: zentral in SharePoint gepflegt, vom Hub beim Start geladen.
 - **Grenzen:** Der Modus ist eine Anweisung an Copilot; die Copilot-Schnittstelle bietet keinen Schalter, der den
