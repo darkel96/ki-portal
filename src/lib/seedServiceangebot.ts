@@ -38,10 +38,7 @@ Standort: {{standort}}
 Angebotssprache: {{sprache}}
 
 Produkte (Status laut Prüfung; nur „Ja“ wird angelegt):
-${SA_PRODUKTE.map((p) => `- ${p.titel} (${p.sap}): Status {{status_${p.key}}}; Angebotsnummer {{nummer_${p.key}}}`).join("\n")}
-
-Gelesene Einzelheiten je Produkt (JSON aus dem Lese-Schritt; Status darin sind überholt, wenn oben ein anderer steht):
-{{lesen}}
+${SA_PRODUKTE.map((p) => `- ${p.titel} (${p.sap}): Status {{status_${p.key}}}; Angebotsnummer {{nummer_${p.key}}}\n  Angekreuzt: {{angaben_${p.key}}}`).join("\n")}
 
 Vollständiger Text der Checkliste ({{checkliste_name}}):
 {{checkliste}}`;
@@ -73,6 +70,7 @@ export function serviceangebotApp(): App {
   const produkt = (p: (typeof SA_PRODUKTE)[number]): Block[] => [
     feld("select", { label: `${p.titel} (${p.sap})`, key: `status_${p.key}`, optionen: STATUS, aus: `lesen.produkte.${p.key}.status`, hilfe: "Status laut Kreuz in der Checkliste." }),
     feld("input", { label: `Angebotsnummer ${p.titel}`, key: `nummer_${p.key}`, aus: `lesen.produkte.${p.key}.nummer`, placeholder: PLATZHALTER }),
+    feld("textarea", { label: `Angekreuzt bei ${p.titel}`, key: `angaben_${p.key}`, rows: 3, aus: `lesen.produkte.${p.key}.angaben`, placeholder: "Unterpunkte mit ☒ / ☐ aus der Checkliste" }),
   ];
   const spalten = (teil: typeof SA_PRODUKTE): Block => ({ id: id(), type: "columns", props: { count: 3 }, cols: teil.map(produkt) } as Block);
   const blocks: Block[] = [
@@ -86,18 +84,21 @@ export function serviceangebotApp(): App {
         block("button", { text: "Checkliste lesen", aktion: "sa-lesen" }),
       ]),
     ]),
-    seite("Prüfen und korrigieren", [
-      block("heading", { text: "Gelesene Werte prüfen", level: 2 }),
+    // Prüfseiten: je drei Produkte, damit nichts scrollt; Projektdaten auf der ersten
+    seite("Prüfen: Remote, Software, IT", [
+      block("heading", { text: "Gelesene Werte prüfen (1 von 2)", level: 2 }),
       block("text", { text: "Copilot hat die Felder ausgefüllt. Gelb markierte Felder waren nicht eindeutig: bitte prüfen und von Hand setzen. Nur Produkte mit „Ja“ bekommen einen Ordner.", size: "s" }),
       block("section", { pad: "s", border: true }, [
         feld("input", { label: "Kunde", key: "kunde", aus: "lesen.kunde", pflicht: true }),
         feld("input", { label: "Projekt", key: "projekt", aus: "lesen.projekt", pflicht: true }),
         feld("input", { label: "Standort der Anlage", key: "standort", aus: "lesen.standort" }),
       ]),
-      block("section", { pad: "s", border: true }, [
-        spalten(SA_PRODUKTE.slice(0, 3)),
-        spalten(SA_PRODUKTE.slice(3)),
-      ]),
+      block("section", { pad: "s", border: true }, [spalten(SA_PRODUKTE.slice(0, 3))]),
+    ]),
+    seite("Prüfen: Wartung, Ersatzteile, Resident", [
+      block("heading", { text: "Gelesene Werte prüfen (2 von 2)", level: 2 }),
+      block("text", { text: "Status und angekreuzte Unterpunkte je Produkt. Gelb markierte Felder bitte prüfen und von Hand setzen.", size: "s" }),
+      block("section", { pad: "s", border: true }, [spalten(SA_PRODUKTE.slice(3))]),
     ]),
     seite("Hinweise von Copilot", [
       block("heading", { text: "Hinweise von Copilot (optional)", level: 2 }),
@@ -128,7 +129,7 @@ export function serviceangebotApp(): App {
 
 So liest du die Kästchen: Angekreuzte Kästchen stehen als ☒, leere als ☐, jeweils direkt vor oder in derselben Zeile wie ihr Begriff. Stehen mehrere Kästchen vor mehreren Begriffen, gilt die Reihenfolge (erstes Kästchen = erster Begriff). Bei jeder Position (Pos. 1 bis 6) gehört das erste Kästchen zu „Ja“ und das zweite zu „Nein“.
 
-Status je Produkt: "Ja" nur bei eindeutigem Kreuz im Ja-Kästchen, "Nein" bei Kreuz im Nein-Kästchen, "Unklar" wenn kein Kästchen angekreuzt ist oder die Darstellung keine Zuordnung erlaubt, "Widersprüchlich" wenn beide angekreuzt sind oder die Angaben darunter dem Kreuz widersprechen. Zu jedem Feld gehört ein "hinweis": bei Status die Fundstelle (Position, Zeile) und in einem Halbsatz, was angekreuzt ist; bei Unklar oder Widersprüchlich der Grund. "klaeren" ist true bei Unklar, Widersprüchlich oder wenn der Sales-Service etwas nachprüfen sollte, sonst false. "nummer" ist die Angebotsnummer des Produkts, falls eingetragen (sonst ""). "angaben" fasst die zugehörigen Angaben zusammen (gewählte Leistungen, Mengen, Zeiträume, mit Nummern der Unterpunkte). Keine Zugangsdaten.
+Status je Produkt, NUR aus den beiden Kästchen Ja/Nein der Position: "Ja" bei Kreuz im Ja-Kästchen, "Nein" bei Kreuz im Nein-Kästchen, "Unklar" wenn keins angekreuzt ist, die Position in der Checkliste fehlt oder die Darstellung keine Zuordnung erlaubt, "Widersprüchlich" nur wenn beide angekreuzt sind. Widersprüche in den Unterpunkten (z. B. Kreuz bei 3-Schicht, Anmerkung nennt 2-Schicht) ändern den Status nicht; sie kommen in den Hinweis mit "klaeren": true. Zu jedem Feld gehört ein "hinweis": bei Status die Fundstelle (Position) und in einem Halbsatz, was angekreuzt ist („Ja ☒, Nein ☐“); bei Unklar oder Widersprüchlich der Grund. "klaeren" ist true bei Unklar, Widersprüchlich oder wenn der Sales-Service etwas nachprüfen sollte, sonst false; bei true nennt der Hinweis immer den Grund. "nummer" ist die Angebotsnummer des Produkts, falls eingetragen (sonst ""). "angaben" listet die Unterpunkte der Position, eine Zeile je Unterpunkt: Nummer, Titel, dann jede Option mit ihrem Kästchen (☒ angekreuzt, ☐ leer) und eingetragene Texte, z. B. „1.1 Hotlinebereiche RA: ☒ Automatisierung, ☒ Visualisierung, ☐ PMS-T“ oder „4.4 Schichtbetrieb: ☐ 1-Schicht, ☐ 2-Schicht, ☒ 3-Schicht; Anmerkung: 2-Schicht 6 Tage/Woche“. Keine Zugangsdaten.
 
 Antworte nur mit JSON dieser Form:
 {"kunde": "", "projekt": "", "standort": "", "sprache": {"wert": "Deutsch|Englisch", "hinweis": "", "klaeren": false}, "produkte": {${SA_PRODUKTE.map((p) => `"${p.key}": {"status": {"wert": "Ja|Nein|Unklar|Widersprüchlich", "hinweis": "", "klaeren": false}, "nummer": "", "angaben": ""}`).join(", ")}}, "lieferumfang": "", "offen": ""}

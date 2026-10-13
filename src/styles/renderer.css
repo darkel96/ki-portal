@@ -61,7 +61,7 @@
 .app-frame[data-dicht="3"] .o-sec.p-m, .app-frame[data-dicht="3"] .o-sec.p-l { padding: 10px 14px; }
 .app-frame[data-dicht="3"] .o-h1 { font-size: 22px; }
 .app-frame[data-dicht="3"] .o-field textarea { max-height: calc(2lh + 22px); }
-.app-frame[data-dicht="3"] .o-help:not([aria-live]) { display: none; }
+.app-frame[data-dicht="3"] .o-help:not([aria-live], .o-ki-hinweis) { display: none; }
 .app-frame[data-dicht="3"] .o-field { gap: 4px; }
 
 /* ----- Kopfzeile der App-Ansicht: ab Tablet-Breite alle Aktionen im Menü „Weitere Aktionen“ ----- */
