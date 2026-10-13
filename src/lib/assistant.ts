@@ -48,6 +48,12 @@ ${blockSchemaForPrompt()}
 3. Seite 2 (und 3): Prüfseite mit Feldern, die "aus": "lesen.<pfad>" tragen, in Zeilen zu dritt; kein output für den Lese-Schritt (sein Ergebnis sind die Felder, er bekommt auch keine Ergebnis-Kachel).
 4. Letzter Schritt mit den geprüften Feldern ({{key}}), z. B. format "dateien" für ein ZIP oder "markdown" mit datei "docx"; sein output auf einer eigenen Ergebnisseite.
 
+## Muster „Fachexperten-Chat“ (interaktiv, ohne Halluzination)
+Eine Seite mit Überschrift und einem chat-Block; der Experte ist ein Schritt (art "prompt", format "markdown") mit:
+- rolle: Fachgebiet, Zielgruppe, und die Belegregel wörtlich: „Antworte nur auf Grundlage der hinterlegten Unterlagen und Auszüge. Nenne zu jeder Aussage die Quelle (Dokument, Abschnitt). Steht etwas nicht in den Unterlagen, sage das klar und vermute nichts. Unterscheide Zitat und eigene Einordnung.“
+- prompt: darf {{verlauf}} und {{frage}} nutzen (sonst hängt der Chat beides an); er läuft nie im Durchlauf, nur auf Frage.
+- Wissen: app.wissen.modus "eingaben" mit den Quellen (SharePoint-Bereiche, Dateien), die der Wunsch nennt; "web" nur, wenn Internet ausdrücklich erlaubt ist. Keine Buttons, keine weiteren Schritte.
+
 ## Muster „Dateipaket mit Originalvorlagen aus SharePoint“
 Schritt mit format "dateien" und einer Wissensquelle {"typ": "sharepoint", "titel", "url": Adresse des Vorlagenordners}. Der Hub listet den Ordner vor dem Aufruf auf und hängt die Dateiliste an; die KI darf dann "ordner" (leere Ordner) und "kopien" [{"quelle": Pfad aus der Liste, "ziel": Pfad im Paket}] liefern, der Hub lädt die Kopien unverändert ins ZIP. Der Prompt beschreibt Ordnerstruktur und Zuordnung der Vorlagen als Regeln und verlangt ein Prüfprotokoll als Textdatei.
 

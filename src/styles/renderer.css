@@ -34,7 +34,11 @@
 .team-verlauf:not([open]) > summary { margin-bottom: 0; }
 
 /* ----- Lange Ergebnisse: Fußzeile mit Kopieren/Download bleibt unten im Bild ----- */
-.app-inner { --innen-unten: 24px; }
+.app-inner { --innen-unten: 24px; --innen-oben: 28px; }
+.app-frame[data-dicht="1"] .app-inner { --innen-oben: 20px; }
+.app-frame[data-dicht="2"] .app-inner { --innen-oben: 14px; }
+/* Ergebnis-Detail: „Alle Ergebnisse“ bleibt beim Scrollen langer Antworten oben im Bild */
+.app-inner.innen-scroll .e-zurueck { position: sticky; top: calc(-1 * var(--innen-oben)); z-index: 3; margin: calc(-1 * var(--innen-oben)) 0 0; padding: var(--innen-oben) 0 8px; background: var(--app-bg); }
 .app-frame[data-dicht="1"] .app-inner { --innen-unten: 16px; }
 .app-frame[data-dicht="2"] .app-inner { --innen-unten: 12px; }
 .app-frame[data-dicht="3"] .app-inner { --innen-unten: 10px; }

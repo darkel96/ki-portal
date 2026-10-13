@@ -90,6 +90,42 @@ export function abhaengigkeiten(s: Step, steps: Step[]): Step[] {
   return steps.slice(0, steps.indexOf(s)).filter((p) => used.has(p.key.toLowerCase()));
 }
 
+/** Die Anfrage konnte nicht aufgebaut werden (z. B. Vorlagenordner nicht lesbar) */
+export class VorbereitungsFehler extends Error {}
+
+/**
+ * Baut die Anfrage eines Schritts samt Wissen: Vorlagenliste eines Dateipakets (SharePoint-Ordner) und Auszüge aus den
+ * Wissensquellen (SharePoint-Bereiche, Dateien). Gemeinsam für den Durchlauf und den Chat.
+ */
+export async function anfrageVorbereiten(app: App, s: Step, ctx: Record<string, string>, files: Record<string, FileInfo>, signal?: AbortSignal, melden?: (text: string) => void): Promise<KiRequest> {
+  let vorlagen: { url: string; text: string } | undefined;
+  const vorlagenQuelle = s.format === "dateien" ? wissenFuer(app, s).quellen.find((q) => q.typ === "sharepoint" && q.url.trim()) : undefined;
+  if (vorlagenQuelle) {
+    const v = await import("./ki/vorlagen");
+    if (v.vorlagenMoeglich()) {
+      melden?.("Vorlagenordner wird gelesen\u00a0…");
+      try {
+        const liste = await v.vorlagenAuflisten(vorlagenQuelle.url.trim(), signal);
+        vorlagen = { url: vorlagenQuelle.url.trim(), text: v.vorlagenText(liste, vorlagenQuelle.titel || "Vorlagen") };
+      } catch (e) {
+        throw new VorbereitungsFehler(`Der Vorlagenordner „${vorlagenQuelle.titel || vorlagenQuelle.url}“ konnte nicht gelesen werden: ${e instanceof Error ? e.message : String(e)}`);
+      }
+    }
+  }
+  // Wissensquellen: passende Auszüge aus SharePoint und einzelne Dateien an die Anfrage hängen (nicht der Vorlagenordner eines Dateipakets)
+  let auszuege = "";
+  const wq = wissenFuer(app, s).quellen.filter((q) => !(vorlagenQuelle && q.url.trim() === vorlagenQuelle.url.trim()));
+  if (wq.some((q) => (q.typ === "sharepoint" || q.typ === "datei") && q.url.trim())) {
+    const w = await import("./ki/wissen");
+    if (w.wissenMoeglich()) {
+      melden?.("Wissensquellen werden gelesen\u00a0…");
+      const vorab = buildRequest(app, s, ctx, files);
+      auszuege = w.auszuegeText(await w.wissenAuszuege(wq, `${s.name}: ${vorab.nachricht.slice(0, 1200)}`, signal));
+    }
+  }
+  return buildRequest(app, s, ctx, files, vorlagen, auszuege);
+}
+
 /**
  * Führt die gestarteten Schritte aus. Schritte, die nicht aufeinander aufbauen, laufen gleichzeitig;
  * ein Schritt startet, sobald alle Schritte fertig sind, deren Ergebnis er braucht.
@@ -116,35 +152,9 @@ export async function ablaufStarten(opts: {
       setOut(s.id, { status: "uebersprungen", meldung: "Übersprungen, weil die Bedingung nicht erfüllt ist." });
       return true;
     }
-    let vorlagen: { url: string; text: string } | undefined;
-    const vorlagenQuelle = s.format === "dateien" ? s.quellen.find((q) => q.typ === "sharepoint" && q.url.trim()) : undefined;
-    setOut(s.id, { status: "laeuft", req: buildRequest(app, s, ctx, files), team: s.art === "team" ? [] : undefined, meldung: vorlagenQuelle ? "Vorlagenordner wird gelesen\u00a0…" : undefined });
+    setOut(s.id, { status: "laeuft", req: buildRequest(app, s, ctx, files), team: s.art === "team" ? [] : undefined });
     try {
-      if (vorlagenQuelle) {
-        // Dateipaket mit Vorlagen aus SharePoint: erst die Liste holen, damit Copilot nur vorhandene Dateien kopiert
-        const v = await import("./ki/vorlagen");
-        if (v.vorlagenMoeglich()) {
-          try {
-            const liste = await v.vorlagenAuflisten(vorlagenQuelle.url.trim(), signal);
-            vorlagen = { url: vorlagenQuelle.url.trim(), text: v.vorlagenText(liste, vorlagenQuelle.titel || "Vorlagen") };
-          } catch (e) {
-            setOut(s.id, { status: "fehler", meldung: `Der Vorlagenordner „${vorlagenQuelle.titel || vorlagenQuelle.url}“ konnte nicht gelesen werden: ${e instanceof Error ? e.message : String(e)}` });
-            return false;
-          }
-        }
-      }
-      // Wissensquellen: passende Auszüge aus SharePoint und einzelne Dateien an die Anfrage hängen (nicht der Vorlagenordner eines Dateipakets)
-      let auszuege = "";
-      const wq = wissenFuer(app, s).quellen.filter((q) => !(vorlagenQuelle && q.url.trim() === vorlagenQuelle.url.trim()));
-      if (wq.some((q) => (q.typ === "sharepoint" || q.typ === "datei") && q.url.trim())) {
-        const w = await import("./ki/wissen");
-        if (w.wissenMoeglich()) {
-          setOut(s.id, (prev) => ({ ...(prev ?? { status: "laeuft" }), status: "laeuft", meldung: "Wissensquellen werden gelesen\u00a0…" }));
-          const vorab = buildRequest(app, s, ctx, files);
-          auszuege = w.auszuegeText(await w.wissenAuszuege(wq, `${s.name}: ${vorab.nachricht.slice(0, 1200)}`, signal));
-        }
-      }
-      const req = buildRequest(app, s, ctx, files, vorlagen, auszuege);
+      const req = await anfrageVorbereiten(app, s, ctx, files, signal, (meldung) => setOut(s.id, (prev) => ({ ...(prev ?? { status: "laeuft" }), status: "laeuft", meldung })));
       setOut(s.id, (prev) => ({ ...(prev ?? { status: "laeuft" }), status: "laeuft", req, meldung: undefined }));
       let text: string;
       if (s.art === "team") {
@@ -165,7 +175,7 @@ export async function ablaufStarten(opts: {
         live?.ende();
       }
       const paket = s.format === "dateien" ? parsePaket(text) : undefined;
-      if (paket && vorlagen) paket.vorlagenUrl = vorlagen.url;
+      if (paket && req.vorlagenUrl) paket.vorlagenUrl = req.vorlagenUrl;
       setOut(s.id, (prev) => ({
         ...(prev ?? {}), status: s.format === "dateien" && !paket ? "fehler" : "fertig", text, paket,
         meldung: s.format === "dateien" && !paket ? "Die KI hat kein gültiges Dateipaket geliefert. Starte den Schritt erneut." : prev?.meldung,
@@ -183,6 +193,7 @@ export async function ablaufStarten(opts: {
         setOut(s.id, (prev) => ({ ...(prev ?? {}), status: "gestoppt" }));
         return false;
       }
+      if (e instanceof VorbereitungsFehler) { setOut(s.id, { status: "fehler", meldung: e.message }); return false; }
       setOut(s.id, (prev) => ({ ...(prev ?? {}), status: "fehler", meldung: fehlerText(e) }));
       return false;
     }

@@ -943,3 +943,14 @@ Vorbild: `src/lib/seedServiceangebot.ts` (Produkte, Ordner, Dokumente je Sprache
 - **Grenzen:** Der Modus ist eine Anweisung an Copilot; die Copilot-Schnittstelle bietet keinen Schalter, der den
   Zugriff auf Microsoft-365-Daten je Anfrage abschaltet. Hart abschaltbar ist nur die Websuche.
 - Ältere Apps: `web` und `wissenBegrenzt` am Schritt werden beim Laden zum `wissenModus`.
+
+## 27. Fachexperten-Chat
+
+- Baustein `chat` (`titel`, `quelle` = KI-Schritt, `begruessung`, `platzhalter`), gerendert von
+  `src/components/renderer/ChatView.tsx`. Je Frage: Kontext der Eingabefelder + `{{frage}}` + `{{verlauf}}` (letzte
+  12 Beiträge als Text), Anfrage über `anfrageVorbereiten()` (Wissen, Auszüge), Antwort gestreamt. Stoppen, Verlauf
+  kopieren, neu beginnen. Chat-Schritte laufen nie im Durchlauf (`stepsFor("alle")` lässt sie aus) und brauchen keinen Button.
+- Nicht halluzinieren ist eine Kombination: Wissensmodus „eingaben“ (Systemtext mit Wissensgrenze), Auszüge aus den
+  Quellen in der Anfrage, Belegregel in der Rolle (Quelle nennen, Unbelegtes benennen, Zitat und Einordnung trennen).
+  Vorlage `fachexperteCra()` in `src/lib/seeds.ts`.
+- Der Assistent kennt das Muster „Fachexperten-Chat“.

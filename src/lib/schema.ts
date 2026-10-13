@@ -51,6 +51,12 @@ export const PropsSchemas = {
   date: z.object({ ...fieldBase, label: fieldBase.label.default("Datum") }),
   file: z.object({ ...fieldBase, label: fieldBase.label.default("Datei"), uebergabe: z.enum(["text", "referenz"]).default("text") }),
   button: z.object({ text: z.string().max(80).default("KI starten"), aktion: z.string().max(200).default("alle").describe('"alle", Step-ID, mehrere Step-IDs mit Komma oder "ab:" + Step-ID (ab diesem Schritt bis zum Ende)'), stil: z.enum(["filled", "outline"]).default("filled"), align: Align.default("left"), color: ColorOrEmpty.default("") }),
+  chat: z.object({
+    titel: z.string().max(120).default("Fachexperte"),
+    quelle: z.string().max(40).default("").describe("ID des KI-Schritts, der als Experte antwortet (rolle, wissen, quellen, wissenModus gelten); sein prompt darf {{frage}} und {{verlauf}} enthalten"),
+    begruessung: z.string().max(600).default("Was möchtest du wissen?").describe("erste Nachricht des Experten"),
+    platzhalter: z.string().max(120).default("Frage stellen …"),
+  }),
   output: z.object({ titel: z.string().max(120).default("Ergebnis"), quelle: z.string().max(40).default("").describe("ID eines Schritts"), stil: z.enum(["card", "plain"]).default("card"), pfad: z.string().max(120).default("").describe('bei format json: nur diesen Teil des Ergebnisses zeigen, z. B. "bericht" oder "produkte.wartung"; Text wird als Markdown gezeigt, Listen und Objekte als Liste bzw. Tabelle; "" = ganzes Ergebnis') }),
 } as const;
 

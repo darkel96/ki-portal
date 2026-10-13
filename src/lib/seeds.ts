@@ -1,5 +1,5 @@
-import type { App, HubApp } from "./schema";
-import { fromSimple, makeBlock, rid, walk, type LegacyApp } from "./model";
+import { AppSchema, type App, type HubApp } from "./schema";
+import { fromSimple, makeBlock, neueSeite, rid, walk, type LegacyApp } from "./model";
 import { fixRefs } from "./sanitize";
 import { serviceangebotApp } from "./seedServiceangebot";
 
@@ -106,6 +106,37 @@ function agentenTeam(): App {
   return app;
 }
 
+/**
+ * Fachexperten-Chat: Fragen zu einem Thema, beantwortet nur aus hinterlegten Unterlagen, mit Quellenangabe.
+ * Vorlage für den Cyber Resilience Act; die Unterlagen trägt man unter App-Einstellungen → Wissen ein.
+ */
+function fachexperteCra(): App {
+  const app = AppSchema.parse({
+    id: "cra-experte", name: "Fachexperte Cyber Resilience Act", bereich: "Recht",
+    beschreibung: "Beantwortet Fragen zum Cyber Resilience Act (CRA) nur aus den hinterlegten Unterlagen, mit Quellenangabe. Was nicht belegt ist, sagt er.",
+    theme: { accent: "#0f2f5f" }, status: "freigegeben", version: 1,
+    wissen: { modus: "eingaben", text: "", quellen: [{ typ: "sharepoint", titel: "CRA-Unterlagen (Verordnungstext, Leitfäden, interne Bewertungen)", url: "" }] },
+    steps: [{
+      id: "cra-s1", name: "CRA-Experte", key: "experte", format: "markdown", modell: "complex",
+      rolle: `Du bist Fachexperte für den Cyber Resilience Act (Verordnung (EU) 2024/2847) und berätst Mitarbeitende von Körber Supply Chain Automation (Produkte mit digitalen Elementen, Maschinenbau, Software).
+
+Belegregel, ohne Ausnahme:
+- Antworte nur auf Grundlage der hinterlegten Unterlagen und der mitgelieferten Auszüge. Nenne zu jeder Aussage die Quelle: Dokument und Artikel, Abschnitt oder Seite.
+- Steht etwas nicht in den Unterlagen, sage klar: „Dazu finde ich in den hinterlegten Unterlagen nichts.“ Nenne dann, welches Dokument oder welche Stelle die Frage klären würde. Vermute nichts, ergänze nichts aus eigenem Wissen.
+- Unterscheide Zitat (Wortlaut, in Anführungszeichen) und deine Einordnung.
+- Fristen, Pflichten und Zuständigkeiten nennst du nur mit Beleg und mit dem Stand des Dokuments.
+- Keine Rechtsberatung: Weise bei Entscheidungen auf die Abstimmung mit Rechtsabteilung oder Produktsicherheit hin.
+- Antworte knapp, auf Deutsch, in einfachem Markdown mit Aufzählungen; bei Rückfragen beziehe dich auf den Verlauf.`,
+      prompt: "Bisheriger Verlauf:\n{{verlauf}}\n\nFrage: {{frage}}",
+    }],
+  });
+  app.blocks = [neueSeite("Chat", [
+    { id: "cra-b1", type: "heading", props: { text: "Fachexperte Cyber Resilience Act", level: 1, align: "left", color: "" } },
+    { id: "cra-b2", type: "chat", props: { titel: "CRA-Experte", quelle: "cra-s1", begruessung: "Ich beantworte Fragen zum Cyber Resilience Act ausschließlich aus den hinterlegten Unterlagen und nenne die Quelle. Was dort nicht steht, sage ich. Was möchtest du wissen?", platzhalter: "z. B. Welche Pflichten gelten für Hersteller ab wann?" } },
+  ])];
+  return app;
+}
+
 /** Stabile IDs für Vorlagen (sonst entstehen bei jedem Laden neue), damit gespeicherte Läufe und Voreinstellungen ihre Schritte wiederfinden. */
 function stabil(app: App): App {
   const map = new Map<string, string>();
@@ -120,4 +151,5 @@ export const SEED_APPS: HubApp[] = [
   ...VORLAGEN.map((v) => ({ ...stabil(fromSimple(v)), _src: "vorlage" as const })),
   { ...stabil(agentenTeam()), _src: "vorlage" as const },
   { ...stabil(serviceangebotApp()), _src: "vorlage" as const },
+  { ...stabil(fachexperteCra()), _src: "vorlage" as const },
 ];

@@ -43,7 +43,7 @@ function inReihen(blocks: Block[], render: (b: Block) => ReactNode): ReactNode[]
 /** Eine Seite, die nur Ergebnisse zeigt (keine Eingaben, keine KI-Buttons), erscheint als Kachel in der Ergebnisübersicht. */
 function istErgebnisSeite(p: Block): boolean {
   let ausgabe = false, eingabe = false;
-  walk(p.children ?? [], (b) => { if (b.type === "output") ausgabe = true; if (isFieldType(b.type) || b.type === "button") eingabe = true; });
+  walk(p.children ?? [], (b) => { if (b.type === "output") ausgabe = true; if (isFieldType(b.type) || b.type === "button" || b.type === "chat") eingabe = true; });
   return ausgabe && !eingabe;
 }
 
@@ -225,7 +225,7 @@ export const RunApp = forwardRef<RunAppHandle, {
   const eingabeSeiten = useMemo(() => seiten.filter((p) => !istErgebnisSeite(p)), [seiten]);
   const kacheln = useMemo<Kachel[]>(() => {
     const mitElement = new Set<string>();
-    walk(app.blocks, (b) => { if (b.type === "output") mitElement.add(b.props.quelle); });
+    walk(app.blocks, (b) => { if (b.type === "output" || b.type === "chat") mitElement.add(b.props.quelle); });
     const ausSeiten = seiten.filter(istErgebnisSeite).map((p) => {
       const ids: string[] = [];
       walk(p.children ?? [], (b) => { if (b.type === "output" && b.props.quelle) ids.push(b.props.quelle); });
