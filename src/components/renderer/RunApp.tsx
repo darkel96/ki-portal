@@ -396,12 +396,31 @@ export const RunApp = forwardRef<RunAppHandle, {
   }, [onLaufFertig, app, werte, files, liest, akt, detail, imUeberblick, mitUebersicht, uebersichtIdx, wechseln, eingabeIdxMit, vorbelegen]);
 
   const nochNichtGelaufen = stepsFor(app, uebersichtAktion).every((s) => !outs[s.id]);
-  /** Solange ein Schritt läuft, der Felder vorbelegt, geht es nicht weiter: Die Person soll die ausgefüllten Werte sehen und bestätigen */
+  /** Schritte, aus deren JSON-Ergebnis Felder dieser Seite vorbelegt werden */
+  const vorbelegungsSchritte = useCallback((seite: Block): Step[] => {
+    const keys = new Set<string>();
+    walk(seite.children ?? [], (b) => { if (isFieldType(b.type) && "aus" in b.props && b.props.aus.trim()) keys.add(b.props.aus.trim().split(".")[0].toLowerCase()); });
+    return app.steps.filter((st) => keys.has(st.key.toLowerCase()));
+  }, [app.steps]);
+  /**
+   * „Weiter“ ist gesperrt, solange ein Schritt läuft, der Felder vorbelegt (die Person soll die Werte sehen und
+   * bestätigen), und solange Pflichtfelder fehlen, die der nächste automatische Schritt braucht (z. B. die Checkliste).
+   */
   const weiterGesperrt = useMemo(() => {
     const keys = new Set(fieldsOf(app).map((b) => b.props.aus.trim().split(".")[0].toLowerCase()).filter(Boolean));
     const st = app.steps.find((x) => keys.has(x.key.toLowerCase()) && (outs[x.id]?.status === "laeuft" || (outs[x.id]?.status === "wartet" && laeuft)));
-    return st ? `Bitte warten, bis „${st.name}“ fertig ist.` : "";
-  }, [app, outs, laeuft]);
+    if (st) return `Bitte warten, bis „${st.name}“ fertig ist.`;
+    // Was „Weiter“ als Nächstes starten würde: die Ergebnisse oder den Lese-Schritt der nächsten Seite
+    const i = akt + 1;
+    const naechsteSteps = mitUebersicht && i === uebersichtIdx && nochNichtGelaufen ? stepsFor(app, uebersichtAktion)
+      : eingabeSeiten[i] ? vorbelegungsSchritte(eingabeSeiten[i]).filter((x) => !outs[x.id]) : [];
+    if (!naechsteSteps.length) return "";
+    if (liest.size) return "Die Datei wird noch gelesen\u00a0…";
+    const fehlend = fehlendePflichtfelder(app, naechsteSteps, werte, files);
+    if (!fehlend.length) return "";
+    const namen = fieldsOf(app).filter((f) => fehlend.includes(f.props.key)).map((f) => f.props.label);
+    return `Bitte zuerst ausfüllen: ${namen.join(", ")}.`;
+  }, [app, outs, laeuft, akt, mitUebersicht, uebersichtIdx, nochNichtGelaufen, uebersichtAktion, eingabeSeiten, vorbelegungsSchritte, liest, werte, files]);
   /** „Weiter“ in die Übersicht startet den Ablauf automatisch (einmal); Punkte und Bild-Tasten blättern nur. */
   const weiterKlick = (i: number) => {
     if (mitUebersicht && i === uebersichtIdx && nochNichtGelaufen && !laeuft && app.steps.length) { void starten("uebersicht", uebersichtAktion); return; }
@@ -410,12 +429,7 @@ export const RunApp = forwardRef<RunAppHandle, {
     if (fehlt.length) void starten(`vorbelegen:${fehlt[0].id}`, fehlt.map((st) => st.id).join(","), true);
     wechseln(i);
   };
-  /** Schritte, aus deren JSON-Ergebnis Felder dieser Seite vorbelegt werden */
-  const vorbelegungsSchritte = useCallback((seite: Block): Step[] => {
-    const keys = new Set<string>();
-    walk(seite.children ?? [], (b) => { if (isFieldType(b.type) && "aus" in b.props && b.props.aus.trim()) keys.add(b.props.aus.trim().split(".")[0].toLowerCase()); });
-    return app.steps.filter((st) => keys.has(st.key.toLowerCase()));
-  }, [app.steps]);
+
 
   const ebenen = useMemo(() => {
     const out: Record<string, number> = {};
