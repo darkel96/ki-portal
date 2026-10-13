@@ -422,6 +422,9 @@ pre.code { margin: 0; white-space: pre-wrap; font: 12.5px/1.5 var(--k-font-mono)
 .ki-io { font: 400 12px/1.3 var(--k-font-mono); color: var(--muted-ink); padding: 6px 10px; margin-left: 18px; background: linear-gradient(var(--line-strong), var(--line-strong)) 0 0 / 1px 100% no-repeat; }
 .ki-offen { width: 8px; height: 8px; border-radius: 50%; background: var(--danger); flex: none; }
 .ki-teile { gap: 14px; }
+/* Reiter in der Seitenleiste (App-Einstellungen): vier Reiter nebeneinander, enger gesetzt; notfalls seitlich scrollbar statt abgeschnitten */
+.insp .ki-teile [data-slot="tabs-list"] { max-width: 100%; overflow-x: auto; scrollbar-width: none; }
+.insp .ki-teile [data-slot="tabs-trigger"] { padding-inline: 6px; font-size: 13px; flex: none; }
 .ki-teil { display: flex; flex-direction: column; gap: 12px; }
 .ki-fuss { display: flex; flex-direction: column; gap: 4px; border-top: 1px solid var(--line); padding-top: 10px; margin-top: auto; }
 .ki-code { max-height: none; }

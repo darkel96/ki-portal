@@ -24,7 +24,7 @@ function AppSettings({ b, alleBereiche }: { b: Builder; alleBereiche: string[] }
       <div className="insp-head"><h3>Applikation</h3></div>
       <Tabs defaultValue="allgemein" className="ki-teile">
         <TabsList variant="line" aria-label="Einstellungen der Applikation">
-          <TabsTrigger value="allgemein">Allgemein</TabsTrigger>
+          <TabsTrigger value="allgemein">App</TabsTrigger>
           <TabsTrigger value="design">Gestaltung</TabsTrigger>
           <TabsTrigger value="wissen">Wissen</TabsTrigger>
           <TabsTrigger value="freigabe">Freigabe</TabsTrigger>
