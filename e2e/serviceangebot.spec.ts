@@ -64,10 +64,11 @@ test("Serviceangebot: Checkliste lesen, Prüfseite korrigieren, ZIP", async ({ p
   await page.locator('input[type="file"]').setInputFiles({ name: "Service_Checkliste.docx", mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document", buffer: await checklisteDocx() });
   await expect(page.getByText(/Service_Checkliste\.docx gelesen/)).toBeVisible();
   // „Weiter“ auf die Prüfseite startet den Lese-Schritt von selbst; die Felder füllen sich, sobald er fertig ist
-  const weiter = () => page.getByRole("navigation", { name: "Seiten blättern" }).getByRole("button", { name: /Weiter/ }).click();
+  const weiter = () => page.getByRole("navigation", { name: "Seiten blättern" }).getByRole("button", { name: /Weiter|Ergebnisse erstellen/ }).click();
   await weiter();
   await expect(page.getByRole("heading", { name: "Gelesene Werte prüfen (1 von 2)" })).toBeVisible();
   await expect(page.getByLabel("Kunde")).toHaveValue("Beispielkunde GmbH", { timeout: 10_000 });
+  await expect(page.getByLabel("Angebotssprache")).toHaveValue("Deutsch");
   await expect(page.getByLabel("Remote Service (Z30)")).toHaveValue("Ja");
   await expect(page.getByLabel("Angebotsnummer Remote Service")).toHaveValue("190014105");
   await expect(page.getByLabel("Angekreuzt bei Remote Service")).toHaveValue("RA, SM");
@@ -98,26 +99,22 @@ test("Serviceangebot: Checkliste lesen, Prüfseite korrigieren, ZIP", async ({ p
   await page.getByLabel("Resident Maintenance (Z61)").selectOption("Nein");
   await expect(page.locator(".o-field.klaeren")).toHaveCount(0);
 
+  // „Weiter“ von der letzten Prüfseite erstellt die Angebotsstruktur mit den bestätigten Werten
   await weiter();
-  await page.getByRole("button", { name: "Checkliste plausibilisieren" }).click();
-  await expect(page.locator('[data-src][data-status="fertig"]', { hasText: "Plausibilisierung" })).toBeVisible({ timeout: 10_000 });
-  expect(prompts.at(-1)).toContain("Resident Maintenance (Z61): Status Nein");
-  await page.getByRole("button", { name: /Weiter zur Auswertung/ }).click();
   await expect(page.getByRole("heading", { name: "Ergebnisse" })).toBeVisible();
-  await expect(page.locator(".e-kachel .status-pill")).toHaveText(["Fertig", "Fertig"], { timeout: 15_000 });
-  // Das ZIP steht zum Herunterladen bereit; auf dem letzten Ergebnis führt der Pager zurück zur Übersicht statt eines toten „Weiter“
+  await expect(page.locator(".e-kachel .status-pill")).toHaveText(["Fertig"], { timeout: 15_000 });
+  expect(prompts.at(-1)).toContain("Resident Maintenance (Z61): Status Nein");
+  expect(prompts.at(-1)).toContain("Angekreuzt: 4.4 Schichtbetrieb: 2-Schicht");
+  // Das ZIP steht zum Herunterladen bereit: leere Ordner, Kopien aus SharePoint und Textdateien gemeinsam im Baum
   await page.locator(".e-kachel", { hasText: "Angebotsstruktur" }).click();
   await expect(page.getByRole("button", { name: /ZIP herunterladen/ })).toBeVisible();
   const baum = page.locator("pre.code", { hasText: "Serviceangebotsstruktur/" });
   await expect(baum).toBeVisible();
-  // Leere Ordner, Kopien aus SharePoint und Textdateien stehen gemeinsam im Baum
   await expect(baum).toContainText("01_Request/");
   await expect(baum).toContainText("Remote Services Calculation.xltm");
   await expect(baum).toContainText("Pruefprotokoll.txt");
   await expect(page.getByText("2 Dateien, 1 Vorlage aus SharePoint, 2 Ordner im Paket")).toBeVisible();
-  const pager = page.getByRole("navigation", { name: "Ergebnisse blättern" });
-  await expect(pager.getByRole("button", { name: "Weiter" })).toHaveCount(0);
-  await pager.getByRole("button", { name: "Alle Ergebnisse" }).click();
+  await page.getByRole("button", { name: "Alle Ergebnisse" }).click();
   await expect(page.getByRole("heading", { name: "Ergebnisse" })).toBeVisible();
   // „Neu erstellen“ in der Übersicht lässt den Lese-Schritt und die geprüften Werte in Ruhe
   expect(prompts.filter((p) => /Antworte nur mit JSON dieser Form/.test(p))).toHaveLength(1);

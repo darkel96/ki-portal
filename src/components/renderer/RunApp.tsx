@@ -238,13 +238,14 @@ export const RunApp = forwardRef<RunAppHandle, {
   }, [app, seiten]);
   const mitUebersicht = kacheln.length > 0;
   /**
-   * Was „Ergebnisse erstellen“ in der Übersicht startet: alle Schritte, außer die App hat Buttons für einzelne
-   * Schritte auf ihren Eingabeseiten (Prüfseite). Dann nur die Schritte der Kacheln, sonst würden geprüfte Werte überschrieben.
+   * Was „Ergebnisse erstellen“ in der Übersicht startet: alle Schritte, außer die App hat eine Prüfseite (vorbelegte
+   * Felder) oder Buttons für einzelne Schritte. Dann nur die Schritte der Kacheln, sonst würden geprüfte Werte überschrieben.
    */
   const uebersichtAktion = useMemo(() => {
     let einzeln = false;
     walk(app.blocks, (b) => { if (b.type === "button" && b.props.aktion !== "alle" && !b.props.aktion.startsWith("ab:")) einzeln = true; });
-    if (!einzeln) return "alle";
+    const pruefseite = fieldsOf(app).some((b) => b.props.aus.trim());
+    if (!einzeln && !pruefseite) return "alle";
     const ids = new Set(kacheln.flatMap((k) => k.stepIds));
     return app.steps.filter((s) => ids.has(s.id)).map((s) => s.id).join(",") || "alle";
   }, [app, kacheln]);
