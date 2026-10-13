@@ -137,7 +137,10 @@ export async function streamLesen(res: Response, frage: string, onTeil: (t: stri
     if (!text || t.startsWith(text)) {
       // Copilot hängt manche Antworten ein zweites Mal an (A + A): Ein Rest, der mit dem Anfang des bisherigen Texts
       // übereinstimmt, wird nicht angezeigt, sonst flackert die Antwort doppelt, bis entdoppeln() am Ende greift
-      const rest = t.slice(text.length).replace(/^\s+/, "");
+      let rest = t.slice(text.length).replace(/^\s+/, "");
+      // Vor der Zweitfassung stehen manchmal noch Trennzeichen („---“, „***“): den Anfang des Texts darin suchen
+      const anfang = text.length >= 40 ? rest.indexOf(text.slice(0, 25)) : -1;
+      if (anfang > 0 && anfang <= 12) rest = rest.slice(anfang);
       if (text.length >= 40 && rest.length >= 20 && gemeinsamerAnfang(text, rest) >= Math.min(text.length, rest.length) * 0.9) {
         // Zweitfassung wächst noch: nichts anzeigen; ist sie (fast) vollständig, gilt die spätere Fassung
         if (rest.length >= text.length - 12) text = rest;
