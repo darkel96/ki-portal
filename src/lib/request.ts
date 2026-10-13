@@ -30,6 +30,8 @@ export type KiRequest = {
   websuche: boolean;
   wissensquellen: { typ: string; titel: string; url: string }[];
   dateien: { feld: string; uebergabe: "text" | "referenz"; name: string | null; typ: string | null; groesse: number | null }[];
+  /** Vorlagenordner (SharePoint) für Kopien im Dateipaket, wenn die Liste geladen werden konnte */
+  vorlagenUrl?: string;
   system: string;
   nachricht: string;
   variablen: Record<string, string | null>;
@@ -54,7 +56,10 @@ export function ergebnisDateiFuer(step: Step, nachricht: string): DateiArt | nul
   return step.datei === "wunsch" ? dateiWunsch(nachricht) : step.datei;
 }
 
-export function buildRequest(app: App, step: Step, ctx: Record<string, string>, files?: Record<string, FileInfo>): KiRequest {
+/** Zusatz zum Systemtext, wenn ein Dateipaket Vorlagen aus SharePoint kopieren darf */
+export const KOPIEN_HINWEIS = 'Vorlagen kopieren: Das Paket darf zusätzlich "ordner": ["Pfad/leerer Ordner"] (leere Ordner, die angelegt werden) und "kopien": [{"quelle": "Pfad aus der Vorlagenliste", "ziel": "Ordner/Dateiname im Paket"}] enthalten. Kopien werden unverändert aus dem Vorlagenordner übernommen; "quelle" muss genau einem Eintrag der Vorlagenliste entsprechen. Steht eine Vorlage nicht in der Liste oder mehrfach, kopiere sie nicht und nenne das als offenen Punkt.';
+
+export function buildRequest(app: App, step: Step, ctx: Record<string, string>, files?: Record<string, FileInfo>, vorlagen?: { url: string; text: string }): KiRequest {
   const inPrompt = new Set(varsIn(step.prompt));
   const used = new Set(varsIn(step.prompt + " " + step.wissen));
   let nachricht = fill(step.prompt, ctx);
@@ -64,6 +69,7 @@ export function buildRequest(app: App, step: Step, ctx: Record<string, string>, 
     if (rest.length) nachricht = (nachricht.trim() ? nachricht.trim() + "\n\n" : "") + "Eingaben:\n\n" +
       rest.map((b) => `${b.props.label}:\n${ctx[b.props.key.toLowerCase()] ?? ""}`).join("\n\n");
   }
+  if (vorlagen) nachricht = `${nachricht.trim()}\n\n${vorlagen.text}`;
   const ergebnisDatei = ergebnisDateiFuer(step, nachricht);
   const variablen: Record<string, string | null> = {};
   used.forEach((k) => { const v = ctx[k]; variablen[k] = v === undefined ? null : v.length > 160 ? v.slice(0, 160) + " …" : v; });
@@ -82,7 +88,8 @@ export function buildRequest(app: App, step: Step, ctx: Record<string, string>, 
     websuche: step.web,
     wissensquellen: quellenOf(step).map((q) => ({ typ: q.typ, titel: q.titel, url: q.url })),
     dateien,
-    system: [systemText(app, step, fill(step.wissen, ctx)), !ergebnisDatei ? "" : step.format === "dateien"
+    vorlagenUrl: vorlagen?.url,
+    system: [systemText(app, step, fill(step.wissen, ctx)), vorlagen ? KOPIEN_HINWEIS : "", !ergebnisDatei ? "" : step.format === "dateien"
       ? `Dokumente im Paket (Berichte, Dokumentationen, Protokolle) schreibst du als Markdown-Dateien mit Endung .md, niemals als HTML zum Ausdrucken. Der Hub wandelt sie beim Herunterladen selbst in ${DATEI_ART[ergebnisDatei].label}-Dateien um.`
       : DATEI_HINWEIS[ergebnisDatei]].filter(Boolean).join("\n\n"),
     nachricht,

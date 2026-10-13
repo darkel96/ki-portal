@@ -5,7 +5,7 @@ import type { App } from "@/lib/schema";
 import { renderResult, markdown } from "@/lib/markdown";
 import { STATUS_LABEL, type OutState } from "@/lib/runner";
 import { graphPreview } from "@/lib/request";
-import { paketName, treeText, zipPaket } from "@/lib/paket";
+import { paketName, paketPfade, treeText, zipPaket } from "@/lib/paket";
 import { saveFile } from "@/lib/files";
 import { DATEI_ART, DATEI_ARTEN, dateiErzeugen, dateiName, type DateiArt } from "@/lib/dokument";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -102,13 +102,13 @@ function KopierKnopf({ text, format, teil }: { text: string; format: string; tei
 }
 
 /** ZIP mit Ladezustand und Fehlermeldung */
-function ZipKnopf({ onLaden, text, haupt }: { onLaden: () => Promise<void>; text: string; haupt: boolean }) {
-  const [baut, setBaut] = useState(false);
+function ZipKnopf({ onLaden, text, haupt }: { onLaden: (onStand: (t: string) => void) => Promise<void>; text: string; haupt: boolean }) {
+  const [baut, setBaut] = useState<string | null>(null);
   return (
-    <Button size="sm" variant={haupt ? "default" : "outline"} className="rounded-full" disabled={baut} onClick={async () => {
-      setBaut(true);
-      try { await onLaden(); } catch (e) { toast.error(`Das ZIP konnte nicht erstellt werden.${e instanceof Error ? " " + e.message : ""}`); } finally { setBaut(false); }
-    }}><Download aria-hidden="true" />{baut ? "ZIP wird erstellt\u00a0…" : text}</Button>
+    <Button size="sm" variant={haupt ? "default" : "outline"} className="rounded-full" disabled={!!baut} onClick={async () => {
+      setBaut("ZIP wird erstellt\u00a0…");
+      try { await onLaden(setBaut); } catch (e) { toast.error(`Das ZIP konnte nicht erstellt werden.${e instanceof Error ? " " + e.message : ""}`); } finally { setBaut(null); }
+    }}><Download aria-hidden="true" />{baut ?? text}</Button>
   );
 }
 
@@ -173,8 +173,14 @@ export function OutputView({ app, titel, stepId, stil, mode, pfad = "" }: { app:
       {o.text && (o.paket ? (
         <div className={team ? "team-result" : undefined}>
           {o.paket.hinweis && <p>{o.paket.hinweis}</p>}
-          <p className="o-muted">{o.paket.dateien.length} Dateien im Paket</p>
-          <pre className="code">{treeText(o.paket.dateien.map((f) => f.pfad))}</pre>
+          <p className="o-muted">{[`${o.paket.dateien.length} ${o.paket.dateien.length === 1 ? "Datei" : "Dateien"}`, o.paket.kopien.length ? `${o.paket.kopien.length} ${o.paket.kopien.length === 1 ? "Vorlage" : "Vorlagen"} aus SharePoint` : "", o.paket.ordner.length ? `${o.paket.ordner.length} Ordner` : ""].filter(Boolean).join(", ")} im Paket</p>
+          <pre className="code">{treeText(paketPfade(o.paket))}</pre>
+          {o.paket.kopien.length > 0 && (
+            <details className="paket-file"><summary>Kopierte Vorlagen ({o.paket.kopien.length})</summary>
+              <ul>{o.paket.kopien.map((k) => <li key={k.ziel}><code>{k.ziel}</code> ← {k.quelle}</li>)}</ul>
+              {!o.paket.vorlagenUrl && <p className="o-err">Ohne Copilot-Anmeldung können die Vorlagen nicht geladen werden; das ZIP enthält dann eine Hinweisdatei.</p>}
+            </details>
+          )}
           {o.paket.dateien.map((f) => (
             <details key={f.pfad} className="paket-file"><summary>{f.pfad}</summary>
               {istDokument(f.pfad) && o.status === "fertig" && o.paket!.dateien.length > 1 && (
@@ -226,7 +232,7 @@ export function OutputView({ app, titel, stepId, stil, mode, pfad = "" }: { app:
           {fertig && (!o.paket || einDokument) && <KopierKnopf text={einDokument ? einDokument.inhalt : teilText ?? o.text ?? ""} format={einDokument || teilText !== null ? "markdown" : step?.format ?? "markdown"} teil={o.status !== "fertig"} />}
           {fertig && o.paket && einDokument && <DateiKnoepfe app={app} text={einDokument.inhalt} titel={dateiTitel(einDokument.pfad)} haupt={o.req?.ergebnisDatei ?? "pdf"} roh={{ name: dateiTitel(einDokument.pfad), endung: einDokument.pfad.split(".").pop() ?? "txt" }} />}
           {fertig && o.paket && <ZipKnopf haupt={!einDokument} text={o.req?.ergebnisDatei ? `ZIP mit ${DATEI_ART[o.req.ergebnisDatei].label}-Dateien` : "ZIP herunterladen"}
-            onLaden={async () => saveFile(paketName(app.name, o.paket!), await zipPaket(o.paket!, app.name, o.req?.ergebnisDatei ?? undefined))} />}
+            onLaden={async (onStand) => saveFile(paketName(app.name, o.paket!), await zipPaket(o.paket!, app.name, o.req?.ergebnisDatei ?? undefined, onStand))} />}
           {fertig && !o.paket && step && <DateiKnoepfe app={app} text={teilText ?? o.text ?? ""} titel={step.name} haupt={o.req?.ergebnisDatei ?? null} roh={{ name: slug(step.name), endung: teilText !== null ? "md" : step.format === "json" ? "json" : step.format === "text" ? "txt" : "md" }} />}
           {o.req && step && Array.isArray(o.req.dateien) && (
             <details>

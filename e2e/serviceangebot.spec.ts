@@ -22,12 +22,17 @@ async function checklisteDocx(): Promise<Buffer> {
 }
 
 const LESEN = JSON.stringify({
-  kunde: "Beispielkunde GmbH", projekt: "Hochregallager", angebotsnummer: "4711", standort: "St. Gallen", sprache: "Deutsch",
-  produkte: { ersatzteile: { status: "Nein", fundstelle: "Pos. 1", angaben: "" }, hotline: { status: "Unklar", fundstelle: "Pos. 2", angaben: "" }, schulung: { status: "Ja", fundstelle: "Pos. 3", angaben: "2 Tage" },
-    wartung: { status: "Ja", fundstelle: "Pos. 4", angaben: "4.4 Schichtbetrieb: 2-Schicht" }, vorort: { status: "Nein", fundstelle: "Pos. 5", angaben: "" }, software: { status: "Widersprüchlich", fundstelle: "Pos. 6", angaben: "beide Kästchen" } },
-  lieferumfang: "", bericht: "- **Pos. 4 Wartungsvertrag**: Ja – Pos. 4\n- **Pos. 6 Softwarepflege**: Widersprüchlich – beide Kästchen",
+  kunde: "Beispielkunde GmbH", projekt: "Hochregallager", standort: "St. Gallen", sprache: "Deutsch",
+  produkte: { remoteservice: { status: "Ja", fundstelle: "Pos. 1", nummer: "190014105", angaben: "RA, SM" }, softwaremaintenance: { status: "Nein", fundstelle: "Pos. 2", nummer: "", angaben: "" }, itservices: { status: "Unklar", fundstelle: "Pos. 3", nummer: "", angaben: "" },
+    wartungsvertrag: { status: "Ja", fundstelle: "Pos. 4", nummer: "", angaben: "4.4 Schichtbetrieb: 2-Schicht" }, ersatzteilpaket: { status: "Nein", fundstelle: "Pos. 5", nummer: "", angaben: "" }, residentmaintenance: { status: "Widersprüchlich", fundstelle: "Pos. 6", nummer: "", angaben: "beide Kästchen" } },
+  lieferumfang: "", bericht: "- **Wartungsvertrag**: Ja – Pos. 4\n- **Resident Maintenance**: Widersprüchlich – beide Kästchen",
 });
-const PAKET = JSON.stringify({ hinweis: "Struktur für 4711", dateien: [{ pfad: "Serviceangebot_4711/00_Pruefprotokoll.md", inhalt: "# Prüfprotokoll\n\n- Wartungsvertrag – Ja – angelegt" }, { pfad: "Serviceangebot_4711/04_Wartungsvertrag/Leistungsbeschreibung.md", inhalt: "# Wartungsvertrag" }] });
+const PAKET = JSON.stringify({
+  hinweis: "Struktur für Beispielkunde",
+  ordner: ["Beispielkunde_GmbH_Hochregallager_Serviceangebotsstruktur/RS_190014105_Remote_Service/01_Request", "Beispielkunde_GmbH_Hochregallager_Serviceangebotsstruktur/RS_190014105_Remote_Service/04_Suppliers/RA"],
+  kopien: [{ quelle: "Kalkulation/Remote Services Calculation.xltm", ziel: "Beispielkunde_GmbH_Hochregallager_Serviceangebotsstruktur/RS_190014105_Remote_Service/03_Calculation/Rev00/Remote Services Calculation.xltm" }],
+  dateien: [{ pfad: "Beispielkunde_GmbH_Hochregallager_Serviceangebotsstruktur/Pruefprotokoll.txt", inhalt: "Remote Service (Z30) – Ja – angelegt ja" }, { pfad: "Beispielkunde_GmbH_Hochregallager_Serviceangebotsstruktur/Angebotszusammenfassung.md", inhalt: "# Serviceangebot" }],
+});
 
 /** Nachgebaute KI: antwortet je nach Auftrag mit JSON, einem Dateipaket oder Markdown; merkt sich die Prompts. */
 async function kiNachbau(page: Page) {
@@ -63,11 +68,12 @@ test("Serviceangebot: Checkliste lesen, Prüfseite korrigieren, ZIP", async ({ p
   // Prüfseite: Felder aus dem JSON vorbelegt, Bericht als Markdown
   await expect(page.getByRole("heading", { name: "Das hat Copilot gelesen" })).toBeVisible();
   await expect(page.getByLabel("Kunde")).toHaveValue("Beispielkunde GmbH", { timeout: 10_000 });
-  await expect(page.getByLabel("Pos. 4 Wartungsvertrag")).toHaveValue("Ja");
-  await expect(page.getByLabel("Pos. 6 Softwarepflege")).toHaveValue("Widersprüchlich");
+  await expect(page.getByLabel("Wartungsvertrag (Z50)")).toHaveValue("Ja");
+  await expect(page.getByLabel("Resident Maintenance (Z61)")).toHaveValue("Widersprüchlich");
+  await expect(page.getByLabel("Angebotsnummer Remote Service")).toHaveValue("190014105");
   await expect(page.getByLabel("Angaben zu Wartungsvertrag")).toHaveValue("4.4 Schichtbetrieb: 2-Schicht");
   await page.screenshot({ path: "screenshots/desktop-serviceangebot-pruefseite.png" });
-  await expect(page.locator("[data-src] .o-body strong", { hasText: "Pos. 4 Wartungsvertrag" }).first()).toBeVisible();
+  await expect(page.locator("[data-src] .o-body strong", { hasText: "Wartungsvertrag" }).first()).toBeVisible();
   // Der Word-Leser hat die Kästchen erhalten: angekreuzt ☒, leer ☐, bei allen drei Arten, dazu die Tabelle
   const lese = prompts[0];
   expect(lese).toContain("Wartungsvertrag Ja ☒ Nein ☐");
@@ -76,19 +82,25 @@ test("Serviceangebot: Checkliste lesen, Prüfseite korrigieren, ZIP", async ({ p
   expect(lese).toContain("| Standort | St. Gallen |");
   expect(lese).not.toContain("FORMCHECKBOX");
   // Korrektur von Hand bleibt erhalten und geht in die nächsten Schritte
-  await page.getByLabel("Pos. 6 Softwarepflege").selectOption("Nein");
+  await page.getByLabel("Resident Maintenance (Z61)").selectOption("Nein");
 
   await page.getByRole("navigation", { name: "Seiten blättern" }).getByRole("button", { name: /Weiter/ }).click();
   await page.getByRole("button", { name: "Checkliste plausibilisieren" }).click();
   await expect(page.locator('[data-src][data-status="fertig"]', { hasText: "Plausibilisierung" })).toBeVisible({ timeout: 10_000 });
-  expect(prompts.at(-1)).toContain("Pos. 6 Softwarepflege: Nein");
+  expect(prompts.at(-1)).toContain("Resident Maintenance (Z61): Status Nein");
   await page.getByRole("button", { name: /Weiter zur Auswertung/ }).click();
   await expect(page.getByRole("heading", { name: "Ergebnisse" })).toBeVisible();
   await expect(page.locator(".e-kachel .status-pill")).toHaveText(["Fertig", "Fertig"], { timeout: 15_000 });
   // Das ZIP steht zum Herunterladen bereit; auf dem letzten Ergebnis führt der Pager zurück zur Übersicht statt eines toten „Weiter“
   await page.locator(".e-kachel", { hasText: "Angebotsstruktur" }).click();
-  await expect(page.getByRole("button", { name: /ZIP mit Word-Dateien/ })).toBeVisible();
-  await expect(page.locator("pre.code", { hasText: "Serviceangebot_4711/" })).toBeVisible();
+  await expect(page.getByRole("button", { name: /ZIP herunterladen/ })).toBeVisible();
+  const baum = page.locator("pre.code", { hasText: "Serviceangebotsstruktur/" });
+  await expect(baum).toBeVisible();
+  // Leere Ordner, Kopien aus SharePoint und Textdateien stehen gemeinsam im Baum
+  await expect(baum).toContainText("01_Request/");
+  await expect(baum).toContainText("Remote Services Calculation.xltm");
+  await expect(baum).toContainText("Pruefprotokoll.txt");
+  await expect(page.getByText("2 Dateien, 1 Vorlage aus SharePoint, 2 Ordner im Paket")).toBeVisible();
   const pager = page.getByRole("navigation", { name: "Ergebnisse blättern" });
   await expect(pager.getByRole("button", { name: "Weiter" })).toHaveCount(0);
   await pager.getByRole("button", { name: "Alle Ergebnisse" }).click();

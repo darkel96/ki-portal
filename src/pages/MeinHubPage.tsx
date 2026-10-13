@@ -15,7 +15,7 @@ import { OutputView } from "@/components/renderer/OutputView";
 import { RunContext, type RunCtx } from "@/components/renderer/runContext";
 import { themeStyle } from "@/components/renderer/theme";
 import { areaIdx, inkFor } from "@/lib/model";
-import { parsePaket } from "@/lib/paket";
+import { parsePaketFuer } from "@/lib/paket";
 import { ergebnisDateiFuer } from "@/lib/request";
 import type { OutState } from "@/lib/runner";
 import { ZIEL_LABEL, datumZeit, zeitplanText, type Auftrag, type Lauf } from "@/lib/meinhub";
@@ -165,7 +165,7 @@ function LaufDetail({ lauf, app, onZurueck }: { lauf: Lauf; app?: HubApp; onZuru
       const status = e.status as OutState["status"];
       o[s.id] = {
         status, text: status === "simuliert" ? undefined : e.text, meldung: e.meldung,
-        paket: s.format === "dateien" && e.text ? parsePaket(e.text) : undefined,
+        paket: s.format === "dateien" && e.text ? parsePaketFuer(s, e.text) : undefined,
         req: { nachricht: e.text ?? "", ergebnisDatei: ergebnisDateiFuer(s, e.text ?? "") } as never,
       };
     }
