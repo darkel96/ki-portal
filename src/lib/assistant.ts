@@ -31,10 +31,28 @@ export function assistPrompt(app: App, wunsch: string, scope: AssistScope): stri
 ## Blocktypen und ihre props
 ${blockSchemaForPrompt()}
 
+## Leitlinien (aus dem Piloten mit dem Sales-Service gelernt)
+- So schlank wie möglich: nur die Schritte und Seiten, die der Prozess braucht. Keine Erklär-Kästen, keine optionalen Zusatzschritte (Plausibilisieren, Rückfragen, Zusammenfassungen), wenn niemand sie verlangt hat. Ein Satz Einleitung reicht.
+- „Weiter“ trägt den Ablauf: Der Hub startet den Lese-Schritt automatisch beim Wechsel auf die Prüfseite und die Ergebnis-Schritte beim Wechsel in die Ergebnisse, sperrt „Weiter“, solange Pflichtfelder fehlen oder die KI noch arbeitet. Deshalb braucht eine solche App keine Buttons; nur wenn ein Schritt bewusst von Hand gestartet werden soll, kommt ein button.
+- Pflichtfelder markieren, was der nächste Schritt zwingend braucht (z. B. die hochgeladene Datei), sonst nichts.
+- Jede Seite passt ohne Scrollen auf den Bildschirm: höchstens etwa 9 Felder. Gleichartige Felder stehen in Zeilen zu dritt nebeneinander (drei select, darunter drei input, darunter drei textarea), damit die Spalten bündig bleiben. Mehr Felder: auf mehrere Seiten verteilen („Prüfen 1 von 2“, „Prüfen 2 von 2“).
+- Die KI entscheidet nichts, der Mensch bestätigt: Werte, die die KI aus einer Datei liest, stehen in Feldern mit festen Optionen (select mit Ja/Nein/Unklar/Widersprüchlich o. ä.), nicht in Fließtext. Was nicht eindeutig ist, bekommt klaeren: true mit Grund.
+- Feste fachliche Regeln (Ordnernamen, welche Vorlage wann, Statusregeln) stehen vollständig und wörtlich im prompt des Schritts, als Liste, nicht als Prosa. Nichts erfinden, Unklares als offenen Punkt nennen.
+- Hochgeladene Word-Formulare kommen als Text mit Kästchen an: angekreuzt ☒, leer ☐, jeweils vor ihrem Begriff; Tabellen als Zeilen mit „|“. Das in Lese-Prompts erklären.
+
+## Muster „Dokument lesen, prüfen, Ergebnis erzeugen“
+1. Seite 1: Überschrift, ein Satz, ein file-Feld (pflicht). Kein Button.
+2. Schritt „lesen“ (format "json", modell "complex"): liest {{datei}} und liefert je Feld entweder einen Wert oder ein Objekt {"wert", "hinweis", "klaeren"}; der Prompt nennt das JSON-Schema wörtlich und die Leseregeln.
+3. Seite 2 (und 3): Prüfseite mit Feldern, die "aus": "lesen.<pfad>" tragen, in Zeilen zu dritt; kein output für den Lese-Schritt (sein Ergebnis sind die Felder, er bekommt auch keine Ergebnis-Kachel).
+4. Letzter Schritt mit den geprüften Feldern ({{key}}), z. B. format "dateien" für ein ZIP oder "markdown" mit datei "docx"; sein output auf einer eigenen Ergebnisseite.
+
+## Muster „Dateipaket mit Originalvorlagen aus SharePoint“
+Schritt mit format "dateien" und einer Wissensquelle {"typ": "sharepoint", "titel", "url": Adresse des Vorlagenordners}. Der Hub listet den Ordner vor dem Aufruf auf und hängt die Dateiliste an; die KI darf dann "ordner" (leere Ordner) und "kopien" [{"quelle": Pfad aus der Liste, "ziel": Pfad im Paket}] liefern, der Hub lädt die Kopien unverändert ins ZIP. Der Prompt beschreibt Ordnerstruktur und Zuordnung der Vorlagen als Regeln und verlangt ein Prüfprotokoll als Textdatei.
+
 ## Regeln
 - Behalte die ids bestehender Blöcke und Schritte bei. Neue bekommen kurze ids wie "n1", "n2".
 - In Prompts setzt du Eingaben mit {{key}} ein und Ergebnisse früherer Schritte mit {{key des Schritts}}. Für ein Datei-Feld gibt es zusätzlich {{key_name}} (Dateiname), {{key_titel}} (Dateiname ohne Endung) und {{key_datum}} (Datum der Datei); andere erfundene Platzhalter gibt es nicht.
-- Jede wichtige Eingabe kommt in mindestens einem Prompt vor. Es gibt mindestens einen KI-Button, jeder Schritt hat ein Ergebnis-Element (output mit quelle = id des Schritts).
+- Jede wichtige Eingabe kommt in mindestens einem Prompt vor. Jeder Schritt, dessen Ergebnis Menschen lesen sollen, hat ein Ergebnis-Element (output mit quelle = id des Schritts); Schritte, die nur Felder vorbelegen, brauchen keins. Ein KI-Button ist nur nötig, wenn ein Schritt bewusst von Hand gestartet werden soll.
 - Gute Gestaltung: klare Überschrift, kurze Erklärung, zusammengehörige Eingaben in einem Abschnitt (section), Ergebnisse gut sichtbar. Farben nur als #RRGGBB, ruhig und geschäftlich.
 - Texte auf Deutsch, sachlich, für Mitarbeitende einer Firma.
 - ${regel}
