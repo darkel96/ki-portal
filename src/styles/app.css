@@ -244,7 +244,12 @@ a.tile:hover .tile-go svg { transform: translateX(5px); }
 .o-chat-knopf { display: inline-flex; align-items: center; gap: 5px; border: 1px solid var(--app-line); background: transparent; color: inherit; border-radius: 999px; padding: 4px 10px; font: 500 12.5px/1 var(--app-font); cursor: pointer; }
 .o-chat-knopf:hover { border-color: currentColor; }
 .o-chat-verlauf { flex: 1; min-height: 200px; overflow: auto; display: flex; flex-direction: column; gap: 10px; padding: 4px 2px; }
-.o-chat-n { max-width: 85%; padding: 10px 14px; border-radius: 14px; font-size: 14.5px; line-height: 1.5; }
+.o-chat-n { position: relative; max-width: 85%; padding: 10px 14px; border-radius: 14px; font-size: 14.5px; line-height: 1.5; }
+.o-chat-kopie { position: absolute; top: 6px; right: 6px; display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 26px; border: 0; border-radius: 999px; background: color-mix(in srgb, currentColor 10%, transparent); color: inherit; cursor: pointer; opacity: 0; transition: opacity .15s; }
+.o-chat-n:hover .o-chat-kopie, .o-chat-n:focus-within .o-chat-kopie, .o-chat-kopie:focus-visible { opacity: 1; }
+.o-chat-kopie:hover { background: color-mix(in srgb, currentColor 20%, transparent); }
+@media (hover: none) { .o-chat-kopie { opacity: .7; } }
+.o-chat-n:has(.o-chat-kopie) { padding-right: 36px; }
 .o-chat-n.von-mensch { align-self: flex-end; background: var(--app-accent); color: var(--app-accent-ink); border-bottom-right-radius: 4px; white-space: pre-wrap; }
 .o-chat-n.von-mensch p { margin: 0; }
 .o-chat-n.von-experte { align-self: flex-start; background: var(--app-soft); border-bottom-left-radius: 4px; }

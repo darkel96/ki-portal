@@ -43,8 +43,8 @@ test("Fachexperten-Chat: Frage, Antwort mit Quelle, Rückfrage mit Verlauf", asy
   // Kein Pager, kein Button: nur der Chat
   await expect(page.getByRole("navigation", { name: "Seiten blättern" })).toHaveCount(0);
   await expect(chat.getByRole("button", { name: "Senden" })).toBeDisabled();
-  await chat.getByLabel("Frage").fill("Welche Pflichten gelten für Hersteller?");
-  await chat.getByLabel("Frage").press("Enter");
+  await chat.getByLabel("Frage", { exact: true }).fill("Welche Pflichten gelten für Hersteller?");
+  await chat.getByLabel("Frage", { exact: true }).press("Enter");
   await expect(chat.locator(".o-chat-n.von-mensch")).toHaveText("Welche Pflichten gelten für Hersteller?");
   await expect(chat.locator(".o-chat-n.von-experte").last()).toContainText("Art. 13", { timeout: 10_000 });
   // Rolle mit Belegregel, Wissensgrenze und die Frage stehen in der Anfrage
@@ -58,11 +58,16 @@ test("Fachexperten-Chat: Frage, Antwort mit Quelle, Rückfrage mit Verlauf", asy
   expect(prompts[0]).toContain("Wissensgrenze");
   expect(prompts[0]).toContain("Frage: Welche Pflichten gelten für Hersteller?");
   // Rückfrage bekommt den Verlauf mit
-  await chat.getByLabel("Frage").fill("Und ab wann?");
+  await chat.getByLabel("Frage", { exact: true }).fill("Und ab wann?");
   await chat.getByRole("button", { name: "Senden" }).click();
   await expect(chat.locator(".o-chat-n.von-experte").last()).toContainText("finde ich in den hinterlegten Unterlagen nichts", { timeout: 10_000 });
   expect(prompts[1]).toContain("Person: Welche Pflichten gelten für Hersteller?");
   expect(prompts[1]).toContain("Experte: Laut **Art. 13**");
+  // Einzelne Nachricht kopieren
+  await page.context().grantPermissions(["clipboard-read", "clipboard-write"]);
+  await chat.locator(".o-chat-n.von-experte").first().hover();
+  await chat.getByRole("button", { name: "Antwort kopieren" }).first().click();
+  expect(await page.evaluate(() => navigator.clipboard.readText())).toContain("Laut **Art. 13**");
   await page.screenshot({ path: "screenshots/desktop-chat.png" });
   // Neu beginnen leert den Verlauf
   await chat.getByRole("button", { name: "Neu beginnen" }).click();

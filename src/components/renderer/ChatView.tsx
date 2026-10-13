@@ -192,8 +192,9 @@ export function ChatView({ app, b, mode }: { app: App; b: Extract<Block, { type:
   const taste = (e: KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); void senden(); }
   };
-  const kopieren = () => navigator.clipboard.writeText(verlauf.map((n) => `${n.von === "mensch" ? "Ich" : b.props.titel}: ${n.text}`).join("\n\n"))
-    .then(() => toast.success("Verlauf kopiert."), () => toast.error("Kopieren nicht möglich."));
+  const inZwischenablage = (text: string, meldung: string) => navigator.clipboard.writeText(text)
+    .then(() => toast.success(meldung), () => toast.error("Kopieren nicht möglich."));
+  const kopieren = () => inZwischenablage(verlauf.map((n) => `${n.von === "mensch" ? "Ich" : b.props.titel}: ${n.text}`).join("\n\n"), "Verlauf kopiert.");
 
   if (mode === "edit") {
     return (
@@ -208,13 +209,15 @@ export function ChatView({ app, b, mode }: { app: App; b: Extract<Block, { type:
       <div className="o-chat-kopf">
         <span className="o-out-t">{b.props.titel}</span>
         <span className="flex-1" />
-        {verlauf.length > 0 && <button type="button" className="o-chat-knopf" onClick={kopieren} title="Verlauf kopieren"><Copy size={14} aria-hidden="true" />Kopieren</button>}
+        {verlauf.length > 0 && <button type="button" className="o-chat-knopf" onClick={kopieren} title="Ganzen Verlauf kopieren"><Copy size={14} aria-hidden="true" />Alles kopieren</button>}
         {verlauf.length > 0 && !laeuft && <button type="button" className="o-chat-knopf" onClick={() => { setVerlauf([]); gespraech.current = null; gesendet.current = []; }} title="Neu beginnen"><Trash2 size={14} aria-hidden="true" />Neu beginnen</button>}
       </div>
       <div className="o-chat-verlauf" ref={liste} role="log" aria-live="polite" aria-label="Gesprächsverlauf">
         <div className="o-chat-n von-experte"><div className="o-body" dangerouslySetInnerHTML={{ __html: markdown(b.props.begruessung) }} /></div>
         {verlauf.map((n, i) => (
           <div key={i} className={`o-chat-n von-${n.von}${n.fehler ? " fehler" : ""}`}>
+            {n.text.trim() && n.simulation === undefined && (!laeuft || i < verlauf.length - 1) &&
+              <button type="button" className="o-chat-kopie" aria-label={n.von === "mensch" ? "Frage kopieren" : "Antwort kopieren"} title="Nachricht kopieren" onClick={() => inZwischenablage(n.text, n.von === "mensch" ? "Frage kopiert." : "Antwort kopiert.")}><Copy size={13} aria-hidden="true" /></button>}
             {n.simulation !== undefined
               ? <><p className="o-muted">Simulation: Diese Anfrage würde an die zentrale KI-Anbindung gehen.</p><pre className="code o-sim">{n.simulation}</pre></>
               : n.von === "experte"
