@@ -15,12 +15,15 @@ test("Copilot-Antworten: entdoppeln, JSON, Streaming", async ({ page }) => {
     const delta = await c.streamLesen(sse([conv("Hal"), conv("lo "), "data: [DONE]\n\n", conv("Welt")]), "FRAGE", () => {}, 0, {});
     // Ereignis über zwei Netzwerk-Pakete verteilt
     const geteilt = await c.streamLesen(sse([conv("Hallo").slice(0, 20), conv("Hallo").slice(20)]), "FRAGE", () => {}, 0, {});
+    // Copilot schreibt den bisherigen Text um (Quellenzeile erst als Markdown-Link, dann als nackte Adresse): kein Anhängen
+    const basis = "Für uns als Hersteller bedeutet der CRA vor allem: Cybersicherheit über den Lebenszyklus.\n\nQuelle: ";
+    const umgeschrieben = await c.streamLesen(sse([conv(basis + "[CRA Schulung](https://x.sharepoint.com/Termin%201%20(1"), conv(basis + "https://x.sharepoint.com/Termin%201%20(1.docx)"), conv(basis + "https://x.sharepoint.com/Termin%201%20(1).docx\n\nSoll ich"), conv(basis + "https://x.sharepoint.com/Termin%201%20(1).docx\n\nSoll ich weitermachen?")]), "FRAGE", () => {}, 0, {});
     const jsonNicht = new Response(JSON.stringify({ messages: [{ text: "FRAGE" }, { text: "Antwort" }] }), { headers: { "content-type": "application/json" } });
     const ohneStream = await c.streamLesen(jsonNicht, "FRAGE", () => {}, 0, {});
     return {
       doppelt: c.entdoppeln(A + A), doppeltLeer: c.entdoppeln(A + "\n\n" + A), einfach: c.entdoppeln(A), kurz: c.entdoppeln("abab"),
       json: k.jsonAus('Hier: {"a":"}{","b":{"c":1}}{"a":"}{","b":{"c":1}}'), jsonFence: k.jsonAus('```json\n{"x":"\\"}"}\n```'),
-      kum, teile, delta, geteilt, ohneStream,
+      kum, teile, delta, geteilt, ohneStream, umgeschrieben,
     };
   });
   expect(r.doppelt).toBe("## Variante 1\nText mit genug Länge für den Test.");
@@ -34,6 +37,7 @@ test("Copilot-Antworten: entdoppeln, JSON, Streaming", async ({ page }) => {
   expect(r.delta).toBe("Hallo Welt");
   expect(r.geteilt).toBe("Hallo");
   expect(r.ohneStream).toBe("Antwort");
+  expect(r.umgeschrieben).toBe("Für uns als Hersteller bedeutet der CRA vor allem: Cybersicherheit über den Lebenszyklus.\n\nQuelle: https://x.sharepoint.com/Termin%201%20(1).docx\n\nSoll ich weitermachen?");
 });
 
 /** Nachgebaute Anthropic-Schnittstelle: jede Antwort kommt nach 1,5 s; Start- und Endzeiten werden mitgeschrieben. */

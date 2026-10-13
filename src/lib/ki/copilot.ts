@@ -96,6 +96,14 @@ async function neuesGespraech(token: string, signal?: AbortSignal): Promise<stri
   return c.id;
 }
 
+/** Länge des gemeinsamen Anfangs zweier Texte */
+export function gemeinsamerAnfang(a: string, b: string): number {
+  const n = Math.min(a.length, b.length);
+  let i = 0;
+  while (i < n && a.charCodeAt(i) === b.charCodeAt(i)) i++;
+  return i;
+}
+
 /** Liest die SSE-Antwort von chatOverStream (exportiert für Tests); kommt die Antwort als Ganzes oder in Stücken, wird beides zusammengesetzt. */
 export async function streamLesen(res: Response, frage: string, onTeil: (t: string) => void, start: number, messung: Partial<Messung>): Promise<string> {
   if (!res.body || !/event-stream/i.test(res.headers.get("content-type") ?? "")) {
@@ -112,9 +120,13 @@ export async function streamLesen(res: Response, frage: string, onTeil: (t: stri
     let t = "";
     try { t = letzterText(JSON.parse(daten), frage); } catch { return; }
     if (!t) return;
-    // Jedes Ereignis enthält entweder den ganzen bisherigen Text oder nur das neue Stück.
+    // Jedes Ereignis enthält entweder den ganzen bisherigen Text oder nur das neue Stück. Copilot schreibt den
+    // bisherigen Text dabei manchmal um (z. B. eine Quellenzeile, sobald die Adresse vollständig ist); ein Ereignis mit
+    // langem gemeinsamem Anfang ist deshalb der neue Gesamttext, kein Stück zum Anhängen.
     if (!text || t.startsWith(text)) text = t;
-    else if (!text.startsWith(t)) text += t;
+    else if (text.startsWith(t)) { /* kürzer als bekannt: nichts Neues */ }
+    else if (gemeinsamerAnfang(text, t) >= Math.min(30, Math.ceil(text.length * 0.6))) text = t;
+    else text += t;
     messung.ersteZeichen ??= performance.now() - start;
     onTeil(text);
   };

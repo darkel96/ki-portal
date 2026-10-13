@@ -968,10 +968,21 @@ Vorbild: `src/lib/seedServiceangebot.ts` (Produkte, Ordner, Dokumente je Sprache
   (`onDrop`). Dokumente werden mit `readFileInfo` als Text gelesen (höchstens 30.000 Zeichen je Anhang in der Anfrage),
   Bilder mit `loadImage` verkleinert als Daten-URL. Die Anfrage bekommt `Anhang „Name“ (Dokument …): Text` bzw. den
   Hinweis auf ein beiliegendes Bild; Bilder stehen in `KiRequest.bilder`. Eigener Schlüssel: Bilder als
-  Inhaltsblöcke der Messages-API. Copilot: `src/lib/ki/onedrive.ts` legt das Bild in OneDrive („KI-Hub/Chat“) ab und
-  gibt die Adresse als Datei mit; dafür fordert der Hub den Token zusätzlich mit `Files.ReadWrite` an (Zustimmung im
-  Anmeldefenster oder durch die Administration). Im weitergeführten Gespräch gehen nur neue Anhänge mit, in einer
+  Inhaltsblöcke der Messages-API. Copilot: `src/lib/ki/onedrive.ts` legt das Bild im App-Ordner in OneDrive (`special/approot`, „Apps/<Anwendung>/Chat“) ab
+  und gibt die Adresse als Datei mit; dafür fordert der Hub den Token zusätzlich mit `Files.ReadWrite.AppFolder` an
+  (im Tenant mit Administratorzustimmung; ohne sie erscheint das Zustimmungsfenster mit „Genehmigung erforderlich“). Im weitergeführten Gespräch gehen nur neue Anhänge mit, in einer
   vollen Anfrage alle Anhänge des Gesprächs (Bilder: die jüngsten vier).
+- Streaming: Copilot schreibt den bisherigen Text im Stream manchmal um (Quellenzeile erst als Markdown-Link, dann als
+  nackte Adresse). `streamLesen` erkennt ein Ereignis mit langem gemeinsamem Anfang (`gemeinsamerAnfang`, mindestens 30
+  Zeichen oder 60 % des bisherigen Texts) als neuen Gesamttext statt als Stück zum Anhängen; vorher verdoppelte sich die
+  Antwort bei jedem weiteren Ereignis.
+- Stoppen im Chat wirkt sofort (`abbrechbar()`), auch während Anmeldefenster oder Bild-Upload das Abbruchsignal nicht
+  kennen; der bis dahin gestreamte Text bleibt mit „(gestoppt)“ stehen.
+- Diktat-Korrektur (`src/lib/diktat.ts`): Fachbegriffe der App (Abkürzungen, großgeschriebene Wortfolgen, lange Wörter
+  aus Name, Beschreibung, Rollen, Wissen, Quellen, Chat-Texten) ersetzen ähnlich klingende Wortfolgen im erkannten Text
+  (Levenshtein-Ähnlichkeit, Schwellen 0,65–0,72, Randwörter ohne Beitrag bleiben draußen); Großschreibung und
+  Fragezeichen werden ergänzt. Diktierte Fragen bekommen in der Anfrage den Hinweis, Erkennungsfehler sinngemäß zu
+  verstehen.
 - Diktat: Web Speech API (`SpeechRecognition`/`webkitSpeechRecognition`, `de-DE`, laufend mit Zwischenergebnissen); der
   Knopf erscheint nur, wenn der Browser sie bietet. Der erkannte Text landet im Eingabefeld, gesendet wird weiterhin
   per Knopf oder Enter.

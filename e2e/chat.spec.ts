@@ -26,7 +26,7 @@ async function kiNachbau(page: Page) {
 
 /** Nachgebaute Spracherkennung des Browsers: liefert nach dem Start einen festen Satz */
 const SPRACHE = `window.SpeechRecognition = window.webkitSpeechRecognition = class {
-  start() { setTimeout(() => { this.onresult?.({ resultIndex: 0, results: [{ isFinal: true, 0: { transcript: "Welche Pflichten gelten für Hersteller?" }, length: 1 }], length: 1 }); this.onend?.(); }, 50); }
+  start() { setTimeout(() => { this.onresult?.({ resultIndex: 0, results: [{ isFinal: true, 0: { transcript: "welche Pflichten gelten für Hersteller nach dem Cyber result entdeckt" }, length: 1 }], length: 1 }); this.onend?.(); }, 50); }
   stop() {} abort() {}
 };`;
 
@@ -99,13 +99,15 @@ test("Fachexperten-Chat: Anhänge (Dokument und Bild) und Diktat", async ({ page
   await expect(chat.getByRole("button", { name: "Senden" })).toBeEnabled();
   // Diktieren füllt das Eingabefeld
   await chat.getByRole("button", { name: "Diktieren" }).click();
-  await expect(chat.getByLabel("Frage", { exact: true })).toHaveValue("Welche Pflichten gelten für Hersteller?");
+  // Fachbegriffe der App werden im Diktat erkannt, Großschreibung und Fragezeichen ergänzt
+  await expect(chat.getByLabel("Frage", { exact: true })).toHaveValue("Welche Pflichten gelten für Hersteller nach dem Cyber Resilience Act?");
   await chat.getByRole("button", { name: "Senden" }).click();
   await expect(chat.locator(".o-chat-n.von-experte").last()).toContainText("Art. 13", { timeout: 10_000 });
   // Anhänge stehen an der Frage und gehen mit: Dokument als Text, Bild als Bild
   const frage = chat.locator(".o-chat-n.von-mensch");
   await expect(frage.getByRole("list", { name: "Anhänge" })).toContainText("notiz.txt");
   expect(prompts[0]).toContain("Anhang „notiz.txt“ (Dokument der fragenden Person):\nUnser Produkt hat eine Fernwartungsschnittstelle.");
+  expect(prompts[0]).toContain("Die Frage wurde diktiert");
   expect(prompts[0]).toContain("Anhang „screenshot.png“ (Bild der fragenden Person");
   expect(bilder[0]).toBe(1);
   await expect(wartend).toHaveCount(0);
@@ -116,4 +118,42 @@ test("Fachexperten-Chat: Anhänge (Dokument und Bild) und Diktat", async ({ page
   expect(prompts[1]).toContain("Anhang „notiz.txt“");
   expect(bilder[1]).toBe(1);
   await page.screenshot({ path: "screenshots/desktop-chat-anhang.png" });
+});
+
+test("Fachexperten-Chat: Stoppen wirkt sofort, auch während die KI noch nicht antwortet", async ({ page }, info) => {
+  test.skip(info.project.name !== "desktop", "einmal reicht");
+  await page.addInitScript(() => localStorage.setItem("kihub-anthropic-key", "sk-test"));
+  // Die KI antwortet erst nach 20 s: Stoppen darf nicht darauf warten
+  await page.route("https://api.anthropic.com/**", async (route) => { await new Promise((r) => setTimeout(r, 20_000)); await route.abort(); });
+  await page.goto("/app/cra-experte");
+  const chat = page.locator(".o-chat");
+  await chat.getByLabel("Frage", { exact: true }).fill("Was ist der CRA?");
+  await chat.getByRole("button", { name: "Senden" }).click();
+  await expect(chat.getByRole("button", { name: "Stoppen" })).toBeVisible();
+  await chat.getByRole("button", { name: "Stoppen" }).click();
+  await expect(chat.locator(".o-chat-n.von-experte").last()).toHaveText("(gestoppt)", { timeout: 3_000 });
+  await expect(chat.getByRole("button", { name: "Senden" })).toBeVisible();
+});
+
+test("Diktat: Fachbegriffe korrigieren", async ({ page }, info) => {
+  test.skip(info.project.name !== "desktop", "einmal reicht");
+  await page.goto("/");
+  const r = await page.evaluate(async () => {
+    const d = await import("/src/lib/diktat.ts");
+    const b = ["Cyber Resilience Act", "Körber Supply Chain Automation", "Produktsicherheit", "Meldepflicht", "CRA", "SBOM"];
+    return [
+      d.diktatKorrigieren("was handelt der Cyber result entdeckt", b),
+      d.diktatKorrigieren("gilt die Meldepflicht für uns", b),
+      d.diktatKorrigieren("was ist eine S Bomb und was sagt der kra dazu", b),
+      d.diktatKorrigieren("der Kran steht in der Halle.", b),
+      d.diktatKorrigieren("cyber resilienz akt, ab wann?", b),
+    ];
+  });
+  expect(r).toEqual([
+    "Was handelt der Cyber Resilience Act?",
+    "Gilt die Meldepflicht für uns?",
+    "Was ist eine SBOM und was sagt der CRA dazu?",
+    "Der Kran steht in der Halle.",
+    "Cyber Resilience Act, ab wann?",
+  ]);
 });
