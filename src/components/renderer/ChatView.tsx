@@ -138,6 +138,8 @@ export function ChatView({ app, b, mode }: { app: App; b: Extract<Block, { type:
     ctl.current = c;
     let bisherText = "";   // schon gestreamter Teil der Antwort (bleibt beim Stoppen stehen)
     const setzeAntwort = (patch: Partial<Nachricht>) => setVerlauf((v) => v.map((n, i) => (i === v.length - 1 ? { ...n, ...patch } : n)));
+    // Suchtext für die Wissensquellen: die Frage, davor die letzten beiden Fragen der Person als Zusammenhang („was beinhaltet er“)
+    const suche = [...bisher.filter((n) => n.von === "mensch").slice(-2).map((n) => n.text), f].join(" | ");
     const mitAnhang = (prompt: string, a: Anhang[]) => (a.length ? `${prompt.trim()}\n\n${anhangText(a)}` : prompt);
     const bilderVon = (a: Anhang[]) => a.filter((x) => x.art === "bild" && x.daten).slice(-MAX_BILDER).map((x) => ({ name: x.name, daten: x.daten! }));
     // Volle Anfrage: Rolle, Wissen, Auszüge, Verlauf als Text (nur die letzten Beiträge), alle Anhänge des Gesprächs und die Frage
@@ -149,14 +151,14 @@ export function ChatView({ app, b, mode }: { app: App; b: Extract<Block, { type:
       const prompt = hatFrage ? step.prompt : `${step.prompt.trim()}\n\nBisheriger Verlauf:\n{{verlauf}}\n\nFrage: {{frage}}`;
       const alle = [...gesendet.current, ...neu];
       const chatStep = { ...step, prompt: mitAnhang(fill(prompt, ctx), alle), format: "markdown" as const };
-      const req = await anfrageVorbereiten(app, chatStep, ctx, run.files, c.signal, (m) => setStand(m));
+      const req = await anfrageVorbereiten(app, chatStep, ctx, run.files, c.signal, (m) => setStand(m), suche);
       return { ...req, bilder: bilderVon(alle) };
     };
     // Folgefrage im weitergeführten Gespräch: nur die Frage, neue Anhänge und passende Auszüge, keine Rolle und kein Verlauf
     const kurz = async () => {
       const ctx = { ...kontext(app, run.werte, run.files), frage: frageText, verlauf: "" };
       const chatStep = { ...step, prompt: mitAnhang(`Frage: ${frageText}`, neu), format: "markdown" as const };
-      const req = await anfrageVorbereiten(app, chatStep, ctx, run.files, c.signal, (m) => setStand(m));
+      const req = await anfrageVorbereiten(app, chatStep, ctx, run.files, c.signal, (m) => setStand(m), suche);
       return { ...req, system: "", bilder: bilderVon(neu) };
     };
     const senden = (req: Awaited<ReturnType<typeof voll>>) => {

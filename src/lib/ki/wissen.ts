@@ -10,8 +10,9 @@ import type { Quelle } from "../schema";
 
 const GRAPH = "https://graph.microsoft.com/v1.0";
 /** Zeichen je Quelle, die höchstens in die Anfrage wandern */
-const MAX_JE_QUELLE = 12_000;
-const MAX_TREFFER = 8;
+const MAX_JE_QUELLE = 40_000;
+/** Treffer je SharePoint-Bereich (die Retrieval API erlaubt bis 25) */
+const MAX_TREFFER = 20;
 
 export type Auszug = { titel: string; url: string; text: string; fehler?: string; quelleTyp?: Quelle["typ"] };
 
@@ -30,11 +31,16 @@ async function sharepointAuszuege(q: Quelle, suche: string, token: string, signa
     throw new Error(r.status === 403 ? "kein Lesezugriff oder keine Copilot-Lizenz" : r.status === 404 ? "Bereich nicht gefunden" : `HTTP ${r.status}${code ? ` ${code}` : ""}`);
   }
   const j = (await r.json()) as { retrievalHits?: { webUrl?: string; resourceMetadata?: { title?: string }; extracts?: { text?: string }[] }[] };
-  const teile: string[] = [];
+  // Stellen je Dokument bündeln und nummerieren, damit die KI „Dokument, Stelle“ nennen kann
+  const dokumente = new Map<string, { titel: string; link: string; stellen: string[] }>();
   for (const h of j.retrievalHits ?? []) {
-    const text = (h.extracts ?? []).map((e) => e.text?.trim()).filter(Boolean).join("\n");
-    if (text) teile.push(`Dokument: ${h.resourceMetadata?.title || h.webUrl || "Dokument"}${h.webUrl ? `\nLink: ${h.webUrl}` : ""}\n${text}`);
+    const link = h.webUrl ?? "";
+    const titel = h.resourceMetadata?.title || link.split("/").pop()?.replace(/\.[^.]+$/, "") || "Dokument";
+    const d = dokumente.get(link || titel) ?? { titel, link, stellen: [] };
+    for (const e of h.extracts ?? []) { const t = e.text?.trim(); if (t && !d.stellen.includes(t)) d.stellen.push(t); }
+    if (d.stellen.length) dokumente.set(link || titel, d);
   }
+  const teile = [...dokumente.values()].map((d) => [`Dokument: ${d.titel}`, d.link ? `Link: ${d.link}` : "", ...d.stellen.map((t, i) => `Stelle ${i + 1}:\n${t}`)].filter(Boolean).join("\n"));
   return { titel: q.titel || q.url, url: q.url, text: teile.join("\n\n").slice(0, MAX_JE_QUELLE) };
 }
 
@@ -79,6 +85,6 @@ export async function wissenAuszuege(quellen: Quelle[], suche: string, signal?: 
 /** Text für die Anfrage */
 export function auszuegeText(a: Auszug[]): string {
   if (!a.length) return "";
-  return "Auszüge aus den hinterlegten Wissensquellen (nur diese Inhalte gelten als belegt). Quellenangaben schreibst du als Markdown-Link auf den Link des Dokuments, z. B. [CRA Q&A, Abschnitt Scope](https://…):\n\n" + a.map((x) =>
+  return "Auszüge aus den hinterlegten Wissensquellen (nur diese Inhalte gelten als belegt). Nutze alle passenden Dokumente und Stellen, nicht nur das erste. Quellenangaben schreibst du als Markdown-Link auf den Link des Dokuments und nennst die Stelle: die Überschrift oder den Abschnitt, unter dem der Inhalt in der Stelle steht, sonst die Nummer der Stelle, z. B. [CRA Q&A, Abschnitt Scope](https://…) oder [CRA Schulung, Stelle 3](https://…):\n\n" + a.map((x) =>
     x.fehler ? `### ${x.titel}\n(konnte nicht gelesen werden: ${x.fehler})` : `### ${x.titel}\n${x.text ? `${x.quelleTyp === "datei" ? `Link: ${x.url}\n` : ""}${x.text}` : "(keine passenden Inhalte gefunden)"}`).join("\n\n");
 }
