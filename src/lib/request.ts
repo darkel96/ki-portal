@@ -30,6 +30,8 @@ export type KiRequest = {
   websuche: boolean;
   wissensquellen: { typ: string; titel: string; url: string }[];
   dateien: { feld: string; uebergabe: "text" | "referenz"; name: string | null; typ: string | null; groesse: number | null }[];
+  /** Bilder zur Anfrage (Chat-Anhänge), als Daten-URL; eigener Schlüssel: direkt als Bild, Copilot: über OneDrive als Datei */
+  bilder?: { name: string; daten: string }[];
   /** Vorlagenordner (SharePoint) für Kopien im Dateipaket, wenn die Liste geladen werden konnte */
   vorlagenUrl?: string;
   system: string;
