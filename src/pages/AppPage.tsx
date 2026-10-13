@@ -12,7 +12,7 @@ import { useApps } from "@/state/apps";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { areaIdx, fieldsOf } from "@/lib/model";
-import { parsePaket } from "@/lib/paket";
+import { parsePaketFuer } from "@/lib/paket";
 import { ergebnisDateiFuer } from "@/lib/request";
 import type { OutState } from "@/lib/runner";
 import type { App } from "@/lib/schema";
@@ -35,7 +35,7 @@ function LetzterLaufDialog({ lauf, app, offen, onOffen }: { lauf: Lauf; app: App
     for (const s of steps) {
       const e = eintrag(s)!;
       const status = e.status as OutState["status"];
-      o[s.id] = { status, text: status === "simuliert" ? undefined : e.text, meldung: e.meldung, paket: s.format === "dateien" && e.text ? parsePaket(e.text) : undefined, req: { nachricht: e.text ?? "", ergebnisDatei: ergebnisDateiFuer(s, e.text ?? "") } as never };
+      o[s.id] = { status, text: status === "simuliert" ? undefined : e.text, meldung: e.meldung, paket: s.format === "dateien" && e.text ? parsePaketFuer(s, e.text) : undefined, req: { nachricht: e.text ?? "", ergebnisDatei: ergebnisDateiFuer(s, e.text ?? "") } as never };
     }
     return o;
   }, [lauf]); // eslint-disable-line react-hooks/exhaustive-deps

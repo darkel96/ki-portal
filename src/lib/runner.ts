@@ -116,9 +116,25 @@ export async function ablaufStarten(opts: {
       setOut(s.id, { status: "uebersprungen", meldung: "Übersprungen, weil die Bedingung nicht erfüllt ist." });
       return true;
     }
-    const req = buildRequest(app, s, ctx, files);
-    setOut(s.id, { status: "laeuft", req, team: s.art === "team" ? [] : undefined });
+    let vorlagen: { url: string; text: string } | undefined;
+    const vorlagenQuelle = s.format === "dateien" ? s.quellen.find((q) => q.typ === "sharepoint" && q.url.trim()) : undefined;
+    setOut(s.id, { status: "laeuft", req: buildRequest(app, s, ctx, files), team: s.art === "team" ? [] : undefined, meldung: vorlagenQuelle ? "Vorlagenordner wird gelesen\u00a0…" : undefined });
     try {
+      if (vorlagenQuelle) {
+        // Dateipaket mit Vorlagen aus SharePoint: erst die Liste holen, damit Copilot nur vorhandene Dateien kopiert
+        const v = await import("./ki/vorlagen");
+        if (v.vorlagenMoeglich()) {
+          try {
+            const liste = await v.vorlagenAuflisten(vorlagenQuelle.url.trim(), signal);
+            vorlagen = { url: vorlagenQuelle.url.trim(), text: v.vorlagenText(liste, vorlagenQuelle.titel || "Vorlagen") };
+          } catch (e) {
+            setOut(s.id, { status: "fehler", meldung: `Der Vorlagenordner „${vorlagenQuelle.titel || vorlagenQuelle.url}“ konnte nicht gelesen werden: ${e instanceof Error ? e.message : String(e)}` });
+            return false;
+          }
+        }
+      }
+      const req = buildRequest(app, s, ctx, files, vorlagen);
+      setOut(s.id, (prev) => ({ ...(prev ?? { status: "laeuft" }), status: "laeuft", req, meldung: undefined }));
       let text: string;
       if (s.art === "team") {
         text = await teamAusfuehren({
@@ -138,6 +154,7 @@ export async function ablaufStarten(opts: {
         live?.ende();
       }
       const paket = s.format === "dateien" ? parsePaket(text) : undefined;
+      if (paket && vorlagen) paket.vorlagenUrl = vorlagen.url;
       setOut(s.id, (prev) => ({
         ...(prev ?? {}), status: s.format === "dateien" && !paket ? "fehler" : "fertig", text, paket,
         meldung: s.format === "dateien" && !paket ? "Die KI hat kein gültiges Dateipaket geliefert. Starte den Schritt erneut." : prev?.meldung,

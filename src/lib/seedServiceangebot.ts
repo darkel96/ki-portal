@@ -1,24 +1,26 @@
 /**
- * Vorlage „Serviceangebot vorbereiten“: der Ablauf der Serviceangebote-App als Hub-Applikation mit Prüfseite.
- * 1 Checkliste hochladen → Copilot liest sie (JSON) → 2 Prüfseite: gelesene Werte in Auswahlfeldern korrigieren
- * → 3 Hinweise von Copilot (plausibilisieren, unklare Kästchen, Rückfrage) → Zusammenfassung (Word) und
- * Angebotsstruktur als ZIP. Copilot entscheidet nichts: Welche Produkte angelegt werden, bestimmt der Status,
- * den die Person auf der Prüfseite bestätigt.
+ * Vorlage „Serviceangebot vorbereiten“: der Ablauf der Serviceangebote-App (CHARLESTOWN) als Hub-Applikation.
+ * 1 Checkliste hochladen → Copilot liest sie (JSON) → 2 Prüfseite: gelesene Werte korrigieren → 3 Hinweise von
+ * Copilot (plausibilisieren, unklare Kästchen, Rückfrage) → Zusammenfassung (Word) und Angebotsstruktur als ZIP
+ * mit den Originalvorlagen aus SharePoint. Copilot entscheidet nichts: Welche Produkte angelegt werden, bestimmt
+ * der Status, den die Person auf der Prüfseite bestätigt. Produkte, Ordner und Dokumente: regeln.py der Serviceangebote-App.
  */
 import { AppSchema, type App, type Block } from "./schema";
 
-/** Die Produkte der Service-Checkliste (Schlüssel, Bezeichnung, Ordner in der Angebotsstruktur). Reihenfolge wie im Formular. */
-export const SA_PRODUKTE: [string, string, string][] = [
-  ["ersatzteile", "Pos. 1 Ersatzteilpaket", "01_Ersatzteilpaket"],
-  ["hotline", "Pos. 2 Hotline und Fernwartung", "02_Hotline_Fernwartung"],
-  ["schulung", "Pos. 3 Schulung", "03_Schulung"],
-  ["wartung", "Pos. 4 Wartungsvertrag", "04_Wartungsvertrag"],
-  ["vorort", "Pos. 5 Service vor Ort", "05_Service_vor_Ort"],
-  ["software", "Pos. 6 Softwarepflege", "06_Softwarepflege"],
+/** Produkte der Service-Checkliste: Schlüssel, Titel, SAP, Ordnermuster ({nr} = Angebotsnummer), Suppliers-Unterordner, Kalkulation */
+export const SA_PRODUKTE: { key: string; titel: string; sap: string; ordner: string; suppliers: string[]; kalkulation: string }[] = [
+  { key: "remoteservice", titel: "Remote Service", sap: "Z30", ordner: "RS_{nr}_Remote_Service", suppliers: ["IT", "RA", "SM"], kalkulation: "Remote Services Calculation.xltm" },
+  { key: "softwaremaintenance", titel: "Software Maintenance", sap: "Z31", ordner: "RS_{nr}_Software_Maintenance", suppliers: ["IT", "RA", "SM"], kalkulation: "Software_maintenance_Calculation.xltm" },
+  { key: "itservices", titel: "IT-Services", sap: "Z33", ordner: "RS_{nr}_IT_Services", suppliers: ["IT"], kalkulation: "IT-Service_Kalkulation.xltx" },
+  { key: "wartungsvertrag", titel: "Wartungsvertrag", sap: "Z50", ordner: "FS_{nr}_Wartungsvertrag", suppliers: [], kalkulation: "Servicecalculation.xltm" },
+  { key: "ersatzteilpaket", titel: "Ersatzteilpaket", sap: "Z41", ordner: "SP_{nr}_Ersatzteilpaket", suppliers: [], kalkulation: "Ersatzteilkalkulation.xltm" },
+  { key: "residentmaintenance", titel: "Resident Maintenance", sap: "Z61", ordner: "RS_{nr}_Resident_Maintenance", suppliers: [], kalkulation: "Resident Maintenance_Servicekalkulation.xltm" },
 ];
 const STATUS = ["Ja", "Nein", "Unklar", "Widersprüchlich"];
+const STANDARD = ["01_Request", "02_Offer", "02_Offer/Rev00", "03_Calculation", "03_Calculation/Rev00", "04_Suppliers", "05_Layout", "06_Configuration", "07_Correspondence", "08_Pictures"];
+const PLATZHALTER = "1900xxxxx";
 
-const GRUNDLAGE = `Du unterstützt den Sales-Service von Körber Supply Chain Automation (KSCA) beim Vorbereiten eines Serviceangebots. Die Service-Checkliste ist ein Word-Formular; angekreuzte Kästchen stehen im Text als ☒, leere als ☐. Jedes der sechs Produkte hat ein Ja- und ein Nein-Kästchen. Ein Produkt wird NUR bei einem eindeutigen Kreuz im Ja-Kästchen angelegt. Unklar oder widersprüchlich heißt: kein Ordner, bis der Sales-Service den Status von Hand setzt.
+const GRUNDLAGE = `Du unterstützt den Sales-Service von Körber Supply Chain Automation (KSCA) beim Vorbereiten eines Serviceangebots. Die Service-Checkliste ist ein Word-Formular; angekreuzte Kästchen stehen im Text als ☒, leere als ☐. Jedes der sechs Produkte (${SA_PRODUKTE.map((p) => `${p.titel} (${p.sap})`).join(", ")}) hat ein Ja- und ein Nein-Kästchen. Ein Produkt wird NUR bei einem eindeutigen Kreuz im Ja-Kästchen angelegt. Unklar oder widersprüchlich heißt: kein Ordner, bis der Sales-Service den Status von Hand setzt.
 
 Regeln für dich:
 - Du entscheidest nichts und rätst nicht. Du gibst Hinweise, was der Sales-Service prüfen oder beim Vertrieb nachfragen sollte. Sage nie, ein Produkt sei gewählt, wenn das Kreuz nicht eindeutig ist.
@@ -26,19 +28,33 @@ Regeln für dich:
 - Nenne Zugangsdaten nie, auch wenn sie in den Angaben stehen.
 - Antworte kurz und sachlich in einfachem Markdown: Aufzählungen mit „- “, Hervorhebung mit **…**, keine Tabellen, keine Links.`;
 
-/** Die geprüften Angaben der Prüfseite, wie sie in jeden Hinweis-Schritt gehen */
-const ANGABEN = `Angaben aus der Checkliste (von der Person geprüft und ggf. korrigiert):
+/** Die geprüften Angaben der Prüfseite, wie sie in jeden weiteren Schritt gehen */
+const ANGABEN = `Angaben aus der Checkliste (vom Sales-Service geprüft und ggf. korrigiert):
 Kunde: {{kunde}}
 Projekt: {{projekt}}
-Angebotsnummer: {{angebotsnummer}}
 Standort: {{standort}}
 Angebotssprache: {{sprache}}
 
-Produkte (Status laut Prüfung; „Ja“ = Ordner wird angelegt):
-${SA_PRODUKTE.map(([k, t]) => `- ${t}: {{status_${k}}}\n  Angaben: {{angaben_${k}}}`).join("\n")}
+Produkte (Status laut Prüfung; nur „Ja“ wird angelegt):
+${SA_PRODUKTE.map((p) => `- ${p.titel} (${p.sap}): Status {{status_${p.key}}}; Angebotsnummer {{nummer_${p.key}}}\n  Angaben: {{angaben_${p.key}}}`).join("\n")}
 
 Vollständiger Text der Checkliste ({{checkliste_name}}):
 {{checkliste}}`;
+
+const STRUKTUR_REGELN = `Regeln für die Angebotsstruktur (genau so umsetzen, nichts dazu erfinden):
+- Oberster Ordner und ZIP-Name: "<Kunde>_<Projekt>_Serviceangebotsstruktur" (Leerzeichen durch _, keine Sonderzeichen). Fehlt Kunde oder Projekt: "Serviceangebotsstruktur_<Angebotsnummer>".
+- Nur Produkte mit Status „Ja“ bekommen einen Ordner. nr = Angebotsnummer des Produkts (nur Buchstaben, Ziffern, Bindestrich); fehlt sie, steht ${PLATZHALTER} und ein offener Punkt. Ordnernamen:
+${SA_PRODUKTE.map((p) => `  ${p.titel} → ${p.ordner}`).join("\n")}
+- Jeder Produktordner bekommt die leeren Unterordner ${STANDARD.join(", ")}${SA_PRODUKTE.filter((p) => p.suppliers.length).map((p) => `; ${p.titel} zusätzlich ${p.suppliers.map((s) => `04_Suppliers/${s}`).join(", ")}`).join("")}.
+- Kalkulation (Kopie aus den Vorlagen) nach 03_Calculation/Rev00: ${SA_PRODUKTE.map((p) => `${p.titel}: ${p.kalkulation}`).join("; ")}.
+- Angebotsdokumente (Kopien aus den Vorlagen) nach 02_Offer/Rev00, abhängig von der Angebotssprache (Deutsch/Englisch):
+  Remote Service: Hauptvertrag FB_SE_Remote_Services_Vertrag.dotx (Englisch: FB_SE_Remote_Services_Agreement.dotx), wenn Software Maintenance oder IT-Services „Ja“ ist; FB_SE_Remote_Services_Vertrag_SMART.dotx (Englisch: FB_SE_Remote_Services_Agreement_SMART.dotx), wenn beide „Nein“ sind; sonst kein Hauptvertrag und ein offener Punkt. Dazu immer: FB_SE_Anhang_Remote_Assistance.dotx (Englisch: FB_SE_Appendix_Remote_Assistance.dotx), FB_SE_Anhang_Appendix_Data_Protection_and_Security.dotx (beide Sprachen), FB_Anhang_Stundensätze.dotx (Englisch: FB_Appendix_Hourly_Rates.dotx), Koerber_Supply_Chain_Automation_TCs_Support_Services_25.1_De.pdf (Englisch: …_En.pdf). Bei Software Maintenance „Ja“ zusätzlich FB_SE_Anhang_Software_Maintenance.dotx (Englisch: FB_SE_Appendix_Software_Maintenance.dotx), bei IT-Services „Ja“ FB_SE_Anhang_IT-Services.dotx (Englisch: FB_SE_Appendix_IT_Services.dotx).
+  Wartungsvertrag: FB_SE_Preventive Maintenance Service Vertrag.dotx (Englisch: FB_SE_Preventive Maintenance Services Agreement.dotx).
+  Software Maintenance, IT-Services, Ersatzteilpaket, Resident Maintenance: ein eigenes Angebotsdokument ist noch nicht definiert → offener Punkt. Ausnahme: Ist Remote Service „Ja“, liegen die Unterlagen von Software Maintenance und IT-Services im Remote-Service-Ordner; das im Prüfprotokoll als Verweis nennen.
+  Ist die Angebotssprache unklar, keine sprachabhängigen Dokumente kopieren und das als offenen Punkt nennen.
+- Vorlagen nur aus der Vorlagenliste kopieren (Pfad genau übernehmen, auch aus Unterordnern). Fehlt eine Vorlage in der Liste oder gibt es sie mehrfach: nicht kopieren, offener Punkt. Gibt es keine Vorlagenliste: keine Kopien, stattdessen im Prüfprotokoll die benötigten Vorlagen auflisten.
+- Datei "Pruefprotokoll.txt" im obersten Ordner: Kunde, Projekt, Standort, Sprache; je Produkt „Titel (SAP) – Status – angelegt ja/nein – Ordner“; je kopierter Vorlage „Ziel ← Quelle“; Verweise; danach „Offene Punkte“ mit allem, was zu klären ist. Nur die Status aus den Angaben, nichts umdeuten.
+- Datei "Angebotszusammenfassung.md" im obersten Ordner mit der Zusammenfassung fürs Angebot.`;
 
 let n = 0;
 const id = () => `sa-b${++n}`;
@@ -48,18 +64,19 @@ const seite = (titel: string, children: Block[]): Block => ({ id: id(), type: "s
 
 export function serviceangebotApp(): App {
   n = 0;
-  const produktFelder = (teil: [string, string, string][]) => teil.flatMap(([k, t]) => [
-    feld("select", { label: t, key: `status_${k}`, optionen: STATUS, aus: `lesen.produkte.${k}.status`, hilfe: "Status laut Kreuz in der Checkliste. Bei Unklar oder Widersprüchlich hier von Hand setzen." }),
-    feld("textarea", { label: `Angaben zu ${t.replace(/^Pos\. \d+ /, "")}`, key: `angaben_${k}`, rows: 3, aus: `lesen.produkte.${k}.angaben`, placeholder: "Gewählte Leistungen, Mengen, Zeiträume aus der Checkliste" }),
+  const produktFelder = (teil: typeof SA_PRODUKTE) => teil.flatMap((p) => [
+    feld("select", { label: `${p.titel} (${p.sap})`, key: `status_${p.key}`, optionen: STATUS, aus: `lesen.produkte.${p.key}.status`, hilfe: "Status laut Kreuz. Bei Unklar oder Widersprüchlich hier von Hand setzen." }),
+    feld("input", { label: `Angebotsnummer ${p.titel}`, key: `nummer_${p.key}`, aus: `lesen.produkte.${p.key}.nummer`, placeholder: PLATZHALTER, hilfe: "Eigene Nummer je Produktordner." }),
+    feld("textarea", { label: `Angaben zu ${p.titel}`, key: `angaben_${p.key}`, rows: 3, aus: `lesen.produkte.${p.key}.angaben`, placeholder: "Gewählte Leistungen, Mengen, Zeiträume aus der Checkliste" }),
   ]);
   const blocks: Block[] = [
     seite("Checkliste", [
       block("heading", { text: "Serviceangebot vorbereiten", level: 1 }),
-      block("text", { text: "Lade die ausgefüllte Service-Checkliste hoch. Copilot liest sie, du prüfst und korrigierst die gelesenen Werte, danach entstehen Zusammenfassung und Angebotsstruktur." }),
+      block("text", { text: "Lade die ausgefüllte Service-Checkliste hoch. Copilot liest sie, du prüfst und korrigierst die gelesenen Werte, danach entstehen die Zusammenfassung und die Angebotsstruktur mit den Originalvorlagen aus SharePoint." }),
       block("callout", { text: "Copilot gibt nur Hinweise. Welche Produkte angelegt werden, bestimmt der Status, den du auf der Prüfseite bestätigst.", tone: "info" }),
       block("section", { pad: "m", border: true }, [
         feld("file", { label: "Service-Checkliste (Word)", key: "checkliste", pflicht: true, hilfe: "Die ausgefüllte Checkliste als .docx. Kästchen werden als ☒ und ☐ gelesen." }),
-        feld("select", { label: "Angebotssprache", key: "sprache", optionen: ["Deutsch", "Englisch"], pflicht: true, beispiel: "Deutsch", aus: "lesen.sprache", hilfe: "In dieser Sprache entsteht die Zusammenfassung für das Angebot." }),
+        feld("select", { label: "Angebotssprache", key: "sprache", optionen: ["Deutsch", "Englisch"], pflicht: true, beispiel: "Deutsch", aus: "lesen.sprache", hilfe: "Bestimmt die Sprache der Zusammenfassung und der Angebotsdokumente." }),
         block("button", { text: "Checkliste lesen", aktion: "sa-lesen" }),
       ]),
     ]),
@@ -70,8 +87,7 @@ export function serviceangebotApp(): App {
       block("section", { pad: "m", border: true }, [
         block("heading", { text: "Projektdaten", level: 3 }),
         feld("input", { label: "Kunde", key: "kunde", aus: "lesen.kunde", pflicht: true }),
-        feld("input", { label: "Projekt", key: "projekt", aus: "lesen.projekt" }),
-        feld("input", { label: "Angebotsnummer", key: "angebotsnummer", aus: "lesen.angebotsnummer" }),
+        feld("input", { label: "Projekt", key: "projekt", aus: "lesen.projekt", pflicht: true }),
         feld("input", { label: "Standort der Anlage", key: "standort", aus: "lesen.standort" }),
       ]),
       block("section", { pad: "m", border: true }, [
@@ -99,19 +115,19 @@ export function serviceangebotApp(): App {
   const rolle = GRUNDLAGE;
   const app = AppSchema.parse({
     id: "serviceangebot", name: "Serviceangebot vorbereiten", bereich: "Service",
-    beschreibung: "Liest die Service-Checkliste, lässt dich die gelesenen Werte prüfen und erstellt Zusammenfassung und Angebotsstruktur als ZIP.",
+    beschreibung: "Liest die Service-Checkliste, lässt dich die gelesenen Werte prüfen und erstellt Zusammenfassung und Angebotsstruktur mit den Vorlagen aus SharePoint als ZIP.",
     theme: { accent: "#0f2f5f" }, status: "freigegeben", version: 1,
     blocks,
     steps: [
       { id: "sa-lesen", name: "Checkliste lesen", key: "lesen", format: "json", modell: "complex", rolle,
         prompt: `Lies die Service-Checkliste und gib die Werte als JSON zurück, damit der Sales-Service sie prüfen kann.
 
-Status je Produkt: "Ja" nur bei eindeutigem Kreuz (☒) im Ja-Kästchen, "Nein" bei Kreuz im Nein-Kästchen, "Unklar" wenn kein Kästchen angekreuzt ist oder die Darstellung keine Zuordnung erlaubt, "Widersprüchlich" wenn beide angekreuzt sind oder Angaben dem Kreuz widersprechen. "fundstelle" nennt die Stelle in der Checkliste (Abschnitt, Zeile), "angaben" fasst die zugehörigen Angaben zusammen (gewählte Leistungen, Mengen, Zeiträume; kurz, mit Nummern der Unterpunkte). "bericht" ist Markdown für die Prüfseite: je Produkt eine Zeile „**Produkt**: Status – Fundstelle“, danach die Projektdaten und der Lieferumfang in Stichpunkten, zum Schluss offene Punkte. Keine Zugangsdaten.
+Status je Produkt: "Ja" nur bei eindeutigem Kreuz (☒) im Ja-Kästchen, "Nein" bei Kreuz im Nein-Kästchen, "Unklar" wenn kein Kästchen angekreuzt ist oder die Darstellung keine Zuordnung erlaubt, "Widersprüchlich" wenn beide angekreuzt sind oder Angaben dem Kreuz widersprechen. "fundstelle" nennt die Stelle in der Checkliste (Abschnitt, Zeile), "nummer" die Angebotsnummer des Produkts, falls eingetragen (sonst ""), "angaben" fasst die zugehörigen Angaben zusammen (gewählte Leistungen, Mengen, Zeiträume; kurz, mit Nummern der Unterpunkte). "bericht" ist Markdown für die Prüfseite: je Produkt eine Zeile „**Produkt**: Status – Fundstelle“, danach die Projektdaten und der Lieferumfang in Stichpunkten, zum Schluss offene Punkte. Keine Zugangsdaten.
 
 Antworte nur mit JSON dieser Form:
-{"kunde": "", "projekt": "", "angebotsnummer": "", "standort": "", "sprache": "Deutsch oder Englisch", "produkte": {${SA_PRODUKTE.map(([k]) => `"${k}": {"status": "Ja|Nein|Unklar|Widersprüchlich", "fundstelle": "", "angaben": ""}`).join(", ")}}, "lieferumfang": "", "bericht": ""}
+{"kunde": "", "projekt": "", "standort": "", "sprache": "Deutsch oder Englisch", "produkte": {${SA_PRODUKTE.map((p) => `"${p.key}": {"status": "Ja|Nein|Unklar|Widersprüchlich", "fundstelle": "", "nummer": "", "angaben": ""}`).join(", ")}}, "lieferumfang": "", "bericht": ""}
 
-Produkte in der Reihenfolge der Checkliste: ${SA_PRODUKTE.map(([, t]) => t).join("; ")}.
+Produkte in der Reihenfolge der Checkliste: ${SA_PRODUKTE.map((p) => `${p.titel} (${p.sap})`).join("; ")}.
 
 Text der Checkliste ({{checkliste_name}}):
 {{checkliste}}` },
@@ -145,14 +161,14 @@ ${ANGABEN}` },
 ---
 
 ${ANGABEN}` },
-      { id: "sa-struktur", name: "Angebotsstruktur", key: "struktur", rolle, modell: "default", format: "dateien", datei: "docx",
-        prompt: `Auftrag: Baue die Angebotsstruktur als Dateipaket. Oberster Ordner: "Serviceangebot_{{angebotsnummer}}" (ohne Nummer: "Serviceangebot_{{kunde}}", Leerzeichen durch _ ersetzen).
+      { id: "sa-struktur", name: "Angebotsstruktur", key: "struktur", rolle, modell: "complex", format: "dateien",
+        quellen: [{ typ: "sharepoint", titel: "Service/Vorlagen und Formblätter (SharePoint aberle-doc)", url: "" }],
+        prompt: `Auftrag: Baue die Angebotsstruktur als Dateipaket mit leeren Ordnern ("ordner"), Kopien der Originalvorlagen ("kopien") und zwei Textdateien ("dateien").
 
-Darin:
-- "00_Pruefprotokoll.md": Kunde, Projekt, Angebotsnummer, Standort, Sprache, dann je Produkt eine Zeile „Produkt – Status – angelegt ja/nein“, zum Schluss die offenen Punkte. Genau die Status aus den Angaben, nichts umdeuten.
-- "00_Angebotszusammenfassung.md": die Zusammenfassung fürs Angebot:
+${STRUKTUR_REGELN}
+
+Zusammenfassung fürs Angebot (für Angebotszusammenfassung.md):
 {{zusammenfassung}}
-- Je Produkt mit Status "Ja" ein Ordner (${SA_PRODUKTE.map(([, t, o]) => `${t} → "${o}"`).join("; ")}) mit der Datei "Leistungsbeschreibung.md": Überschrift mit Produkt, Kunde und Angebotsnummer, dann die gewählten Leistungen aus den Angaben als Stichpunkte, Felder für Preis und Laufzeit als „[offen]“, nichts erfinden. Produkte mit anderem Status bekommen keinen Ordner.
 
 ---
 
