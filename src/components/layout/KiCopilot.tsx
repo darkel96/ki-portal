@@ -3,7 +3,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { kiFragen } from "@/lib/ki";
-import { abmelden, anmeldenWeiterleitung, graphToken } from "@/lib/ki/auth";
+import { abmelden, anmeldenWeiterleitung, berechtigungenPruefen, graphToken, type Berechtigungen } from "@/lib/ki/auth";
 import { copilotVerbindung, redirectUri, testVerbindungSetzen } from "@/lib/ki/config";
 import { letzteMessung, letzteRohantwort } from "@/lib/ki/copilot";
 import { kiModusGeaendert } from "./KiSchluessel";
@@ -94,6 +94,14 @@ export function KiCopilotStatus({ konto, onKonto }: { konto: string | null; onKo
     kiModusGeaendert();
     toast.success("Copilot-Testverbindung entfernt.");
   };
+  const [rechte, setRechte] = useState<Berechtigungen | { fehler: string } | null>(null);
+  const [rechtePrueft, setRechtePrueft] = useState(false);
+  const rechtePruefen = async () => {
+    setRechtePrueft(true);
+    try { setRechte(await berechtigungenPruefen()); onKonto(); }
+    catch (e) { setRechte({ fehler: e instanceof Error ? e.message : String(e) }); }
+    finally { setRechtePrueft(false); }
+  };
   const abmeldenKlick = () => abmelden().then(() => { onKonto(); setErgebnis(null); toast.success("Abgemeldet. Beim nächsten KI-Aufruf meldest du dich wieder an."); }, () => toast.error("Abmelden hat nicht geklappt. Lade die Seite neu und versuch es erneut."));
   if (!v) return null;
   return (
@@ -126,6 +134,18 @@ export function KiCopilotStatus({ konto, onKonto }: { konto: string | null; onKo
             <Button size="sm" type="button" variant="outline" className="rounded-full" onClick={() => navigator.clipboard.writeText(letzteRohantwort).then(() => toast.success("Rohantwort kopiert."), () => toast.error("Kopieren nicht möglich."))}>Rohantwort kopieren</Button>
           </dd></>}
           <dt className="font-semibold">Graph-Berechtigungen (delegiert)</dt><dd className="break-all">{v.scopes.map((s) => s.replace("https://graph.microsoft.com/", "")).join(", ")}</dd>
+          <dt className="font-semibold">Erteilte Berechtigungen</dt><dd className="flex flex-col gap-1">
+            <Button size="sm" type="button" variant="outline" className="self-start rounded-full" onClick={rechtePruefen} disabled={rechtePrueft || !!laeuft}>{rechtePrueft ? "Prüft\u00a0…" : "Berechtigungen prüfen"}</Button>
+            {rechte && ("fehler" in rechte
+              ? <span className="ki-fehler" role="alert">{rechte.fehler}</span>
+              : <>
+                  <span className={rechte.fehlend.length ? "ki-fehler" : "ki-ok"}>
+                    {rechte.fehlend.length ? `Im Token fehlen: ${rechte.fehlend.join(", ")}` : rechte.vorhanden.length ? "✓ Alle angeforderten Berechtigungen sind erteilt." : "Berechtigungen im Token nicht lesbar."}
+                  </span>
+                  {rechte.vorhanden.length > 0 && <span className="break-all">Im Token: {rechte.vorhanden.join(", ")}</span>}
+                  <span className={rechte.sharepoint.ok ? "ki-ok" : "ki-fehler"}>{rechte.sharepoint.ok ? "✓ " : ""}{rechte.sharepoint.text}</span>
+                </>)}
+          </dd>
         </dl>
       </details>
     </div>

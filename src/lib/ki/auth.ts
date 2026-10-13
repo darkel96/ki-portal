@@ -173,3 +173,48 @@ export async function abmelden() {
   await a.clearCache();
   a.setActiveAccount(null);
 }
+
+export type Berechtigungen = {
+  /** Delegierte Graph-Berechtigungen, die das ausgestellte Token tatsächlich enthält (Anspruch „scp“) */
+  vorhanden: string[];
+  /** Angeforderte Berechtigungen, die im Token fehlen (keine Zustimmung oder nicht eingetragen) */
+  fehlend: string[];
+  /** Lesezugriff auf SharePoint per Graph: gefundene Websites oder eine Fehlermeldung */
+  sharepoint: { ok: boolean; text: string };
+};
+
+/**
+ * Prüft, was die Anmeldung wirklich darf: liest die Berechtigungen aus dem Token und versucht einen Lesezugriff
+ * auf SharePoint (Sites.Read.All). Braucht ein Konto; ohne gültiges Token öffnet sich die Anmeldung.
+ */
+export async function berechtigungenPruefen(): Promise<Berechtigungen> {
+  const v = copilotVerbindung();
+  if (!v) throw new Error("Die zentrale KI-Anbindung ist nicht konfiguriert.");
+  const token = await graphToken();
+  // Nutzdaten des Tokens (Base64url) lesen; der Anspruch „scp“ nennt die erteilten delegierten Berechtigungen
+  let scp = "";
+  try {
+    const teil = token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/");
+    scp = String((JSON.parse(atob(teil)) as { scp?: string }).scp ?? "");
+  } catch { /* kein lesbares JWT (z. B. verschlüsselt): dann zählt nur der Zugriffstest */ }
+  const vorhanden = scp.split(/\s+/).filter(Boolean).sort();
+  const gewollt = v.scopes.map((s) => s.replace("https://graph.microsoft.com/", ""));
+  const fehlend = scp ? gewollt.filter((s) => !vorhanden.includes(s)) : [];
+  let sharepoint: Berechtigungen["sharepoint"];
+  try {
+    const r = await fetch("https://graph.microsoft.com/v1.0/sites?search=*&$select=displayName,webUrl", {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!r.ok) {
+      const code = await r.json().then((j: { error?: { code?: string } }) => j.error?.code ?? "", () => "");
+      sharepoint = { ok: false, text: `SharePoint nicht lesbar (HTTP ${r.status}${code ? ` ${code}` : ""}).` };
+    } else {
+      const sites = ((await r.json()) as { value?: { displayName?: string }[] }).value ?? [];
+      const namen = sites.map((s) => s.displayName).filter(Boolean).slice(0, 5).join(", ");
+      sharepoint = { ok: true, text: sites.length ? `SharePoint lesbar: ${sites.length} Websites, z. B. ${namen}.` : "SharePoint erreichbar, aber keine Website sichtbar." };
+    }
+  } catch (e) {
+    sharepoint = { ok: false, text: `Keine Verbindung zu Microsoft Graph (${e instanceof Error ? e.message : String(e)}).` };
+  }
+  return { vorhanden, fehlend, sharepoint };
+}
