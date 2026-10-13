@@ -57,7 +57,7 @@ export function ergebnisDateiFuer(step: Step, nachricht: string): DateiArt | nul
 }
 
 /** Zusatz zum Systemtext, wenn ein Dateipaket Vorlagen aus SharePoint kopieren darf */
-export const KOPIEN_HINWEIS = 'Vorlagen kopieren: Das Paket darf zusätzlich "ordner": ["Pfad/leerer Ordner"] (leere Ordner, die angelegt werden) und "kopien": [{"quelle": "Pfad aus der Vorlagenliste", "ziel": "Ordner/Dateiname im Paket"}] enthalten. Kopien werden unverändert aus dem Vorlagenordner übernommen; "quelle" muss genau einem Eintrag der Vorlagenliste entsprechen. Steht eine Vorlage nicht in der Liste oder mehrfach, kopiere sie nicht und nenne das als offenen Punkt.';
+export const KOPIEN_HINWEIS = 'Vorlagen kopieren: Das Paket darf zusätzlich "ordner": ["Pfad/leerer Ordner"] (leere Ordner, die angelegt werden) und "kopien": [{"quelle": "Pfad aus der Vorlagenliste", "ziel": "Ordner/Dateiname im Paket"}] enthalten. Kopien werden unverändert aus dem Vorlagenordner übernommen; "quelle" muss genau einem Eintrag der Vorlagenliste entsprechen, und der Dateiname im "ziel" bleibt exakt der Dateiname der Quelle (auch mit Leerzeichen und Umlauten; die Regel „ohne Umlaute und Leerzeichen“ gilt nur für Dateien, die du selbst schreibst). Einträge mit dem Vermerk „inhaltsgleich“ darfst du kopieren; Einträge mit „unterschiedlichem Inhalt, nicht kopieren“ und Vorlagen, die nicht in der Liste stehen, kopierst du nicht und nennst das als offenen Punkt.';
 
 export function buildRequest(app: App, step: Step, ctx: Record<string, string>, files?: Record<string, FileInfo>, vorlagen?: { url: string; text: string }): KiRequest {
   const inPrompt = new Set(varsIn(step.prompt));
