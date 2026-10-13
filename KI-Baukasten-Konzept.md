@@ -975,7 +975,9 @@ Vorbild: `src/lib/seedServiceangebot.ts` (Produkte, Ordner, Dokumente je Sprache
 - Streaming: Copilot schreibt den bisherigen Text im Stream manchmal um (Quellenzeile erst als Markdown-Link, dann als
   nackte Adresse). `streamLesen` erkennt ein Ereignis mit langem gemeinsamem Anfang (`gemeinsamerAnfang`, mindestens 30
   Zeichen oder 60 % des bisherigen Texts) als neuen Gesamttext statt als Stück zum Anhängen; vorher verdoppelte sich die
-  Antwort bei jedem weiteren Ereignis.
+  Antwort bei jedem weiteren Ereignis. Hängt Copilot die fertige Antwort ein zweites Mal an (A + A), bleibt der Rest, der
+  mit dem Anfang des bisherigen Texts übereinstimmt (ab 20 Zeichen), schon im Stream unsichtbar; `entdoppeln()` am Ende
+  bleibt als Sicherheitsnetz. `onTeil` wird nur bei verändertem Text aufgerufen.
 - Stoppen im Chat wirkt sofort (`abbrechbar()`), auch während Anmeldefenster oder Bild-Upload das Abbruchsignal nicht
   kennen; der bis dahin gestreamte Text bleibt mit „(gestoppt)“ stehen.
 - Diktat-Korrektur (`src/lib/diktat.ts`): Fachbegriffe der App (Abkürzungen, großgeschriebene Wortfolgen, lange Wörter
