@@ -28,12 +28,15 @@ test("Copilot-Antworten: entdoppeln, JSON, Streaming", async ({ page }) => {
     const korrigiertTeile: string[] = [];
     const korrigiert = await c.streamLesen(sse([conv(erst), conv(erst + dann.slice(0, 40)), conv(erst + dann)]), "FRAGE", (t) => korrigiertTeile.push(t), 0, {});
     const korrigiertEnde = c.entdoppeln(erst + dann);
+    // Trennzeichen vor der Zweitfassung
+    const getrennt = await c.streamLesen(sse([conv(lang), conv(lang + "\n\n---\n\n" + lang.slice(0, 30)), conv(lang + "\n\n---\n\n" + lang)]), "FRAGE", () => {}, 0, {});
+    const getrenntEnde = c.entdoppeln(lang + "\n\n---\n\n" + lang);
     const jsonNicht = new Response(JSON.stringify({ messages: [{ text: "FRAGE" }, { text: "Antwort" }] }), { headers: { "content-type": "application/json" } });
     const ohneStream = await c.streamLesen(jsonNicht, "FRAGE", () => {}, 0, {});
     return {
       doppelt: c.entdoppeln(A + A), doppeltLeer: c.entdoppeln(A + "\n\n" + A), einfach: c.entdoppeln(A), kurz: c.entdoppeln("abab"),
       json: k.jsonAus('Hier: {"a":"}{","b":{"c":1}}{"a":"}{","b":{"c":1}}'), jsonFence: k.jsonAus('```json\n{"x":"\\"}"}\n```'),
-      kum, teile, delta, geteilt, ohneStream, umgeschrieben, streamDoppelt, doppelTeile, lang, korrigiert, korrigiertTeile, korrigiertEnde, dann, erst,
+      kum, teile, delta, geteilt, ohneStream, umgeschrieben, streamDoppelt, doppelTeile, lang, korrigiert, korrigiertTeile, korrigiertEnde, dann, erst, getrennt, getrenntEnde,
     };
   });
   expect(r.doppelt).toBe("## Variante 1\nText mit genug Länge für den Test.");
@@ -51,6 +54,8 @@ test("Copilot-Antworten: entdoppeln, JSON, Streaming", async ({ page }) => {
   expect(r.korrigiert).toBe(r.dann);
   expect(r.korrigiertTeile).toEqual([r.erst, r.dann]);
   expect(r.korrigiertEnde).toBe(r.dann);
+  expect(r.getrennt).toBe(r.lang);
+  expect(r.getrenntEnde).toBe(r.lang);
   expect(r.doppelTeile).toEqual([r.lang.slice(0, 30), r.lang]);
   expect(r.umgeschrieben).toBe("Für uns als Hersteller bedeutet der CRA vor allem: Cybersicherheit über den Lebenszyklus.\n\nQuelle: https://x.sharepoint.com/Termin%201%20(1).docx\n\nSoll ich weitermachen?");
 });
