@@ -999,6 +999,12 @@ Vorbild: `src/lib/seedServiceangebot.ts` (Produkte, Ordner, Dokumente je Sprache
   liest die Datei dann direkt, unabhängig davon, ob die Suche sie unter den Treffern hatte. Office-Links
   (`…/_layouts/15/Doc.aspx?sourcedoc=…&file=Name.docx`, auch `/:w:/r/…`) löst `dateiFinden` in `wissen.ts` über die
   Graph-Suche (`POST /search/query`, `filename:"…" path:"<Website>"`) auf, normale Adressen über die Freigabe-API.
+- Nachschlagen (`src/lib/nachschlagen.ts`): Die Rolle des Experten bekommt im Chat die Regel, bei einem Verweis der
+  Auszüge auf ein anderes Dokument nur mit „NACHSCHLAGEN: <Begriffe>“ zu antworten. Der Hub zeigt diese Zeile nicht,
+  holt Auszüge zu den Begriffen (Suchtext = Begriffe) und stellt die Frage im selben Gespräch erneut („Nachgeschlagen
+  zu „…“, die Auszüge stehen unten“), höchstens zweimal je Frage; beim letzten Mal mit der Ansage, endgültig zu
+  antworten. Status im Chat: „Schlägt nach: …“. So folgt der Experte Querverweisen (Schulung nennt ein Konzept-Template,
+  das Template beantwortet die Frage), ohne dass für jede Frage ein zweiter KI-Aufruf anfällt.
 - Diktat: Web Speech API (`SpeechRecognition`/`webkitSpeechRecognition`, `de-DE`, laufend mit Zwischenergebnissen); der
   Knopf erscheint nur, wenn der Browser sie bietet. Der erkannte Text landet im Eingabefeld, gesendet wird weiterhin
   per Knopf oder Enter.

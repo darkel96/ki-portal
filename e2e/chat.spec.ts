@@ -203,3 +203,33 @@ test("Chat: SharePoint-Links in der Frage werden zur Wissensquelle", async ({ pa
   await expect(chat.locator(".o-chat-n.von-experte").last()).toContainText("Art. 13", { timeout: 10_000 });
   expect(prompts[0]).toContain("CyRPS_CRA_Attest.docx (Einzelne Datei (SharePoint/OneDrive)): https://firma.sharepoint.com/sites/KSC/Lib/CyRPS_CRA_Attest.docx");
 });
+
+test("Chat: Nachschlagen, wenn die Auszüge auf ein anderes Dokument verweisen", async ({ page }, info) => {
+  test.skip(info.project.name !== "desktop", "einmal reicht");
+  // Nachgebaute KI: erste Antwort verlangt Nachschlagen, zweite antwortet endgültig
+  const prompts: string[] = [];
+  await page.route("https://api.anthropic.com/**", async (route) => {
+    const body = route.request().postDataJSON() as { messages?: { content: string }[] };
+    prompts.push(String(body?.messages?.[0]?.content ?? ""));
+    const ev = (type: string, data: object) => `event: ${type}\ndata: ${JSON.stringify({ type, ...data })}\n\n`;
+    const text = prompts.length === 1 ? "NACHSCHLAGEN: System Plate IT Security Konzept, Hardening" : "Das Hardening folgt dem **IT-Security-Konzept** (Quelle: System Plate, Abschnitt 4).";
+    const sse = [ev("message_start", { message: { id: "m", type: "message", role: "assistant", model: "x", content: [], stop_reason: null, stop_sequence: null, usage: { input_tokens: 1, output_tokens: 1 } } }),
+      ev("content_block_start", { index: 0, content_block: { type: "text", text: "" } }), ev("content_block_delta", { index: 0, delta: { type: "text_delta", text } }),
+      ev("content_block_stop", { index: 0 }), ev("message_delta", { delta: { stop_reason: "end_turn", stop_sequence: null }, usage: { output_tokens: 2 } }), ev("message_stop", {})].join("");
+    await route.fulfill({ status: 200, headers: { "content-type": "text/event-stream", "access-control-allow-origin": "*" }, body: sse });
+  });
+  await page.addInitScript(() => localStorage.setItem("kihub-anthropic-key", "sk-test"));
+  await page.goto("/app/cra-experte");
+  const chat = page.locator(".o-chat");
+  await chat.getByLabel("Frage", { exact: true }).fill("Wie muss das Hardening aussehen?");
+  await chat.getByLabel("Frage", { exact: true }).press("Enter");
+  await expect(chat.locator(".o-chat-n.von-experte").last()).toContainText("IT-Security-Konzept", { timeout: 10_000 });
+  // Die Nachschlag-Zeile erscheint nie als Antwort; die zweite Anfrage nennt die Begriffe und die Frage
+  await expect(chat.locator(".o-chat-n.von-experte").last()).not.toContainText("NACHSCHLAGEN");
+  expect(prompts.length).toBe(2);
+  expect(prompts[0]).toContain("NACHSCHLAGEN: <Dokumentname oder Suchbegriffe>");
+  expect(prompts[1]).toContain("Nachgeschlagen zu „System Plate IT Security Konzept, Hardening“");
+  expect(prompts[1]).toContain("Frage: Wie muss das Hardening aussehen?");
+  const r = await page.evaluate(async () => { const n = await import("/src/lib/nachschlagen.ts"); return [n.nachschlagenAus("**NACHSCHLAGEN:** Attest, Rollen."), n.nachschlagenAus("Das Hardening ist … NACHSCHLAGEN: x"), n.nachschlagenAus("Laut Unterlagen gilt …")]; });
+  expect(r).toEqual(["Attest, Rollen", null, null]);
+});
