@@ -174,7 +174,9 @@ export function stepsFor(app: Pick<App, "steps">, aktion: string | undefined): S
     const i = app.steps.findIndex((s) => s.id === a.slice(3));
     return i < 0 ? [] : app.steps.slice(i);
   }
-  return app.steps.filter((s) => s.id === a);
+  // Ein Schritt oder mehrere, mit Komma getrennt (in der Reihenfolge des Ablaufs)
+  const ids = new Set(a.split(",").map((x) => x.trim()).filter(Boolean));
+  return app.steps.filter((s) => ids.has(s.id));
 }
 
 /* ---------- Neue App und älteres Format ---------- */
@@ -333,11 +335,31 @@ export function appWarnings(app: App): Warnung[] {
   seitenVon(app).forEach((p, i) => { if (!p.children?.length) soft(`Seite ${i + 1} „${(p.props as PropsOf<"seite">).titel}“ ist leer.`); });
   app.steps.forEach((s, i) => { if (!outSrc.has(s.id)) soft(`Für „${stepName(s, i)}“ gibt es kein Ergebnis-Element. Das Ergebnis erscheint als Kachel in der Ergebnisübersicht der App.`); });
   fieldsOf(app).forEach((b) => { if (!stepsUsing(app, b.props.key).length) soft(`Die Eingabe „${b.props.label}“ geht an keinen KI-Schritt.`); });
+  // Vorbelegung aus einem KI-Ergebnis: der Schritt muss existieren und JSON liefern
+  fieldsOf(app).forEach((b) => {
+    const aus = b.props.aus.trim();
+    if (!aus) return;
+    const q = ausQuelle(app, aus);
+    if (!q) hard(`„${b.props.label}“ soll aus „${aus}“ vorbelegt werden, aber diesen KI-Schritt gibt es nicht.`);
+    else if (q.format !== "json") hard(`„${b.props.label}“ wird aus „${stepName(q, app.steps.indexOf(q))}“ vorbelegt. Dafür muss dessen Ausgabeformat „JSON-Daten“ sein.`);
+  });
+  walk(app.blocks, (b) => {
+    if (b.type === "output" && b.props.pfad.trim()) {
+      const st = app.steps.find((s) => s.id === b.props.quelle);
+      if (st && st.format !== "json") soft(`Das Ergebnis-Element „${b.props.titel}“ zeigt den Teil „${b.props.pfad}“, aber „${st.name}“ liefert kein JSON. Es wird das ganze Ergebnis gezeigt.`);
+    }
+  });
   return w;
 }
 
+/** Schritt, auf den eine Vorbelegung („<key des Schritts>.<pfad>“) verweist; null, wenn es ihn nicht gibt. */
+export function ausQuelle(app: Pick<App, "steps">, aus: string): Step | null {
+  const k = aus.trim().split(".")[0].toLowerCase();
+  return app.steps.find((s) => s.key.toLowerCase() === k) ?? null;
+}
+
 /* ---------- Bereiche ---------- */
-export const AREA_ORDER = ["Allgemein", "Vertrieb", "Personal", "Marketing", "IT", "Recht", "Einkauf"];
+export const AREA_ORDER = ["Allgemein", "Vertrieb", "Service", "Personal", "Marketing", "IT", "Recht", "Einkauf"];
 export function areaIdx(area: string): number {
   const i = AREA_ORDER.indexOf(area);
   if (i >= 0) return i;

@@ -15,8 +15,8 @@ test("Startseite: Kacheln blättern, Bereichsfilter und Suche", async ({ page },
   await page.goto("/");
   await expect(page.getByRole("heading", { level: 1 })).toContainText("Welche Aufgabe");
   // Breit steht die Anzahl neben der Suche, schmal in der Bereichsauswahl
-  if ((page.viewportSize()?.width ?? 0) > 900) await expect(page.getByText("9 Applikationen")).toBeVisible();
-  else await expect(page.getByRole("combobox", { name: "Bereich" })).toContainText("Alle Bereiche (9)");
+  if ((page.viewportSize()?.width ?? 0) > 900) await expect(page.getByText("10 Applikationen")).toBeVisible();
+  else await expect(page.getByRole("combobox", { name: "Bereich" })).toContainText("Alle Bereiche (10)");
   const kacheln = page.locator(".tiles-raster a.tile:not(.tile-new)");
   await expect(kacheln.first()).toBeVisible();
   await scrolltNicht(page);
@@ -25,12 +25,13 @@ test("Startseite: Kacheln blättern, Bereichsfilter und Suche", async ({ page },
   // Alle Kacheln über die Seiten zählen
   const pager = page.getByRole("navigation", { name: "Seiten blättern" });
   let summe = await kacheln.count();
-  while (await pager.getByRole("button", { name: /^Weiter/ }).isEnabled().catch(() => false)) {
+  // Auf der letzten Seite gibt es keinen „Weiter“-Knopf mehr (statt eines ausgegrauten)
+  while (await pager.getByRole("button", { name: /^Weiter/ }).count()) {
     await pager.getByRole("button", { name: /^Weiter/ }).click();
     await page.waitForTimeout(250);
     summe += await kacheln.count();
   }
-  expect(summe).toBe(9);
+  expect(summe).toBe(10);
 
   await bereichWaehlen(page, "Vertrieb");
   await expect(page.getByRole("heading", { name: "Vertrieb", level: 2 })).toBeVisible();

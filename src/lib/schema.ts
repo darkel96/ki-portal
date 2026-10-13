@@ -28,6 +28,7 @@ const fieldBase = {
   hilfe: z.string().max(500).default(""),
   beispiel: z.string().max(4000).default("").describe("realistischer Testwert"),
   placeholder: z.string().max(200).default(""),
+  aus: z.string().max(120).default("").describe('Vorbelegung aus einem KI-Ergebnis im Format json: "<key des Schritts>.<pfad im JSON>", z. B. "lesen.produkte.wartung.status"; die Person kann den Wert danach ändern (Prüfseite); "" = keine'),
 };
 
 export const PropsSchemas = {
@@ -49,8 +50,8 @@ export const PropsSchemas = {
   number: z.object({ ...fieldBase, label: fieldBase.label.default("Zahl") }),
   date: z.object({ ...fieldBase, label: fieldBase.label.default("Datum") }),
   file: z.object({ ...fieldBase, label: fieldBase.label.default("Datei"), uebergabe: z.enum(["text", "referenz"]).default("text") }),
-  button: z.object({ text: z.string().max(80).default("KI starten"), aktion: z.string().max(60).default("alle").describe('"alle", Step-ID oder "ab:" + Step-ID'), stil: z.enum(["filled", "outline"]).default("filled"), align: Align.default("left"), color: ColorOrEmpty.default("") }),
-  output: z.object({ titel: z.string().max(120).default("Ergebnis"), quelle: z.string().max(40).default("").describe("ID eines Schritts"), stil: z.enum(["card", "plain"]).default("card") }),
+  button: z.object({ text: z.string().max(80).default("KI starten"), aktion: z.string().max(200).default("alle").describe('"alle", Step-ID, mehrere Step-IDs mit Komma oder "ab:" + Step-ID (ab diesem Schritt bis zum Ende)'), stil: z.enum(["filled", "outline"]).default("filled"), align: Align.default("left"), color: ColorOrEmpty.default("") }),
+  output: z.object({ titel: z.string().max(120).default("Ergebnis"), quelle: z.string().max(40).default("").describe("ID eines Schritts"), stil: z.enum(["card", "plain"]).default("card"), pfad: z.string().max(120).default("").describe('bei format json: nur diesen Teil des Ergebnisses zeigen, z. B. "bericht" oder "produkte.wartung"; Text wird als Markdown gezeigt, Listen und Objekte als Liste bzw. Tabelle; "" = ganzes Ergebnis') }),
 } as const;
 
 export type BlockType = keyof typeof PropsSchemas;

@@ -7,11 +7,12 @@ import { isFieldType, type App, type Block } from "@/lib/schema";
 import { fieldsOf, seiteMit, seitenTitel, seitenVon, stepsFor, walk } from "@/lib/model";
 import { Blatt, Pager, blaetterTaste } from "@/components/layout/Pager";
 import { readFileInfo, UnsupportedFormatError } from "@/lib/files";
-import { STATUS_LABEL, ablaufStarten, fehlendePflichtfelder, fehlendeVorstufe, type OutState, type Werte } from "@/lib/runner";
+import { STATUS_LABEL, abhaengigkeiten, ablaufStarten, fehlendePflichtfelder, fehlendeVorstufe, type OutState, type Werte } from "@/lib/runner";
 import type { FileInfo } from "@/lib/request";
 import { BlockContent, type RenderList } from "./BlockContent";
 import { OutputView } from "./OutputView";
 import { RunContext, type RunCtx } from "./runContext";
+import { vorbelegungen } from "@/lib/vorbelegung";
 import { themeStyle } from "./theme";
 
 export type RunAppHandle = {
@@ -62,7 +63,7 @@ function kachelStatus(k: Kachel, outs: Record<string, OutState>): OutState["stat
 }
 
 /** Kurzer Vorschautext ohne Markdown-Zeichen */
-function vorschau(k: Kachel, outs: Record<string, OutState>, laeuft: boolean): string {
+function vorschau(k: Kachel, outs: Record<string, OutState>, laeuft: boolean, app: App): string {
   for (const id of k.stepIds) {
     const o = outs[id];
     if (!o) continue;
@@ -73,13 +74,19 @@ function vorschau(k: Kachel, outs: Record<string, OutState>, laeuft: boolean): s
     if (o.text) return o.text.replace(/```[\s\S]*?```/g, " ").replace(/<[^>]+>/g, " ").replace(/(^|\s)[-•]\s+/g, " ").replace(/[#*_`>|]+/g, " ").replace(/-{3,}/g, " ").replace(/\s+/g, " ").trim().slice(0, 260);
     if (o.status === "gestoppt") return "Gestoppt, bevor ein Ergebnis da war.";
     if (o.status === "fehler") return "Abgebrochen. Öffnen und „Erneut versuchen“.";
-    if (o.status === "wartet") return laeuft ? "Wartet, bis die vorherigen Schritte fertig sind\u00a0…" : "Nicht gestartet, weil der Ablauf vorher gestoppt wurde oder abgebrochen ist.";
+    if (o.status === "wartet") {
+      if (!laeuft) return "Nicht gestartet, weil der Ablauf vorher gestoppt wurde oder abgebrochen ist.";
+      // Schritte ohne Abhängigkeit laufen gleichzeitig; wer wartet, wartet auf ein Ergebnis, das er im Prompt nutzt
+      const st = app.steps.find((s) => s.id === id);
+      const auf = st ? abhaengigkeiten(st, app.steps).filter((d) => outs[d.id]?.status !== "fertig").map((d) => d.name) : [];
+      return auf.length ? `Wartet auf „${auf.join("“, „")}“\u00a0…` : "Wartet\u00a0…";
+    }
   }
   return "Wird erstellt, sobald du „Ergebnisse erstellen“ startest.";
 }
 
-function Uebersicht({ kacheln, outs, laeuft, geaendert, onStart, onOeffnen }: {
-  kacheln: Kachel[]; outs: Record<string, OutState>; laeuft: boolean; geaendert: boolean;
+function Uebersicht({ app, kacheln, outs, laeuft, geaendert, onStart, onOeffnen }: {
+  app: App; kacheln: Kachel[]; outs: Record<string, OutState>; laeuft: boolean; geaendert: boolean;
   onStart: () => void; onOeffnen: (id: string) => void;
 }) {
   const stati = kacheln.map((k) => kachelStatus(k, outs));
@@ -102,7 +109,7 @@ function Uebersicht({ kacheln, outs, laeuft, geaendert, onStart, onOeffnen }: {
           <li key={k.id}>
             <button type="button" className="e-kachel" data-s={stati[i]} onClick={() => onOeffnen(k.id)} aria-labelledby={`et-${k.id}`} aria-describedby={`es-${k.id}`}>
               <span className="e-kachel-kopf"><span className="e-titel" id={`et-${k.id}`}>{k.titel}</span><span className="status-pill" id={`es-${k.id}`} data-s={stati[i]}>{STATUS_LABEL[stati[i]]}</span></span>
-              <span className="e-text" aria-hidden="true">{vorschau(k, outs, laeuft)}</span>
+              <span className="e-text" aria-hidden="true">{vorschau(k, outs, laeuft, app)}</span>
               <span className="e-oeffnen">Öffnen</span>
             </button>
           </li>
@@ -166,6 +173,22 @@ export const RunApp = forwardRef<RunAppHandle, {
   const blatt = useRef<HTMLDivElement>(null);
   /** Stand der Eingaben beim letzten Start (für den Hinweis „Eingaben geändert“) */
   const [stand, setStand] = useState("");
+  /** Zuletzt aus einem KI-Ergebnis vorbelegte Werte je Feld: Nur Felder, die die Person seitdem nicht geändert hat, werden erneut überschrieben */
+  const vorbelegt = useRef<Record<string, string | boolean>>({});
+  const vorbelegen = useCallback((stepKey: string, text: string) => {
+    const neu = vorbelegungen(app, stepKey, text);
+    if (!neu) return;
+    setWerte((w) => {
+      const next = { ...w };
+      for (const [k, v] of Object.entries(neu)) {
+        const alt = w[k];
+        const unveraendert = alt === undefined || alt === "" || alt === false || alt === vorbelegt.current[k];
+        if (unveraendert) { next[k] = v; vorbelegt.current[k] = v; }
+      }
+      return next;
+    });
+    setFehler((f) => { if (!f.size) return f; const n = new Set(f); Object.keys(neu).forEach((k) => n.delete(k)); return n; });
+  }, [app]);
 
   // Seiten aufteilen: Eingabeseiten werden geblättert, reine Ergebnisseiten erscheinen als Kacheln in der Übersicht.
   const seiten = useMemo(() => seitenVon(app), [app]);
@@ -182,6 +205,17 @@ export const RunApp = forwardRef<RunAppHandle, {
     return [...ausSeiten, ...ohneElement].filter((k) => k.stepIds.length);
   }, [app, seiten]);
   const mitUebersicht = kacheln.length > 0;
+  /**
+   * Was „Ergebnisse erstellen“ in der Übersicht startet: alle Schritte, außer die App hat Buttons für einzelne
+   * Schritte auf ihren Eingabeseiten (Prüfseite). Dann nur die Schritte der Kacheln, sonst würden geprüfte Werte überschrieben.
+   */
+  const uebersichtAktion = useMemo(() => {
+    let einzeln = false;
+    walk(app.blocks, (b) => { if (b.type === "button" && b.props.aktion !== "alle" && !b.props.aktion.startsWith("ab:")) einzeln = true; });
+    if (!einzeln) return "alle";
+    const ids = new Set(kacheln.flatMap((k) => k.stepIds));
+    return app.steps.filter((s) => ids.has(s.id)).map((s) => s.id).join(",") || "alle";
+  }, [app, kacheln]);
   const anzahl = eingabeSeiten.length + (mitUebersicht ? 1 : 0);
   const uebersichtIdx = eingabeSeiten.length;
 
@@ -304,8 +338,15 @@ export const RunApp = forwardRef<RunAppHandle, {
       ergebnisse.current = await ablaufStarten({
         app, aktion, werte, files, ergebnisse: ergebnisse.current, signal: c.signal,
         setOut: (id, s) => {
+          const vorher = gelaufen[id];
           gelaufen[id] = typeof s === "function" ? s(gelaufen[id]) : s;
           setOuts((o) => ({ ...o, [id]: typeof s === "function" ? s(o[id]) : s }));
+          // Prüfseite: Sobald ein JSON-Schritt fertig ist, die daran hängenden Felder vorbelegen
+          const st = gelaufen[id];
+          if (st.status === "fertig" && vorher?.status !== "fertig" && st.text) {
+            const step = app.steps.find((x) => x.id === id);
+            if (step?.format === "json") vorbelegen(step.key, st.text);
+          }
         },
       });
     } finally {
@@ -313,12 +354,12 @@ export const RunApp = forwardRef<RunAppHandle, {
       setLaeuft(null);
       if (Object.keys(gelaufen).length) onLaufFertig?.(gelaufen);
     }
-  }, [onLaufFertig, app, werte, files, liest, akt, detail, imUeberblick, mitUebersicht, uebersichtIdx, wechseln, eingabeIdxMit]);
+  }, [onLaufFertig, app, werte, files, liest, akt, detail, imUeberblick, mitUebersicht, uebersichtIdx, wechseln, eingabeIdxMit, vorbelegen]);
 
-  const nochNichtGelaufen = app.steps.every((s) => !outs[s.id]);
+  const nochNichtGelaufen = stepsFor(app, uebersichtAktion).every((s) => !outs[s.id]);
   /** „Weiter“ in die Übersicht startet den Ablauf automatisch (einmal); Punkte und Bild-Tasten blättern nur. */
   const weiterKlick = (i: number) => {
-    if (mitUebersicht && i === uebersichtIdx && nochNichtGelaufen && !laeuft && app.steps.length) { void starten("uebersicht", "alle"); return; }
+    if (mitUebersicht && i === uebersichtIdx && nochNichtGelaufen && !laeuft && app.steps.length) { void starten("uebersicht", uebersichtAktion); return; }
     wechseln(i);
   };
 
@@ -383,13 +424,13 @@ export const RunApp = forwardRef<RunAppHandle, {
     const t = e.target as HTMLElement | null;
     if (document.querySelector("[role='dialog'], [role='alertdialog'], [role='menu'], [data-slot='popover-content']")) return;
     if (t?.closest("input, textarea, select, [contenteditable='true']") && !frame.current?.contains(t)) return;
-    if ((imUeberblick || offen) && app.steps.length) { e.preventDefault(); void starten("uebersicht", "alle"); return; }
+    if ((imUeberblick || offen) && app.steps.length) { e.preventDefault(); void starten("uebersicht", uebersichtAktion); return; }
     let erster: Extract<Block, { type: "button" }> | undefined;
     // Erst ein Button auf der aktuellen Seite, sonst der erste der App.
     walk(p?.children ?? [], (b) => { if (!erster && b.type === "button") erster = b; });
     walk(app.blocks, (b) => { if (!erster && b.type === "button") erster = b; });
     if (erster) { e.preventDefault(); void starten(erster.id, erster.props.aktion); }
-    else if (app.steps.length) { e.preventDefault(); void starten("uebersicht", "alle"); }
+    else if (app.steps.length) { e.preventDefault(); void starten("uebersicht", uebersichtAktion); }
   };
   useEffect(() => {
     const h = (e: KeyboardEvent) => tasteRef.current(e);
@@ -431,13 +472,14 @@ export const RunApp = forwardRef<RunAppHandle, {
                 : <OutputView app={app} titel={offen.titel} stepId={offen.stepIds[0]} stil="card" mode="run" />}
             </>
           ) : imUeberblick ? (
-            <Uebersicht kacheln={kacheln} outs={outs} laeuft={!!laeuft} geaendert={geaendert}
-              onStart={() => void starten("uebersicht", "alle")} onOeffnen={oeffnen} />
+            <Uebersicht app={app} kacheln={kacheln} outs={outs} laeuft={!!laeuft} geaendert={geaendert}
+              onStart={() => void starten("uebersicht", uebersichtAktion)} onOeffnen={oeffnen} />
           ) : p && <>{renderList(p.children ?? [], `${p.id}:c`)}{mitPflicht && <p className="o-pflicht o-help"><em aria-hidden="true">*</em> Pflichtfeld</p>}</>}
         </Blatt>
         {offen ? (
           <Pager className="app-pager" label="Ergebnis" mehrzahl="Ergebnisse" seite={kIdx} anzahl={kacheln.length} titel={(i) => kacheln[i].titel}
-            weiter={kacheln[kIdx + 1] ? `Weiter: ${kacheln[kIdx + 1].titel}` : undefined} onWechsel={(i) => oeffnen(kacheln[i].id)} />
+            weiter={kacheln[kIdx + 1] ? `Weiter: ${kacheln[kIdx + 1].titel}` : undefined} onWechsel={(i) => oeffnen(kacheln[i].id)}
+            ende="Alle Ergebnisse" onEnde={() => oeffnen(null)} />
         ) : (
           <Pager className="app-pager" seite={akt} anzahl={anzahl} titel={linearTitel} weiter={naechste} weiterKurz={naechste === "Ergebnisse erstellen" ? "Erstellen" : undefined} onWechsel={wechseln} onWeiter={() => weiterKlick(akt + 1)} />
         )}

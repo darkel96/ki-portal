@@ -119,7 +119,7 @@ export function BlockContent({ b, app, mode, renderList }: { b: Block; app: App;
       );
     }
     case "output":
-      return <OutputView app={app} titel={b.props.titel} stepId={b.props.quelle} stil={b.props.stil} mode={mode} />;
+      return <OutputView app={app} titel={b.props.titel} stepId={b.props.quelle} stil={b.props.stil} mode={mode} pfad={b.props.pfad} />;
     default:
       return <Field b={b} mode={mode} />;
   }

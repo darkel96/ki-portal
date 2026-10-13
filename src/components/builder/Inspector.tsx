@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { App, Block, PropsOf } from "@/lib/schema";
 import { isFieldType } from "@/lib/schema";
-import { allKeys, cloneBlock, locate, removeVar, renameRefs, seiteMit, seitenTitel, seitenVon, setCols, slug, stepName, uniqueKey, varsIn, stepText } from "@/lib/model";
+import { allKeys, ausQuelle, cloneBlock, locate, removeVar, renameRefs, seiteMit, seitenTitel, seitenVon, setCols, slug, stepName, uniqueKey, varsIn, stepText } from "@/lib/model";
 import { loadImage } from "@/lib/files";
 import { BT } from "./catalog";
 import { Check, Fld, PALETTES, Seg, Sel, Swatches, TextFld } from "./controls";
@@ -50,6 +50,23 @@ function AppSettings({ b, alleBereiche }: { b: Builder; alleBereiche: string[] }
         </TabsContent>
       </Tabs>
     </>
+  );
+}
+
+/** Prüfseite: Feld aus dem JSON-Ergebnis eines KI-Schritts vorbelegen („schritt.pfad“), die Person korrigiert danach. */
+function VorbelegungFld({ b, x }: { b: Builder; x: Block }) {
+  const aus = (x.props as { aus: string }).aus;
+  const [v, setV] = useState(aus);
+  useEffect(() => setV(aus), [aus]);
+  const json = b.app.steps.filter((s) => s.format === "json");
+  if (!json.length && !aus) return null;
+  const quelle = ausQuelle(b.app, v);
+  const commit = () => b.change((d) => { const l = locate(d.blocks, x.id); if (l && isFieldType(l.b.type)) (l.b.props as { aus: string }).aus = v.trim(); });
+  return (
+    <Fld label="Vorbelegen aus KI-Ergebnis" htmlFor={`insp-aus-${x.id}`} hint={quelle ? `Sobald „${quelle.name}“ fertig ist, steht der Wert im Feld; die Person kann ihn ändern (Prüfseite).` : `Schritt-Variable und Pfad im JSON, z. B. „${json[0]?.key ?? "lesen"}.kunde“. Leer = keine Vorbelegung.`}>
+      <Input id={`insp-aus-${x.id}`} list={`insp-aus-liste-${x.id}`} value={v} placeholder={json[0] ? `${json[0].key}.feldname` : ""} onChange={(e) => setV(e.target.value)} onBlur={commit} onKeyDown={(e) => { if (e.key === "Enter") commit(); }} />
+      <datalist id={`insp-aus-liste-${x.id}`}>{json.map((s) => <option key={s.id} value={`${s.key}.`} />)}</datalist>
+    </Fld>
   );
 }
 
@@ -212,7 +229,10 @@ export function Inspector({ b, onDelete, bereiche, onSeite }: { b: Builder; onDe
     case "output": f = <>
       <TextFld id="insp-first" label="Titel" value={x.props.titel} onChange={(v) => set("titel", v, true)} />
       <Sel label="Zeigt das Ergebnis von" value={x.props.quelle || "__none"} onChange={(v) => set("quelle", v === "__none" ? "" : v)} options={[["__none", "Bitte wählen"], ...steps]} />
-      <Seg label="Stil" value={x.props.stil} options={[["card", "Karte"], ["plain", "Schlicht"]]} onChange={(v) => set("stil", v)} /></>; break;
+      <Seg label="Stil" value={x.props.stil} options={[["card", "Karte"], ["plain", "Schlicht"]]} onChange={(v) => set("stil", v)} />
+      {b.app.steps.find((s) => s.id === x.props.quelle)?.format === "json" && (
+        <TextFld label="Nur diesen Teil zeigen" value={x.props.pfad} placeholder="z. B. bericht oder produkte.wartung" onChange={(v) => set("pfad", v, true)} />
+      )}</>; break;
     default: {
       const fp = x.props as PropsOf<"select">;
       f = <>
@@ -233,6 +253,7 @@ export function Inspector({ b, onDelete, bereiche, onSeite }: { b: Builder; onDe
           <Seg label="Übergabe an die KI" value={x.props.uebergabe} options={[["text", "Inhalt als Text"], ["referenz", "Als Datei (Copilot)"]]} onChange={(v) => set("uebergabe", v)} />
           <p className="hint" style={{ margin: 0 }}>Gelesen werden Word (.docx), Excel (.xlsx), PDF und Textdateien. „Als Datei“ bedeutet: Die zentrale KI-Anbindung legt die Datei in OneDrive ab und übergibt Copilot einen Verweis.</p></>}
         <Check label="Pflichtfeld" checked={fp.pflicht} onChange={(v) => set("pflicht", v)} />
+        {x.type !== "file" && <VorbelegungFld b={b} x={x} />}
         <PassBox b={b} x={x} />
       </>;
     }

@@ -1,6 +1,7 @@
 import type { App, HubApp } from "./schema";
 import { fromSimple, makeBlock, rid, walk, type LegacyApp } from "./model";
 import { fixRefs } from "./sanitize";
+import { serviceangebotApp } from "./seedServiceangebot";
 
 const VORLAGEN: LegacyApp[] = [
   { id: "mail-antwort", name: "E-Mail-Antwort", bereich: "Allgemein",
@@ -118,4 +119,5 @@ function stabil(app: App): App {
 export const SEED_APPS: HubApp[] = [
   ...VORLAGEN.map((v) => ({ ...stabil(fromSimple(v)), _src: "vorlage" as const })),
   { ...stabil(agentenTeam()), _src: "vorlage" as const },
+  { ...stabil(serviceangebotApp()), _src: "vorlage" as const },
 ];

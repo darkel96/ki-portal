@@ -103,7 +103,7 @@ function AppKarte({ a, onLauf }: { a: HubApp; onLauf: (id: string) => void }) {
         {vorlagen.length > 4 && <span className="hint">+{vorlagen.length - 4} weitere</span>}
       </div>
       <div className="mh-letzter">
-        {letzter ? <>Letztes Ergebnis: {datumZeit(letzter.start)} <span className="status-pill" data-s={LAUF_STATUS[letzter.status][1]}>{LAUF_STATUS[letzter.status][0]}</span><button type="button" onClick={() => onLauf(letzter.id)}>Ansehen</button></>
+        {letzter ? <><span className="mh-letzter-text">Letztes Ergebnis: {datumZeit(letzter.start)}</span> <span className="status-pill" data-s={LAUF_STATUS[letzter.status][1]}>{LAUF_STATUS[letzter.status][0]}</span><button type="button" onClick={() => onLauf(letzter.id)}>Ansehen</button></>
           : <span>Noch kein Ergebnis</span>}
       </div>
       <div className="mh-fuss">
@@ -270,7 +270,7 @@ export function MeinHubPage() {
         </TabsList>
 
         <TabsContent value="apps" className="mh-tab">
-          <KartenRaster items={meine} schluessel={(a) => a.id!} hoehe={250} hoeheSchmal={136} maxHoehe={320} breite={340} render={(a) => <AppKarte a={a} onLauf={zumLauf} />}
+          <KartenRaster items={meine} schluessel={(a) => a.id!} hoehe={230} hoeheSchmal={136} maxHoehe={260} breite={340} render={(a) => <AppKarte a={a} onLauf={zumLauf} />}
             leer={mh.geladen ? <><p>Noch keine Applikationen in Mein Hub.</p><p className="hint">Öffne eine Applikation und wähle „Zu Mein Hub“. Gespeicherte Voreinstellungen und Aufträge bringen ihre Applikation automatisch mit.</p><Button asChild className="rounded-full"><Link to="/" viewTransition>Zur Übersicht</Link></Button></> : LAEDT} />
         </TabsContent>
         <TabsContent value="auftraege" className="mh-tab">

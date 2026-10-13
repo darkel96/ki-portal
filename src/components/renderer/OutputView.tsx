@@ -14,6 +14,28 @@ import { useEffect, useRef, useState } from "react";
 import { initials, slug, stepsFor, walk } from "@/lib/model";
 import { useRun } from "./runContext";
 import type { Mode } from "./BlockContent";
+import { alsText, teilAus } from "@/lib/vorbelegung";
+
+/** Ein Teil eines JSON-Ergebnisses: Text als Markdown, Listen als Aufzählung oder Tabelle, Objekte als Tabelle „Schlüssel | Wert“. */
+function JsonTeil({ wert }: { wert: unknown }) {
+  if (wert == null || wert === "") return <p className="o-muted">Dieser Teil fehlt im Ergebnis.</p>;
+  if (typeof wert !== "object") return <div className="o-body" dangerouslySetInnerHTML={{ __html: markdown(String(wert)) }} />;
+  if (Array.isArray(wert)) {
+    const objekte = wert.filter((x) => x && typeof x === "object" && !Array.isArray(x)) as Record<string, unknown>[];
+    if (objekte.length && objekte.length === wert.length) {
+      const spalten = [...new Set(objekte.flatMap((o) => Object.keys(o)))];
+      return (
+        <div className="o-body"><table><thead><tr>{spalten.map((k) => <th key={k}>{k}</th>)}</tr></thead>
+          <tbody>{objekte.map((o, i) => <tr key={i}>{spalten.map((k) => <td key={k}>{alsText(o[k])}</td>)}</tr>)}</tbody></table></div>
+      );
+    }
+    return <div className="o-body"><ul>{wert.map((x, i) => <li key={i}>{alsText(x)}</li>)}</ul></div>;
+  }
+  const eintraege = Object.entries(wert as Record<string, unknown>);
+  return (
+    <div className="o-body"><table><tbody>{eintraege.map(([k, v]) => <tr key={k}><th scope="row">{k}</th><td>{alsText(v)}</td></tr>)}</tbody></table></div>
+  );
+}
 
 const EASE_OUT = [0.2, 0, 0, 1] as const;
 const AV = ["var(--a0)", "var(--a2)", "var(--a1)", "var(--a6)", "var(--a4)", "var(--a5)"];
@@ -118,11 +140,14 @@ function TeamLogView({ o, app, stepId }: { o: OutState; app: App; stepId: string
   );
 }
 
-export function OutputView({ app, titel, stepId, stil, mode }: { app: App; titel: string; stepId: string; stil: "card" | "plain"; mode: Mode }) {
+export function OutputView({ app, titel, stepId, stil, mode, pfad = "" }: { app: App; titel: string; stepId: string; stil: "card" | "plain"; mode: Mode; /** bei JSON: nur dieser Teil */ pfad?: string }) {
   const run = useRun();
   const step = app.steps.find((s) => s.id === stepId);
   const o = run?.outs[stepId];
   const team = step?.art === "team";
+  // Teil eines JSON-Ergebnisses (Prüfseite: z. B. der lesbare Bericht neben den vorbelegten Feldern)
+  const teil = step?.format === "json" && pfad.trim() && o?.text && o.status !== "laeuft" ? teilAus(o.text, pfad.trim()) : undefined;
+  const teilText = typeof teil === "string" ? teil : teil !== undefined ? alsText(teil) : null;
   // Agenten-Team: Das fertige Ergebnis ins Bild holen, es steht über dem (dann eingeklappten) Verlauf
   const ergebnisRef = useRef<HTMLDivElement>(null);
   const warLaeuft = useRef(false);
@@ -161,7 +186,7 @@ export function OutputView({ app, titel, stepId, stil, mode }: { app: App; titel
             </details>
           ))}
         </div>
-      ) : step?.format !== "dateien" && (
+      ) : teil !== undefined ? <JsonTeil wert={teil} /> : step?.format !== "dateien" && (
         <div className={`o-body ${team ? "team-result" : ""}`} dangerouslySetInnerHTML={{ __html: renderResult(o.text, step?.format ?? "markdown") }} />
       ))}
       {o.status === "laeuft" && !team && <p className="o-muted">KI schreibt\u00a0…</p>}
@@ -198,11 +223,11 @@ export function OutputView({ app, titel, stepId, stil, mode }: { app: App; titel
           {(o.status === "fehler" || o.status === "gestoppt") && step && (
             <Button size="sm" className="rounded-full" disabled={!!run?.laeuft} onClick={() => run?.starten(`wiederholen:${stepId}`, stepId)}><RotateCcw aria-hidden="true" />Erneut versuchen</Button>
           )}
-          {fertig && (!o.paket || einDokument) && <KopierKnopf text={einDokument ? einDokument.inhalt : o.text ?? ""} format={einDokument ? "markdown" : step?.format ?? "markdown"} teil={o.status !== "fertig"} />}
+          {fertig && (!o.paket || einDokument) && <KopierKnopf text={einDokument ? einDokument.inhalt : teilText ?? o.text ?? ""} format={einDokument || teilText !== null ? "markdown" : step?.format ?? "markdown"} teil={o.status !== "fertig"} />}
           {fertig && o.paket && einDokument && <DateiKnoepfe app={app} text={einDokument.inhalt} titel={dateiTitel(einDokument.pfad)} haupt={o.req?.ergebnisDatei ?? "pdf"} roh={{ name: dateiTitel(einDokument.pfad), endung: einDokument.pfad.split(".").pop() ?? "txt" }} />}
           {fertig && o.paket && <ZipKnopf haupt={!einDokument} text={o.req?.ergebnisDatei ? `ZIP mit ${DATEI_ART[o.req.ergebnisDatei].label}-Dateien` : "ZIP herunterladen"}
             onLaden={async () => saveFile(paketName(app.name, o.paket!), await zipPaket(o.paket!, app.name, o.req?.ergebnisDatei ?? undefined))} />}
-          {fertig && !o.paket && step && <DateiKnoepfe app={app} text={o.text ?? ""} titel={step.name} haupt={o.req?.ergebnisDatei ?? null} roh={{ name: slug(step.name), endung: step.format === "json" ? "json" : step.format === "text" ? "txt" : "md" }} />}
+          {fertig && !o.paket && step && <DateiKnoepfe app={app} text={teilText ?? o.text ?? ""} titel={step.name} haupt={o.req?.ergebnisDatei ?? null} roh={{ name: slug(step.name), endung: teilText !== null ? "md" : step.format === "json" ? "json" : step.format === "text" ? "txt" : "md" }} />}
           {o.req && step && Array.isArray(o.req.dateien) && (
             <details>
               <summary>Technische Details</summary>

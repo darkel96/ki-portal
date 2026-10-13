@@ -34,6 +34,8 @@ body { overflow: hidden; }
 .pg-btn:disabled { opacity: .35; cursor: default; }
 .pg-weiter { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; line-height: 1.35; padding-block: 2px; }
 .pg-btn svg { flex: none; }
+/* Platzhalter rechts, damit die Mitte auf der letzten Seite nicht verrutscht */
+.pg-platz { min-width: 96px; }
 
 .rubrik { display: flex; align-items: center; gap: 12px; font: 700 12px/1.4 var(--k-font-body); text-transform: uppercase; letter-spacing: var(--k-tracking-rubrik); color: var(--muted-ink); }
 .lede { color: var(--muted-ink); margin: 0; max-width: 62ch; }
