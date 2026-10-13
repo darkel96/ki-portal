@@ -85,10 +85,29 @@ export function sanitizeApp(raw: unknown, base: App): App {
     return step;
   });
 
-  function sb(b: unknown, depth: number): Block | null {
-    if (!isObj(b) || typeof b.type !== "string" || !(BLOCK_TYPES as string[]).includes(b.type) || depth > 5) return null;
-    if (b.type === "seite" && depth > 0) return null;   // Seiten nur auf oberster Ebene
-    const type = b.type as BlockType;
+  /** Ein Block oder, wenn die KI Felder in ein „columns“ ohne Spalten gesteckt hat, dessen Inhalt als Nachbarn */
+  const liste = (roh: unknown, depth: number): Block[] => (Array.isArray(roh) ? roh : []).flatMap((c) => sb(c, depth));
+  /** Häufige Verschreiber der KI für Bausteintypen */
+  const SYNONYME: Record<string, string> = {
+    dropdown: "select", auswahl: "select", auswahlliste: "select", textfeld: "textarea", textzeile: "input", eingabe: "input",
+    upload: "file", datei: "file", zahl: "number", datum: "date", ankreuzfeld: "checkbox", auswahlknoepfe: "radio",
+    ueberschrift: "heading", absatz: "text", paragraph: "text", hinweis: "callout", abschnitt: "section", spalten: "columns",
+    ergebnis: "output", knopf: "button", bild: "image", page: "seite",
+  };
+  function sb(roh: unknown, depth: number): Block[] {
+    if (!isObj(roh) || typeof roh.type !== "string" || depth > 5) return [];
+    const b: Obj = roh;
+    let typName: string = roh.type;
+    if (!(BLOCK_TYPES as string[]).includes(typName)) {
+      const t = SYNONYME[typName.toLowerCase().replace(/ä/g, "ae").replace(/ö/g, "oe").replace(/ü/g, "ue")];
+      if (!t) return [];
+      typName = t;
+    }
+    if (typName === "seite" && depth > 0) return [];   // Seiten nur auf oberster Ebene
+    // „columns“ mit children statt cols (häufiger KI-Fehler): die Felder stehen dann einfach nacheinander;
+    // gleichartige Felder ordnet die App ohnehin zu dritt nebeneinander an
+    if (typName === "columns" && !Array.isArray(b.cols) && Array.isArray(b.children)) return liste(b.children, depth);
+    const type = typName as BlockType;
     const props = objectLenient(PropsSchemas[type] as z.ZodObject, b.props) as Obj;
     const nb = { id: cleanId(b.id, "b"), type, props } as Block;
     if (isFieldType(type)) {
@@ -100,17 +119,17 @@ export function sanitizeApp(raw: unknown, base: App): App {
       props.key = key;
       props.keyAuto = false;
     }
-    if (type === "section" || type === "seite") nb.children = (Array.isArray(b.children) ? b.children : []).map((c) => sb(c, depth + 1)).filter((x): x is Block => !!x);
+    if (type === "section" || type === "seite") nb.children = liste(b.children, depth + 1);
     if (type === "columns") {
-      const cols = (Array.isArray(b.cols) ? b.cols : []).slice(0, 3).map((c) => (Array.isArray(c) ? c : []).map((x) => sb(x, depth + 1)).filter((x): x is Block => !!x));
+      const cols = (Array.isArray(b.cols) ? b.cols : []).slice(0, 3).map((c) => liste(c, depth + 1));
       while (cols.length < 2) cols.push([]);
       nb.cols = cols;
       props.count = cols.length;
     }
-    return nb;
+    return [nb];
   }
   const blocksIn = Array.isArray(r.blocks) ? r.blocks : base.blocks;
-  app.blocks = seitenSicherstellen(blocksIn.map((b) => sb(b, 0)).filter((x): x is Block => !!x), app.steps);
+  app.blocks = seitenSicherstellen(liste(blocksIn, 0), app.steps);
 
   for (const [o, k] of renames) {
     const re = new RegExp(`\\{\\{\\s*${o.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\s*\\}\\}`, "gi");
