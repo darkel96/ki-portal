@@ -38,7 +38,7 @@ test("Startseite: Kacheln blättern, Bereichsfilter und Suche", async ({ page },
   await expect(kacheln).toHaveCount(1);
 
   await bereichWaehlen(page, "Alle Bereiche");
-  await page.getByRole("searchbox", { name: "Applikationen durchsuchen" }).fill("Protokoll");
+  await page.getByRole("searchbox", { name: "Applikationen durchsuchen" }).fill("Meeting");
   await expect(kacheln).toHaveCount(1);
   await expect(kacheln.first()).toContainText("Meeting-Protokoll");
 });

@@ -1,9 +1,9 @@
 /**
- * Vorlage „Serviceangebot vorbereiten“: der Ablauf der Serviceangebote-App (CHARLESTOWN) als Hub-Applikation.
- * 1 Checkliste hochladen → Copilot liest sie (JSON) → 2 Prüfseite: gelesene Werte in Auswahlfeldern korrigieren, daneben
- * die optionalen Hinweise von Copilot (unklare Kästchen, plausibilisieren, Rückfrage) → Zusammenfassung (Word) und Angebotsstruktur als ZIP
- * mit den Originalvorlagen aus SharePoint. Copilot entscheidet nichts: Welche Produkte angelegt werden, bestimmt
- * der Status, den die Person auf der Prüfseite bestätigt. Produkte, Ordner und Dokumente: regeln.py der Serviceangebote-App.
+ * Vorlage „Serviceangebot vorbereiten“: der Ablauf der Serviceangebote-App (CHARLESTOWN) als Hub-Applikation,
+ * auf das Nötige reduziert: 1 Checkliste hochladen → Copilot liest sie (JSON) → 2 und 3 Prüfen: Status, Angebotsnummer
+ * und angekreuzte Unterpunkte je Produkt bestätigen oder korrigieren → Angebotsstruktur als ZIP mit Prüfprotokoll,
+ * Zusammenfassung und den Originalvorlagen aus SharePoint. Copilot entscheidet nichts: Welche Produkte angelegt werden,
+ * bestimmt der bestätigte Status. Produkte, Ordner und Dokumente: regeln.py und checkliste.py der Serviceangebote-App.
  */
 import { AppSchema, type App, type Block } from "./schema";
 
@@ -34,7 +34,6 @@ Regeln für dich:
 const ANGABEN = `Angaben aus der Checkliste (vom Sales-Service geprüft und ggf. korrigiert; diese Status gelten):
 Kunde: {{kunde}}
 Projekt: {{projekt}}
-Standort: {{standort}}
 Angebotssprache: {{sprache}}
 
 Produkte (Status laut Prüfung; nur „Ja“ wird angelegt):
@@ -55,8 +54,8 @@ ${SA_PRODUKTE.map((p) => `  ${p.titel} → ${p.ordner}`).join("\n")}
   Software Maintenance, IT-Services, Ersatzteilpaket, Resident Maintenance: ein eigenes Angebotsdokument ist noch nicht definiert → offener Punkt. Ausnahme: Ist Remote Service „Ja“, liegen die Unterlagen von Software Maintenance und IT-Services im Remote-Service-Ordner; das im Prüfprotokoll als Verweis nennen.
   Ist die Angebotssprache unklar, keine sprachabhängigen Dokumente kopieren und das als offenen Punkt nennen.
 - Vorlagen nur aus der Vorlagenliste kopieren (Pfad genau übernehmen, auch aus Unterordnern). Fehlt eine Vorlage in der Liste oder gibt es sie mehrfach: nicht kopieren, offener Punkt. Gibt es keine Vorlagenliste: keine Kopien, stattdessen im Prüfprotokoll die benötigten Vorlagen auflisten.
-- Datei "Pruefprotokoll.txt" im obersten Ordner: Kunde, Projekt, Standort, Sprache; je Produkt „Titel (SAP) – Status – angelegt ja/nein – Ordner“; je kopierter Vorlage „Ziel ← Quelle“; Verweise; danach „Offene Punkte“ mit allem, was zu klären ist. Nur die Status aus den Angaben, nichts umdeuten.
-- Datei "Angebotszusammenfassung.md" im obersten Ordner mit der Zusammenfassung fürs Angebot.`;
+- Datei "Pruefprotokoll.txt" im obersten Ordner: Kunde, Projekt, Sprache; je Produkt „Titel (SAP) – Status – angelegt ja/nein – Ordner“; je kopierter Vorlage „Ziel ← Quelle“; Verweise; danach „Offene Punkte“ mit allem, was zu klären ist. Nur die Status aus den Angaben, nichts umdeuten.
+- Datei "Angebotszusammenfassung.md" im obersten Ordner, in der Angebotssprache: ein Absatz zu Kunde und Projekt, je Produkt mit Status „Ja“ die angekreuzten Leistungen als Stichpunkte, zum Schluss die offenen Punkte. Nichts erfinden.`;
 
 let n = 0;
 const id = () => `sa-b${++n}`;
@@ -78,51 +77,33 @@ export function serviceangebotApp(): App {
   const blocks: Block[] = [
     seite("Checkliste", [
       block("heading", { text: "Serviceangebot vorbereiten", level: 1 }),
-      block("text", { text: "Lade die ausgefüllte Service-Checkliste hoch. Copilot liest sie und füllt die Prüfseite aus; du bestätigst oder korrigierst die Werte, danach entstehen die Zusammenfassung und die Angebotsstruktur mit den Originalvorlagen aus SharePoint." }),
-      block("callout", { text: "Copilot gibt nur Hinweise. Welche Produkte angelegt werden, bestimmt der Status, den du auf der Prüfseite bestätigst.", tone: "info" }),
+      block("text", { text: "Ausgefüllte Service-Checkliste hochladen. Copilot liest sie, du bestätigst die Werte, daraus entsteht die Angebotsstruktur mit den Originalvorlagen aus SharePoint." }),
       block("section", { pad: "m", border: true }, [
-        feld("file", { label: "Service-Checkliste (Word)", key: "checkliste", pflicht: true, hilfe: "Die ausgefüllte Checkliste als .docx. Angekreuzte Kästchen werden als ☒ gelesen, leere als ☐." }),
-        feld("select", { label: "Angebotssprache", key: "sprache", optionen: ["Deutsch", "Englisch"], pflicht: true, beispiel: "Deutsch", aus: "lesen.sprache", hilfe: "Wird aus der Checkliste übernommen; bestimmt Zusammenfassung und Angebotsdokumente." }),
-        block("button", { text: "Checkliste lesen", aktion: "sa-lesen" }),
+        feld("file", { label: "Service-Checkliste (Word)", key: "checkliste", pflicht: true, hilfe: "Angekreuzte Kästchen werden als ☒ gelesen, leere als ☐." }),
       ]),
     ]),
     // Prüfseiten: je drei Produkte, damit nichts scrollt; Projektdaten auf der ersten
-    seite("Prüfen: Remote, Software, IT", [
+    seite("Prüfen 1 von 2", [
       block("heading", { text: "Gelesene Werte prüfen (1 von 2)", level: 2 }),
-      block("text", { text: "Copilot hat die Felder ausgefüllt. Gelb markierte Felder waren nicht eindeutig: bitte prüfen und von Hand setzen. Nur Produkte mit „Ja“ bekommen einen Ordner.", size: "s" }),
+      block("text", { text: "Gelb markierte Felder waren nicht eindeutig: bitte prüfen und setzen. Nur Produkte mit „Ja“ bekommen einen Ordner.", size: "s" }),
       block("section", { pad: "s", border: true }, [
         feld("input", { label: "Kunde", key: "kunde", aus: "lesen.kunde", pflicht: true }),
         feld("input", { label: "Projekt", key: "projekt", aus: "lesen.projekt", pflicht: true }),
-        feld("input", { label: "Standort der Anlage", key: "standort", aus: "lesen.standort" }),
+        feld("select", { label: "Angebotssprache", key: "sprache", optionen: ["Deutsch", "Englisch"], pflicht: true, aus: "lesen.sprache", beispiel: "Deutsch" }),
       ]),
       block("section", { pad: "s", border: true }, produkte(SA_PRODUKTE.slice(0, 3))),
     ]),
-    seite("Prüfen: Wartung, Ersatzteile, Resident", [
+    seite("Prüfen 2 von 2", [
       block("heading", { text: "Gelesene Werte prüfen (2 von 2)", level: 2 }),
-      block("text", { text: "Status und angekreuzte Unterpunkte je Produkt. Gelb markierte Felder bitte prüfen und von Hand setzen.", size: "s" }),
+      block("text", { text: "„Weiter“ erstellt die Angebotsstruktur mit den bestätigten Werten.", size: "s" }),
       block("section", { pad: "s", border: true }, produkte(SA_PRODUKTE.slice(3))),
     ]),
-    seite("Hinweise von Copilot", [
-      block("heading", { text: "Hinweise von Copilot (optional)", level: 2 }),
-      block("text", { text: "Copilot liest die geprüften Angaben samt Korrekturen. Die Hinweise ändern nichts; die Entscheidung bleibt beim Sales-Service. Du kannst auch direkt zur Auswertung gehen.", size: "s" }),
-      block("section", { pad: "m", border: true }, [
-        block("button", { text: "Unklare Kästchen erklären", aktion: "sa-kaestchen", stil: "outline" }),
-        block("output", { titel: "Unklare Kästchen", quelle: "sa-kaestchen", stil: "card" }),
-        block("button", { text: "Checkliste plausibilisieren", aktion: "sa-plausibel", stil: "outline" }),
-        block("output", { titel: "Plausibilisierung", quelle: "sa-plausibel", stil: "card" }),
-        feld("textarea", { label: "Frage an Copilot", key: "frage", rows: 3, placeholder: "z. B. Welche Laufzeit steht beim Wartungsvertrag?", beispiel: "Welche Laufzeit steht beim Wartungsvertrag?" }),
-        block("button", { text: "Fragen", aktion: "sa-frage", stil: "outline" }),
-        block("output", { titel: "Antwort", quelle: "sa-frage", stil: "card" }),
-      ]),
-      block("button", { text: "Weiter zur Auswertung: Zusammenfassung und Angebotsstruktur erstellen", aktion: "ab:sa-zusammenfassung", align: "right" }),
-    ]),
-    seite("Zusammenfassung fürs Angebot", [block("output", { titel: "Zusammenfassung fürs Angebot", quelle: "sa-zusammenfassung", stil: "card" })]),
-    seite("Angebotsstruktur (ZIP)", [block("output", { titel: "Angebotsstruktur", quelle: "sa-struktur", stil: "card" })]),
+    seite("Angebotsstruktur", [block("output", { titel: "Angebotsstruktur", quelle: "sa-struktur", stil: "card" })]),
   ];
   const rolle = GRUNDLAGE;
   const app = AppSchema.parse({
     id: "serviceangebot", name: "Serviceangebot vorbereiten", bereich: "Service",
-    beschreibung: "Liest die Service-Checkliste, füllt die Prüfseite aus und erstellt nach deiner Bestätigung Zusammenfassung und Angebotsstruktur mit den Vorlagen aus SharePoint als ZIP.",
+    beschreibung: "Liest die Service-Checkliste, du bestätigst die Werte, daraus entsteht die Angebotsstruktur mit Prüfprotokoll, Zusammenfassung und Originalvorlagen als ZIP.",
     theme: { accent: "#0f2f5f" }, status: "freigegeben", version: 1,
     blocks,
     steps: [
@@ -134,50 +115,17 @@ So liest du die Kästchen: Angekreuzte Kästchen stehen als ☒, leere als ☐, 
 Status je Produkt, NUR aus den beiden Kästchen Ja/Nein der Position (Regeln wie in der Serviceangebote-App): "Ja" bei Kreuz im Ja-Kästchen, "Nein" bei Kreuz im Nein-Kästchen, "Widersprüchlich" wenn beide angekreuzt sind, "Unklar" wenn keins angekreuzt ist, ein Kästchen etwas anderes als ein Kreuz enthält (im Text als [...]) oder die Darstellung keine Zuordnung erlaubt. Fehlt die Position in der Checkliste, obwohl andere Positionen vorhanden sind, hat der Vertrieb sie gelöscht: Status "Nein", Hinweis „Position fehlt in der Checkliste, als Nein gewertet“, klaeren false. Fehlen alle Positionen, ist es vermutlich keine Service-Checkliste: überall "Unklar". Widersprüche in den Unterpunkten (z. B. Kreuz bei 3-Schicht, Anmerkung nennt 2-Schicht) ändern den Status nicht; sie kommen in den Hinweis mit "klaeren": true. Zu jedem Feld gehört ein "hinweis": bei Status die Fundstelle (Position) und in einem Halbsatz, was angekreuzt ist („Ja ☒, Nein ☐“); bei Unklar oder Widersprüchlich der Grund. "klaeren" ist true bei Unklar, Widersprüchlich oder wenn der Sales-Service etwas nachprüfen sollte, sonst false; bei true nennt der Hinweis immer den Grund. "nummer" ist die Angebotsnummer des Produkts, falls eingetragen (sonst ""). "angaben" listet die Unterpunkte der Position, eine Zeile je Unterpunkt: Nummer, Titel, dann jede Option mit ihrem Kästchen (☒ angekreuzt, ☐ leer) und eingetragene Texte, z. B. „1.1 Hotlinebereiche RA: ☒ Automatisierung, ☒ Visualisierung, ☐ PMS-T“ oder „4.4 Schichtbetrieb: ☐ 1-Schicht, ☐ 2-Schicht, ☒ 3-Schicht; Anmerkung: 2-Schicht 6 Tage/Woche“. Keine Zugangsdaten.
 
 Antworte nur mit JSON dieser Form:
-{"kunde": "", "projekt": "", "standort": "", "sprache": {"wert": "Deutsch|Englisch", "hinweis": "", "klaeren": false}, "produkte": {${SA_PRODUKTE.map((p) => `"${p.key}": {"status": {"wert": "Ja|Nein|Unklar|Widersprüchlich", "hinweis": "", "klaeren": false}, "nummer": "", "angaben": ""}`).join(", ")}}, "lieferumfang": "", "offen": ""}
+{"kunde": "", "projekt": "", "sprache": {"wert": "Deutsch|Englisch", "hinweis": "", "klaeren": false}, "produkte": {${SA_PRODUKTE.map((p) => `"${p.key}": {"status": {"wert": "Ja|Nein|Unklar|Widersprüchlich", "hinweis": "", "klaeren": false}, "nummer": "", "angaben": ""}`).join(", ")}}, "lieferumfang": "", "offen": ""}
 
 Produkte in der Reihenfolge der Checkliste: ${SA_PRODUKTE.map((p) => `${p.titel} (${p.sap})`).join("; ")}.
 
 Text der Checkliste ({{checkliste_name}}):
 {{checkliste}}` },
-      { id: "sa-plausibel", name: "Plausibilisierung", key: "plausibel", rolle, modell: "default",
-        prompt: `Auftrag: Prüfe die Checkliste auf Widersprüche und Lücken, zum Beispiel:
-- Produkt auf Ja, aber die zugehörigen Angaben fehlen oder passen nicht dazu
-- Produkt auf Nein oder unklar, aber darunter sind Angaben ausgefüllt
-- Angaben, die sich gegenseitig ausschließen, oder fehlende Pflichtangaben wie Standort oder Sprache
-Liste jeden Punkt mit Produkt und Nummer der Angabe. Gibt es nichts zu beanstanden, schreibe das in einem Satz.
-
----
-
-${ANGABEN}` },
-      { id: "sa-kaestchen", name: "Unklare Kästchen", key: "kaestchen", rolle, modell: "default",
-        prompt: `Auftrag: Erkläre für jedes Produkt und jede Angabe mit Status „Unklar“ oder „Widersprüchlich“ oder mit unklarem Kästcheninhalt, was in der Checkliste steht und warum das nicht als eindeutiges Kreuz gilt. Nenne, was der Sales-Service beim Vertrieb klären sollte. Setze keinen Status und empfiehl keinen; die Entscheidung trifft der Mensch. Gibt es keine unklaren Kästchen, schreibe das in einem Satz.
-
----
-
-${ANGABEN}` },
-      { id: "sa-frage", name: "Frage zur Checkliste", key: "antwort", rolle, modell: "quick", bedingung: { feld: "frage", op: "gefuellt", wert: "" },
-        prompt: `Auftrag: Beantworte die Frage des Sales-Service zu dieser Checkliste. Steht die Antwort nicht in den Angaben, sage das und nenne, wo sie zu klären wäre.
-
-Frage: {{frage}}
-
----
-
-${ANGABEN}` },
-      { id: "sa-zusammenfassung", name: "Zusammenfassung fürs Angebot", key: "zusammenfassung", rolle, modell: "default", datei: "docx",
-        prompt: `Auftrag: Schreibe eine kurze Zusammenfassung für das Angebot: ein Absatz zu Kunde und Projekt, dann je Produkt mit Status „Ja“ die wichtigsten gewählten Leistungen aus den Angaben, zum Schluss offene Punkte, die vor dem Versand geklärt sein müssen. Produkte mit Status Nein, Unklar oder Widersprüchlich erscheinen nur unter den offenen Punkten. Schreibe in der Angebotssprache ({{sprache}}). Überschrift: „Serviceangebot {{kunde}}“.
-
----
-
-${ANGABEN}` },
       { id: "sa-struktur", name: "Angebotsstruktur", key: "struktur", rolle, modell: "complex", format: "dateien",
         quellen: [{ typ: "sharepoint", titel: "Vorlagen und Formblätter (SharePoint aberle-doc, Prozessdokumente)", url: SA_VORLAGEN_URL }],
         prompt: `Auftrag: Baue die Angebotsstruktur als Dateipaket mit leeren Ordnern ("ordner"), Kopien der Originalvorlagen ("kopien") und zwei Textdateien ("dateien").
 
 ${STRUKTUR_REGELN}
-
-Zusammenfassung fürs Angebot (für Angebotszusammenfassung.md):
-{{zusammenfassung}}
 
 ---
 
