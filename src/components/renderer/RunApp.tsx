@@ -3,7 +3,7 @@ import { ChevronLeft } from "lucide-react";
 import { useBlocker } from "react-router";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
-import { isFieldType, type App, type Block } from "@/lib/schema";
+import { isFieldType, type App, type Block, type Step } from "@/lib/schema";
 import { fieldsOf, seiteMit, seitenTitel, seitenVon, stepsFor, walk } from "@/lib/model";
 import { Blatt, Pager, blaetterTaste } from "@/components/layout/Pager";
 import { readFileInfo, UnsupportedFormatError } from "@/lib/files";
@@ -119,6 +119,33 @@ function Uebersicht({ app, kacheln, outs, laeuft, geaendert, onStart, onOeffnen 
   );
 }
 
+/** Prüfseite: Stand des Schritts, der die Felder dieser Seite ausfüllt (läuft, fehlgeschlagen, noch nicht gestartet). */
+function VorbelegungStand({ schritte, outs, laeuft, onStart }: { schritte: Step[]; outs: Record<string, OutState>; laeuft: boolean; onStart: (st: Step) => void }) {
+  if (!schritte.length) return null;
+  const zeilen = schritte.map((st) => ({ st, o: outs[st.id] })).filter(({ o }) => !o || o.status === "laeuft" || o.status === "wartet" || o.status === "fehler" || o.status === "gestoppt" || o.status === "simuliert");
+  if (!zeilen.length) return null;
+  return (
+    <div className="o-stack" role="status" aria-live="polite">
+      {zeilen.map(({ st, o }) => {
+        if (!o || o.status === "gestoppt") return (
+          <div key={st.id} className="o-vorbelegung">
+            <span>Die Felder werden ausgefüllt, sobald „{st.name}“ gelaufen ist.</span>
+            <button type="button" className="o-btn outline" disabled={laeuft} onClick={() => onStart(st)}>{st.name} starten</button>
+          </div>
+        );
+        if (o.status === "fehler") return (
+          <div key={st.id} className="o-vorbelegung" data-art="fehler">
+            <span>„{st.name}“ ist fehlgeschlagen{o.meldung ? `: ${o.meldung}` : "."} Die Felder kannst du trotzdem von Hand ausfüllen.</span>
+            <button type="button" className="o-btn outline" disabled={laeuft} onClick={() => onStart(st)}>Erneut versuchen</button>
+          </div>
+        );
+        if (o.status === "simuliert") return <div key={st.id} className="o-vorbelegung"><span>Simulation: Ohne KI-Anbindung bleiben die Felder leer. Bitte von Hand ausfüllen.</span></div>;
+        return <div key={st.id} className="o-vorbelegung"><span>„{st.name}“ läuft, die Felder werden gleich ausgefüllt\u00a0…</span></div>;
+      })}
+    </div>
+  );
+}
+
 /** Applikation im Modus „run“: Eingaben aktiv, KI-Buttons starten den Ablauf. */
 /**
  * Verlassen-Schutz als eigene Komponente: Der Router kennt nur den zuletzt registrierten Blocker. Eine
@@ -175,6 +202,8 @@ export const RunApp = forwardRef<RunAppHandle, {
   const [stand, setStand] = useState("");
   /** Zuletzt aus einem KI-Ergebnis vorbelegte Werte je Feld: Nur Felder, die die Person seitdem nicht geändert hat, werden erneut überschrieben */
   const vorbelegt = useRef<Record<string, string | boolean>>({});
+  /** Hinweise der KI zu vorbelegten Feldern („zu klären“, Fundstelle); die Markierung verschwindet, sobald die Person das Feld setzt */
+  const [hinweise, setHinweise] = useState<Record<string, { hinweis?: string; klaeren?: boolean }>>({});
   const vorbelegen = useCallback((stepKey: string, text: string) => {
     const neu = vorbelegungen(app, stepKey, text);
     if (!neu) return;
@@ -183,10 +212,11 @@ export const RunApp = forwardRef<RunAppHandle, {
       for (const [k, v] of Object.entries(neu)) {
         const alt = w[k];
         const unveraendert = alt === undefined || alt === "" || alt === false || alt === vorbelegt.current[k];
-        if (unveraendert) { next[k] = v; vorbelegt.current[k] = v; }
+        if (unveraendert) { next[k] = v.wert; vorbelegt.current[k] = v.wert; }
       }
       return next;
     });
+    setHinweise((h) => ({ ...h, ...Object.fromEntries(Object.entries(neu).map(([k, v]) => [k, { hinweis: v.hinweis, klaeren: v.klaeren }])) }));
     setFehler((f) => { if (!f.size) return f; const n = new Set(f); Object.keys(neu).forEach((k) => n.delete(k)); return n; });
   }, [app]);
 
@@ -201,7 +231,9 @@ export const RunApp = forwardRef<RunAppHandle, {
       walk(p.children ?? [], (b) => { if (b.type === "output" && b.props.quelle) ids.push(b.props.quelle); });
       return { id: p.id, titel: seitenTitel(p, seiten.indexOf(p)), seite: p, stepIds: ids };
     });
-    const ohneElement = app.steps.filter((s) => !mitElement.has(s.id)).map((s) => ({ id: `schritt:${s.id}`, titel: s.name, stepIds: [s.id] }));
+    // Schritte, deren Ergebnis nur Felder vorbelegt (Prüfseite), brauchen keine Kachel: ihr Ergebnis sind die Felder
+    const nurVorbelegung = new Set(fieldsOf(app).map((b) => b.props.aus.trim().split(".")[0].toLowerCase()).filter(Boolean));
+    const ohneElement = app.steps.filter((s) => !mitElement.has(s.id) && !nurVorbelegung.has(s.key.toLowerCase())).map((s) => ({ id: `schritt:${s.id}`, titel: s.name, stepIds: [s.id] }));
     return [...ausSeiten, ...ohneElement].filter((k) => k.stepIds.length);
   }, [app, seiten]);
   const mitUebersicht = kacheln.length > 0;
@@ -293,7 +325,7 @@ export const RunApp = forwardRef<RunAppHandle, {
     return s >= 0 ? eingabeSeiten.indexOf(seiten[s]) : -1;
   }, [app, eingabeSeiten, seiten]);
 
-  const starten = useCallback(async (buttonId: string, aktion: string) => {
+  const starten = useCallback(async (buttonId: string, aktion: string, bleiben = false) => {
     if (ctl.current) { ctl.current.abort(); return; }
     const steps = stepsFor(app, aktion);
     if (!steps.length) return;
@@ -325,7 +357,8 @@ export const RunApp = forwardRef<RunAppHandle, {
     setStand(JSON.stringify(werte) + Object.keys(files).join("|"));
     // Wohin? Steht das Ergebnis des ersten Schritts auf einer Eingabeseite, dorthin; sonst in die Ergebnisübersicht.
     const inline = eingabeIdxMit((b) => b.type === "output" && b.props.quelle === steps[0].id);
-    if (inline >= 0) {
+    if (bleiben) { /* Start im Hintergrund, z. B. Lese-Schritt beim Wechsel auf die Prüfseite: Ansicht bleibt */ }
+    else if (inline >= 0) {
       if (inline !== akt || detail) wechseln(inline);
       // Ergebnis ins Bild holen, falls es unterhalb der Eingaben steht
       else requestAnimationFrame(() => frame.current?.querySelector(`[data-src="${steps[0].id}"]`)?.scrollIntoView({ block: "nearest", behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" }));
@@ -360,8 +393,17 @@ export const RunApp = forwardRef<RunAppHandle, {
   /** „Weiter“ in die Übersicht startet den Ablauf automatisch (einmal); Punkte und Bild-Tasten blättern nur. */
   const weiterKlick = (i: number) => {
     if (mitUebersicht && i === uebersichtIdx && nochNichtGelaufen && !laeuft && app.steps.length) { void starten("uebersicht", uebersichtAktion); return; }
+    // Prüfseite: Braucht die nächste Seite ein KI-Ergebnis, das noch nicht da ist, startet der Lese-Schritt mit
+    const fehlt = eingabeSeiten[i] ? vorbelegungsSchritte(eingabeSeiten[i]).filter((st) => !outs[st.id] && !laeuft) : [];
+    if (fehlt.length) void starten(`vorbelegen:${fehlt[0].id}`, fehlt.map((st) => st.id).join(","), true);
     wechseln(i);
   };
+  /** Schritte, aus deren JSON-Ergebnis Felder dieser Seite vorbelegt werden */
+  const vorbelegungsSchritte = useCallback((seite: Block): Step[] => {
+    const keys = new Set<string>();
+    walk(seite.children ?? [], (b) => { if (isFieldType(b.type) && "aus" in b.props && b.props.aus.trim()) keys.add(b.props.aus.trim().split(".")[0].toLowerCase()); });
+    return app.steps.filter((st) => keys.has(st.key.toLowerCase()));
+  }, [app.steps]);
 
   const ebenen = useMemo(() => {
     const out: Record<string, number> = {};
@@ -370,7 +412,16 @@ export const RunApp = forwardRef<RunAppHandle, {
     return out;
   }, [app.blocks]);
 
-  const ctx: RunCtx = { werte, setWert: (k, v) => { setWerte((w) => ({ ...w, [k]: v })); setFehler((f) => { if (!f.has(k)) return f; const n = new Set(f); n.delete(k); return n; }); }, files, dateiInfo, dateiFehler, setDatei: (k, f) => void setDatei(k, f), fehler, outs, laeuft, ebenen, starten: (b, a) => void starten(b, a) };
+  const ctx: RunCtx = {
+    werte,
+    setWert: (k, v) => {
+      setWerte((w) => ({ ...w, [k]: v }));
+      setFehler((f) => { if (!f.has(k)) return f; const n = new Set(f); n.delete(k); return n; });
+      // Die Person hat entschieden: Markierung „zu klären“ weg, der Hinweis bleibt als Herkunft stehen
+      setHinweise((h) => (h[k]?.klaeren ? { ...h, [k]: { ...h[k], klaeren: false } } : h));
+    },
+    files, dateiInfo, dateiFehler, setDatei: (k, f) => void setDatei(k, f), fehler, hinweise, outs, laeuft, ebenen, starten: (b, a) => void starten(b, a),
+  };
 
   const renderList: RenderList = (blocks: Block[]) => inReihen(blocks, (b) => <BlockContent key={b.id} b={b} app={app} mode="run" renderList={renderList} />);
 
@@ -474,7 +525,9 @@ export const RunApp = forwardRef<RunAppHandle, {
           ) : imUeberblick ? (
             <Uebersicht app={app} kacheln={kacheln} outs={outs} laeuft={!!laeuft} geaendert={geaendert}
               onStart={() => void starten("uebersicht", uebersichtAktion)} onOeffnen={oeffnen} />
-          ) : p && <>{renderList(p.children ?? [], `${p.id}:c`)}{mitPflicht && <p className="o-pflicht o-help"><em aria-hidden="true">*</em> Pflichtfeld</p>}</>}
+          ) : p && <>
+            <VorbelegungStand schritte={vorbelegungsSchritte(p)} outs={outs} laeuft={!!laeuft} onStart={(st) => void starten(`vorbelegen:${st.id}`, st.id, true)} />
+            {renderList(p.children ?? [], `${p.id}:c`)}{mitPflicht && <p className="o-pflicht o-help"><em aria-hidden="true">*</em> Pflichtfeld</p>}</>}
         </Blatt>
         {offen ? (
           <Pager className="app-pager" label="Ergebnis" mehrzahl="Ergebnisse" seite={kIdx} anzahl={kacheln.length} titel={(i) => kacheln[i].titel}

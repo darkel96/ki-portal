@@ -31,14 +31,17 @@ Regeln für dich:
 - Antworte kurz und sachlich in einfachem Markdown: Aufzählungen mit „- “, Hervorhebung mit **…**, keine Tabellen, keine Links.`;
 
 /** Die geprüften Angaben der Prüfseite, wie sie in jeden weiteren Schritt gehen */
-const ANGABEN = `Angaben aus der Checkliste (vom Sales-Service geprüft und ggf. korrigiert):
+const ANGABEN = `Angaben aus der Checkliste (vom Sales-Service geprüft und ggf. korrigiert; diese Status gelten):
 Kunde: {{kunde}}
 Projekt: {{projekt}}
 Standort: {{standort}}
 Angebotssprache: {{sprache}}
 
 Produkte (Status laut Prüfung; nur „Ja“ wird angelegt):
-${SA_PRODUKTE.map((p) => `- ${p.titel} (${p.sap}): Status {{status_${p.key}}}; Angebotsnummer {{nummer_${p.key}}}\n  Angaben: {{angaben_${p.key}}}`).join("\n")}
+${SA_PRODUKTE.map((p) => `- ${p.titel} (${p.sap}): Status {{status_${p.key}}}; Angebotsnummer {{nummer_${p.key}}}`).join("\n")}
+
+Gelesene Einzelheiten je Produkt (JSON aus dem Lese-Schritt; Status darin sind überholt, wenn oben ein anderer steht):
+{{lesen}}
 
 Vollständiger Text der Checkliste ({{checkliste_name}}):
 {{checkliste}}`;
@@ -66,41 +69,40 @@ const seite = (titel: string, children: Block[]): Block => ({ id: id(), type: "s
 
 export function serviceangebotApp(): App {
   n = 0;
-  const produktFelder = (teil: typeof SA_PRODUKTE) => teil.flatMap((p) => [
-    feld("select", { label: `${p.titel} (${p.sap})`, key: `status_${p.key}`, optionen: STATUS, aus: `lesen.produkte.${p.key}.status`, hilfe: "Status laut Kreuz. Bei Unklar oder Widersprüchlich hier von Hand setzen." }),
-    feld("input", { label: `Angebotsnummer ${p.titel}`, key: `nummer_${p.key}`, aus: `lesen.produkte.${p.key}.nummer`, placeholder: PLATZHALTER, hilfe: "Eigene Nummer je Produktordner." }),
-    feld("textarea", { label: `Angaben zu ${p.titel}`, key: `angaben_${p.key}`, rows: 3, aus: `lesen.produkte.${p.key}.angaben`, placeholder: "Gewählte Leistungen, Mengen, Zeiträume aus der Checkliste" }),
-  ]);
+  /** Je Produkt: Status (vorbelegt, mit Hinweis der KI) und Angebotsnummer; drei Produkte nebeneinander */
+  const produkt = (p: (typeof SA_PRODUKTE)[number]): Block[] => [
+    feld("select", { label: `${p.titel} (${p.sap})`, key: `status_${p.key}`, optionen: STATUS, aus: `lesen.produkte.${p.key}.status`, hilfe: "Status laut Kreuz in der Checkliste." }),
+    feld("input", { label: `Angebotsnummer ${p.titel}`, key: `nummer_${p.key}`, aus: `lesen.produkte.${p.key}.nummer`, placeholder: PLATZHALTER }),
+  ];
+  const spalten = (teil: typeof SA_PRODUKTE): Block => ({ id: id(), type: "columns", props: { count: 3 }, cols: teil.map(produkt) } as Block);
   const blocks: Block[] = [
     seite("Checkliste", [
       block("heading", { text: "Serviceangebot vorbereiten", level: 1 }),
-      block("text", { text: "Lade die ausgefüllte Service-Checkliste hoch. Copilot liest sie, du prüfst und korrigierst die gelesenen Werte, danach entstehen die Zusammenfassung und die Angebotsstruktur mit den Originalvorlagen aus SharePoint." }),
+      block("text", { text: "Lade die ausgefüllte Service-Checkliste hoch. Copilot liest sie und füllt die Prüfseite aus; du bestätigst oder korrigierst die Werte, danach entstehen die Zusammenfassung und die Angebotsstruktur mit den Originalvorlagen aus SharePoint." }),
       block("callout", { text: "Copilot gibt nur Hinweise. Welche Produkte angelegt werden, bestimmt der Status, den du auf der Prüfseite bestätigst.", tone: "info" }),
       block("section", { pad: "m", border: true }, [
-        feld("file", { label: "Service-Checkliste (Word)", key: "checkliste", pflicht: true, hilfe: "Die ausgefüllte Checkliste als .docx. Kästchen werden als ☒ und ☐ gelesen." }),
-        feld("select", { label: "Angebotssprache", key: "sprache", optionen: ["Deutsch", "Englisch"], pflicht: true, beispiel: "Deutsch", aus: "lesen.sprache", hilfe: "Bestimmt die Sprache der Zusammenfassung und der Angebotsdokumente." }),
+        feld("file", { label: "Service-Checkliste (Word)", key: "checkliste", pflicht: true, hilfe: "Die ausgefüllte Checkliste als .docx. Angekreuzte Kästchen werden als ☒ gelesen, leere als ☐." }),
+        feld("select", { label: "Angebotssprache", key: "sprache", optionen: ["Deutsch", "Englisch"], pflicht: true, beispiel: "Deutsch", aus: "lesen.sprache", hilfe: "Wird aus der Checkliste übernommen; bestimmt Zusammenfassung und Angebotsdokumente." }),
         block("button", { text: "Checkliste lesen", aktion: "sa-lesen" }),
       ]),
     ]),
     seite("Prüfen und korrigieren", [
-      block("heading", { text: "Das hat Copilot gelesen", level: 2 }),
-      block("text", { text: "Prüfe die Werte und korrigiere sie bei Bedarf. Alles Weitere arbeitet mit deinen geprüften Angaben.", size: "s" }),
-      block("output", { titel: "Gelesene Checkliste", quelle: "sa-lesen", stil: "plain", pfad: "bericht" }),
-      block("section", { pad: "m", border: true }, [
-        block("heading", { text: "Projektdaten", level: 3 }),
+      block("heading", { text: "Gelesene Werte prüfen", level: 2 }),
+      block("text", { text: "Copilot hat die Felder ausgefüllt. Gelb markierte Felder waren nicht eindeutig: bitte prüfen und von Hand setzen. Nur Produkte mit „Ja“ bekommen einen Ordner.", size: "s" }),
+      block("section", { pad: "s", border: true }, [
         feld("input", { label: "Kunde", key: "kunde", aus: "lesen.kunde", pflicht: true }),
         feld("input", { label: "Projekt", key: "projekt", aus: "lesen.projekt", pflicht: true }),
         feld("input", { label: "Standort der Anlage", key: "standort", aus: "lesen.standort" }),
       ]),
-      block("section", { pad: "m", border: true }, [
-        block("heading", { text: "Produkte: Status bestätigen", level: 3 }),
-        block("text", { text: "Der Status kommt aus dem Kreuz in der Checkliste. Bei Unklar oder Widersprüchlich hier von Hand setzen; nur „Ja“ bekommt einen Ordner.", size: "s" }),
-        { id: id(), type: "columns", props: { count: 2 }, cols: [produktFelder(SA_PRODUKTE.slice(0, 3)), produktFelder(SA_PRODUKTE.slice(3))] } as Block,
+      block("section", { pad: "s", border: true }, [
+        spalten(SA_PRODUKTE.slice(0, 3)),
+        spalten(SA_PRODUKTE.slice(3)),
       ]),
-      // Wie in der Serviceangebote-App: die KI-Hinweise stehen auf derselben Seite wie die Korrekturen, alle optional
+    ]),
+    seite("Hinweise von Copilot", [
+      block("heading", { text: "Hinweise von Copilot (optional)", level: 2 }),
+      block("text", { text: "Copilot liest die geprüften Angaben samt Korrekturen. Die Hinweise ändern nichts; die Entscheidung bleibt beim Sales-Service. Du kannst auch direkt zur Auswertung gehen.", size: "s" }),
       block("section", { pad: "m", border: true }, [
-        block("heading", { text: "Hinweise von Copilot (optional)", level: 3 }),
-        block("text", { text: "Copilot liest die geprüften Angaben samt Korrekturen. Die Hinweise ändern nichts; die Entscheidung bleibt beim Sales-Service.", size: "s" }),
         block("button", { text: "Unklare Kästchen erklären", aktion: "sa-kaestchen", stil: "outline" }),
         block("output", { titel: "Unklare Kästchen", quelle: "sa-kaestchen", stil: "card" }),
         block("button", { text: "Checkliste plausibilisieren", aktion: "sa-plausibel", stil: "outline" }),
@@ -117,17 +119,19 @@ export function serviceangebotApp(): App {
   const rolle = GRUNDLAGE;
   const app = AppSchema.parse({
     id: "serviceangebot", name: "Serviceangebot vorbereiten", bereich: "Service",
-    beschreibung: "Liest die Service-Checkliste, lässt dich die gelesenen Werte prüfen und erstellt Zusammenfassung und Angebotsstruktur mit den Vorlagen aus SharePoint als ZIP.",
+    beschreibung: "Liest die Service-Checkliste, füllt die Prüfseite aus und erstellt nach deiner Bestätigung Zusammenfassung und Angebotsstruktur mit den Vorlagen aus SharePoint als ZIP.",
     theme: { accent: "#0f2f5f" }, status: "freigegeben", version: 1,
     blocks,
     steps: [
       { id: "sa-lesen", name: "Checkliste lesen", key: "lesen", format: "json", modell: "complex", rolle,
-        prompt: `Lies die Service-Checkliste und gib die Werte als JSON zurück, damit der Sales-Service sie prüfen kann.
+        prompt: `Lies die Service-Checkliste und gib die Werte als JSON zurück; damit wird die Prüfseite ausgefüllt, auf der der Sales-Service die Werte bestätigt oder korrigiert.
 
-Status je Produkt: "Ja" nur bei eindeutigem Kreuz (☒) im Ja-Kästchen, "Nein" bei Kreuz im Nein-Kästchen, "Unklar" wenn kein Kästchen angekreuzt ist oder die Darstellung keine Zuordnung erlaubt, "Widersprüchlich" wenn beide angekreuzt sind oder Angaben dem Kreuz widersprechen. "fundstelle" nennt die Stelle in der Checkliste (Abschnitt, Zeile), "nummer" die Angebotsnummer des Produkts, falls eingetragen (sonst ""), "angaben" fasst die zugehörigen Angaben zusammen (gewählte Leistungen, Mengen, Zeiträume; kurz, mit Nummern der Unterpunkte). "bericht" ist Markdown für die Prüfseite: je Produkt eine Zeile „**Produkt**: Status – Fundstelle“, danach die Projektdaten und der Lieferumfang in Stichpunkten, zum Schluss offene Punkte. Keine Zugangsdaten.
+So liest du die Kästchen: Angekreuzte Kästchen stehen als ☒, leere als ☐, jeweils direkt vor oder in derselben Zeile wie ihr Begriff. Stehen mehrere Kästchen vor mehreren Begriffen, gilt die Reihenfolge (erstes Kästchen = erster Begriff). Bei jeder Position (Pos. 1 bis 6) gehört das erste Kästchen zu „Ja“ und das zweite zu „Nein“.
+
+Status je Produkt: "Ja" nur bei eindeutigem Kreuz im Ja-Kästchen, "Nein" bei Kreuz im Nein-Kästchen, "Unklar" wenn kein Kästchen angekreuzt ist oder die Darstellung keine Zuordnung erlaubt, "Widersprüchlich" wenn beide angekreuzt sind oder die Angaben darunter dem Kreuz widersprechen. Zu jedem Feld gehört ein "hinweis": bei Status die Fundstelle (Position, Zeile) und in einem Halbsatz, was angekreuzt ist; bei Unklar oder Widersprüchlich der Grund. "klaeren" ist true bei Unklar, Widersprüchlich oder wenn der Sales-Service etwas nachprüfen sollte, sonst false. "nummer" ist die Angebotsnummer des Produkts, falls eingetragen (sonst ""). "angaben" fasst die zugehörigen Angaben zusammen (gewählte Leistungen, Mengen, Zeiträume, mit Nummern der Unterpunkte). Keine Zugangsdaten.
 
 Antworte nur mit JSON dieser Form:
-{"kunde": "", "projekt": "", "standort": "", "sprache": "Deutsch oder Englisch", "produkte": {${SA_PRODUKTE.map((p) => `"${p.key}": {"status": "Ja|Nein|Unklar|Widersprüchlich", "fundstelle": "", "nummer": "", "angaben": ""}`).join(", ")}}, "lieferumfang": "", "bericht": ""}
+{"kunde": "", "projekt": "", "standort": "", "sprache": {"wert": "Deutsch|Englisch", "hinweis": "", "klaeren": false}, "produkte": {${SA_PRODUKTE.map((p) => `"${p.key}": {"status": {"wert": "Ja|Nein|Unklar|Widersprüchlich", "hinweis": "", "klaeren": false}, "nummer": "", "angaben": ""}`).join(", ")}}, "lieferumfang": "", "offen": ""}
 
 Produkte in der Reihenfolge der Checkliste: ${SA_PRODUKTE.map((p) => `${p.titel} (${p.sap})`).join("; ")}.
 

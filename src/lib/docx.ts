@@ -2,8 +2,9 @@
  * Word-Dateien (.docx) als Text lesen, so dass Formulare erhalten bleiben: Kästchen werden zu ☒ (angekreuzt)
  * und ☐ (leer), Tabellen zu Zeilen mit „|“. Das braucht z. B. die Service-Checkliste, deren Ja/Nein-Kästchen
  * in einfachen Textauszügen verloren gehen.
- * Erkannt werden: Inhaltssteuerelemente (w14:checkbox), ältere Formularfelder (w:checkBox) und
- * Wingdings-Symbole (w:sym), auch als Zeichen in Wingdings-Schrift.
+ * Erkannt werden: Inhaltssteuerelemente (w14:checkbox), ältere Formularfelder (w:checkBox), Wingdings-Symbole
+ * (w:sym, auch als Zeichen in Wingdings-Schrift) und gezeichnete Kästchen: kleine Textfelder (Formen) im Absatz,
+ * die leer (☐) sind oder ein „x“ enthalten (☒), wie in der Service-Checkliste.
  */
 export async function docxAlsText(daten: ArrayBuffer): Promise<string> {
   const { default: JSZip } = await import("jszip");
@@ -91,6 +92,13 @@ function absatz(p: Element): string {
         continue;
       }
       if (feld) continue;   // Text im Formularfeld (z. B. FORMCHECKBOX) nicht doppelt ausgeben
+      if (t === "AlternateContent") {
+        // Neue Form (mc:Choice) und ältere Darstellung (mc:Fallback) beschreiben dasselbe: nur eine auswerten
+        const wahl = Array.from(n.children).find((x) => lokal(x) === "Choice") ?? Array.from(n.children).find((x) => lokal(x) === "Fallback");
+        if (wahl) out += textfelder(wahl);
+        continue;
+      }
+      if (t === "drawing" || t === "pict") { out += textfelder(n); continue; }
       if (t === "t") out += n.textContent ?? "";
       else if (t === "tab") out += "\t";
       else if (t === "br" || t === "cr") out += "\n";
@@ -106,4 +114,22 @@ function absatz(p: Element): string {
   };
   lauf(p);
   return s;
+}
+
+/**
+ * Gezeichnete Kästchen und Textfelder in einem Absatz: Jedes Textfeld (w:txbxContent) wird zu ☒, wenn es nur ein
+ * Kreuz enthält (x, X, ✓, ✔), zu ☐, wenn es leer ist; längerer Inhalt wird in eckigen Klammern eingefügt.
+ */
+function textfelder(el: Element): string {
+  let out = "";
+  const inhalte = Array.from(el.getElementsByTagNameNS(W, "txbxContent"));
+  // Verschachtelte Formen: nur die äußeren Inhalte, sonst erscheint derselbe Text doppelt
+  const aeussere = inhalte.filter((c) => !inhalte.some((o) => o !== c && o.contains(c)));
+  for (const c of aeussere) {
+    const text = bloecke(c).join("\n").replace(/[☒☐]/g, (z) => z).trim();
+    if (!text) out += "☐";
+    else if (/^[xX✓✔☒×+]{1,2}$/.test(text)) out += "☒";
+    else out += `[${text.replace(/\s+/g, " ").slice(0, 200)}]`;
+  }
+  return out;
 }

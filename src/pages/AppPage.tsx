@@ -39,7 +39,7 @@ function LetzterLaufDialog({ lauf, app, offen, onOffen }: { lauf: Lauf; app: App
     }
     return o;
   }, [lauf]); // eslint-disable-line react-hooks/exhaustive-deps
-  const ctx: RunCtx = { werte: {}, setWert: () => {}, files: {}, dateiInfo: {}, setDatei: () => {}, fehler: new Set(), outs, laeuft: null, ebenen: {}, starten: () => {} };
+  const ctx: RunCtx = { werte: {}, setWert: () => {}, files: {}, dateiInfo: {}, setDatei: () => {}, fehler: new Set(), hinweise: {}, outs, laeuft: null, ebenen: {}, starten: () => {} };
   return (
     <Dialog open={offen} onOpenChange={onOffen}>
       <DialogContent className="sm:max-w-3xl lauf-dialog">

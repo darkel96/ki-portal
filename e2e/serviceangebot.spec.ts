@@ -21,11 +21,12 @@ async function checklisteDocx(): Promise<Buffer> {
   return z.generateAsync({ type: "nodebuffer" });
 }
 
+const st = (wert: string, hinweis: string, klaeren = false) => ({ wert, hinweis, klaeren });
 const LESEN = JSON.stringify({
-  kunde: "Beispielkunde GmbH", projekt: "Hochregallager", standort: "St. Gallen", sprache: "Deutsch",
-  produkte: { remoteservice: { status: "Ja", fundstelle: "Pos. 1", nummer: "190014105", angaben: "RA, SM" }, softwaremaintenance: { status: "Nein", fundstelle: "Pos. 2", nummer: "", angaben: "" }, itservices: { status: "Unklar", fundstelle: "Pos. 3", nummer: "", angaben: "" },
-    wartungsvertrag: { status: "Ja", fundstelle: "Pos. 4", nummer: "", angaben: "4.4 Schichtbetrieb: 2-Schicht" }, ersatzteilpaket: { status: "Nein", fundstelle: "Pos. 5", nummer: "", angaben: "" }, residentmaintenance: { status: "Widersprüchlich", fundstelle: "Pos. 6", nummer: "", angaben: "beide Kästchen" } },
-  lieferumfang: "", bericht: "- **Wartungsvertrag**: Ja – Pos. 4\n- **Resident Maintenance**: Widersprüchlich – beide Kästchen",
+  kunde: "Beispielkunde GmbH", projekt: "Hochregallager", standort: "St. Gallen", sprache: st("Deutsch", "Seite 1: Deutsch angekreuzt"),
+  produkte: { remoteservice: { status: st("Ja", "Pos. 1: Ja angekreuzt; RA und SM"), nummer: "190014105", angaben: "RA, SM" }, softwaremaintenance: { status: st("Nein", "Pos. 2: Nein angekreuzt"), nummer: "", angaben: "" }, itservices: { status: st("Unklar", "Pos. 3: kein Kästchen angekreuzt", true), nummer: "", angaben: "" },
+    wartungsvertrag: { status: st("Ja", "Pos. 4: Ja angekreuzt; 4.4 Schichtbetrieb 2-Schicht"), nummer: "", angaben: "4.4 Schichtbetrieb: 2-Schicht" }, ersatzteilpaket: { status: st("Nein", "Pos. 5: Nein angekreuzt"), nummer: "", angaben: "" }, residentmaintenance: { status: st("Widersprüchlich", "Pos. 6: beide Kästchen angekreuzt", true), nummer: "", angaben: "beide Kästchen" } },
+  lieferumfang: "", offen: "",
 });
 const PAKET = JSON.stringify({
   hinweis: "Struktur für Beispielkunde",
@@ -62,18 +63,20 @@ test("Serviceangebot: Checkliste lesen, Prüfseite korrigieren, ZIP", async ({ p
   await expect(page.getByRole("heading", { name: "Serviceangebot vorbereiten", level: 1 })).toBeVisible();
   await page.locator('input[type="file"]').setInputFiles({ name: "Service_Checkliste.docx", mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document", buffer: await checklisteDocx() });
   await expect(page.getByText(/Service_Checkliste\.docx gelesen/)).toBeVisible();
-  await page.getByLabel("Angebotssprache").selectOption("Deutsch");
-  await page.getByRole("button", { name: "Checkliste lesen" }).click();
-
-  // Prüfseite: Felder aus dem JSON vorbelegt, Bericht als Markdown
-  await expect(page.getByRole("heading", { name: "Das hat Copilot gelesen" })).toBeVisible();
+  // „Weiter“ auf die Prüfseite startet den Lese-Schritt von selbst; die Felder füllen sich, sobald er fertig ist
+  await page.getByRole("navigation", { name: "Seiten blättern" }).getByRole("button", { name: /Weiter/ }).click();
+  await expect(page.getByRole("heading", { name: "Gelesene Werte prüfen" })).toBeVisible();
   await expect(page.getByLabel("Kunde")).toHaveValue("Beispielkunde GmbH", { timeout: 10_000 });
   await expect(page.getByLabel("Wartungsvertrag (Z50)")).toHaveValue("Ja");
   await expect(page.getByLabel("Resident Maintenance (Z61)")).toHaveValue("Widersprüchlich");
   await expect(page.getByLabel("Angebotsnummer Remote Service")).toHaveValue("190014105");
-  await expect(page.getByLabel("Angaben zu Wartungsvertrag")).toHaveValue("4.4 Schichtbetrieb: 2-Schicht");
+  // Hinweise der KI stehen am Feld; nicht eindeutige Felder sind markiert, bis die Person sie setzt
+  await expect(page.getByText("Pos. 4: Ja angekreuzt; 4.4 Schichtbetrieb 2-Schicht")).toBeVisible();
+  await expect(page.locator(".o-field.klaeren")).toHaveCount(2);
+  await expect(page.locator('[data-key="status_itservices"] .o-klaeren-marke')).toHaveText("Zu klären");
   await page.screenshot({ path: "screenshots/desktop-serviceangebot-pruefseite.png" });
-  await expect(page.locator("[data-src] .o-body strong", { hasText: "Wartungsvertrag" }).first()).toBeVisible();
+  // Die Prüfseite passt ohne Scrollen auf den Bildschirm
+  expect(await page.locator(".app-inner").evaluate((el) => el.scrollHeight - el.clientHeight)).toBeLessThanOrEqual(2);
   // Der Word-Leser hat die Kästchen erhalten: angekreuzt ☒, leer ☐, bei allen drei Arten, dazu die Tabelle
   const lese = prompts[0];
   expect(lese).toContain("Wartungsvertrag Ja ☒ Nein ☐");
@@ -81,10 +84,11 @@ test("Serviceangebot: Checkliste lesen, Prüfseite korrigieren, ZIP", async ({ p
   expect(lese).toContain("Schulung Ja ☒ Nein ☐");
   expect(lese).toContain("| Standort | St. Gallen |");
   expect(lese).not.toContain("FORMCHECKBOX");
-  // Korrektur von Hand bleibt erhalten und geht in die nächsten Schritte
+  // Korrektur von Hand bleibt erhalten, nimmt die Markierung weg und geht in die nächsten Schritte
   await page.getByLabel("Resident Maintenance (Z61)").selectOption("Nein");
+  await expect(page.locator(".o-field.klaeren")).toHaveCount(1);
 
-  // Hinweise stehen auf derselben Seite wie die Korrekturen (wie im Original), alle optional
+  await page.getByRole("navigation", { name: "Seiten blättern" }).getByRole("button", { name: /Weiter/ }).click();
   await page.getByRole("button", { name: "Checkliste plausibilisieren" }).click();
   await expect(page.locator('[data-src][data-status="fertig"]', { hasText: "Plausibilisierung" })).toBeVisible({ timeout: 10_000 });
   expect(prompts.at(-1)).toContain("Resident Maintenance (Z61): Status Nein");
