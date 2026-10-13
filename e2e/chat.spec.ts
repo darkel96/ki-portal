@@ -49,3 +49,15 @@ test("Fachexperten-Chat: Frage, Antwort mit Quelle, Rückfrage mit Verlauf", asy
   await chat.getByRole("button", { name: "Neu beginnen" }).click();
   await expect(chat.locator(".o-chat-n.von-mensch")).toHaveCount(0);
 });
+
+test("Baukasten: {{frage}} und {{verlauf}} gelten für den Chat-Experten", async ({ page }, info) => {
+  test.skip(info.project.name !== "desktop", "einmal reicht");
+  await page.goto("/baukasten?kopie=cra-experte");
+  await page.getByRole("tab", { name: /KI-Ablauf/ }).click();
+  // Keine Warnung zu den Chat-Variablen, Einsetzen-Chips vorhanden, Fußzeile nennt den Chat
+  await expect(page.getByRole("tab", { name: "Prüfung", exact: true })).toBeVisible();
+  await expect(page.getByText(/Diese Variable gibt es an dieser Stelle nicht/)).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Frage im Chat" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Bisheriger Verlauf" })).toBeVisible();
+  await expect(page.getByText(/Antwortet als Experte im Chat/)).toBeVisible();
+});

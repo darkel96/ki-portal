@@ -3,7 +3,7 @@ import { Copy, Send, Square, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import type { App, Block } from "@/lib/schema";
 import { fill } from "@/lib/model";
-import { KiSimulation, kiSenden } from "@/lib/ki";
+import { GespraechVerfallen, KiSimulation, kiSenden } from "@/lib/ki";
 import { anfrageVorbereiten, kontext } from "@/lib/runner";
 import { markdown } from "@/lib/markdown";
 import { useRun } from "./runContext";
@@ -14,9 +14,11 @@ type Nachricht = { von: "mensch" | "experte"; text: string; simulation?: string;
 const MAX_VERLAUF = 12;   // Beiträge, die die KI als Verlauf mitbekommt
 
 /**
- * Interaktiver Chat mit einem KI-Schritt als Fachexperte. Jede Frage wird eine eigene Anfrage mit Rolle, Wissen,
- * Quellen-Auszügen und dem bisherigen Verlauf; die Antwort wächst sichtbar mit. Der Verlauf bleibt im Fenster, bis
- * die Person ihn löscht oder die App verlässt.
+ * Interaktiver Chat mit einem KI-Schritt als Fachexperte. Die erste Frage geht mit Rolle, Wissen und Quellen-Auszügen
+ * an die KI; die Antwort wächst sichtbar mit. Bei Copilot wird dasselbe Gespräch weitergeführt: Folgefragen sind dann
+ * kurz (nur Frage und frische Auszüge), weil Copilot den Verlauf schon kennt. Ohne weitergeführtes Gespräch (eigener
+ * Schlüssel, Simulation, verfallenes Gespräch) bekommt jede Anfrage den Verlauf als Text mit. Der Verlauf bleibt im
+ * Fenster, bis die Person ihn löscht oder die App verlässt.
  */
 export function ChatView({ app, b, mode }: { app: App; b: Extract<Block, { type: "chat" }>; mode: Mode }) {
   const run = useRun();
@@ -26,6 +28,7 @@ export function ChatView({ app, b, mode }: { app: App; b: Extract<Block, { type:
   const [laeuft, setLaeuft] = useState(false);
   const [stand, setStand] = useState("");
   const ctl = useRef<AbortController | null>(null);
+  const gespraech = useRef<string | null>(null);   // weitergeführtes Copilot-Gespräch
   const liste = useRef<HTMLDivElement>(null);
   const eingabe = useRef<HTMLTextAreaElement>(null);
 
@@ -42,18 +45,37 @@ export function ChatView({ app, b, mode }: { app: App; b: Extract<Block, { type:
     const c = new AbortController();
     ctl.current = c;
     const setzeAntwort = (patch: Partial<Nachricht>) => setVerlauf((v) => v.map((n, i) => (i === v.length - 1 ? { ...n, ...patch } : n)));
-    try {
-      // Verlauf als Text (nur die letzten Beiträge), damit Rückfragen und Bezüge funktionieren
+    // Volle Anfrage: Rolle, Wissen, Auszüge, Verlauf als Text (nur die letzten Beiträge) und die Frage
+    const voll = async () => {
       const verlaufText = bisher.slice(-MAX_VERLAUF).filter((n) => n.text.trim()).map((n) => `${n.von === "mensch" ? "Person" : "Experte"}: ${n.text.trim()}`).join("\n\n");
       const ctx = { ...kontext(app, run.werte, run.files), frage: f, verlauf: verlaufText || "(noch keiner)" };
       // Der Prompt des Schritts darf {{frage}} und {{verlauf}} nutzen; fehlen sie, hängt der Chat beides an
       const hatFrage = /\{\{\s*frage\s*\}\}/i.test(step.prompt);
       const prompt = hatFrage ? step.prompt : `${step.prompt.trim()}\n\nBisheriger Verlauf:\n{{verlauf}}\n\nFrage: {{frage}}`;
       const chatStep = { ...step, prompt: fill(prompt, ctx), format: "markdown" as const };
+      return anfrageVorbereiten(app, chatStep, ctx, run.files, c.signal, (m) => setStand(m));
+    };
+    // Folgefrage im weitergeführten Gespräch: nur die Frage und passende Auszüge, keine Rolle und kein Verlauf
+    const kurz = async () => {
+      const ctx = { ...kontext(app, run.werte, run.files), frage: f, verlauf: "" };
+      const chatStep = { ...step, prompt: `Frage: ${f}`, format: "markdown" as const };
       const req = await anfrageVorbereiten(app, chatStep, ctx, run.files, c.signal, (m) => setStand(m));
+      return { ...req, system: "" };
+    };
+    const senden = (req: Awaited<ReturnType<typeof voll>>) => {
       setStand("");
-      let text = "";
-      text = await kiSenden(req, c.signal, (t) => setzeAntwort({ text: t }));
+      return kiSenden(req, c.signal, (t) => setzeAntwort({ text: t }), { gespraech: gespraech.current ?? undefined, onGespraech: (id) => { gespraech.current = id; } });
+    };
+    try {
+      let text: string;
+      try {
+        text = await senden(gespraech.current ? await kurz() : await voll());
+      } catch (e) {
+        // Copilot kennt das Gespräch nicht mehr: einmal mit vollem Kontext in einem neuen Gespräch wiederholen
+        if (!(e instanceof GespraechVerfallen)) throw e;
+        gespraech.current = null;
+        text = await senden(await voll());
+      }
       setzeAntwort({ text });
     } catch (e) {
       if (e instanceof KiSimulation) setzeAntwort({ text: "", simulation: "nachricht" in e.req ? e.req.nachricht : "" });
@@ -87,7 +109,7 @@ export function ChatView({ app, b, mode }: { app: App; b: Extract<Block, { type:
         <span className="o-out-t">{b.props.titel}</span>
         <span className="flex-1" />
         {verlauf.length > 0 && <button type="button" className="o-chat-knopf" onClick={kopieren} title="Verlauf kopieren"><Copy size={14} aria-hidden="true" />Kopieren</button>}
-        {verlauf.length > 0 && !laeuft && <button type="button" className="o-chat-knopf" onClick={() => setVerlauf([])} title="Neu beginnen"><Trash2 size={14} aria-hidden="true" />Neu beginnen</button>}
+        {verlauf.length > 0 && !laeuft && <button type="button" className="o-chat-knopf" onClick={() => { setVerlauf([]); gespraech.current = null; }} title="Neu beginnen"><Trash2 size={14} aria-hidden="true" />Neu beginnen</button>}
       </div>
       <div className="o-chat-verlauf" ref={liste} role="log" aria-live="polite" aria-label="Gesprächsverlauf">
         <div className="o-chat-n von-experte"><div className="o-body" dangerouslySetInnerHTML={{ __html: markdown(b.props.begruessung) }} /></div>

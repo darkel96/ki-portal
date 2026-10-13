@@ -299,12 +299,14 @@ export function appWarnings(app: App): Warnung[] {
   const hard = (text: string) => w.push({ text, weich: false });
   const soft = (text: string) => w.push({ text, weich: true });
   const fieldKeys = fieldsOf(app).map((b) => b.props.key);
+  const chat = chatSteps(app);
   if (!app.name.trim()) hard("Gib der Applikation einen Namen.");
   if (!app.steps.length) hard("Leg im KI-Ablauf mindestens einen KI-Schritt an.");
   app.steps.forEach((s, i) => {
     const nm = stepName(s, i);
     if (!s.name.trim()) hard(`„${nm}“ braucht einen Namen.`);
-    const avail = new Set([...fieldKeys, ...zusatzKeys(app), ...app.steps.slice(0, i).map((x) => x.key)]);
+    // Ein Chat-Experte bekommt dazu die Frage und den bisherigen Verlauf
+    const avail = new Set([...fieldKeys, ...zusatzKeys(app), ...app.steps.slice(0, i).map((x) => x.key), ...(chat.has(s.id) ? CHAT_KEYS : [])]);
     for (const k of varsIn(stepText(s))) if (!avail.has(k)) hard(`„${nm}“ nutzt {{${k}}}. Diese Variable gibt es an dieser Stelle nicht.`);
     if (!s.prompt.trim()) hard(`„${nm}“ hat noch keine Aufgabe.`);
     if (s.bedingung?.feld && !fieldKeys.includes(s.bedingung.feld)) hard(`Die Bedingung von „${nm}“ verweist auf ein Feld, das es nicht mehr gibt.`);
@@ -388,6 +390,8 @@ export function ausQuelle(app: Pick<App, "steps">, aus: string): Step | null {
   return app.steps.find((s) => s.key.toLowerCase() === k) ?? null;
 }
 
+/** Variablen, die ein Chat-Experte zusätzlich kennt: die aktuelle Frage und der bisherige Verlauf */
+export const CHAT_KEYS = ["frage", "verlauf"] as const;
 /** Schritte, die als Experte in einem Chat antworten (laufen nur auf Frage, nie im Durchlauf) */
 export function chatSteps(app: Pick<App, "blocks" | "steps">): Set<string> {
   const ids = new Set<string>();

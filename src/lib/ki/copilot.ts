@@ -132,20 +132,29 @@ export async function streamLesen(res: Response, frage: string, onTeil: (t: stri
 
 let streamingAus = false;
 
-export async function copilotFragen(frage: string, opts: { web?: boolean; dateien?: string[]; signal?: AbortSignal; onTeil?: (text: string) => void } = {}): Promise<string> {
+/** Ein weitergeführtes Gespräch ist bei Copilot verfallen: der Aufrufer muss mit vollem Kontext neu beginnen */
+export class GespraechVerfallen extends Error { constructor() { super("Das Copilot-Gespräch ist abgelaufen."); } }
+
+export async function copilotFragen(frage: string, opts: {
+  web?: boolean; dateien?: string[]; signal?: AbortSignal; onTeil?: (text: string) => void;
+  /** Vorhandenes Gespräch weiterführen (Chat): Copilot kennt dann den Verlauf, die Nachricht bleibt kurz */
+  gespraech?: string;
+  /** Meldet die ID des genutzten Gesprächs, damit ein Chat es weiterführen kann */
+  onGespraech?: (id: string) => void;
+} = {}): Promise<string> {
   const t0 = performance.now();
   const messung: Partial<Messung> = { ersteZeichen: null, ausVorrat: false };
   const token = await graphToken();
   messung.anmeldung = performance.now() - t0;
 
   const t1 = performance.now();
-  let id: string | null = null;
-  if (vorrat && Date.now() - vorrat.zeit < VORRAT_MS) { id = await vorrat.id; messung.ausVorrat = !!id; }
-  vorrat = null;
+  let id: string | null = opts.gespraech ?? null;
+  if (!id && vorrat && Date.now() - vorrat.zeit < VORRAT_MS) { id = await vorrat.id; messung.ausVorrat = !!id; }
+  if (!opts.gespraech) vorrat = null;
   id ??= await neuesGespraech(token, opts.signal);
   messung.gespraech = performance.now() - t1;
   // Nächstes Gespräch schon anlegen, während Copilot an dieser Antwort arbeitet
-  vorratAuffuellen(token);
+  if (!opts.gespraech) vorratAuffuellen(token);
 
   const body = {
     message: { text: frage },
@@ -176,10 +185,15 @@ export async function copilotFragen(frage: string, opts: { web?: boolean; dateie
   let text: string;
   try {
     text = await senden(id);
+    opts.onGespraech?.(id);
   } catch (e) {
+    // Ein weitergeführtes Gespräch ist verfallen: Der Chat muss mit vollem Verlauf neu beginnen
+    if (opts.gespraech && e instanceof GraphFehler && e.status === 404) throw new GespraechVerfallen();
     // Ein vorab angelegtes Gespräch kann verfallen sein: einmal mit einem frischen wiederholen
     if (!(messung.ausVorrat && e instanceof GraphFehler && e.status === 404)) throw e;
-    text = await senden(await neuesGespraech(token, opts.signal));
+    const neu = await neuesGespraech(token, opts.signal);
+    text = await senden(neu);
+    opts.onGespraech?.(neu);
   }
   messung.antwort = performance.now() - t2;
   letzteMessung = messung as Messung;
