@@ -140,7 +140,7 @@ function VorbelegungStand({ schritte, outs, laeuft, onStart }: { schritte: Step[
           </div>
         );
         if (o.status === "simuliert") return <div key={st.id} className="o-vorbelegung"><span>Simulation: Ohne KI-Anbindung bleiben die Felder leer. Bitte von Hand ausfüllen.</span></div>;
-        return <div key={st.id} className="o-vorbelegung"><span>„{st.name}“ läuft, die Felder werden gleich ausgefüllt\u00a0…</span></div>;
+        return <div key={st.id} className="o-vorbelegung"><span>„{st.name}“ läuft, die Felder werden gleich ausgefüllt&nbsp;…</span></div>;
       })}
     </div>
   );
@@ -263,12 +263,14 @@ export const RunApp = forwardRef<RunAppHandle, {
   /** Nach einem Wechsel: dieses Feld fokussieren, sonst den Seitenanfang. */
   const fokusNach = useRef<string | null>(null);
   const gewechselt = useRef(false);
+  const gesperrtRef = useRef("");
   const wechseln = useCallback((i: number, fokusKey?: string) => {
+    if (gesperrtRef.current && i > seite) return;   // vorwärts erst, wenn die KI die Felder ausgefüllt hat
     fokusNach.current = fokusKey ?? null;
     gewechselt.current = true;
     setDetail(null);
     setSeite(Math.max(0, Math.min(i, anzahl - 1)));
-  }, [anzahl]);
+  }, [anzahl, seite]);
   const oeffnen = useCallback((id: string | null) => { gewechselt.current = true; setDetail(id); }, []);
 
   useEffect(() => {
@@ -394,6 +396,12 @@ export const RunApp = forwardRef<RunAppHandle, {
   }, [onLaufFertig, app, werte, files, liest, akt, detail, imUeberblick, mitUebersicht, uebersichtIdx, wechseln, eingabeIdxMit, vorbelegen]);
 
   const nochNichtGelaufen = stepsFor(app, uebersichtAktion).every((s) => !outs[s.id]);
+  /** Solange ein Schritt läuft, der Felder vorbelegt, geht es nicht weiter: Die Person soll die ausgefüllten Werte sehen und bestätigen */
+  const weiterGesperrt = useMemo(() => {
+    const keys = new Set(fieldsOf(app).map((b) => b.props.aus.trim().split(".")[0].toLowerCase()).filter(Boolean));
+    const st = app.steps.find((x) => keys.has(x.key.toLowerCase()) && (outs[x.id]?.status === "laeuft" || (outs[x.id]?.status === "wartet" && laeuft)));
+    return st ? `Bitte warten, bis „${st.name}“ fertig ist.` : "";
+  }, [app, outs, laeuft]);
   /** „Weiter“ in die Übersicht startet den Ablauf automatisch (einmal); Punkte und Bild-Tasten blättern nur. */
   const weiterKlick = (i: number) => {
     if (mitUebersicht && i === uebersichtIdx && nochNichtGelaufen && !laeuft && app.steps.length) { void starten("uebersicht", uebersichtAktion); return; }
@@ -510,6 +518,7 @@ export const RunApp = forwardRef<RunAppHandle, {
   const linearTitel = (i: number) => (i === uebersichtIdx && mitUebersicht ? "Ergebnisse" : seitenTitel(eingabeSeiten[i], seiten.indexOf(eingabeSeiten[i])));
   const kIdx = offen ? kacheln.indexOf(offen) : -1;
   const geaendert = !!stand && stand !== JSON.stringify(werte) + Object.keys(files).join("|");
+  gesperrtRef.current = weiterGesperrt;
   const naechste = akt + 1 < anzahl ? (akt + 1 === uebersichtIdx && mitUebersicht && nochNichtGelaufen ? "Ergebnisse erstellen" : `Weiter: ${linearTitel(akt + 1)}`) : undefined;
 
   return (
@@ -538,7 +547,7 @@ export const RunApp = forwardRef<RunAppHandle, {
             weiter={kacheln[kIdx + 1] ? `Weiter: ${kacheln[kIdx + 1].titel}` : undefined} onWechsel={(i) => oeffnen(kacheln[i].id)}
             ende="Alle Ergebnisse" onEnde={() => oeffnen(null)} />
         ) : (
-          <Pager className="app-pager" seite={akt} anzahl={anzahl} titel={linearTitel} weiter={naechste} weiterKurz={naechste === "Ergebnisse erstellen" ? "Erstellen" : undefined} onWechsel={wechseln} onWeiter={() => weiterKlick(akt + 1)} />
+          <Pager className="app-pager" seite={akt} anzahl={anzahl} titel={linearTitel} weiter={naechste} weiterKurz={naechste === "Ergebnisse erstellen" ? "Erstellen" : undefined} weiterGesperrt={weiterGesperrt} onWechsel={wechseln} onWeiter={() => weiterKlick(akt + 1)} />
         )}
       </div>
       {!eingebettet && <VerlassenSchutz ungesichert={ungesichert} laeuft={!!laeuft} blatt={blatt} onVerlassen={() => ctl.current?.abort()} />}
