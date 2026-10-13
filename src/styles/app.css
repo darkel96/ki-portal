@@ -265,6 +265,8 @@ a.tile:hover .tile-go svg { transform: translateX(5px); }
 .o-body > :first-child { margin-top: 0; } .o-body > :last-child { margin-bottom: 0; }
 .o-body h3, .o-body h4, .o-body h5 { font-size: 16px; margin: 16px 0 6px; font-family: inherit; font-weight: 600; letter-spacing: 0; }
 .o-body p { margin: 0 0 10px; }
+.o-body a { color: var(--app-accent); text-decoration: underline; text-underline-offset: 2px; }
+.o-body a:hover { text-decoration-thickness: 2px; }
 .o-body ul, .o-body ol { margin: 0 0 10px; padding-left: 22px; list-style: revert; }
 .o-body code { font-family: var(--k-font-mono); font-size: 13px; background: var(--app-soft); padding: 1px 5px; }
 .o-foot { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }

@@ -68,7 +68,8 @@ export function systemText(app: AppWissen, step: Step, wissenText: string): stri
     `Du arbeitest in der Applikation „${app.name}“ eines internen KI-Hubs. Antworte auf Deutsch.`,
     step.rolle,
     wissenText ? `Hintergrundwissen:\n${wissenText}` : "",
-    w.quellen.length ? "Hinterlegte Wissensquellen:\n" + w.quellen.map((x) => `- ${x.titel || x.url} (${QUELL_TYP[x.typ] ?? "Quelle"})${x.url ? ": " + x.url : ""}`).join("\n") : "",
+    w.quellen.length ? "Hinterlegte Wissensquellen:\n" + w.quellen.map((x) => `- ${x.titel || x.url} (${QUELL_TYP[x.typ] ?? "Quelle"})${x.url ? ": " + x.url : ""}`).join("\n")
+      + "\nQuellenangaben schreibst du als Markdown-Link [Dokument, Abschnitt](Adresse), sobald du die Adresse des Dokuments kennst (aus den Auszügen oder dieser Liste); so öffnet sich die Quelle direkt." : "",
     WISSEN_TEXT[w.modus],
     FORMAT_HINT[step.format],
   ].filter(Boolean).join("\n\n");

@@ -13,7 +13,7 @@ const GRAPH = "https://graph.microsoft.com/v1.0";
 const MAX_JE_QUELLE = 12_000;
 const MAX_TREFFER = 8;
 
-export type Auszug = { titel: string; url: string; text: string; fehler?: string };
+export type Auszug = { titel: string; url: string; text: string; fehler?: string; quelleTyp?: Quelle["typ"] };
 
 export const wissenMoeglich = () => kiModus() === "copilot";
 
@@ -33,7 +33,7 @@ async function sharepointAuszuege(q: Quelle, suche: string, token: string, signa
   const teile: string[] = [];
   for (const h of j.retrievalHits ?? []) {
     const text = (h.extracts ?? []).map((e) => e.text?.trim()).filter(Boolean).join("\n");
-    if (text) teile.push(`[${h.resourceMetadata?.title || h.webUrl || "Dokument"}]${h.webUrl ? ` ${h.webUrl}` : ""}\n${text}`);
+    if (text) teile.push(`Dokument: ${h.resourceMetadata?.title || h.webUrl || "Dokument"}${h.webUrl ? `\nLink: ${h.webUrl}` : ""}\n${text}`);
   }
   return { titel: q.titel || q.url, url: q.url, text: teile.join("\n\n").slice(0, MAX_JE_QUELLE) };
 }
@@ -59,7 +59,7 @@ async function dateiLaden(q: Quelle, token: string, signal?: AbortSignal): Promi
   const blob = await inhalt.blob();
   const { extractText } = await import("../files");
   const text = await extractText(new File([blob], meta.name || "datei", { type: blob.type }));
-  return { titel: q.titel || meta.name || q.url, url: q.url, text: text.slice(0, MAX_JE_QUELLE) };
+  return { titel: q.titel || meta.name || q.url, url: q.url, text: text.slice(0, MAX_JE_QUELLE), quelleTyp: "datei" };
 }
 
 /**
@@ -79,6 +79,6 @@ export async function wissenAuszuege(quellen: Quelle[], suche: string, signal?: 
 /** Text für die Anfrage */
 export function auszuegeText(a: Auszug[]): string {
   if (!a.length) return "";
-  return "Auszüge aus den hinterlegten Wissensquellen (nur diese Inhalte gelten als belegt):\n\n" + a.map((x) =>
-    x.fehler ? `### ${x.titel}\n(konnte nicht gelesen werden: ${x.fehler})` : `### ${x.titel}\n${x.text || "(keine passenden Inhalte gefunden)"}`).join("\n\n");
+  return "Auszüge aus den hinterlegten Wissensquellen (nur diese Inhalte gelten als belegt). Quellenangaben schreibst du als Markdown-Link auf den Link des Dokuments, z. B. [CRA Q&A, Abschnitt Scope](https://…):\n\n" + a.map((x) =>
+    x.fehler ? `### ${x.titel}\n(konnte nicht gelesen werden: ${x.fehler})` : `### ${x.titel}\n${x.text ? `${x.quelleTyp === "datei" ? `Link: ${x.url}\n` : ""}${x.text}` : "(keine passenden Inhalte gefunden)"}`).join("\n\n");
 }

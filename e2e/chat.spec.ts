@@ -7,7 +7,7 @@ async function kiNachbau(page: Page) {
     const body = route.request().postDataJSON() as { messages?: { content: string }[] };
     prompts.push(String(body?.messages?.[0]?.content ?? ""));
     const ev = (type: string, data: object) => `event: ${type}\ndata: ${JSON.stringify({ type, ...data })}\n\n`;
-    const text = prompts.length === 1 ? "Laut **Art. 13** gelten die Herstellerpflichten (Quelle: Verordnungstext, Art. 13)." : "Dazu finde ich in den hinterlegten Unterlagen nichts.";
+    const text = prompts.length === 1 ? "Laut **Art. 13** gelten die Herstellerpflichten.\n\nQuelle: [Verordnungstext, Art. 13](https://firma.sharepoint.com/sites/cra/Verordnung.pdf)" : "Dazu finde ich in den hinterlegten Unterlagen nichts.";
     const sse = [
       ev("message_start", { message: { id: "m", type: "message", role: "assistant", model: "x", content: [], stop_reason: null, stop_sequence: null, usage: { input_tokens: 1, output_tokens: 1 } } }),
       ev("content_block_start", { index: 0, content_block: { type: "text", text: "" } }),
@@ -35,7 +35,13 @@ test("Fachexperten-Chat: Frage, Antwort mit Quelle, Rückfrage mit Verlauf", asy
   await expect(chat.locator(".o-chat-n.von-mensch")).toHaveText("Welche Pflichten gelten für Hersteller?");
   await expect(chat.locator(".o-chat-n.von-experte").last()).toContainText("Art. 13", { timeout: 10_000 });
   // Rolle mit Belegregel, Wissensgrenze und die Frage stehen in der Anfrage
-  expect(prompts[0]).toContain("Antworte nur auf Grundlage der hinterlegten Unterlagen");
+  // Quelle als Link, der in einem neuen Tab öffnet
+  const quelle = chat.locator(".o-chat-n.von-experte a", { hasText: "Verordnungstext, Art. 13" });
+  await expect(quelle).toHaveAttribute("href", "https://firma.sharepoint.com/sites/cra/Verordnung.pdf");
+  await expect(quelle).toHaveAttribute("target", "_blank");
+  await expect(quelle).toHaveAttribute("rel", /noopener/);
+  expect(prompts[0]).toContain("Antworte nur aus den hinterlegten Unterlagen");
+  expect(prompts[0]).toContain("Quellenangaben schreibst du als Markdown-Link");
   expect(prompts[0]).toContain("Wissensgrenze");
   expect(prompts[0]).toContain("Frage: Welche Pflichten gelten für Hersteller?");
   // Rückfrage bekommt den Verlauf mit
