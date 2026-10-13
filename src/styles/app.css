@@ -238,6 +238,23 @@ a.tile:hover .tile-go svg { transform: translateX(5px); }
 .o-img { max-width: 100%; height: auto; border-radius: calc(var(--app-radius) * 0.6); display: inline-block; vertical-align: top; }
 .o-img.s { width: 120px; } .o-img.m { width: 280px; } .o-img.l { width: 520px; } .o-img.full { width: 100%; }
 .o-img-ph { border: 1.5px dashed var(--app-line); padding: 22px; text-align: center; color: var(--app-muted); font-size: 13px; }
+/* Chat mit einem Fachexperten */
+.o-chat { flex: 1; display: flex; flex-direction: column; gap: 10px; min-width: 0; min-height: 320px; border: 1px solid var(--app-line); border-radius: var(--app-radius); padding: 14px 16px; background: var(--app-bg); }
+.o-chat-kopf { display: flex; align-items: center; gap: 8px; }
+.o-chat-knopf { display: inline-flex; align-items: center; gap: 5px; border: 1px solid var(--app-line); background: transparent; color: inherit; border-radius: 999px; padding: 4px 10px; font: 500 12.5px/1 var(--app-font); cursor: pointer; }
+.o-chat-knopf:hover { border-color: currentColor; }
+.o-chat-verlauf { flex: 1; min-height: 200px; overflow: auto; display: flex; flex-direction: column; gap: 10px; padding: 4px 2px; }
+.o-chat-n { max-width: 85%; padding: 10px 14px; border-radius: 14px; font-size: 14.5px; line-height: 1.5; }
+.o-chat-n.von-mensch { align-self: flex-end; background: var(--app-accent); color: var(--app-accent-ink); border-bottom-right-radius: 4px; white-space: pre-wrap; }
+.o-chat-n.von-mensch p { margin: 0; }
+.o-chat-n.von-experte { align-self: flex-start; background: var(--app-soft); border-bottom-left-radius: 4px; }
+.o-chat-n.von-experte.fehler { color: var(--danger); background: color-mix(in srgb, var(--danger) 8%, var(--app-bg)); }
+.o-chat-n .o-body > :first-child { margin-top: 0; } .o-chat-n .o-body > :last-child { margin-bottom: 0; }
+.o-chat-eingabe { display: flex; gap: 8px; align-items: flex-end; }
+.o-chat-eingabe .o-btn { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; padding: 11px 18px; }
+.o-chat-eingabe textarea { flex: 1; min-width: 0; resize: none; font: inherit; padding: 9px 12px; border: 1px solid var(--app-line); border-radius: var(--app-radius); background: var(--app-bg); color: inherit; }
+.o-chat-eingabe textarea:focus { outline: none; border-color: var(--app-accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--app-accent) 22%, transparent); }
+.o-chat-edit { min-height: 0; }
 .o-out { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
 .o-out.card { border: 1px solid var(--app-line); border-radius: var(--app-radius); padding: 16px 18px; background: var(--app-bg); }
 .o-out-head { display: flex; align-items: center; gap: 10px; }

@@ -75,7 +75,7 @@ export function makeBlock<T extends BlockType>(type: T, app?: Pick<App, "blocks"
     const p = b.props as PropsOf<FieldType>;
     p.key = uniqueKey(slug(p.label), allKeys(app));
   }
-  if (type === "output" && app?.steps[0]) (b.props as PropsOf<"output">).quelle = app.steps[0].id;
+  if ((type === "output" || type === "chat") && app?.steps[0]) (b.props as PropsOf<"output">).quelle = app.steps[0].id;
   return b;
 }
 export function makeStep(app: Pick<App, "blocks" | "steps">, art: "prompt" | "team" = "prompt"): Step {
@@ -167,9 +167,9 @@ export function zusatzKeys(app: Pick<App, "blocks">): string[] {
 }
 
 /* ---------- Buttons ---------- */
-export function stepsFor(app: Pick<App, "steps">, aktion: string | undefined): Step[] {
+export function stepsFor(app: Pick<App, "steps"> & Partial<Pick<App, "blocks">>, aktion: string | undefined): Step[] {
   const a = aktion || "alle";
-  if (a === "alle") return app.steps.slice();
+  if (a === "alle") { const chat = app.blocks ? chatSteps({ blocks: app.blocks, steps: app.steps }) : new Set<string>(); return app.steps.filter((s) => !chat.has(s.id)); }
   if (a.startsWith("ab:")) {
     const i = app.steps.findIndex((s) => s.id === a.slice(3));
     return i < 0 ? [] : app.steps.slice(i);
@@ -320,6 +320,7 @@ export function appWarnings(app: App): Warnung[] {
   });
   let hasBtn = false;
   const outSrc = new Set<string>();
+  const chatSrc = new Set<string>();
   walk(app.blocks, (b) => {
     if (b.type === "button") {
       hasBtn = true;
@@ -328,6 +329,10 @@ export function appWarnings(app: App): Warnung[] {
     if (b.type === "output") {
       if (!app.steps.some((s) => s.id === b.props.quelle)) hard(`Das Ergebnis-Element „${b.props.titel}“ ist mit keinem KI-Schritt verbunden.`);
       outSrc.add(b.props.quelle);
+    }
+    if (b.type === "chat") {
+      if (!app.steps.some((s) => s.id === b.props.quelle)) hard(`Der Chat „${b.props.titel}“ ist mit keinem KI-Schritt verbunden.`);
+      chatSrc.add(b.props.quelle);
     }
     if ((b.type === "select" || b.type === "radio") && !b.props.optionen.length) hard(`„${b.props.label}“ hat noch keine Optionen.`);
   });
@@ -342,14 +347,14 @@ export function appWarnings(app: App): Warnung[] {
       if (!eingabe) ids.forEach((id) => ergebnisSeiten.add(id));
     });
     app.steps.forEach((s, i) => {
-      const erreichbar = ausKeysB.has(s.key.toLowerCase()) || !outSrc.has(s.id) || ergebnisSeiten.has(s.id);
+      const erreichbar = ausKeysB.has(s.key.toLowerCase()) || chatSrc.has(s.id) || !outSrc.has(s.id) || ergebnisSeiten.has(s.id);
       if (!erreichbar) hard(`„${stepName(s, i)}“ wird nirgends gestartet: Sein Ergebnis-Element steht auf einer Eingabeseite und es gibt keinen KI-Button. Button ergänzen oder das Ergebnis auf eine eigene Seite legen.`);
     });
   }
   seitenVon(app).forEach((p, i) => { if (!p.children?.length) soft(`Seite ${i + 1} „${(p.props as PropsOf<"seite">).titel}“ ist leer.`); });
   const ausKeys = new Set(fieldsOf(app).map((b) => b.props.aus.trim().split(".")[0].toLowerCase()).filter(Boolean));
   app.steps.forEach((s, i) => {
-    if (outSrc.has(s.id)) return;
+    if (outSrc.has(s.id) || chatSrc.has(s.id)) return;
     // Lese-Schritte einer Prüfseite: ihr Ergebnis sind die vorbelegten Felder, keine Kachel nötig
     if (ausKeys.has(s.key.toLowerCase())) return;
     soft(`Für „${stepName(s, i)}“ gibt es kein Ergebnis-Element. Das Ergebnis erscheint als Kachel in der Ergebnisübersicht der App.`);
@@ -381,6 +386,13 @@ export function appWarnings(app: App): Warnung[] {
 export function ausQuelle(app: Pick<App, "steps">, aus: string): Step | null {
   const k = aus.trim().split(".")[0].toLowerCase();
   return app.steps.find((s) => s.key.toLowerCase() === k) ?? null;
+}
+
+/** Schritte, die als Experte in einem Chat antworten (laufen nur auf Frage, nie im Durchlauf) */
+export function chatSteps(app: Pick<App, "blocks" | "steps">): Set<string> {
+  const ids = new Set<string>();
+  walk(app.blocks, (b) => { if (b.type === "chat" && b.props.quelle) ids.add(b.props.quelle); });
+  return ids;
 }
 
 /* ---------- Bereiche ---------- */

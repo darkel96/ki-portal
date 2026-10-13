@@ -1,6 +1,6 @@
 import {
   Square, Columns2, FileText, MoveVertical, Minus, Heading, Pilcrow, Info, Image, Type, TextAlignStart, ChevronDown, CircleDot,
-  SquareCheck, Hash, Calendar, Upload, Play, Sparkles, type LucideIcon,
+  SquareCheck, Hash, Calendar, Upload, Play, Sparkles, MessageSquare, type LucideIcon,
 } from "lucide-react";
 import type { BlockType } from "@/lib/schema";
 
@@ -24,5 +24,6 @@ export const BT: Record<BlockType, { label: string; icon: LucideIcon; group: "La
   file: { label: "Datei", icon: Upload, group: "Eingaben" },
   button: { label: "KI-Button", icon: Play, group: "KI" },
   output: { label: "Ergebnis", icon: Sparkles, group: "KI" },
+  chat: { label: "Chat", icon: MessageSquare, group: "KI" },
 };
 export const GROUPS = ["Layout", "Inhalt", "Eingaben", "KI"] as const;

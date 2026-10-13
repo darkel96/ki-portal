@@ -242,6 +242,12 @@ export function Inspector({ b, onDelete, bereiche, onSeite }: { b: Builder; onDe
       <Seg label="Stil" value={x.props.stil} options={[["filled", "Gefüllt"], ["outline", "Umrandet"]]} onChange={(v) => set("stil", v)} />
       <Seg label="Ausrichtung" value={x.props.align} options={ALIGN} onChange={(v) => set("align", v)} />
       <Swatches label="Farbe" value={x.props.color} colors={PALETTES.akzent} onChange={(v) => set("color", v)} /></>; break;
+    case "chat": f = <>
+      <TextFld id="insp-first" label="Titel" value={x.props.titel} onChange={(v) => set("titel", v, true)} />
+      <Sel label="Experte (KI-Schritt)" value={x.props.quelle || "__none"} onChange={(v) => set("quelle", v === "__none" ? "" : v)} options={[["__none", "Bitte wählen"], ...steps]} />
+      <TextFld label="Begrüßung" multiline rows={2} value={x.props.begruessung} onChange={(v) => set("begruessung", v, true)} />
+      <TextFld label="Platzhalter im Eingabefeld" value={x.props.platzhalter} onChange={(v) => set("platzhalter", v, true)} />
+      <p className="hint" style={{ margin: 0 }}>Rolle, Wissen, Quellen und Wissensmodus des Experten stehen am KI-Schritt. Sein Prompt darf {"{{frage}}"} und {"{{verlauf}}"} enthalten; fehlen sie, hängt der Chat Verlauf und Frage automatisch an. Der Schritt läuft nie im Durchlauf, nur auf Frage.</p></>; break;
     case "output": f = <>
       <TextFld id="insp-first" label="Titel" value={x.props.titel} onChange={(v) => set("titel", v, true)} />
       <Sel label="Zeigt das Ergebnis von" value={x.props.quelle || "__none"} onChange={(v) => set("quelle", v === "__none" ? "" : v)} options={[["__none", "Bitte wählen"], ...steps]} />

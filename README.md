@@ -69,6 +69,14 @@ Serviceangebote-App auf CHARLESTOWN):
   (z. B. Fundstelle) und `klaeren: true` markiert es gelb mit „Zu klären“, bis die Person es setzt.
 - Schritte, deren Ergebnis nur Felder vorbelegt, erscheinen nicht als Kachel in der Ergebnisübersicht.
 
+## Fachexperten-Chat
+
+Der Baustein „Chat“ (Gruppe KI) macht einen KI-Schritt zum Gesprächspartner: Rolle, Wissen, Quellen und Wissensmodus
+stehen am Schritt, jede Frage wird eine eigene Anfrage mit Verlauf und Auszügen aus den Quellen, die Antwort wächst
+sichtbar mit. Der Schritt läuft nie im Durchlauf, nur auf Frage. Vorlage: „Fachexperte Cyber Resilience Act“ mit
+Belegregel (nur aus Unterlagen, Quelle nennen, Unbelegtes als solches sagen); die Unterlagen trägt man unter
+App-Einstellungen → Wissen ein.
+
 ## Wissen steuern
 
 - **App-Einstellungen → Wissen:** Modus für alle Schritte („Nur Eingaben und hinterlegte Quellen“, „Zusätzlich Wissen

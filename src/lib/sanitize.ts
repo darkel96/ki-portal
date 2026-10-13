@@ -164,7 +164,7 @@ export function fixRefs(app: App, stepMap?: Map<string, string>) {
       const neu = (ab ? a.slice(3) : a).split(",").map((x) => x.trim()).map((id) => stepMap?.get(id) ?? id).filter((id) => ids.has(id));
       b.props.aktion = a === "alle" || !neu.length ? "alle" : ab ? `ab:${neu[0]}` : neu.join(",");
     }
-    if (b.type === "output") {
+    if (b.type === "output" || b.type === "chat") {
       const nid = stepMap?.get(b.props.quelle) ?? b.props.quelle;
       b.props.quelle = ids.has(nid) ? nid : "";
     }
