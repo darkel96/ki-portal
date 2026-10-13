@@ -37,9 +37,18 @@ async function anthropic(): Promise<Anthropic> {
   return client;
 }
 
-export async function claudeApiFragen(text: string, opts: { signal?: AbortSignal; modell?: "quick" | "default" | "complex"; onTeil?: (text: string) => void } = {}): Promise<string> {
+type Bildtyp = "image/jpeg" | "image/png" | "image/gif" | "image/webp";
+/** Daten-URL eines Bildes als Inhaltsblock der Messages-API */
+function bildBlock(daten: string): Anthropic.Beta.BetaImageBlockParam | null {
+  const m = /^data:(image\/(?:jpeg|png|gif|webp));base64,(.+)$/s.exec(daten);
+  return m ? { type: "image", source: { type: "base64", media_type: m[1] as Bildtyp, data: m[2] } } : null;
+}
+
+export async function claudeApiFragen(text: string, opts: { signal?: AbortSignal; modell?: "quick" | "default" | "complex"; onTeil?: (text: string) => void; bilder?: { name: string; daten: string }[] } = {}): Promise<string> {
   if (!apiSchluessel()) throw new Error("Kein API-Schlüssel eingetragen.");
   const A = (await sdkLaden()).default;
+  const bloecke = (opts.bilder ?? []).map((b) => bildBlock(b.daten)).filter((b): b is Anthropic.Beta.BetaImageBlockParam => !!b);
+  const content: string | Anthropic.Beta.BetaContentBlockParam[] = bloecke.length ? [...bloecke, { type: "text", text }] : text;
   try {
     const stream = (await anthropic()).beta.messages.stream({
       model: MODELL,
@@ -48,7 +57,7 @@ export async function claudeApiFragen(text: string, opts: { signal?: AbortSignal
       // Lehnt das Modell aus Sicherheitsgründen ab, übernimmt serverseitig ein passendes anderes Modell.
       betas: ["server-side-fallback-2026-07-01"],
       fallbacks: "default",
-      messages: [{ role: "user", content: text }],
+      messages: [{ role: "user", content }],
     }, { signal: opts.signal });
     if (opts.onTeil) { let bisher = ""; stream.on("text", (stueck) => { bisher += stueck; opts.onTeil!(bisher); }); }
     const antwort = await stream.finalMessage();

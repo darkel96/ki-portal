@@ -28,8 +28,13 @@ export async function kiSenden(req: KiRequest, signal?: AbortSignal, onTeil?: (t
   const modus = kiModus();
   if (modus === "simulation") throw new KiSimulation(req);
   if (modus === "claude-test") return claudeFragen(combinedMessage(req), { signal, modell: req.modell });
-  if (modus === "claude-api") return claudeApiFragen(combinedMessage(req), { signal, modell: req.modell, onTeil });
+  if (modus === "claude-api") return claudeApiFragen(combinedMessage(req), { signal, modell: req.modell, onTeil, bilder: req.bilder });
   const dateien = req.wissensquellen.filter((q) => q.typ === "datei" && q.url).map((q) => q.url);
+  if (req.bilder?.length) {
+    // Copilot sieht Bilder nur als Datei: erst nach OneDrive, dann als Adresse mitgeben
+    const { bildNachOneDrive } = await import("./onedrive");
+    for (const b of req.bilder) dateien.push(await bildNachOneDrive(b.name, b.daten, signal));
+  }
   return copilotFragen(combinedMessage(req), { web: req.websuche, dateien, signal, onTeil, ...gespraech });
 }
 

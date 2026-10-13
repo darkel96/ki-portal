@@ -2,7 +2,16 @@ import DOMPurify from "dompurify";
 import type { Step } from "./schema";
 
 const esc = (s: string) => s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
-const inline = (s: string) => esc(s).replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>").replace(/`([^`]+)`/g, "<code>$1</code>");
+/** Links öffnen in einem neuen Tab (Quellen in SharePoint), ohne Zugriff auf das Hub-Fenster */
+DOMPurify.addHook("afterSanitizeAttributes", (node) => {
+  if (node.tagName === "A") { node.setAttribute("target", "_blank"); node.setAttribute("rel", "noopener noreferrer"); }
+});
+const link = (href: string, text: string) => `<a href="${href}">${text}</a>`;
+const inline = (s: string) => esc(s)
+  // [Text](https://…) und nackte Adressen (nicht schon Teil eines Links); Satzzeichen am Ende bleiben draußen
+  .replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, (_, t: string, u: string) => link(u, t))
+  .replace(/(^|[^"&>\w/])(https?:\/\/[^\s<]*[^\s<.,;:)!?])/g, (_, vor: string, u: string) => vor + link(u, u))
+  .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>").replace(/`([^`]+)`/g, "<code>$1</code>");
 
 function table(rows: string[]): string {
   const cells = (r: string) => r.trim().replace(/^\|/, "").replace(/\|$/, "").split("|").map((c) => c.trim());
@@ -16,7 +25,7 @@ const blockStart = /^(#{1,4}\s|\s*[-*•]\s+|\s*\d+[.)]\s+|\s*\|.*\|\s*$|\s*(---
 
 /** Einfaches Markdown für KI-Antworten. Das Ergebnis wird immer mit DOMPurify bereinigt. */
 export function markdown(src: string): string {
-  return DOMPurify.sanitize(bloecke(String(src).replace(/\r/g, "").split("\n")), { USE_PROFILES: { html: true } });
+  return DOMPurify.sanitize(bloecke(String(src).replace(/\r/g, "").split("\n")), { USE_PROFILES: { html: true }, ADD_ATTR: ["target"] });
 }
 
 function bloecke(lines: string[]): string {

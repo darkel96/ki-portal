@@ -73,7 +73,11 @@ Serviceangebote-App auf CHARLESTOWN):
 
 Der Baustein „Chat“ (Gruppe KI) macht einen KI-Schritt zum Gesprächspartner: Rolle, Wissen, Quellen und Wissensmodus
 stehen am Schritt, die erste Frage geht mit Rolle, Wissen und Auszügen aus den Quellen an die KI, die Antwort wächst
-sichtbar mit. Bei Copilot wird dasselbe Gespräch weitergeführt, Folgefragen bleiben kurz. Der Schritt läuft nie im Durchlauf, nur auf Frage. Vorlage: „Fachexperte Cyber Resilience Act“ mit
+sichtbar mit. Bei Copilot wird dasselbe Gespräch weitergeführt, Folgefragen bleiben kurz. Quellen nennt der Experte als
+Link, der in einem neuen Tab öffnet. Im Chat lassen sich Dateien und Bilder anhängen (Büroklammer, Einfügen aus der
+Zwischenablage oder Ablegen im Chat): Word, Excel, PDF und Text gehen als Text mit, Bilder beim eigenen Schlüssel direkt
+als Bild, bei Copilot als Datei über OneDrive (braucht die zusätzliche Berechtigung `Files.ReadWrite`). Mit dem Mikrofon
+lässt sich eine Frage diktieren (Spracherkennung des Browsers, Chrome und Edge). Der Schritt läuft nie im Durchlauf, nur auf Frage. Vorlage: „Fachexperte Cyber Resilience Act“ mit
 Belegregel (nur aus Unterlagen, Quelle nennen, Unbelegtes als solches sagen); die Unterlagen trägt man unter
 App-Einstellungen → Wissen ein.
 

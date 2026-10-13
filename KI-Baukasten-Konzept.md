@@ -961,3 +961,17 @@ Vorbild: `src/lib/seedServiceangebot.ts` (Produkte, Ordner, Dokumente je Sprache
   einmal mit vollem Kontext in einem neuen Gespräch. Dazu kommen der Gesprächs-Vorrat (nächstes Gespräch liegt schon
   bereit) und ein Dateicache von 10 Minuten für einzelne Dateien als Wissensquelle (`src/lib/ki/wissen.ts`). Die
   Antwortzeit von Copilot selbst (meist 5–20 s) lässt sich vom Hub aus nicht verkürzen.
+- Quellen als Links: Die Auszüge nennen je Treffer „Dokument“ und „Link“ (webUrl der Retrieval API bzw. Adresse der
+  Datei), Systemtext und Auszugskopf verlangen Quellenangaben als Markdown-Link. `src/lib/markdown.ts` macht
+  `[Text](https://…)` und nackte Adressen zu Links mit `target="_blank"` und `rel="noopener noreferrer"` (DOMPurify-Hook).
+- Anhänge im Chat (`Anhang` in `ChatView.tsx`): Büroklammer, Einfügen aus der Zwischenablage (`onPaste`) oder Ablegen
+  (`onDrop`). Dokumente werden mit `readFileInfo` als Text gelesen (höchstens 30.000 Zeichen je Anhang in der Anfrage),
+  Bilder mit `loadImage` verkleinert als Daten-URL. Die Anfrage bekommt `Anhang „Name“ (Dokument …): Text` bzw. den
+  Hinweis auf ein beiliegendes Bild; Bilder stehen in `KiRequest.bilder`. Eigener Schlüssel: Bilder als
+  Inhaltsblöcke der Messages-API. Copilot: `src/lib/ki/onedrive.ts` legt das Bild in OneDrive („KI-Hub/Chat“) ab und
+  gibt die Adresse als Datei mit; dafür fordert der Hub den Token zusätzlich mit `Files.ReadWrite` an (Zustimmung im
+  Anmeldefenster oder durch die Administration). Im weitergeführten Gespräch gehen nur neue Anhänge mit, in einer
+  vollen Anfrage alle Anhänge des Gesprächs (Bilder: die jüngsten vier).
+- Diktat: Web Speech API (`SpeechRecognition`/`webkitSpeechRecognition`, `de-DE`, laufend mit Zwischenergebnissen); der
+  Knopf erscheint nur, wenn der Browser sie bietet. Der erkannte Text landet im Eingabefeld, gesendet wird weiterhin
+  per Knopf oder Enter.

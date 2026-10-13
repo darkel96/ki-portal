@@ -254,6 +254,19 @@ a.tile:hover .tile-go svg { transform: translateX(5px); }
 .o-chat-eingabe .o-btn { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; padding: 11px 18px; }
 .o-chat-eingabe textarea { flex: 1; min-width: 0; resize: none; font: inherit; padding: 9px 12px; border: 1px solid var(--app-line); border-radius: var(--app-radius); background: var(--app-bg); color: inherit; }
 .o-chat-eingabe textarea:focus { outline: none; border-color: var(--app-accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--app-accent) 22%, transparent); }
+.o-chat-rund { display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px; flex: none; border: 1px solid var(--app-line); border-radius: 999px; background: transparent; color: inherit; cursor: pointer; }
+.o-chat-rund:hover:not(:disabled) { border-color: currentColor; }
+.o-chat-rund:disabled { opacity: .45; cursor: default; }
+.o-chat-rund.aktiv { background: var(--signal); color: var(--signal-ink); border-color: var(--signal); animation: o-chat-puls 1.2s ease-in-out infinite; }
+@keyframes o-chat-puls { 50% { box-shadow: 0 0 0 6px color-mix(in srgb, var(--signal) 30%, transparent); } }
+.o-chat-anhaenge { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0 0; padding: 0; list-style: none; }
+.o-chat-anhaenge li { display: inline-flex; align-items: center; gap: 6px; max-width: 100%; padding: 4px 8px; border: 1px solid color-mix(in srgb, currentColor 25%, transparent); border-radius: 8px; font-size: 12.5px; line-height: 1.3; white-space: normal; }
+.o-chat-anhaenge li span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 240px; }
+.o-chat-anhaenge img { height: 44px; max-width: 80px; object-fit: cover; border-radius: 4px; display: block; }
+.o-chat-anhaenge.wartend { margin: 0; }
+.o-chat-anhaenge.wartend li { border-color: var(--app-line); background: var(--app-soft); }
+.o-chat-anhaenge button { display: inline-flex; border: 0; background: transparent; color: inherit; cursor: pointer; padding: 2px; border-radius: 999px; }
+.o-chat-anhaenge button:hover { background: color-mix(in srgb, currentColor 12%, transparent); }
 .o-chat-edit { min-height: 0; }
 .o-out { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
 .o-out.card { border: 1px solid var(--app-line); border-radius: var(--app-radius); padding: 16px 18px; background: var(--app-bg); }
@@ -265,6 +278,8 @@ a.tile:hover .tile-go svg { transform: translateX(5px); }
 .o-body > :first-child { margin-top: 0; } .o-body > :last-child { margin-bottom: 0; }
 .o-body h3, .o-body h4, .o-body h5 { font-size: 16px; margin: 16px 0 6px; font-family: inherit; font-weight: 600; letter-spacing: 0; }
 .o-body p { margin: 0 0 10px; }
+.o-body a { color: var(--app-accent); text-decoration: underline; text-underline-offset: 2px; }
+.o-body a:hover { text-decoration-thickness: 2px; }
 .o-body ul, .o-body ol { margin: 0 0 10px; padding-left: 22px; list-style: revert; }
 .o-body code { font-family: var(--k-font-mono); font-size: 13px; background: var(--app-soft); padding: 1px 5px; }
 .o-foot { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
