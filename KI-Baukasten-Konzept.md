@@ -982,8 +982,11 @@ Vorbild: `src/lib/seedServiceangebot.ts` (Produkte, Ordner, Dokumente je Sprache
   Antwort bei jedem weiteren Ereignis. Hängt Copilot die fertige Antwort ein zweites Mal an (A + A), bleibt der Rest, der
   mit dem Anfang des bisherigen Texts übereinstimmt (ab 20 Zeichen, gemeinsamer Anfang über 90 % der Länge), schon im
   Stream unsichtbar; ist die Zweitfassung fast vollständig, gilt sie als die gültige (Copilot korrigiert darin z. B. eine
-  Adresse). `entdoppeln()` am Ende prüft ebenso tolerant (`fastGleich`, Längen bis 12 Zeichen auseinander) und behält die
-  spätere Fassung. `onTeil` wird nur bei verändertem Text aufgerufen.
+  Adresse). `entdoppeln()` am Ende prüft ebenso tolerant und behält die spätere Fassung. `fastGleich` zählt gemeinsamen Anfang
+  plus gemeinsames Ende (zusammen mindestens 90 %, Längen bis 12 Zeichen auseinander), damit auch eine Abweichung mitten
+  im Text als Doppel gilt (korrigierte Adresse in der ersten von zwei Quellenzeilen); `zweitfassung()` prüft das schon
+  für den wachsenden Rest im Stream mit kleinen Längenverschiebungen. Trennzeichen („---“) zwischen den Fassungen
+  gehören zu keiner von beiden. `onTeil` wird nur bei verändertem Text aufgerufen.
 - Stoppen im Chat wirkt sofort (`abbrechbar()`), auch während Anmeldefenster oder Bild-Upload das Abbruchsignal nicht
   kennen; der bis dahin gestreamte Text bleibt mit „(gestoppt)“ stehen.
 - Diktat-Korrektur (`src/lib/diktat.ts`): Fachbegriffe der App (Abkürzungen, großgeschriebene Wortfolgen, lange Wörter
