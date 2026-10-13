@@ -177,7 +177,7 @@ export function OutputView({ app, titel, stepId, stil, mode, pfad = "" }: { app:
           <pre className="code">{treeText(paketPfade(o.paket))}</pre>
           {o.paket.kopien.length > 0 && (
             <details className="paket-file"><summary>Kopierte Vorlagen ({o.paket.kopien.length})</summary>
-              <ul>{o.paket.kopien.map((k) => <li key={k.ziel}><code>{k.ziel}</code> ← {k.quelle}</li>)}</ul>
+              <ul>{o.paket.kopien.map((k) => <li key={k.ziel}>{k.ziel} ← {k.quelle}</li>)}</ul>
               {!o.paket.vorlagenUrl && <p className="o-err">Ohne Copilot-Anmeldung können die Vorlagen nicht geladen werden; das ZIP enthält dann eine Hinweisdatei.</p>}
             </details>
           )}
