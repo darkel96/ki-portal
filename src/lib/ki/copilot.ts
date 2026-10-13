@@ -155,9 +155,10 @@ export async function streamLesen(res: Response, frage: string, onTeil: (t: stri
     try { t = letzterText(JSON.parse(daten), frage); } catch { return; }
     if (!t) return;
     const vorher = text;
-    // Jedes Ereignis enthält entweder den ganzen bisherigen Text oder nur das neue Stück. Copilot schreibt den
-    // bisherigen Text dabei manchmal um (z. B. eine Quellenzeile, sobald die Adresse vollständig ist); ein Ereignis mit
-    // langem gemeinsamem Anfang ist deshalb der neue Gesamttext, kein Stück zum Anhängen.
+    // Jedes Ereignis trägt den ganzen bisherigen Text der Antwort (Copilot schickt Momentaufnahmen der Nachricht,
+    // nie einzelne Stücke) und ersetzt den alten Stand. Copilot schreibt den bisherigen Text dabei auch um, z. B. eine
+    // Personen-Markierung „<Person>…“ zum Link oder eine Quellenzeile, sobald die Adresse vollständig ist; darum wird
+    // nie angehängt, sonst verdoppelt sich die Antwort mit jedem Ereignis.
     if (!text || t.startsWith(text)) {
       // Copilot hängt manche Antworten ein zweites Mal an (A + A): Ein Rest, der mit dem Anfang des bisherigen Texts
       // übereinstimmt, wird nicht angezeigt, sonst flackert die Antwort doppelt, bis entdoppeln() am Ende greift
@@ -171,8 +172,7 @@ export async function streamLesen(res: Response, frage: string, onTeil: (t: stri
       } else text = t;
     }
     else if (text.startsWith(t)) { /* kürzer als bekannt: nichts Neues */ }
-    else if (gemeinsamerAnfang(text, t) >= Math.min(30, Math.ceil(text.length * 0.6))) text = t;
-    else text += t;
+    else text = t;   // umgeschriebener Gesamttext
     if (text === vorher) return;
     messung.ersteZeichen ??= performance.now() - start;
     onTeil(text);
