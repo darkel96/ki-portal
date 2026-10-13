@@ -5,7 +5,7 @@
  */
 import { z } from "zod";
 import {
-  AgentSchema, AppSchema, BedingungSchema, PropsSchemas, QuelleSchema, StepSchema, ThemeSchema, isFieldType,
+  AgentSchema, AppSchema, BedingungSchema, PropsSchemas, QuelleSchema, StepSchema, ThemeSchema, WissenModusSchema, isFieldType,
   BLOCK_TYPES, type App, type Block, type BlockType, type Step,
 } from "./schema";
 import { clone, rid, slug, uniqueKey, walk, fromSimple, seitenSicherstellen, type LegacyApp } from "./model";
@@ -34,6 +34,14 @@ export function sanitizeApp(raw: unknown, base: App): App {
   if (typeof r.bereich === "string" && r.bereich.trim()) app.bereich = r.bereich.trim().slice(0, 40);
   if (typeof r.beschreibung === "string") app.beschreibung = r.beschreibung.slice(0, 300);
   app.theme = isObj(r.theme) ? { ...base.theme, ...objectLenient(ThemeSchema, { ...base.theme, ...r.theme }) } : base.theme;
+  if (isObj(r.wissen)) {
+    const w = r.wissen;
+    app.wissen = {
+      modus: field(WissenModusSchema, w.modus, base.wissen.modus),
+      text: typeof w.text === "string" ? w.text.slice(0, 20000) : base.wissen.text,
+      quellen: (Array.isArray(w.quellen) ? w.quellen : base.wissen.quellen).slice(0, 20).map((q) => objectLenient(QuelleSchema, q)),
+    };
+  }
 
   const ids = new Set<string>();
   const keys = new Set<string>();
@@ -66,8 +74,8 @@ export function sanitizeApp(raw: unknown, base: App): App {
       format: field(shape.format, s.format, "markdown"),
       datei: field(shape.datei, s.datei, ""),
       autoAll: !!s.autoAll,
-      web: !!s.web,
-      wissenBegrenzt: !!s.wissenBegrenzt,
+      // Ältere Apps: Schalter „Websuche“ und „Wissen begrenzt“ werden zum Wissensmodus
+      wissenModus: field(shape.wissenModus, s.wissenModus, s.wissenBegrenzt ? "eingaben" : s.web ? "web" : "app"),
       quellen: (Array.isArray(s.quellen) ? s.quellen : []).slice(0, 20).map((q) => objectLenient(QuelleSchema, q)),
       bedingung: isObj(s.bedingung) && s.bedingung.feld ? field(BedingungSchema.nullable(), { op: "gleich", wert: "", ...s.bedingung, feld: slug(String(s.bedingung.feld)) }, null) : null,
     };
@@ -170,6 +178,7 @@ export type AssistScope = "alles" | "ui" | "design";
 export function applyScope(next: App, base: App, scope: AssistScope): App {
   if (scope === "ui") {
     next.steps = clone(base.steps);
+    next.wissen = clone(base.wissen);
     fixRefs(next);
     return next;
   }

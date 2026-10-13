@@ -88,6 +88,18 @@ export const QuelleSchema = z.object({
   url: z.string().max(800).default(""),
 });
 
+/** Wissensmodus: womit die KI arbeiten darf */
+export const WissenModusSchema = z.enum(["eingaben", "m365", "web"]).describe('"eingaben" = nur Eingaben und hinterlegte Quellen; "m365" = zusätzlich Wissen aus Microsoft 365 (Dokumente, E-Mails, Chats); "web" = zusätzlich Websuche');
+export const WISSEN_MODUS_LABEL: Record<z.infer<typeof WissenModusSchema>, string> = {
+  eingaben: "Nur Eingaben und hinterlegte Quellen", m365: "Zusätzlich Wissen aus Microsoft 365", web: "Zusätzlich Websuche",
+};
+/** Wissen der ganzen App: Modus, fester Text und Quellen gelten für alle Schritte; Schritte ergänzen oder überschreiben */
+export const WissenSchema = z.object({
+  modus: WissenModusSchema.default("eingaben"),
+  text: z.string().max(20000).default("").describe("festes Hintergrundwissen für alle Schritte"),
+  quellen: z.array(QuelleSchema).max(20).default([]),
+});
+
 export const BedingungSchema = z.object({
   feld: Key,
   op: z.enum(["gleich", "ungleich", "gefuellt", "leer"]).default("gleich"),
@@ -120,8 +132,7 @@ export const StepSchema = z.object({
   datei: z.enum(["", "pdf", "docx", "xlsx", "pptx", "wunsch"]).default("")
     .describe('Ergebnis zusätzlich als fertige Datei: "pdf", "docx" (Word), "xlsx" (Excel), "pptx" (PowerPoint), "wunsch" = die Datei, die in Aufgabe oder Eingaben verlangt wird; "" = keine'),
   autoAll: z.boolean().default(false),
-  web: z.boolean().default(false),
-  wissenBegrenzt: z.boolean().default(false).describe("true = die KI nutzt nur die Eingaben dieser Anfrage und die hinterlegten Wissensquellen; kein weiteres Wissen aus Microsoft 365 (Dokumente, E-Mails, Chats), keine Websuche"),
+  wissenModus: z.enum(["app", "eingaben", "m365", "web"]).default("app").describe('"app" = Wissensmodus der App; sonst eigener Modus für diesen Schritt'),
   quellen: z.array(QuelleSchema).max(20).default([]),
   bedingung: BedingungSchema.nullable().default(null),
   team: TeamSchema.optional(),
@@ -137,6 +148,7 @@ export const AppSchema = z.object({
   bereich: z.string().min(1).max(40).default("Allgemein"),
   beschreibung: z.string().max(300).default(""),
   theme: ThemeSchema.default({ accent: "", bg: "", font: "sans", radius: "m", width: "m" }),
+  wissen: WissenSchema.default({ modus: "eingaben", text: "", quellen: [] }),
   blocks: z.array(BlockSchema).default([]),
   steps: z.array(StepSchema).max(10).default([]),
   status: z.enum(["entwurf", "pruefung", "freigegeben"]).default("entwurf"),
@@ -151,6 +163,8 @@ export type Step = z.output<typeof StepSchema>;
 export type Team = z.output<typeof TeamSchema>;
 export type Agent = z.output<typeof AgentSchema>;
 export type Quelle = z.output<typeof QuelleSchema>;
+export type Wissen = z.output<typeof WissenSchema>;
+export type WissenModus = z.output<typeof WissenModusSchema>;
 export type Bedingung = z.output<typeof BedingungSchema>;
 export type App = z.output<typeof AppSchema>;
 
