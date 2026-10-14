@@ -9,7 +9,6 @@
  */
 import { z } from "zod";
 import type { App } from "./schema";
-import { KI_CONFIG } from "./ki/config";
 
 export const RECHTE = ["admin", "bauen", "assistent", "freigeben"] as const;
 export type Recht = (typeof RECHTE)[number];
@@ -70,31 +69,71 @@ export function darfAppNutzen(app: AppRechte, ich: Identitaet | null, rechte: Se
 }
 
 /* ---------- Speicher ---------- */
+/** Anmeldung einer Person (je Person eine eigene Datei bzw. ein Eintrag; so überschreibt keine Anmeldung die Rechte) */
+export type Anmeldung = { id: string; name: string; email: string; zuletzt: string };
+
+interface RechteStore {
+  laden(): Promise<RechteStand>;
+  speichern(s: RechteStand): Promise<void>;
+  vermerken(ich: Identitaet): Promise<void>;
+  anmeldungen(): Promise<Anmeldung[]>;
+}
 const LS_KEY = "kihub-rechte";
-interface RechteStore { readonly name: string; laden(): Promise<RechteStand>; speichern(s: RechteStand): Promise<void>; }
+const LS_ANM = "kihub-anmeldungen";
+const heute = () => new Date().toISOString().slice(0, 10);
 
 class LokalerRechteStore implements RechteStore {
-  readonly name = "Dieser Browser";
   async laden() { try { return RechteStandSchema.parse(JSON.parse(localStorage.getItem(LS_KEY) || "{}")); } catch { return { nutzer: [] }; } }
   async speichern(s: RechteStand) { localStorage.setItem(LS_KEY, JSON.stringify(s)); }
+  async anmeldungen(): Promise<Anmeldung[]> { try { const v = JSON.parse(localStorage.getItem(LS_ANM) || "[]"); return Array.isArray(v) ? v : []; } catch { return []; } }
+  async vermerken(ich: Identitaet) {
+    const liste = await this.anmeldungen();
+    const i = liste.findIndex((n) => n.id === ich.id || gleich(n.email, ich.email));
+    const eintrag = { ...ich, zuletzt: new Date().toISOString() };
+    if (i >= 0 && liste[i].zuletzt.slice(0, 10) === heute() && liste[i].name === ich.name) return;
+    if (i >= 0) liste[i] = eintrag; else liste.push(eintrag);
+    localStorage.setItem(LS_ANM, JSON.stringify(liste));
+  }
 }
+
 class SharePointRechteStore implements RechteStore {
-  readonly name = "SharePoint";
-  private url = () => `https://graph.microsoft.com/v1.0/sites/${encodeURIComponent(KI_CONFIG.spSiteId)}/drive/root:/${KI_CONFIG.spOrdner.split("/").map(encodeURIComponent).join("/")}/_rechte.json:/content`;
-  async laden() {
-    const { graphToken } = await import("./ki/auth");
-    const r = await fetch(this.url(), { headers: { Authorization: `Bearer ${await graphToken()}` } });
-    if (r.status === 404) return { nutzer: [] };
-    if (!r.ok) throw new Error(`Rechte konnten nicht geladen werden (HTTP ${r.status}).`);
-    return RechteStandSchema.parse(await r.json());
+  async laden() { const { spLesen } = await import("./speicher"); return RechteStandSchema.parse((await spLesen("rechte.json")) ?? {}); }
+  async speichern(s: RechteStand) { const { spSchreiben } = await import("./speicher"); await spSchreiben("rechte.json", s); }
+  async anmeldungen(): Promise<Anmeldung[]> {
+    const { spAlleLesen } = await import("./speicher");
+    return (await spAlleLesen("anmeldungen")).filter((x): x is Anmeldung => !!x && typeof (x as Anmeldung).email === "string");
   }
-  async speichern(s: RechteStand) {
-    const { graphToken } = await import("./ki/auth");
-    const r = await fetch(this.url(), { method: "PUT", headers: { Authorization: `Bearer ${await graphToken()}`, "Content-Type": "application/json" }, body: JSON.stringify(s) });
-    if (!r.ok) throw new Error(`Rechte konnten nicht gespeichert werden (HTTP ${r.status}). Die Azure-Anwendung braucht Schreibrecht auf die Bibliothek.`);
+  /** Höchstens einmal am Tag und nur still: ohne Schreibrecht bleibt die Anmeldung unvermerkt, es öffnet sich kein Fenster */
+  async vermerken(ich: Identitaet) {
+    const marke = `kihub-vermerkt-${ich.email.toLowerCase()}`;
+    try { if (localStorage.getItem(marke) === heute()) return; } catch { /* egal */ }
+    const { spSchreiben } = await import("./speicher");
+    await spSchreiben(`anmeldungen/${ich.email.toLowerCase().replace(/[^a-z0-9._-]/g, "_")}.json`, { ...ich, zuletzt: new Date().toISOString() }, true);
+    try { localStorage.setItem(marke, heute()); } catch { /* egal */ }
   }
 }
-export const rechteStore: RechteStore = KI_CONFIG.store === "sharepoint" && KI_CONFIG.spSiteId ? new SharePointRechteStore() : new LokalerRechteStore();
+export const lokalerRechteStore = new LokalerRechteStore();
+const spRechteStore = new SharePointRechteStore();
+const aktiv = async (): Promise<RechteStore> => {
+  const { speicherKonfig } = await import("./speicher");
+  return (await speicherKonfig()).art === "sharepoint" ? spRechteStore : lokalerRechteStore;
+};
+export const rechteStore: RechteStore = {
+  laden: async () => (await aktiv()).laden(),
+  speichern: async (s) => (await aktiv()).speichern(s),
+  vermerken: async (ich) => (await aktiv()).vermerken(ich),
+  anmeldungen: async () => (await aktiv()).anmeldungen(),
+};
+
+/** Personenliste der Verwaltung: Einträge mit Rechten plus alle, die sich angemeldet haben; „zuletzt“ aus der Anmeldung */
+export function personenListe(stand: RechteStand, anm: Anmeldung[]): Nutzer[] {
+  const aus: Nutzer[] = stand.nutzer.map((n) => {
+    const a = anm.find((x) => (n.id && x.id === n.id) || gleich(x.email, n.email));
+    return a ? { ...n, id: n.id || a.id, name: a.name || n.name, zuletzt: a.zuletzt > n.zuletzt ? a.zuletzt : n.zuletzt } : n;
+  });
+  for (const a of anm) if (!aus.some((n) => (n.id && n.id === a.id) || gleich(n.email, a.email))) aus.push({ id: a.id, name: a.name, email: a.email, zuletzt: a.zuletzt, rechte: [] });
+  return aus;
+}
 
 /** Angemeldete Person; ohne Copilot-Anmeldung eine Testperson aus localStorage „kihub-testnutzer“ ({id, name, email}) */
 export async function identitaetLaden(): Promise<Identitaet | null> {
@@ -108,18 +147,4 @@ export async function identitaetLaden(): Promise<Identitaet | null> {
     if (t?.email) return { id: t.id || t.email, name: t.name || t.email, email: t.email };
   } catch { /* kein Testnutzer */ }
   return null;
-}
-
-/** Person in die Liste aufnehmen bzw. Anmeldung vermerken; liefert den neuen Stand oder null, wenn nichts zu ändern war */
-export function nutzerVermerken(stand: RechteStand, ich: Identitaet): RechteStand | null {
-  const jetzt = new Date().toISOString();
-  const i = stand.nutzer.findIndex((n) => (n.id && n.id === ich.id) || (n.email && gleich(n.email, ich.email)));
-  if (i >= 0) {
-    const alt = stand.nutzer[i];
-    // Nur einmal am Tag vermerken, damit nicht jeder Seitenaufruf speichert
-    if (alt.id === ich.id && alt.name === ich.name && alt.zuletzt.slice(0, 10) === jetzt.slice(0, 10)) return null;
-    const nutzer = [...stand.nutzer]; nutzer[i] = { ...alt, id: ich.id, name: ich.name, email: ich.email, zuletzt: jetzt };
-    return { nutzer };
-  }
-  return { nutzer: [...stand.nutzer, { id: ich.id, name: ich.name, email: ich.email, zuletzt: jetzt, rechte: [] }] };
 }

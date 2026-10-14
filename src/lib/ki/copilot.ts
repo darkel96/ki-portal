@@ -72,6 +72,29 @@ function letzterText(antwort: unknown, frage: string): string {
   return text;
 }
 
+/**
+ * Letztes Sicherheitsnetz: direkt hintereinander wiederholte Absätze oder Absatzfolgen (ab 30 Zeichen) einmal
+ * behalten. In einer echten Antwort kommt derselbe Absatz nie zweimal unmittelbar nacheinander vor; bei einer
+ * Copilot-Panne (Antwort doppelt angehängt, egal in welcher Form) räumt das die Anzeige auf.
+ */
+export function wiederholungenEntfernen(text: string): string {
+  const teile = text.split(/\n{2,}/);
+  if (teile.length < 2) return text;
+  const norm = teile.map((t) => t.trim().replace(/\s+/g, " "));
+  const aus: string[] = [], ausN: string[] = [];
+  let entfernt = false;
+  for (let i = 0; i < teile.length;) {
+    let sprung = 0;
+    for (let k = Math.min(ausN.length, teile.length - i); k >= 1; k--) {
+      const block = ausN.slice(-k).join("\n");
+      if (block.length >= 30 && norm.slice(i, i + k).join("\n") === block) { sprung = k; break; }
+    }
+    if (sprung) { i += sprung; entfernt = true; continue; }
+    aus.push(teile[i]); ausN.push(norm[i]); i++;
+  }
+  return entfernt ? aus.join("\n\n") : text;
+}
+
 /** Länge des gemeinsamen Endes zweier Texte */
 function gemeinsamesEnde(a: string, b: string): number {
   const n = Math.min(a.length, b.length);
@@ -175,7 +198,7 @@ export async function streamLesen(res: Response, frage: string, onTeil: (t: stri
     else text = t;   // umgeschriebener Gesamttext
     if (text === vorher) return;
     messung.ersteZeichen ??= performance.now() - start;
-    onTeil(text);
+    onTeil(wiederholungenEntfernen(text));
   };
   for (;;) {
     const { done, value } = await leser.read();
@@ -257,7 +280,7 @@ export async function copilotFragen(frage: string, opts: {
   messung.antwort = performance.now() - t2;
   letzteMessung = messung as Messung;
   console.info("[KI-Hub] Copilot", Object.fromEntries(Object.entries(messung).map(([k, v]) => [k, typeof v === "number" ? `${(v / 1000).toFixed(1)} s` : v])));
-  text = entdoppeln(text);
+  text = wiederholungenEntfernen(entdoppeln(text));
   if (!text) throw new Error("Copilot hat keinen Text geliefert.");
   return text;
 }

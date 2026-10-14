@@ -1,17 +1,12 @@
 /**
- * Speicher für Applikationen.
- * - "local": im Browser (für Tests und Einzelplätze)
- * - "sharepoint": eine JSON-Datei je App in einer SharePoint-Bibliothek über Microsoft Graph,
- *   damit alle Mitarbeitenden dieselben Apps sehen.
- *   TODO: Website, Ordner und Schreibrechte (z. B. Sites.ReadWrite.All oder Sites.Selected) mit der IT festlegen.
+ * Speicher für Applikationen: im Browser (Einzelplatz, Test) oder im gemeinsamen SharePoint-Ordner (siehe speicher.ts),
+ * damit alle Mitarbeitenden dieselben Apps sehen. Welcher gilt, entscheidet die Speicher-Konfiguration bei jedem Aufruf.
  */
 import type { App } from "./schema";
 import { loadApp } from "./sanitize";
-import { KI_CONFIG } from "./ki/config";
-import { graphToken } from "./ki/auth";
+import { spAlleLesen, spLoeschen, spSchreiben, speicherKonfig } from "./speicher";
 
 export interface AppStore {
-  readonly name: string;
   list(): Promise<App[]>;
   save(app: App): Promise<void>;
   remove(id: string): Promise<void>;
@@ -21,7 +16,6 @@ const LS_KEY = "kihub-apps-v3";
 const isObj = (v: unknown): v is Record<string, unknown> => !!v && typeof v === "object";
 
 class LocalStore implements AppStore {
-  readonly name = "Dieser Browser";
   private read(): unknown[] {
     try { const v = JSON.parse(localStorage.getItem(LS_KEY) || "[]"); return Array.isArray(v) ? v : []; } catch { return []; }
   }
@@ -42,33 +36,22 @@ class LocalStore implements AppStore {
   async remove(id: string) { this.write(this.read().filter((a) => !(isObj(a) && a.id === id))); }
 }
 
+/** Dateiname einer App: nur sichere Zeichen */
+const datei = (id: string) => `apps/${id.replace(/[^a-zA-Z0-9_-]/g, "_")}.json`;
+
 class SharePointStore implements AppStore {
-  readonly name = "SharePoint";
-  private base = () => `https://graph.microsoft.com/v1.0/sites/${encodeURIComponent(KI_CONFIG.spSiteId)}/drive/root:/${KI_CONFIG.spOrdner.split("/").map(encodeURIComponent).join("/")}`;
-  private async req(url: string, init: RequestInit = {}) {
-    const token = await graphToken();
-    const res = await fetch(url, { ...init, headers: { Authorization: `Bearer ${token}`, ...(init.headers ?? {}) } });
-    if (!res.ok && res.status !== 404) throw new Error(`SharePoint antwortet mit Fehler ${res.status}.`);
-    return res;
-  }
-  async list() {
-    const res = await this.req(`${this.base()}:/children?$select=name,@microsoft.graph.downloadUrl&$top=500`);
-    if (res.status === 404) return [];
-    const data = (await res.json()) as { value?: { name: string; "@microsoft.graph.downloadUrl"?: string }[] };
-    const files = (data.value ?? []).filter((f) => f.name.endsWith(".json") && f["@microsoft.graph.downloadUrl"]);
-    const apps = await Promise.all(files.map(async (f) => {
-      try { return loadApp(await (await fetch(f["@microsoft.graph.downloadUrl"]!)).json()); } catch { return null; }
-    }));
-    return apps.filter((a): a is App => !!a && !!a.id);
-  }
-  async save(app: App) {
-    await this.req(`${this.base()}/${encodeURIComponent(app.id!)}.json:/content`, {
-      method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(app),
-    });
-  }
-  async remove(id: string) {
-    await this.req(`${this.base()}/${encodeURIComponent(id)}.json`, { method: "DELETE" });
-  }
+  async list() { return (await spAlleLesen("apps")).map((r) => loadApp(r)).filter((a): a is App => !!a && !!a.id); }
+  async save(app: App) { await spSchreiben(datei(app.id!), app); }
+  async remove(id: string) { await spLoeschen(datei(id)); }
 }
 
-export const appStore: AppStore = KI_CONFIG.store === "sharepoint" && KI_CONFIG.spSiteId ? new SharePointStore() : new LocalStore();
+/** Apps im Browser; für die Übernahme in den gemeinsamen Speicher */
+export const lokalerAppStore = new LocalStore();
+const spStore = new SharePointStore();
+const aktiv = async (): Promise<AppStore> => ((await speicherKonfig()).art === "sharepoint" ? spStore : lokalerAppStore);
+
+export const appStore: AppStore = {
+  list: async () => (await aktiv()).list(),
+  save: async (app) => (await aktiv()).save(app),
+  remove: async (id) => (await aktiv()).remove(id),
+};

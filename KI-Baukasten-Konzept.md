@@ -1017,8 +1017,10 @@ Vorbild: `src/lib/seedServiceangebot.ts` (Produkte, Ordner, Dokumente je Sprache
   Eintrag. Je App (`AppSchema`): `erstelltVon` (E-Mail, beim ersten Speichern aus der Anmeldung) und
   `rechte {bearbeiten[], nutzen[]}`; `darfAppBearbeiten` (admin, oder bauen und Besitz/Eintrag/keine Liste und kein
   Besitz), `darfAppNutzen` (admin, leere Liste, Eintrag, oder bearbeiten).
-- Speicher `rechteStore`: Browser (`kihub-rechte`) oder `_rechte.json` in der SharePoint-Bibliothek der Apps (Graph PUT,
-  braucht Schreibrecht). Identität `identitaetLaden()`: MSAL-Konto (`localAccountId`, `name`, `username`), sonst
+- Speicher `rechteStore`: Browser (`kihub-rechte`, Anmeldungen in `kihub-anmeldungen`) oder im gemeinsamen
+  SharePoint-Ordner (`rechte.json`, `anmeldungen/<email>.json`). Anmeldungen schreiben je Person eine eigene Datei, still
+  (ohne Anmeldefenster) und höchstens einmal am Tag; `personenListe(stand, anmeldungen)` führt beides für Verwaltung und
+  Personenwahl zusammen. Identität `identitaetLaden()`: MSAL-Konto (`localAccountId`, `name`, `username`), sonst
   Testperson aus `localStorage.kihub-testnutzer`. `nutzerVermerken` trägt eine angemeldete Person ein und aktualisiert
   „zuletzt“ höchstens einmal am Tag.
 - `RechteProvider` (`src/state/rechte.tsx`) über `AppsProvider`: `ich`, `stand`, `darf(recht)`, `istAdmin`,
@@ -1032,3 +1034,18 @@ Vorbild: `src/lib/seedServiceangebot.ts` (Produkte, Ordner, Dokumente je Sprache
 - `VerwaltungPage` (`/verwaltung`): Tabelle Person, zuletzt angemeldet, ein Kästchen je Recht (feste Admins fest, „admin“
   impliziert alles), Person per E-Mail vormerken, noch nie angemeldete Vormerkungen entfernen, „Rechte speichern“.
 - Tests `e2e/rechte.spec.ts` über die Testperson in localStorage.
+
+## 29. Gemeinsamer Speicher
+
+- `src/lib/speicher.ts`: Konfiguration zur Laufzeit, erste Angabe gewinnt: Browser-Test (`kihub-speicher`, aus der
+  Verwaltung), `public/hub-config.json` (`speicher.ordner`), Build-Variable `VITE_SP_ORDNER_URL`; sonst lokal. Der
+  Ordner wird wie Vorlagenordner aufgelöst (`ordnerAufloesen`), Dateien über `spLesen`, `spSchreiben`, `spLoeschen`,
+  `spAlleLesen`. Lesen mit dem normalen Token, Schreiben mit zusätzlich `Sites.ReadWrite.All` (interaktiv nur beim
+  bewussten Speichern, still bei Anmeldungen). `ordnerPruefen` liest, schreibt und löscht eine Probedatei.
+- `appStore` und `rechteStore` delegieren bei jedem Aufruf an Browser oder SharePoint. Ordner: `apps/<id>.json`,
+  `rechte.json`, `anmeldungen/`. Verwaltung → „Gemeinsamer Speicher“: prüfen, im eigenen Browser verwenden, Daten aus
+  dem Browser übernehmen (Apps speichern, Rechte vereinigen).
+- Chat-Sicherheitsnetz `wiederholungenEntfernen` (copilot.ts): direkt aufeinanderfolgende gleiche Absätze oder
+  Absatzfolgen ab 30 Zeichen bleiben einmal stehen, in der Anzeige während des Streams und in der Endfassung.
+- `public/staticwebapp.config.json`: Mikrofon für die eigene Seite erlaubt (Diktat), für das spätere Hosting als
+  Azure Static Web App.
