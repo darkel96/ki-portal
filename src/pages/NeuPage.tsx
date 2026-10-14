@@ -7,6 +7,8 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useApps } from "@/state/apps";
+import { useRechte } from "@/state/rechte";
+import { KeineRechte } from "@/pages/VerwaltungPage";
 import type { App } from "@/lib/schema";
 import { appWarnings, areaList, fieldsOf, leereApp, seitenVon } from "@/lib/model";
 import { assistentAnwenden } from "@/lib/assistant";
@@ -27,6 +29,12 @@ const SCHUTZ: [App["schutz"], string][] = [["oeffentlich", "Öffentlich"], ["int
 
 /** Neue Applikation per KI: beschreiben, Entwurf testen und nachschärfen, speichern. Jeder Schritt ist eine eigene Seite. */
 export function NeuPage() {
+  const rechte = useRechte();
+  if (rechte.geladen && !rechte.darf("assistent") && !rechte.darf("bauen")) return <KeineRechte was="den KI-Assistenten" />;
+  return <NeuSeite />;
+}
+
+function NeuSeite() {
   const { apps, save } = useApps();
   const nav = useNavigate();
   const bereiche = useMemo(() => areaList(apps), [apps]);

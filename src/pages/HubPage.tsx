@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "reac
 import { Link, useSearchParams } from "react-router";
 import { Input } from "@/components/ui/input";
 import { useApps } from "@/state/apps";
+import { useRechte } from "@/state/rechte";
 import { ArrowRight, Plus } from "lucide-react";
 import { areaList, fieldsOf, initials } from "@/lib/model";
 import type { HubApp } from "@/lib/schema";
@@ -55,7 +56,11 @@ export function Tile({ a, mono }: { a: HubApp; mono: string }) {
   );
 }
 export function HubPage() {
-  const { apps, geladen, fehler } = useApps();
+  const { apps: alleApps, geladen, fehler } = useApps();
+  const rechte = useRechte();
+  // Nur Applikationen, die die angemeldete Person nutzen darf
+  const apps = useMemo(() => alleApps.filter((a) => rechte.darfApp(a, "nutzen")), [alleApps, rechte]);
+  const darfNeu = rechte.darf("assistent") || rechte.darf("bauen");
   // Filter und Suche stehen in der Adresse: teilbar, Zurück-Taste funktioniert.
   const [sp, setSp] = useSearchParams();
   const bereich = sp.get("bereich") ?? "Alle";
@@ -155,7 +160,7 @@ export function HubPage() {
             <div><dt>Bereiche</dt><dd>{geladen ? bereiche.length : "–"}</dd></div>
             <div className="blau"><dt>Eigene</dt><dd>{geladen ? eigene : "–"}</dd></div>
           </dl>
-          <Link to="/neu" viewTransition className="knopf-neu"><Plus size={16} aria-hidden="true" />Neue Applikation</Link>
+          {darfNeu && <Link to="/neu" viewTransition className="knopf-neu"><Plus size={16} aria-hidden="true" />Neue Applikation</Link>}
         </div>
       </section>
       {fehler && <p role="alert" className="hint" style={{ color: "var(--danger)" }}>{fehler}</p>}

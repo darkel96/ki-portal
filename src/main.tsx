@@ -7,12 +7,14 @@ import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AppsProvider } from "@/state/apps";
 import { MeinHubProvider } from "@/state/meinhub";
+import { RechteProvider } from "@/state/rechte";
 import { Shell } from "@/components/layout/Shell";
 import { HubPage } from "@/pages/HubPage";
 const AppPage = lazy(() => import("@/pages/AppPage").then((m) => ({ default: m.AppPage })));
 const BuilderPage = lazy(() => import("@/pages/BuilderPage").then((m) => ({ default: m.BuilderPage })));
 const MeinHubPage = lazy(() => import("@/pages/MeinHubPage").then((m) => ({ default: m.MeinHubPage })));
 const NeuPage = lazy(() => import("@/pages/NeuPage").then((m) => ({ default: m.NeuPage })));
+const VerwaltungPage = lazy(() => import("@/pages/VerwaltungPage").then((m) => ({ default: m.VerwaltungPage })));
 const laden = <p className="hint">Wird geladen …</p>;
 import { FehlerPage, NotFoundPage } from "@/pages/NotFoundPage";
 import "./index.css";
@@ -29,6 +31,7 @@ const router = (import.meta.env.VITE_ROUTER === "hash" ? createHashRouter : crea
       { path: "/neu", element: <Suspense fallback={laden}><NeuPage /></Suspense> },
       { path: "/baukasten", element: <Suspense fallback={laden}><BuilderPage /></Suspense> },
       { path: "/baukasten/:id", element: <Suspense fallback={laden}><BuilderPage /></Suspense> },
+      { path: "/verwaltung", element: <Suspense fallback={laden}><VerwaltungPage /></Suspense> },
       { path: "*", element: <NotFoundPage /> },
     ],
   },
@@ -38,12 +41,14 @@ createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <MotionConfig reducedMotion="user">
       <TooltipProvider>
-        <AppsProvider>
-          <MeinHubProvider>
-            <RouterProvider router={router} />
-            <Toaster />
-          </MeinHubProvider>
-        </AppsProvider>
+        <RechteProvider>
+          <AppsProvider>
+            <MeinHubProvider>
+              <RouterProvider router={router} />
+              <Toaster />
+            </MeinHubProvider>
+          </AppsProvider>
+        </RechteProvider>
       </TooltipProvider>
     </MotionConfig>
   </StrictMode>

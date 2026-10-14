@@ -11,12 +11,14 @@ import { loadImage } from "@/lib/files";
 import { BT } from "./catalog";
 import { Check, Fld, PALETTES, Seg, Sel, Swatches, TextFld } from "./controls";
 import type { Builder } from "./useBuilder";
+import { useRechte } from "@/state/rechte";
 
 const ALIGN: ["left" | "center" | "right", string][] = [["left", "Links"], ["center", "Mitte"], ["right", "Rechts"]];
 const STATUS: [App["status"], string][] = [["entwurf", "Entwurf"], ["pruefung", "In Prüfung"], ["freigegeben", "Freigegeben"]];
 const SCHUTZ: [App["schutz"], string][] = [["oeffentlich", "Öffentlich"], ["intern", "Intern"], ["vertraulich", "Vertraulich"]];
 
 function AppSettings({ b, alleBereiche }: { b: Builder; alleBereiche: string[] }) {
+  const rechte = useRechte();
   const t = b.app.theme;
   const setTheme = <K extends keyof App["theme"]>(k: K, v: App["theme"][K]) => b.change((d) => { d.theme[k] = v; });
   return (
@@ -59,9 +61,13 @@ function AppSettings({ b, alleBereiche }: { b: Builder; alleBereiche: string[] }
           <p className="hint" style={{ margin: 0 }}>SharePoint-Bereiche und einzelne Dateien liest der Hub vor jedem Schritt aus und gibt passende Auszüge mit. Mit dem Lesezeichen landet eine Quelle in der Wissensbibliothek und ist in jeder App wählbar.</p>
         </TabsContent>
         <TabsContent value="freigabe" className="ki-teil" tabIndex={-1}>
-          <Seg label="Status" value={b.app.status} options={STATUS} onChange={(v) => b.change((d) => { d.status = v; })} />
+          <Seg label="Status" value={b.app.status} options={rechte.darf("freigeben") ? STATUS : STATUS.filter(([k]) => k !== "freigegeben" || b.app.status === "freigegeben")} onChange={(v) => b.change((d) => { d.status = v; })} />
+          {!rechte.darf("freigeben") && <p className="hint" style={{ margin: 0 }}>„Freigegeben“ kann nur eine Person mit Freigabe-Recht setzen.</p>}
           <TextFld label="Verantwortlich" value={b.app.owner} placeholder="Name oder Abteilung" onChange={(v) => b.change((d) => { d.owner = v; }, "owner")} />
           <Seg label="Schutzklasse der Daten" value={b.app.schutz} options={SCHUTZ} onChange={(v) => b.change((d) => { d.schutz = v; })} />
+          <PersonenWahl label="Bearbeiten dürfen" hint={`${b.app.erstelltVon ? `Angelegt von ${b.app.erstelltVon}; diese Person und die Verwaltung dürfen immer.` : "Die Person, die die App anlegt, und die Verwaltung dürfen immer."} Ohne Auswahl darf jede Person mit Baukasten-Recht.`}
+            werte={b.app.rechte.bearbeiten} onChange={(v) => b.change((d) => { d.rechte.bearbeiten = v; })} />
+          <PersonenWahl label="Nutzen dürfen" hint="Ohne Auswahl dürfen alle. Wer bearbeiten darf, darf auch nutzen." werte={b.app.rechte.nutzen} onChange={(v) => b.change((d) => { d.rechte.nutzen = v; })} />
           <span className="hint">Version {b.app.version || 0}{b.app.geaendert ? `, zuletzt gespeichert ${new Date(b.app.geaendert).toLocaleString("de-DE", { dateStyle: "medium", timeStyle: "short" })}` : ", noch nicht gespeichert"}. Jedes Speichern erhöht die Version.</span>
         </TabsContent>
       </Tabs>
@@ -291,5 +297,32 @@ export function Inspector({ b, onDelete, bereiche, onSeite }: { b: Builder; onDe
       {f}
       {x.type !== "seite" && <SeitenWahl b={b} id={id} onSeite={onSeite} />}
     </aside>
+  );
+}
+
+/** Personen aus der Rechteliste ankreuzen (E-Mails); zusätzlich freie E-Mail-Adresse */
+function PersonenWahl({ label, hint, werte, onChange }: { label: string; hint: string; werte: string[]; onChange: (v: string[]) => void }) {
+  const { stand } = useRechte();
+  const [neu, setNeu] = useState("");
+  const hat = (e: string) => werte.some((x) => x.toLowerCase() === e.toLowerCase());
+  const umschalten = (e: string) => onChange(hat(e) ? werte.filter((x) => x.toLowerCase() !== e.toLowerCase()) : [...werte, e]);
+  const personen = [...stand.nutzer.map((n) => ({ email: n.email, name: n.name })), ...werte.filter((e) => !stand.nutzer.some((n) => n.email.toLowerCase() === e.toLowerCase())).map((e) => ({ email: e, name: "" }))];
+  return (
+    <Fld label={label}>
+      <div className="pw-liste">
+        {personen.length === 0 && <span className="hint">Noch keine Person angemeldet.</span>}
+        {personen.map((p) => (
+          <label key={p.email} className="pw-person">
+            <input type="checkbox" checked={hat(p.email)} onChange={() => umschalten(p.email)} />
+            <span>{p.name || p.email}{p.name ? <span className="hint"> {p.email}</span> : null}</span>
+          </label>
+        ))}
+        <form className="pw-neu" onSubmit={(e) => { e.preventDefault(); const v = neu.trim().toLowerCase(); if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v) && !hat(v)) { onChange([...werte, v]); setNeu(""); } }}>
+          <Input value={neu} onChange={(e) => setNeu(e.target.value)} placeholder="E-Mail ergänzen" aria-label={`${label}: E-Mail ergänzen`} className="h-8 text-[13px]" />
+          <Button type="submit" variant="outline" size="sm">Hinzufügen</Button>
+        </form>
+      </div>
+      <p className="hint" style={{ margin: 0 }}>{hint}</p>
+    </Fld>
   );
 }

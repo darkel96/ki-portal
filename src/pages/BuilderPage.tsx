@@ -19,6 +19,8 @@ import { JsonDialog } from "@/components/builder/JsonDialog";
 import { BT } from "@/components/builder/catalog";
 import { NotFoundPage } from "./NotFoundPage";
 import { loadApp } from "@/lib/sanitize";
+import { useRechte } from "@/state/rechte";
+import { KeineRechte } from "@/pages/VerwaltungPage";
 
 function Editor({ start, ungespeichert }: { start: App; ungespeichert: boolean }) {
   const b = useBuilder(start, ungespeichert);
@@ -252,6 +254,7 @@ export function BuilderPage() {
   const { id } = useParams();
   const [sp] = useSearchParams();
   const { find, geladen } = useApps();
+  const rechte = useRechte();
   const loc = useLocation();
   const kopie = sp.get("kopie");
   // Entwurf aus „Neue Applikation“ (per KI erstellt), über den Navigationszustand übergeben.
@@ -259,6 +262,8 @@ export function BuilderPage() {
   const quelle = id ? find(id) : kopie ? find(kopie) : undefined;
   if ((id || kopie) && !quelle) return geladen ? <NotFoundPage /> : <p className="hint">Applikation wird geladen …</p>;
   if (id && quelle && quelle._src !== "eigene") return <NotFoundPage />;
+  if (rechte.geladen && !rechte.darf("bauen")) return <KeineRechte was="den Baukasten" />;
+  if (rechte.geladen && id && quelle && !rechte.darfApp(quelle, "bearbeiten")) return <KeineRechte was={`das Bearbeiten von „${quelle.name}“`} />;
   let start: App;
   if (quelle) {
     const { _src, ...rest } = clone(quelle);
