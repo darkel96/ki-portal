@@ -159,6 +159,10 @@ export const AppSchema = z.object({
   steps: z.array(StepSchema).max(10).default([]),
   status: z.enum(["entwurf", "pruefung", "freigegeben"]).default("entwurf"),
   owner: z.string().max(120).default(""),
+  /** Wer die App angelegt hat (E-Mail); darf sie immer bearbeiten */
+  erstelltVon: z.string().max(200).default(""),
+  /** Rechte je App: E-Mails; leere Liste bei „nutzen“ = alle dürfen */
+  rechte: z.object({ bearbeiten: z.array(z.string().max(200)).default([]), nutzen: z.array(z.string().max(200)).default([]) }).default({ bearbeiten: [], nutzen: [] }),
   schutz: z.enum(["oeffentlich", "intern", "vertraulich"]).default("intern"),
   version: z.number().int().min(0).default(0),
   geaendert: z.string().default(""),

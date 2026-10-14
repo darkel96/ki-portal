@@ -9,6 +9,7 @@ import { useMeinHub } from "@/state/meinhub";
 import { AuftragDialog, VorlageDialog, VorlagenVerwalten } from "@/components/meinhub/Dialoge";
 import { datumZeit, type Voreinstellung } from "@/lib/meinhub";
 import { useApps } from "@/state/apps";
+import { useRechte } from "@/state/rechte";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { areaIdx, fieldsOf } from "@/lib/model";
@@ -97,6 +98,9 @@ export function AppPage() {
   const ci = areaIdx(a.bereich);
   const hatBeispiele = fieldsOf(a).some((f) => f.type !== "file" && f.props.beispiel);
   const eigene = a._src === "eigene";
+  const rechte = useRechte();
+  // Eigene App: nur wer sie bearbeiten darf; Vorlage als Kopie: wer bauen darf
+  const darfBearbeiten = eigene ? rechte.darfApp(a, "bearbeiten") : rechte.darf("bauen");
   const bearbeiten = () => nav(eigene ? `/baukasten/${a.id}` : `/baukasten?kopie=${a.id}`, { viewTransition: true });
   const bearbeitenText = eigene ? "Im Baukasten bearbeiten" : "Als Kopie im Baukasten öffnen";
 
@@ -144,8 +148,8 @@ export function AppPage() {
         )}
         <span className="nur-breit app-aktionen">
           {hatBeispiele && <Button variant="outline" className="rounded-full" onClick={beispiele}>Beispieldaten einsetzen</Button>}
-          <Button variant="outline" className="rounded-full" onClick={bearbeiten}>{bearbeitenText}</Button>
-          {eigene && <Button variant="ghost" className="rounded-full" onClick={() => setLoeschen(true)}>Löschen</Button>}
+          {darfBearbeiten && <Button variant="outline" className="rounded-full" onClick={bearbeiten}>{bearbeitenText}</Button>}
+          {eigene && darfBearbeiten && <Button variant="ghost" className="rounded-full" onClick={() => setLoeschen(true)}>Löschen</Button>}
         </span>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -162,8 +166,8 @@ export function AppPage() {
               <DropdownMenuSeparator />
             </>}
             {hatBeispiele && <DropdownMenuItem onSelect={beispiele}>Beispieldaten einsetzen</DropdownMenuItem>}
-            <DropdownMenuItem onSelect={bearbeiten}>{bearbeitenText}</DropdownMenuItem>
-            {eigene && <DropdownMenuItem variant="destructive" onSelect={() => setLoeschen(true)}>Löschen</DropdownMenuItem>}
+            {darfBearbeiten && <DropdownMenuItem onSelect={bearbeiten}>{bearbeitenText}</DropdownMenuItem>}
+            {eigene && darfBearbeiten && <DropdownMenuItem variant="destructive" onSelect={() => setLoeschen(true)}>Löschen</DropdownMenuItem>}
           </DropdownMenuContent>
         </DropdownMenu>
       </div>

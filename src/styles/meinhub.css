@@ -105,3 +105,26 @@ button.link-back { border: 0; background: none; padding: 0; font: inherit; font-
   [role="dialog"] [data-slot="checkbox"]::after { inset: -12px; }
   [role="dialog"] [data-slot="dialog-close"] { width: 40px; height: 40px; }
 }
+
+/* ===== Verwaltung: Personen und Rechte ===== */
+.rv { display: flex; flex-direction: column; gap: 16px; }
+.rv-hero { flex: none; }
+.rv-tabelle { overflow: auto; border: 1px solid var(--line); border-radius: var(--k-radius-card); background: var(--surface); }
+.rv-tabelle table { width: 100%; border-collapse: collapse; font-size: 14px; }
+.rv-tabelle th, .rv-tabelle td { padding: 10px 14px; text-align: left; vertical-align: top; border-bottom: 1px solid var(--line); }
+.rv-tabelle th { font-size: 12px; letter-spacing: .04em; text-transform: uppercase; color: var(--muted-ink); white-space: nowrap; background: var(--surface-2); }
+.rv-tabelle tbody tr:last-child td { border-bottom: 0; }
+.rv-tabelle td .hint { display: block; }
+.rv-name { font-weight: 600; }
+.rv-tabelle input[type="checkbox"] { width: 18px; height: 18px; accent-color: var(--brand); }
+.rv-x { border: 0; background: transparent; font-size: 18px; line-height: 1; color: var(--muted-ink); cursor: pointer; padding: 2px 6px; border-radius: 999px; }
+.rv-x:hover { background: var(--surface-2); color: var(--ink); }
+.rv-fuss { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; }
+.rv-neu { display: flex; gap: 8px; align-items: center; flex: 1 1 320px; max-width: 480px; }
+@media (max-width: 640px) { .rv-tabelle th, .rv-tabelle td { padding: 8px 10px; } }
+
+/* Personenwahl im Freigabe-Reiter */
+.pw-liste { display: flex; flex-direction: column; gap: 6px; }
+.pw-person { display: flex; align-items: center; gap: 8px; font-size: 13px; cursor: pointer; }
+.pw-person input { width: 16px; height: 16px; accent-color: var(--brand); flex: none; }
+.pw-neu { display: flex; gap: 6px; margin-top: 4px; }

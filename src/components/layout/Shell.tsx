@@ -3,6 +3,7 @@ import { NavLink, Outlet, Link, useLocation } from "react-router";
 import { KoerberLogo } from "./KoerberLogo";
 import { KiSchluessel, useKiModus } from "./KiSchluessel";
 import { KiCopilotEinrichten, KiCopilotStatus } from "./KiCopilot";
+import { useRechte } from "@/state/rechte";
 import { aktuellesKonto } from "@/lib/ki/auth";
 import { Anmeldung } from "./Anmeldung";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -14,12 +15,13 @@ export function Shell() {
   const loc = useLocation();
   const modus = useKiModus();
   const [konto, setKonto] = useState<string | null>(null);
-  const kontoLaden = () => { aktuellesKonto().then((k) => setKonto(k?.name ?? null)).catch(() => setKonto(null)); };
+  const rechte = useRechte();
+  const kontoLaden = () => { aktuellesKonto().then((k) => setKonto(k?.name ?? null)).catch(() => setKonto(null)); void rechte.neuLaden(); };
   useEffect(kontoLaden, [loc.pathname, modus]);
   // Fenstertitel je Bereich; App-Seiten setzen ihren eigenen
   useEffect(() => {
     if (loc.pathname.startsWith("/app/")) return;
-    const t = loc.pathname === "/" ? "Applikationen" : loc.pathname.startsWith("/mein") ? "Mein Hub" : loc.pathname.startsWith("/baukasten") ? "Baukasten" : loc.pathname === "/neu" ? "Neue Applikation" : "Seite nicht gefunden";
+    const t = loc.pathname === "/" ? "Applikationen" : loc.pathname.startsWith("/mein") ? "Mein Hub" : loc.pathname.startsWith("/baukasten") ? "Baukasten" : loc.pathname === "/neu" ? "Neue Applikation" : loc.pathname === "/verwaltung" ? "Verwaltung" : "Seite nicht gefunden";
     document.title = `${t} – KI-Hub`;
   }, [loc.pathname]);
   const imBaukasten = loc.pathname.startsWith("/baukasten") || loc.pathname === "/neu";
@@ -38,7 +40,8 @@ export function Shell() {
           <nav className="nav" aria-label="Hauptnavigation">
             <Link to="/" viewTransition aria-current={inUebersicht ? "page" : undefined}>Applikationen</Link>
             <NavLink to="/mein" viewTransition>Mein Hub</NavLink>
-            <NavLink to="/baukasten" viewTransition>Baukasten</NavLink>
+            {rechte.darf("bauen") && <NavLink to="/baukasten" viewTransition>Baukasten</NavLink>}
+            {rechte.istAdmin && rechte.ich && <NavLink to="/verwaltung" viewTransition>Verwaltung</NavLink>}
           </nav>
           <Popover>
             <PopoverTrigger asChild>

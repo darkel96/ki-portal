@@ -2,6 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState, t
 import { AppSchema, type App, type HubApp } from "@/lib/schema";
 import { appStore } from "@/lib/store";
 import { SEED_APPS } from "@/lib/seeds";
+import { useRechte } from "@/state/rechte";
 
 type AppsCtx = {
   apps: HubApp[];
@@ -19,6 +20,7 @@ export function AppsProvider({ children }: { children: ReactNode }) {
   const [eigene, setEigene] = useState<App[]>([]);
   const [geladen, setGeladen] = useState(false);
   const [fehler, setFehler] = useState<string | null>(null);
+  const { ich } = useRechte();
 
   const reload = useCallback(async () => {
     try {
@@ -45,6 +47,8 @@ export function AppsProvider({ children }: { children: ReactNode }) {
       version: (app.version || 0) + 1,
       geaendert: new Date().toISOString(),
       typ: "baukasten",
+      // Wer eine App anlegt, darf sie immer bearbeiten
+      erstelltVon: app.erstelltVon || ich?.email || "",
     };
     delete (def as Partial<HubApp>)._src;
     // Nur speichern, was sich auch wieder laden lässt.
@@ -53,7 +57,7 @@ export function AppsProvider({ children }: { children: ReactNode }) {
     await appStore.save(def);
     setEigene((prev) => [...prev.filter((a) => a.id !== def.id), def]);
     return def;
-  }, []);
+  }, [ich]);
 
   const remove = useCallback(async (id: string) => {
     await appStore.remove(id);

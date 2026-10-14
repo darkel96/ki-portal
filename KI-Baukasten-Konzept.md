@@ -1008,3 +1008,27 @@ Vorbild: `src/lib/seedServiceangebot.ts` (Produkte, Ordner, Dokumente je Sprache
 - Diktat: Web Speech API (`SpeechRecognition`/`webkitSpeechRecognition`, `de-DE`, laufend mit Zwischenergebnissen); der
   Knopf erscheint nur, wenn der Browser sie bietet. Der erkannte Text landet im Eingabefeld, gesendet wird weiterhin
   per Knopf oder Enter.
+
+## 28. Rechte und Verwaltung
+
+- Modell in `src/lib/rechte.ts`: `Nutzer {id, name, email, zuletzt, rechte[]}` mit den Rechten `admin`, `bauen`,
+  `assistent`, `freigeben` (`RECHTE`, `RECHT_LABEL`). Feste Administration aus `VITE_ADMINS` (`istFesterAdmin`).
+  `rechteVon(ich, stand)`: ohne Anmeldung alle Rechte (keine Einschränkung), feste Admins und „admin“ alles, sonst der
+  Eintrag. Je App (`AppSchema`): `erstelltVon` (E-Mail, beim ersten Speichern aus der Anmeldung) und
+  `rechte {bearbeiten[], nutzen[]}`; `darfAppBearbeiten` (admin, oder bauen und Besitz/Eintrag/keine Liste und kein
+  Besitz), `darfAppNutzen` (admin, leere Liste, Eintrag, oder bearbeiten).
+- Speicher `rechteStore`: Browser (`kihub-rechte`) oder `_rechte.json` in der SharePoint-Bibliothek der Apps (Graph PUT,
+  braucht Schreibrecht). Identität `identitaetLaden()`: MSAL-Konto (`localAccountId`, `name`, `username`), sonst
+  Testperson aus `localStorage.kihub-testnutzer`. `nutzerVermerken` trägt eine angemeldete Person ein und aktualisiert
+  „zuletzt“ höchstens einmal am Tag.
+- `RechteProvider` (`src/state/rechte.tsx`) über `AppsProvider`: `ich`, `stand`, `darf(recht)`, `istAdmin`,
+  `darfApp(app, art)`, `speichern`, `neuLaden` (die Shell ruft es nach jeder Anmeldung). `AppsProvider.save` setzt
+  `erstelltVon`.
+- Wirkung: Shell blendet „Baukasten“ ohne `bauen` und „Verwaltung“ ohne Admin aus; Hub filtert nach `darfApp(nutzen)`
+  und zeigt „Neue Applikation“ nur mit `assistent` oder `bauen`; `/neu`, `/baukasten`, `/baukasten/:id` und
+  `/verwaltung` zeigen sonst `KeineRechte`; die App-Seite zeigt Bearbeiten/Löschen nur mit Bearbeitungsrecht; im
+  Freigabe-Reiter ist „Freigegeben“ ohne `freigeben` nicht wählbar, dazu `PersonenWahl` für „Bearbeiten dürfen“ und
+  „Nutzen dürfen“ (Personen aus der Liste plus freie E-Mail).
+- `VerwaltungPage` (`/verwaltung`): Tabelle Person, zuletzt angemeldet, ein Kästchen je Recht (feste Admins fest, „admin“
+  impliziert alles), Person per E-Mail vormerken, noch nie angemeldete Vormerkungen entfernen, „Rechte speichern“.
+- Tests `e2e/rechte.spec.ts` über die Testperson in localStorage.

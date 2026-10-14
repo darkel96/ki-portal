@@ -84,6 +84,22 @@ Suchdurchläufe je Frage) und antwortet erst dann. Der Schritt läuft nie im Dur
 Belegregel (nur aus Unterlagen, Quelle nennen, Unbelegtes als solches sagen); die Unterlagen trägt man unter
 App-Einstellungen → Wissen ein.
 
+## Rechte und Verwaltung
+
+- **Personen:** Wer sich mit dem Firmenkonto anmeldet, erscheint in der Verwaltung (Menüpunkt „Verwaltung“, nur für
+  die Verwaltung sichtbar). Feste Verwaltung ist die Pilotleitung (`VITE_ADMINS`, Standard `dario.keller@koerber.com`);
+  sie hat alle Rechte und kann sie nicht verlieren.
+- **Globale Rechte:** „Verwaltung“ (alles), „Baukasten“ (Applikationen bauen und bearbeiten), „KI-Assistent“
+  (Applikationen per Beschreibung bauen lassen), „Freigeben“ (Status „Freigegeben“ setzen). Ohne Baukasten-Recht gibt es
+  keinen Baukasten-Menüpunkt, kein „Als Kopie im Baukasten öffnen“ und keine „Neue Applikation“. Personen lassen sich
+  per E-Mail vormerken, bevor sie sich zum ersten Mal anmelden.
+- **Rechte je Applikation** (Baukasten → App-Einstellungen → Freigabe): „Bearbeiten dürfen“ und „Nutzen dürfen“ als
+  Personenliste. Wer eine App anlegt, darf sie immer bearbeiten; leere Nutzen-Liste heißt alle; die Verwaltung darf immer.
+  Wer nicht nutzen darf, sieht die App nicht in der Übersicht.
+- **Speicher:** wie die Applikationen, im Browser (Einzelplatz/Test) oder als `_rechte.json` in der SharePoint-Bibliothek
+  (`VITE_STORE=sharepoint`), damit alle dieselben Rechte sehen. Ohne Anmeldung (Simulation, eigener Schlüssel) gelten keine
+  Einschränkungen; zum Testen setzt `localStorage.kihub-testnutzer = {"id","name","email"}` eine Testperson.
+
 ## Wissen steuern
 
 - **App-Einstellungen → Wissen:** Modus für alle Schritte („Nur Eingaben und hinterlegte Quellen“, „Zusätzlich Wissen
