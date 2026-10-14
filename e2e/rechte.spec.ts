@@ -21,14 +21,16 @@ test("Rechte: ohne Berechtigung kein Baukasten, kein Assistent, keine Verwaltung
   await page.goto("/app/protokoll");
   await expect(page.getByRole("button", { name: /Baukasten/ })).toHaveCount(0);
   // Die Anmeldung wurde in der Liste vermerkt
-  const stand = await page.evaluate(() => JSON.parse(localStorage.getItem("kihub-rechte") || "{}"));
-  expect(stand.nutzer?.[0]?.email).toBe("max.muster@firma.de");
+  const anm = await page.evaluate(() => JSON.parse(localStorage.getItem("kihub-anmeldungen") || "[]"));
+  expect(anm[0]?.email).toBe("max.muster@firma.de");
+  // Die Anmeldung schreibt nie die Rechte selbst (sonst überschreiben gleichzeitige Anmeldungen die Verwaltung)
+  expect(await page.evaluate(() => localStorage.getItem("kihub-rechte"))).toBeNull();
 });
 
 test("Rechte: Verwaltung vergibt Rechte, Baukasten zeigt Personen je App", async ({ page }, info) => {
   test.skip(info.project.name !== "desktop", "einmal reicht");
-  // Vorher hat sich Max angemeldet
-  await page.addInitScript(() => localStorage.setItem("kihub-rechte", JSON.stringify({ nutzer: [{ id: "u1", name: "Max Muster", email: "max.muster@firma.de", zuletzt: "2026-10-13T10:00:00.000Z", rechte: [] }] })));
+  // Vorher hat sich Max angemeldet (eigene Anmeldung, noch ohne Rechte)
+  await page.addInitScript(() => localStorage.setItem("kihub-anmeldungen", JSON.stringify([{ id: "u1", name: "Max Muster", email: "max.muster@firma.de", zuletzt: "2026-10-13T10:00:00.000Z" }])));
   await person(page, { id: "a1", name: "Dario Keller", email: "dario.keller@koerber.com" });
   await page.goto("/");
   await expect(page.getByRole("link", { name: "Verwaltung" })).toBeVisible();
@@ -50,7 +52,11 @@ test("Rechte: Verwaltung vergibt Rechte, Baukasten zeigt Personen je App", async
   const stand = await page.evaluate(() => JSON.parse(localStorage.getItem("kihub-rechte") || "{}"));
   expect(stand.nutzer.find((n: { email: string }) => n.email === "max.muster@firma.de").rechte.sort()).toEqual(["assistent", "bauen"]);
   expect(stand.nutzer.some((n: { email: string }) => n.email === "erika@firma.de")).toBe(true);
-  await page.screenshot({ path: "screenshots/desktop-verwaltung.png" });
+  // Gemeinsamer Speicher: noch keiner eingerichtet, „In diesem Browser verwenden“ erst nach erfolgreicher Prüfung
+  await expect(page.getByRole("heading", { name: "Gemeinsamer Speicher" })).toBeVisible();
+  await expect(page.getByText(/liegen nur in diesem Browser/)).toBeVisible();
+  await expect(page.getByRole("button", { name: "In diesem Browser verwenden" })).toBeDisabled();
+  await page.screenshot({ path: "screenshots/desktop-verwaltung.png", fullPage: true });
   // Im Baukasten: Freigabe-Reiter mit Personen je App
   await page.goto("/baukasten?kopie=protokoll");
   await page.getByRole("tab", { name: "Freigabe", exact: true }).click();
@@ -79,4 +85,28 @@ test("Rechte: Max darf nach der Vergabe bauen, aber nicht verwalten; fremde App 
   // Eigene neue App bauen geht
   await page.goto("/baukasten");
   await expect(page.getByRole("heading", { name: "Applikation", exact: true })).toBeVisible();
+});
+
+test("Speicher: Konfiguration aus dem Browser hat Vorrang, Personenliste führt Rechte und Anmeldungen zusammen", async ({ page }, info) => {
+  test.skip(info.project.name !== "desktop", "einmal reicht");
+  await page.goto("/");
+  const r = await page.evaluate(async () => {
+    const sp = await import("/src/lib/speicher.ts");
+    const re = await import("/src/lib/rechte.ts");
+    const vorher = await sp.speicherKonfig();
+    sp.browserOrdnerSetzen("https://firma.sharepoint.com/sites/KI/Freigegebene Dokumente/KI-Hub");
+    const nachher = await sp.speicherKonfig();
+    sp.browserOrdnerSetzen(null);
+    const zurueck = await sp.speicherKonfig();
+    const liste = re.personenListe({ nutzer: [{ id: "", name: "", email: "Erika@firma.de", zuletzt: "", rechte: ["bauen"] }] },
+      [{ id: "e1", name: "Erika M.", email: "erika@firma.de", zuletzt: "2026-10-14T08:00:00Z" }, { id: "m1", name: "Max", email: "max@firma.de", zuletzt: "2026-10-14T09:00:00Z" }]);
+    return { vorher, nachher, zurueck, liste };
+  });
+  expect(r.vorher).toEqual({ art: "lokal" });
+  expect(r.nachher).toEqual({ art: "sharepoint", ordner: "https://firma.sharepoint.com/sites/KI/Freigegebene Dokumente/KI-Hub", quelle: "browser" });
+  expect(r.zurueck).toEqual({ art: "lokal" });
+  expect(r.liste).toEqual([
+    { id: "e1", name: "Erika M.", email: "Erika@firma.de", zuletzt: "2026-10-14T08:00:00Z", rechte: ["bauen"] },
+    { id: "m1", name: "Max", email: "max@firma.de", zuletzt: "2026-10-14T09:00:00Z", rechte: [] },
+  ]);
 });

@@ -39,12 +39,21 @@ test("Copilot-Antworten: entdoppeln, JSON, Streaming", async ({ page }) => {
     const mitteTeile: string[] = [];
     const mitte = await c.streamLesen(sse([conv(mitteA), conv(mitteA + mitteB.slice(0, 60)), conv(mitteA + mitteB.slice(0, 200)), conv(mitteA + mitteB)]), "FRAGE", (t) => mitteTeile.push(t), 0, {});
     const mitteEnde = c.entdoppeln(mitteA + mitteB);
+    // Sicherheitsnetz: wiederholte Absätze und Absatzfolgen direkt hintereinander
+    const absatzA = "Der CRA legt Pflichten für Hersteller von Produkten mit digitalen Elementen fest.";
+    const absatzB = "Quelle: [CRA Schulung](https://x.sharepoint.com/a.docx)";
+    const wdh = [
+      c.wiederholungenEntfernen(`${absatzA}\n\n${absatzA}`),
+      c.wiederholungenEntfernen(`${absatzA}\n\n${absatzB}\n\n${absatzA}\n\n${absatzB}\n\n${absatzA}\n\n${absatzB}`),
+      c.wiederholungenEntfernen(`${absatzA}\n\n- Punkt\n\n- Punkt`),
+      c.wiederholungenEntfernen(`${absatzA}\n\n${absatzB}`),
+    ];
     const jsonNicht = new Response(JSON.stringify({ messages: [{ text: "FRAGE" }, { text: "Antwort" }] }), { headers: { "content-type": "application/json" } });
     const ohneStream = await c.streamLesen(jsonNicht, "FRAGE", () => {}, 0, {});
     return {
       doppelt: c.entdoppeln(A + A), doppeltLeer: c.entdoppeln(A + "\n\n" + A), einfach: c.entdoppeln(A), kurz: c.entdoppeln("abab"),
       json: k.jsonAus('Hier: {"a":"}{","b":{"c":1}}{"a":"}{","b":{"c":1}}'), jsonFence: k.jsonAus('```json\n{"x":"\\"}"}\n```'),
-      kum, teile, person, personTeile, geteilt, ohneStream, umgeschrieben, streamDoppelt, doppelTeile, lang, korrigiert, korrigiertTeile, korrigiertEnde, dann, erst, getrennt, getrenntEnde, mitte, mitteTeile, mitteEnde, mitteB,
+      kum, teile, person, personTeile, geteilt, ohneStream, umgeschrieben, streamDoppelt, doppelTeile, lang, korrigiert, korrigiertTeile, korrigiertEnde, dann, erst, getrennt, getrenntEnde, mitte, mitteTeile, mitteEnde, mitteB, wdh, absatzA, absatzB,
     };
   });
   expect(r.doppelt).toBe("## Variante 1\nText mit genug Länge für den Test.");
@@ -64,6 +73,10 @@ test("Copilot-Antworten: entdoppeln, JSON, Streaming", async ({ page }) => {
   expect(r.korrigiert).toBe(r.dann);
   expect(r.korrigiertTeile).toEqual([r.erst, r.dann]);
   expect(r.korrigiertEnde).toBe(r.dann);
+  expect(r.wdh[0]).toBe(r.absatzA);
+  expect(r.wdh[1]).toBe(`${r.absatzA}\n\n${r.absatzB}`);
+  expect(r.wdh[2]).toBe(`${r.absatzA}\n\n- Punkt\n\n- Punkt`);
+  expect(r.wdh[3]).toBe(`${r.absatzA}\n\n${r.absatzB}`);
   expect(r.mitte).toBe(r.mitteB);
   expect(r.mitteTeile.length).toBe(2);
   expect(r.mitteEnde).toBe(r.mitteB);

@@ -107,7 +107,7 @@ button.link-back { border: 0; background: none; padding: 0; font: inherit; font-
 }
 
 /* ===== Verwaltung: Personen und Rechte ===== */
-.rv { display: flex; flex-direction: column; gap: 16px; }
+.rv { display: flex; flex-direction: column; gap: 16px; min-height: 0; overflow: auto; margin-inline: -4px; padding-inline: 4px; }
 .rv-hero { flex: none; }
 .rv-tabelle { overflow: auto; border: 1px solid var(--line); border-radius: var(--k-radius-card); background: var(--surface); }
 .rv-tabelle table { width: 100%; border-collapse: collapse; font-size: 14px; }
@@ -128,3 +128,9 @@ button.link-back { border: 0; background: none; padding: 0; font: inherit; font-
 .pw-person { display: flex; align-items: center; gap: 8px; font-size: 13px; cursor: pointer; }
 .pw-person input { width: 16px; height: 16px; accent-color: var(--brand); flex: none; }
 .pw-neu { display: flex; gap: 6px; margin-top: 4px; }
+
+/* Verwaltung: gemeinsamer Speicher */
+.rv-speicher { display: flex; flex-direction: column; gap: 10px; padding: 18px 20px; border: 1px solid var(--line); border-radius: var(--k-radius-card); background: var(--surface); }
+.rv-speicher h2 { margin: 0; font: 700 17px/1.3 var(--k-font-display); }
+.rv-speicher-zeile { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; }
+.rv-speicher-zeile input { flex: 1 1 380px; min-width: 0; }

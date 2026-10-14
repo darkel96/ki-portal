@@ -36,11 +36,11 @@ async function graphJson<T>(url: string, token: string, signal?: AbortSignal): P
   return (await r.json()) as T;
 }
 
-type Ort = { basis: string };
+export type Ort = { basis: string };
 const enc = (p: string) => p.split("/").filter(Boolean).map(encodeURIComponent).join("/");
 
 /** Graph-Adresse des Ordners: über Website und Bibliothek (SharePoint-Adresse) oder als Freigabe (alles andere). */
-async function ordnerAufloesen(url: string, token: string, signal?: AbortSignal): Promise<Ort> {
+export async function ordnerAufloesen(url: string, token: string, signal?: AbortSignal): Promise<Ort> {
   let u: URL | null = null;
   try { u = new URL(url.trim()); } catch { /* keine vollständige Adresse */ }
   const m = u && /sharepoint\.com$/i.test(u.hostname) ? /^\/(sites|teams)\/([^/]+)\/([^/]+)(?:\/(.*))?$/.exec(decodeURIComponent(u.pathname)) : null;
@@ -57,7 +57,7 @@ async function ordnerAufloesen(url: string, token: string, signal?: AbortSignal)
 }
 
 /** Graph-Adresse eines Unterpfads: an einen Pfad-Ort („root:/a/b:“) wird angehängt, an ein Element („driveItem“, „root“) mit Doppelpunkt angefügt */
-function unterordner(ort: Ort, unter: string): string {
+export function unterordner(ort: Ort, unter: string): string {
   if (!unter) return ort.basis;
   return ort.basis.endsWith(":") ? `${ort.basis.slice(0, -1)}/${enc(unter)}:` : `${ort.basis}:/${enc(unter)}:`;
 }

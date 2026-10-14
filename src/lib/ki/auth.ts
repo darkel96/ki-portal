@@ -103,15 +103,16 @@ export async function graphToken(scopes?: string[]): Promise<string> {
  * Refresh-Token, sonst per Single Sign-on über die bestehende Microsoft-Sitzung des Browsers.
  * Gibt null zurück, wenn das nicht reicht; dann meldet sich die Person beim ersten KI-Aufruf an.
  */
-export async function graphTokenStill(): Promise<string | null> {
+export async function graphTokenStill(zusatz: string[] = []): Promise<string | null> {
   const v = copilotVerbindung();
   if (!v) return null;
   const a = await app();
   const konto = a.getActiveAccount() ?? a.getAllAccounts()[0] ?? null;
+  const scopes = [...v.scopes, ...zusatz];
   try {
     const r = konto
-      ? await a.acquireTokenSilent({ scopes: v.scopes, account: konto })
-      : await a.ssoSilent({ scopes: v.scopes });
+      ? await a.acquireTokenSilent({ scopes, account: konto })
+      : await a.ssoSilent({ scopes });
     a.setActiveAccount(r.account);
     return r.accessToken;
   } catch {

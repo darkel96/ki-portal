@@ -20,11 +20,8 @@ export const KI_CONFIG = {
   tenantId: String(env.VITE_ENTRA_TENANT_ID ?? "").trim(),
   /** Delegierte Graph-Berechtigungen, durch Leerzeichen getrennt; ohne Angabe die der Copilot-Chat-API. */
   scopes: String(env.VITE_GRAPH_SCOPES ?? "").split(/\s+/).filter(Boolean),
-  /** Speicherort der Applikationen: "local" (Browser) oder "sharepoint". */
-  store: String(env.VITE_APP_STORE ?? "local") === "sharepoint" ? "sharepoint" : "local",
-  /** Graph-ID der SharePoint-Website und Ordner für die App-Dateien (nur bei store = sharepoint). */
-  spSiteId: String(env.VITE_SP_SITE_ID ?? "").trim(),
-  spOrdner: String(env.VITE_SP_ORDNER ?? "KI-Hub/apps").trim(),
+  /** Gemeinsamer Speicher: Adresse eines SharePoint-Ordners wie im Browser; leer = Browser oder hub-config.json (siehe speicher.ts) */
+  spOrdnerUrl: String(env.VITE_SP_ORDNER_URL ?? "").trim(),
   /** Wartezeit auf eine Copilot-Antwort (wie in der bestehenden Copilot-Verbindung: 3 Minuten). */
   timeoutMs: 180_000,
 };

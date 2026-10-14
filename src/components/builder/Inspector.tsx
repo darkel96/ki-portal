@@ -302,11 +302,11 @@ export function Inspector({ b, onDelete, bereiche, onSeite }: { b: Builder; onDe
 
 /** Personen aus der Rechteliste ankreuzen (E-Mails); zusätzlich freie E-Mail-Adresse */
 function PersonenWahl({ label, hint, werte, onChange }: { label: string; hint: string; werte: string[]; onChange: (v: string[]) => void }) {
-  const { stand } = useRechte();
+  const { personen: alle } = useRechte();
   const [neu, setNeu] = useState("");
   const hat = (e: string) => werte.some((x) => x.toLowerCase() === e.toLowerCase());
   const umschalten = (e: string) => onChange(hat(e) ? werte.filter((x) => x.toLowerCase() !== e.toLowerCase()) : [...werte, e]);
-  const personen = [...stand.nutzer.map((n) => ({ email: n.email, name: n.name })), ...werte.filter((e) => !stand.nutzer.some((n) => n.email.toLowerCase() === e.toLowerCase())).map((e) => ({ email: e, name: "" }))];
+  const personen = [...alle.map((n) => ({ email: n.email, name: n.name })), ...werte.filter((e) => !alle.some((n) => n.email.toLowerCase() === e.toLowerCase())).map((e) => ({ email: e, name: "" }))];
   return (
     <Fld label={label}>
       <div className="pw-liste">

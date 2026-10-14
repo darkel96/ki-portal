@@ -26,8 +26,8 @@ Werte in `.env.local` eintragen (Vorlage: [.env.example](.env.example)):
 | `VITE_ENTRA_CLIENT_ID` | Client-ID der zentralen Azure-Anwendung (App-Registrierung) |
 | `VITE_ENTRA_TENANT_ID` | Tenant-ID |
 | `VITE_GRAPH_SCOPES` | Delegierte Graph-Berechtigungen, durch Leerzeichen getrennt; leer = die sieben der Copilot-Chat-API (siehe unten) |
-| `VITE_APP_STORE` | `local` (Browser) oder `sharepoint` |
-| `VITE_SP_SITE_ID`, `VITE_SP_ORDNER` | Nur bei `sharepoint`: Website und Ordner für die App-Dateien |
+| `VITE_SP_ORDNER_URL` | Gemeinsamer Speicher: Adresse eines SharePoint-Ordners (leer = Browser bzw. `public/hub-config.json`) |
+| `VITE_ADMINS` | Feste Verwaltung, E-Mails mit Komma (Standard `dario.keller@koerber.com`) |
 
 In der App-Registrierung als Redirect-URI (Typ „Single-page application“) `https://<host>/auth-redirect.html` eintragen.
 
@@ -96,9 +96,27 @@ App-Einstellungen → Wissen ein.
 - **Rechte je Applikation** (Baukasten → App-Einstellungen → Freigabe): „Bearbeiten dürfen“ und „Nutzen dürfen“ als
   Personenliste. Wer eine App anlegt, darf sie immer bearbeiten; leere Nutzen-Liste heißt alle; die Verwaltung darf immer.
   Wer nicht nutzen darf, sieht die App nicht in der Übersicht.
-- **Speicher:** wie die Applikationen, im Browser (Einzelplatz/Test) oder als `_rechte.json` in der SharePoint-Bibliothek
-  (`VITE_STORE=sharepoint`), damit alle dieselben Rechte sehen. Ohne Anmeldung (Simulation, eigener Schlüssel) gelten keine
-  Einschränkungen; zum Testen setzt `localStorage.kihub-testnutzer = {"id","name","email"}` eine Testperson.
+- **Speicher:** wie die Applikationen im gemeinsamen SharePoint-Ordner (siehe unten), sonst im Browser. Ohne Anmeldung
+  (Simulation, eigener Schlüssel) gelten keine Einschränkungen; zum Testen setzt
+  `localStorage.kihub-testnutzer = {"id","name","email"}` eine Testperson.
+
+## Gemeinsamer Speicher (SharePoint)
+
+Ohne Einrichtung liegen Applikationen und Rechte nur im Browser. Für den gemeinsamen Betrieb:
+
+1. Einen Ordner in einer SharePoint-Bibliothek anlegen, z. B. `…/Freigegebene Dokumente/KI-Hub`.
+2. In der App-Registrierung die delegierte Berechtigung `Sites.ReadWrite.All` ergänzen und die Administratorzustimmung
+   erteilen (Lesen braucht nur das vorhandene `Sites.Read.All`).
+3. In SharePoint die Rechte setzen: alle lesen; Schreiben in `apps/` nur, wer bauen darf; `rechte.json` nur die
+   Verwaltung; in `anmeldungen/` alle. So setzt SharePoint die Rechte des Hubs auch technisch durch.
+4. Verwaltung → „Gemeinsamer Speicher“: Ordneradresse eintragen, „Verbindung prüfen“, „In diesem Browser verwenden“,
+   dann „In den SharePoint-Ordner übernehmen“ (bringt Apps und Rechte aus dem Browser mit).
+5. Für alle einschalten: die Ordneradresse in `public/hub-config.json` unter `speicher.ordner` eintragen (oder Build-
+   Variable `VITE_SP_ORDNER_URL`) und veröffentlichen.
+
+Aufbau des Ordners: `apps/<id>.json` je App, `rechte.json`, `anmeldungen/<email>.json` je Person. Jede Anmeldung schreibt
+nur ihre eigene Datei, gleichzeitige Anmeldungen überschreiben also nie die Rechte. Ohne Schreibrecht bleibt die Anmeldung
+still unvermerkt, es öffnet sich kein Fenster.
 
 ## Wissen steuern
 
