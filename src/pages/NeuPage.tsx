@@ -17,6 +17,7 @@ import { useKiModus } from "@/components/layout/KiSchluessel";
 import { Blatt } from "@/components/layout/Pager";
 import { RunApp, type RunAppHandle } from "@/components/renderer/RunApp";
 import { Fld, Seg, TextFld } from "@/components/builder/controls";
+import { ImportKnopf } from "@/components/builder/ImportKnopf";
 
 const BEISPIELE = [
   "Eine Checkliste (Excel) hochladen und auswerten: offene Punkte, Risiken und eine Zusammenfassung für die Leitung",
@@ -35,6 +36,7 @@ export function NeuPage() {
 }
 
 function NeuSeite() {
+  const rechte = useRechte();
   const { apps, save } = useApps();
   const nav = useNavigate();
   const bereiche = useMemo(() => areaList(apps), [apps]);
@@ -171,12 +173,14 @@ function NeuSeite() {
               {ohneKi ? (
                 <>
                   <p className="hint" style={{ margin: 0, flex: "1 1 240px" }}>Die KI-Anbindung ist hier nicht eingerichtet. Du kannst im Baukasten selbst bauen.</p>
+                  {rechte.darf("bauen") && <ImportKnopf variant="ghost" />}
                   <Button asChild variant="outline"><Link to="/baukasten" viewTransition>Im Baukasten selbst bauen</Link></Button>
                 </>
               ) : (
                 <>
                   {laeuft ? <span className="link-back" aria-disabled="true">Lieber selbst im Baukasten bauen</span>
                     : <Link to="/baukasten" viewTransition className="link-back">Lieber selbst im Baukasten bauen</Link>}
+                  {!laeuft && rechte.darf("bauen") && <ImportKnopf variant="ghost" />}
                   <span className="flex-1" />
                   {laeuft === "bauen" && <span className="status-pill mit-icon" data-s="laeuft" aria-hidden="true"><Loader2 size={12} className="animate-spin motion-reduce:animate-none" />Die KI baut den Entwurf, meist 30 bis 90 Sekunden</span>}
                   {laeuft === "bauen"

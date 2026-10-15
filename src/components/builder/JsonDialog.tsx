@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -12,6 +12,7 @@ export function JsonDialog({ b }: { b: Builder }) {
   const [open, setOpen] = useState(false);
   const [text, setText] = useState("");
   const [fehler, setFehler] = useState("");
+  const datei = useRef<HTMLInputElement>(null);
   return (
     <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (o) { setText(JSON.stringify(b.app, null, 2)); setFehler(""); } }}>
       <DialogTrigger asChild><Button variant="ghost">Exportieren / Importieren …</Button></DialogTrigger>
@@ -31,6 +32,9 @@ export function JsonDialog({ b }: { b: Builder }) {
                 .catch(() => toast.error("Kopieren ist fehlgeschlagen. Markier den Text und kopier ihn mit Strg+C."));
             }}>Kopieren</Button>
             <Button variant="outline" onClick={() => saveFile(`${slug(b.app.name)}.json`, text, "application/json")}>Als Datei speichern</Button>
+            <input ref={datei} type="file" accept=".json,application/json" className="sr-only" tabIndex={-1} aria-label="Exportierte Applikation auswählen"
+              onChange={async (e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) { setText(await f.text()); setFehler(""); toast.info(`„${f.name}“ geladen. Mit „Übernehmen“ ersetzt sie diese Applikation.`); } }} />
+            <Button variant="outline" onClick={() => datei.current?.click()}>Datei öffnen …</Button>
           </div>
           <Button onClick={() => {
             let raw: unknown;

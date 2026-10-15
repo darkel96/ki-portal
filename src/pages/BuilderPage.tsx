@@ -189,7 +189,7 @@ function Editor({ start, ungespeichert }: { start: App; ungespeichert: boolean }
         <Button variant="outline" size="icon" aria-label="Wiederholen (Strg+Y)" title="Wiederholen (Strg+Y)" disabled={!b.canRedo} onClick={b.redo}><Redo2 /></Button>
         <span className="nur-breit"><JsonDialog b={b} /></span>
         <Button variant={vorschau ? "secondary" : "outline"} aria-pressed={vorschau} onClick={() => setVorschau((v) => !v)}>{vorschau ? <EyeOff /> : <Eye />}<span className="bar-txt">{vorschau ? "Vorschau beenden" : "Vorschau testen"}</span><span className="bar-kurz" aria-hidden="true">{vorschau ? "Zurück" : "Vorschau"}</span></Button>
-        <Button onClick={() => void speichern()} disabled={speichert} title="Speichern (Strg+S)" aria-keyshortcuts="Control+S">{speichert ? <><Loader2 className="animate-spin motion-reduce:animate-none" aria-hidden="true" />Speichert …</> : <><Save />Speichern</>}</Button>
+        <Button onClick={() => void speichern()} disabled={speichert} title="Speichern (Strg+S)" aria-keyshortcuts="Control+S">{speichert ? <><Loader2 className="animate-spin motion-reduce:animate-none" aria-hidden="true" />Speichert …</> : <><Save />Speichern{b.dirty && <><span className="dirty-punkt" aria-hidden="true" /><span className="sr-only"> (ungespeicherte Änderungen)</span></>}</>}</Button>
       </div>
 
       {vorschau ? (

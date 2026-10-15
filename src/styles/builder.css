@@ -119,3 +119,6 @@
 .link-back[aria-disabled="true"] { opacity: .5; pointer-events: none; }
 /* Touch: Baustein-Schild auf die Höhe der 40px-Werkzeugleiste, damit sich beide nicht überdecken */
 @media (pointer: coarse) { .b-tag { top: -36px; max-width: calc(100% - 184px); overflow: hidden; text-overflow: ellipsis; } }
+
+/* Ungespeicherte Änderungen: kleiner Punkt am Speichern-Knopf */
+.dirty-punkt { width: 7px; height: 7px; border-radius: 999px; background: var(--k-orange, #ff8200); box-shadow: 0 0 0 2px var(--brand); margin-left: -2px; }
