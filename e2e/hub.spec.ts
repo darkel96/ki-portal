@@ -115,3 +115,30 @@ test("App-Ansicht: Weiter erst, wenn die Pflichtfelder der Seite ausgefüllt sin
   });
   expect(r).toEqual([true, false]);
 });
+
+test("Kreisbezug: Lese-Schritt verlangt nie die Felder, die er selbst vorbelegt", async ({ page }, info) => {
+  test.skip(info.project.name !== "desktop", "einmal reicht");
+  await page.goto("/");
+  const r = await page.evaluate(async () => {
+    const m = await import("/src/lib/model.ts");
+    const run = await import("/src/lib/runner.ts");
+    const s = await import("/src/lib/sanitize.ts");
+    const app = s.loadApp({
+      id: "k", name: "Kreis", steps: [
+        { id: "s1", key: "lesen", name: "Lesen", format: "json", autoAll: true, prompt: "Lies {{angebot}}" },
+        { id: "s2", key: "bericht", name: "Bericht", format: "markdown", prompt: "Schreib aus {{umfang}}" },
+      ],
+      blocks: [
+        { id: "p1", type: "seite", props: { titel: "Dokumente" }, children: [{ id: "f1", type: "file", props: { key: "angebot", label: "Angebot", pflicht: true } }] },
+        { id: "p2", type: "seite", props: { titel: "Prüfen" }, children: [{ id: "f2", type: "textarea", props: { key: "umfang", label: "Lieferumfang", pflicht: true, aus: "lesen.umfang" } }] },
+      ],
+    })!;
+    const fehlt = run.fehlendePflichtfelder(app, [app.steps[0]], {}, { angebot: { name: "a.docx", size: 1, type: "", text: "Inhalt" } });
+    const kreis = s.loadApp({ ...JSON.parse(JSON.stringify(app)), steps: [{ ...app.steps[0], prompt: "Lies {{angebot}} und {{umfang}}" }, app.steps[1]] })!;
+    return { nutzer: m.stepsUsing(app, "umfang"), fehlt, warnung: m.appWarnings(kreis).filter((w) => !w.weich).map((w) => w.text) };
+  });
+  // „umfang“ geht nur an den Bericht, nicht an den Lese-Schritt, der es ausfüllt
+  expect(r.nutzer).toEqual([1]);
+  expect(r.fehlt).toEqual([]);
+  expect(r.warnung.some((t: string) => t.includes("nutzt {{umfang}}, das erst aus dem Ergebnis von „Lesen“ vorbelegt wird"))).toBe(true);
+});

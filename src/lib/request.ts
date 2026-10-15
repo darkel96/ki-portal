@@ -1,5 +1,5 @@
 import type { App, Quelle, Step, WissenModus } from "./schema";
-import { fieldsOf, fill, varsIn } from "./model";
+import { fieldsOf, fill, varsIn, vorbelegtVon } from "./model";
 import { DATEI_ART, DATEI_HINWEIS, dateiWunsch, type DateiArt } from "./dokument";
 
 export const FORMAT_LABEL: Record<Step["format"], string> = {
@@ -92,7 +92,9 @@ export function buildRequest(app: App, step: Step, ctx: Record<string, string>, 
   const used = new Set(varsIn(step.prompt + " " + w.text));
   let nachricht = fill(step.prompt, ctx);
   if (step.autoAll) {
-    const rest = fieldsOf(app).filter((b) => !inPrompt.has(b.props.key.toLowerCase()));
+    // Felder, die dieser oder ein späterer Schritt erst vorbelegt, sind keine Eingabe dieses Schritts
+    const hier = app.steps.findIndex((x) => x.id === step.id);
+    const rest = fieldsOf(app).filter((b) => !inPrompt.has(b.props.key.toLowerCase()) && (hier < 0 || !(vorbelegtVon(app, b.props.key) >= hier)));
     rest.forEach((b) => used.add(b.props.key.toLowerCase()));
     if (rest.length) nachricht = (nachricht.trim() ? nachricht.trim() + "\n\n" : "") + "Eingaben:\n\n" +
       rest.map((b) => `${b.props.label}:\n${ctx[b.props.key.toLowerCase()] ?? ""}`).join("\n\n");

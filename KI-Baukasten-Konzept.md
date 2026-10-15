@@ -1063,3 +1063,7 @@ Vorbild: `src/lib/seedServiceangebot.ts` (Produkte, Ordner, Dokumente je Sprache
   dazwischen (`erreichbar`). Gesperrte Punkte sind ausgegraut.
 - Auf der ersten Seite zeigt der Pager kein „Zurück“, nur einen Platzhalter.
 - Der KI-Assistent setzt "pflicht" für alles, was der Prozess zwingend braucht, und baut keine eigenen Blätter-Knöpfe.
+- Kreisbezug abgefangen: `stepsUsing` und „Alle Eingaben anhängen“ (`buildRequest`) nehmen kein Feld mit, das dieser
+  oder ein späterer Schritt erst über „aus“ vorbelegt (`vorbelegtVon`). Sonst verlangte der Lese-Schritt die Felder der
+  Prüfseite als Pflichteingaben und „Weiter“ blieb gesperrt. Nutzt ein Schritt ein solches Feld ausdrücklich ({{key}}),
+  meldet die Prüfung das als Fehler. Zur Laufzeit zählen für die Sperre nur fehlende Felder auf Seiten vor dem Ziel.
