@@ -2,7 +2,7 @@ import { useLayoutEffect, useRef, type CSSProperties, type ReactNode } from "rea
 import type { App, Block } from "@/lib/schema";
 import { inkFor, walk } from "@/lib/model";
 import { FILE_ACCEPT } from "@/lib/files";
-import { AMPEL_LABEL, ampelText, ampelWert, type Ampel } from "@/lib/ampel";
+import { AMPEL_KURZ, AMPEL_LABEL, AMPEL_STANDARD, AMPEL_STANDARD_TEXT, ampelText, ampelWert, type Ampel } from "@/lib/ampel";
 import { TONES } from "./theme";
 import { useRun } from "./runContext";
 import { OutputView } from "./OutputView";
@@ -36,15 +36,22 @@ function Field({ b, mode, partner }: { b: Extract<Block, { type: "input" | "text
   const req = P.pflicht ? <em aria-hidden="true">*</em> : null;
   const ki = run?.hinweise[P.key];
   const klaeren = !!ki?.klaeren;
-  // Hinweis der KI zum vorbelegten Wert ersetzt den allgemeinen Hilfetext; „zu klären“ bekommt eine Markierung
-  const help = ki?.hinweis || klaeren
-    ? <span className={`o-help o-ki-hinweis ${klaeren ? "klaeren" : ""}`} id={`${id}-hilfe`}>{klaeren && <b className="o-klaeren-marke">Zu klären</b>}{ki?.hinweis ?? (klaeren ? "Nicht eindeutig gelesen. Bitte prüfen und von Hand setzen." : "")}</span>
-    : P.hilfe ? <span className="o-help" id={`${id}-hilfe`}>{P.hilfe}</span> : null;
   const v = run?.werte[P.key];
   // Ampel (globale Regel): Auswahlwerte nach Bedeutung, Text nach Markierungen; ein Inhaltsfeld übernimmt die Ampel seines Status-Felds
-  const ampel: Ampel | null = mode === "edit" ? null : b.type === "select" || b.type === "radio" ? ampelWert(v) : b.type === "textarea" || b.type === "input" ? ampelText(v) ?? partner ?? null : null;
+  const eigene: Ampel | null = mode === "edit" ? null : b.type === "select" || b.type === "radio" ? ampelWert(v) : b.type === "textarea" || b.type === "input" ? ampelText(v) : null;
+  const ampel: Ampel | null = eigene ?? (mode === "edit" ? null : partner ?? null);
+  const warnt = eigene === "rot" || eigene === "gelb";
+  // Erklärung unter einem rot/gelb markierten Feld: der Satz der KI („hinweis“) oder ein kurzer Standardhinweis
+  const erklaerung = warnt ? (ki?.hinweis || (b.type === "select" || b.type === "radio" ? AMPEL_STANDARD[eigene] : AMPEL_STANDARD_TEXT[eigene])) : "";
+  // Hinweis der KI zum vorbelegten Wert ersetzt den allgemeinen Hilfetext; „zu klären“ bekommt eine Markierung
+  // „Zu klären“ (KI war unsicher beim Lesen) hat Vorrang, die Erklärung der KI steht dann dort
+  const help = erklaerung && !klaeren
+    ? <span className="o-help o-ki-hinweis o-ampel-hinweis" id={`${id}-hilfe`}><b>{AMPEL_KURZ[eigene!]}</b>{erklaerung}</span>
+    : ki?.hinweis || klaeren
+    ? <span className={`o-help o-ki-hinweis ${klaeren ? "klaeren" : ""}`} id={`${id}-hilfe`}>{klaeren && <b className="o-klaeren-marke">Zu klären</b>}{ki?.hinweis ?? (klaeren ? "Nicht eindeutig gelesen. Bitte prüfen und von Hand setzen." : "")}</span>
+    : P.hilfe ? <span className="o-help" id={`${id}-hilfe`}>{P.hilfe}</span> : null;
   const set = (val: string | boolean) => run?.setWert(P.key, val);
-  const described = [P.hilfe || ki?.hinweis || klaeren ? `${id}-hilfe` : "", err ? `${id}-fehler` : ""].filter(Boolean).join(" ") || undefined;
+  const described = [P.hilfe || ki?.hinweis || klaeren || erklaerung ? `${id}-hilfe` : "", err ? `${id}-fehler` : ""].filter(Boolean).join(" ") || undefined;
   const common = { id, name: P.key, autoComplete: "off", disabled: dis, tabIndex: dis ? -1 : undefined, "aria-invalid": err || undefined, "aria-describedby": described, "aria-required": P.pflicht || undefined };
   let ctl: ReactNode;
   switch (b.type) {
