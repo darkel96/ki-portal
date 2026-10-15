@@ -133,6 +133,14 @@ still unvermerkt, es öffnet sich kein Fenster.
   startet dann nur die Schritte ihrer Kacheln, nicht den Lese-Schritt.
 - Ausgabeformat „Dateipaket (ZIP)“ erzeugt eine Ordnerstruktur zum Herunterladen; Dateien mit Endung .docx,
   .xlsx, .pdf oder .pptx werden aus Markdown erzeugt.
+- **Vorlage für Aufbau und Design** (KI-Schritt → Feineinstellungen): Beispieldatei hochladen (Word, PDF, Markdown,
+  Text) oder Gerüst selbst schreiben. Die KI übernimmt Gliederung, Tabellen und Tonfall, nicht die Beispielinhalte.
+  Mit einer Word-Vorlage (.docx/.dotx bis 1 MB) bekommt die erzeugte Word-Datei deren Design (Formatvorlagen,
+  Kopf- und Fußzeile, Logo); ein Absatz `{{inhalt}}` in der Vorlage bestimmt, wo das Ergebnis hinkommt,
+  `{{titel}}` und `{{datum}}` werden ersetzt.
+- **Zeitlimit:** Copilot-Antworten kommen immer als Strom; abgebrochen wird nur, wenn 3 Minuten lang nichts mehr
+  ankommt (`KI_CONFIG.timeoutMs`), nie eine Antwort, die noch entsteht. Ohne Streaming (Tenant ohne `chatOverStream`)
+  gilt für die Antwort am Stück 8 Minuten.
 - Word-Dateien werden mit Kästchen gelesen: angekreuzt ☒, leer ☐ (Inhaltssteuerelemente, alte Formularfelder,
   Wingdings-Symbole und gezeichnete Kästchen, also kleine Textfelder mit „x“ wie in der Service-Checkliste),
   Tabellen zeilenweise mit „|“.

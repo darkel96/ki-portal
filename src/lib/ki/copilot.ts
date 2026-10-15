@@ -39,9 +39,14 @@ function graphMeldung(status: number, text: string): string {
 }
 
 /** fetch mit Zeitlimit; Netzwerk- und Zeitfehler werden verständlich gemeldet. */
-async function anfrage<T>(url: string, body: unknown, token: string, signal: AbortSignal | undefined, lesen: (res: Response) => Promise<T>, accept = "application/json"): Promise<T> {
+/**
+ * fetch mit Ruhe-Limit: Abgebrochen wird erst, wenn so lange gar nichts mehr kommt (limitMs). Beim Streaming meldet
+ * der Leser jedes Stück über wach(); eine lange Antwort, die noch wächst, läuft also durch.
+ */
+async function anfrage<T>(url: string, body: unknown, token: string, signal: AbortSignal | undefined, lesen: (res: Response, wach: () => void) => Promise<T>, accept = "application/json", limitMs = KI_CONFIG.timeoutMs): Promise<T> {
   const ctl = new AbortController();
-  const timer = setTimeout(() => ctl.abort(), KI_CONFIG.timeoutMs);
+  let timer = setTimeout(() => ctl.abort(), limitMs);
+  const wach = () => { clearTimeout(timer); timer = setTimeout(() => ctl.abort(), limitMs); };
   const weiter = () => ctl.abort();
   signal?.addEventListener("abort", weiter, { once: true });
   try {
@@ -52,9 +57,10 @@ async function anfrage<T>(url: string, body: unknown, token: string, signal: Abo
       signal: ctl.signal,
     });
     if (!res.ok) throw new GraphFehler(res.status, await res.text());
-    return await lesen(res);
+    wach();
+    return await lesen(res, wach);
   } catch (e) {
-    if (e instanceof DOMException && e.name === "AbortError" && !signal?.aborted) throw new Error("Copilot hat nicht innerhalb von 3 Minuten geantwortet.");
+    if (e instanceof DOMException && e.name === "AbortError" && !signal?.aborted) throw new Error(`Copilot hat ${Math.round(limitMs / 60000)} Minuten lang nichts mehr geliefert und wurde abgebrochen. Versuch es noch einmal.`);
     if (e instanceof TypeError) throw new Error("Keine Verbindung zu Microsoft Graph. Netzwerk oder Proxy prüfen.");
     throw e;
   } finally {
@@ -162,7 +168,7 @@ export function gemeinsamerAnfang(a: string, b: string): number {
 }
 
 /** Liest die SSE-Antwort von chatOverStream (exportiert für Tests); kommt die Antwort als Ganzes oder in Stücken, wird beides zusammengesetzt. */
-export async function streamLesen(res: Response, frage: string, onTeil: (t: string) => void, start: number, messung: Partial<Messung>): Promise<string> {
+export async function streamLesen(res: Response, frage: string, onTeil: (t: string) => void, start: number, messung: Partial<Messung>, wach: () => void = () => {}): Promise<string> {
   if (!res.body || !/event-stream/i.test(res.headers.get("content-type") ?? "")) {
     const roh = await res.text();
     letzteRohantwort = roh;
@@ -202,7 +208,7 @@ export async function streamLesen(res: Response, frage: string, onTeil: (t: stri
   };
   for (;;) {
     const { done, value } = await leser.read();
-    if (value) puffer += value;
+    if (value) { puffer += value; wach(); }
     const bloecke = puffer.split(/\r?\n\r?\n/);
     puffer = done ? "" : bloecke.pop() ?? "";
     bloecke.forEach(ereignis);
@@ -249,10 +255,11 @@ export async function copilotFragen(frage: string, opts: {
   const t2 = performance.now();
   const senden = async (gespraech: string): Promise<string> => {
     const url = `${GRAPH}/${encodeURIComponent(gespraech)}`;
-    if (opts.onTeil && !streamingAus) {
+    // Immer gestreamt, auch ohne Live-Anzeige: Dann bricht nur Stillstand ab, nie eine Antwort, die noch entsteht
+    if (!streamingAus) {
       try {
         messung.gestreamt = true;
-        return await anfrage(`${url}/chatOverStream`, body, token, opts.signal, (res) => streamLesen(res, frage, opts.onTeil!, t2, messung), "text/event-stream");
+        return await anfrage(`${url}/chatOverStream`, body, token, opts.signal, (res, wach) => streamLesen(res, frage, opts.onTeil ?? (() => {}), t2, messung, wach), "text/event-stream");
       } catch (e) {
         // Bietet der Tenant kein Streaming an, dauerhaft auf /chat ausweichen
         if (!(e instanceof GraphFehler) || ![400, 404, 405, 501].includes(e.status)) throw e;
@@ -260,7 +267,8 @@ export async function copilotFragen(frage: string, opts: {
       }
     }
     messung.gestreamt = false;
-    const antwort = await anfrage(`${url}/chat`, body, token, opts.signal, json);
+    // Ohne Streaming kommt die Antwort am Stück: lange Antworten (Berichte, Prüfseiten) brauchen mehr Zeit
+    const antwort = await anfrage(`${url}/chat`, body, token, opts.signal, json, "application/json", KI_CONFIG.timeoutMsAmStueck);
     letzteRohantwort = JSON.stringify(antwort, null, 2);
     return letzterText(antwort, frage);
   };

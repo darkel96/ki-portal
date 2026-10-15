@@ -74,6 +74,7 @@ export function sanitizeApp(raw: unknown, base: App): App {
       format: field(shape.format, s.format, "markdown"),
       datei: field(shape.datei, s.datei, ""),
       autoAll: !!s.autoAll,
+      vorlage: isObj(s.vorlage) && (s.vorlage.text || s.vorlage.docx) ? field(StepSchema.shape.vorlage, { name: String(s.vorlage.name ?? ""), text: String(s.vorlage.text ?? "").slice(0, 20_000), docx: typeof s.vorlage.docx === "string" && s.vorlage.docx.length <= 2_800_000 && /^[A-Za-z0-9+/]*={0,2}$/.test(s.vorlage.docx) ? s.vorlage.docx : "" }, null) : null,
       // Ältere Apps: Schalter „Websuche“ und „Wissen begrenzt“ werden zum Wissensmodus
       wissenModus: field(shape.wissenModus, s.wissenModus, s.wissenBegrenzt ? "eingaben" : s.web ? "web" : "app"),
       quellen: (Array.isArray(s.quellen) ? s.quellen : []).slice(0, 20).map((q) => objectLenient(QuelleSchema, q)),
