@@ -143,6 +143,16 @@ still unvermerkt, es öffnet sich kein Fenster.
   Kapitelebene, Fließtext, Aufzählung, Nummerierung, Tabelle mit Kopfzeile und abwechselnden Zeilenfarben). Das gilt
   auch für eigene Stilnamen und von Hand formatierten Text. Ein Absatz `{{inhalt}}` in der Vorlage bestimmt, wo das
   Ergebnis hinkommt (Deckblatt, Briefkopf und Unterschriften bleiben); `{{titel}}` und `{{datum}}` werden ersetzt.
+- **Ampel (globale Regel):** Auswahlwerte wie „Widersprüchlich“, „Abweichend“, „Fehlt“ werden rot, „Unsicher“, „Offen“,
+  „Zu klären“ gelb, „Sicher“, „Bestätigt“ dezent grün markiert; im Text lösen Marken wie „[offen]“ Gelb aus. Ein
+  Inhaltsfeld übernimmt die Farbe seines Felds „Status <Feldname>“. Ja/Nein und Prioritäten bleiben neutral
+  (`src/lib/ampel.ts`).
+- **Mitwachsende Textfelder:** Textfelder in Apps und lange Texte im Baukasten wachsen mit dem Inhalt (bis etwa zum halben
+  Bildschirm), statt intern zu scrollen.
+- **Ein Startweg:** Neue Apps haben keinen eigenen „Ausführen“-Knopf mehr, „Ergebnisse erstellen“ im Blättern startet.
+  Ein gesperrtes „Weiter“ springt beim Klick zum ersten fehlenden Pflichtfeld und markiert es.
+- **Neu aus Grundgerüst:** „Neue Applikation“ bietet fünf fertig verdrahtete Gerüste (Formular → Word, Datei lesen →
+  prüfen → Bericht, Fachexperten-Chat, Dateipaket, Agenten-Team); neue Apps zeigen im Baukasten einen geführten Start.
 - **Zeitlimit:** Copilot-Antworten kommen immer als Strom; abgebrochen wird nur, wenn 3 Minuten lang nichts mehr
   ankommt (`KI_CONFIG.timeoutMs`), nie eine Antwort, die noch entsteht. Ohne Streaming (Tenant ohne `chatOverStream`)
   gilt für die Antwort am Stück 8 Minuten.

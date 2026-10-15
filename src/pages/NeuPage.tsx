@@ -18,6 +18,7 @@ import { Blatt } from "@/components/layout/Pager";
 import { RunApp, type RunAppHandle } from "@/components/renderer/RunApp";
 import { Fld, Seg, TextFld } from "@/components/builder/controls";
 import { ImportKnopf } from "@/components/builder/ImportKnopf";
+import { GERUESTE } from "@/lib/gerueste";
 
 const BEISPIELE = [
   "Eine Checkliste (Excel) hochladen und auswerten: offene Punkte, Risiken und eine Zusammenfassung für die Leitung",
@@ -160,6 +161,19 @@ function NeuSeite() {
             <Textarea id="neu-beschreibung" rows={6} className="min-h-[150px]" value={beschreibung} disabled={!!laeuft} onChange={(e) => { setBeschreibung(e.target.value); setMeldung(""); }}
               placeholder="z. B. Mitarbeitende laden ein Besprechungsprotokoll hoch. Die KI erstellt daraus eine Aufgabenliste mit Verantwortlichen und Terminen und einen kurzen Bericht für die Abteilungsleitung …" />
             <div className="ai-sugg neu-beispiele">{BEISPIELE.map((v) => <button key={v} type="button" disabled={!!laeuft} onClick={() => setBeschreibung(v)}>{v}</button>)}</div>
+            {rechte.darf("bauen") && (
+              <div className="neu-gerueste" role="group" aria-labelledby="neu-geruest-titel">
+                <span id="neu-geruest-titel" className="lbl">Oder mit einem Grundgerüst starten</span>
+                <div className="neu-gerueste-liste">
+                  {GERUESTE.map((g) => (
+                    <button key={g.id} type="button" disabled={!!laeuft} title={g.text}
+                      onClick={() => nav("/baukasten", { state: { entwurf: g.bauen() }, viewTransition: true })}>
+                      <b>{g.titel}</b><span>{g.text}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
             <div className="neu-zwei">
               <TextFld label="Hintergrundwissen und Regeln (optional)" multiline rows={3} value={wissen} onChange={setWissen} disabled={!!laeuft}
                 placeholder="z. B. Freigabegrenzen, Tonalität, Fachbegriffe, was die KI nie tun soll …" />

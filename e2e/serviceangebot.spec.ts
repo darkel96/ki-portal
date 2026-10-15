@@ -63,8 +63,12 @@ test("Serviceangebot: Checkliste lesen, Prüfseite korrigieren, ZIP", async ({ p
   await page.goto("/app/serviceangebot");
   await expect(page.getByRole("heading", { name: "Serviceangebot vorbereiten", level: 1 })).toBeVisible();
   // Ohne Checkliste ist „Weiter“ gesperrt und sagt, was fehlt
-  await expect(page.getByRole("navigation", { name: "Seiten blättern" }).getByRole("button", { name: /Weiter/ })).toBeDisabled();
+  await expect(page.getByRole("navigation", { name: "Seiten blättern" }).getByRole("button", { name: /Weiter/ })).toHaveAttribute("aria-disabled", "true");
   await expect(page.getByRole("navigation", { name: "Seiten blättern" }).getByRole("button", { name: /Weiter/ })).toHaveAttribute("title", "Bitte zuerst ausfüllen: Service-Checkliste (Word).");
+  // Klick auf das gesperrte „Weiter“ blättert nicht, sondern markiert das fehlende Feld
+  await page.getByRole("navigation", { name: "Seiten blättern" }).getByRole("button", { name: /Weiter/ }).click({ force: true });
+  await expect(page.getByRole("heading", { name: "Serviceangebot vorbereiten", level: 1 })).toBeVisible();
+  await expect(page.getByText("Bitte eine Datei auswählen.")).toBeVisible();
   await page.locator('input[type="file"]').setInputFiles({ name: "Service_Checkliste.docx", mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document", buffer: await checklisteDocx() });
   await expect(page.getByText(/Service_Checkliste\.docx gelesen/)).toBeVisible();
   // „Weiter“ auf die Prüfseite startet den Lese-Schritt von selbst; die Felder füllen sich, sobald er fertig ist

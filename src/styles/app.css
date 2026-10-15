@@ -33,7 +33,8 @@ body { overflow: hidden; }
 .pg-btn.primaer { padding-inline: 18px 14px; background: var(--pg-accent, var(--brand)); color: var(--pg-accent-ink, var(--brand-ink)); border-color: transparent; }
 .pg-btn:hover:not(:disabled) { border-color: currentColor; }
 .pg-btn.primaer:hover:not(:disabled) { opacity: .9; }
-.pg-btn:disabled { opacity: .35; cursor: default; }
+.pg-btn:disabled, .pg-btn[aria-disabled="true"] { opacity: .4; cursor: not-allowed; }
+.pg-btn.primaer[aria-disabled="true"]:hover { opacity: .5; }
 .pg-weiter { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; line-height: 1.35; padding-block: 2px; }
 .pg-btn svg { flex: none; }
 /* Platzhalter rechts, damit die Mitte auf der letzten Seite nicht verrutscht */
@@ -100,7 +101,7 @@ body { overflow: hidden; }
 @media (max-width: 560px) { .anmelden { margin-top: -14px; margin-bottom: -10px; } .anmelden-karte { padding: 26px 22px 22px; } .anmelden h1 { font-size: 24px; } }
 
 /* ===== Fußzeile (Warmgrau-Band) ===== */
-.fuss { flex: none; background: var(--surface-2); border-top: 1px solid var(--line); font-size: 12.5px; color: var(--muted-ink); }
+.fuss { flex: none; background: var(--band); border-top: 1px solid var(--line); font-size: 12.5px; color: var(--muted-ink); }
 .fuss-in { display: flex; justify-content: space-between; gap: 16px; padding-block: 12px; }
 @media (max-width: 560px) { .fuss { display: none; } }
 
@@ -109,7 +110,7 @@ body { overflow: hidden; }
 
 /* ===== Startseite ===== */
 /* Warmgrau-Band über die volle Breite, direkt unter der Kopfzeile */
-.hero { margin: -24px calc(50% - 50vw) 0; padding: 36px max(clamp(16px, 2.4vw, 40px), calc(50vw - 1100px)) 30px; background: var(--surface-2); border-bottom: 1px solid var(--line); display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 16px 48px; align-items: end; }
+.hero { margin: -24px calc(50% - 50vw) 0; padding: 36px max(clamp(16px, 2.4vw, 40px), calc(50vw - 1100px)) 30px; background: var(--band); border-bottom: 1px solid var(--line); display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 16px 48px; align-items: end; }
 .hero-text { display: flex; flex-direction: column; gap: 10px; max-width: 760px; }
 .hero h1 { font-size: clamp(26px, 2.6vw, 36px); line-height: 1.15; letter-spacing: var(--k-tracking-display); margin: 0; }
 .hero .lede { color: var(--muted-ink); margin: 0; max-width: 62ch; font-size: 15px; }
@@ -217,7 +218,8 @@ a.tile:hover .tile-go svg { transform: translateX(5px); }
   width: 100%; padding: 10px 12px; background: var(--app-bg); color: var(--app-ink); border: 1px solid var(--app-line);
   border-radius: max(2px, calc(var(--app-radius) * 0.7)); font: inherit; min-width: 0;
 }
-.o-field textarea { resize: vertical; line-height: 1.5; }
+/* Textfelder wachsen mit dem Inhalt (globale Regel): mindestens die eingestellten Zeilen, höchstens etwa der halbe Bildschirm, danach scrollt nur das Feld */
+.o-field textarea { resize: vertical; line-height: 1.5; field-sizing: content; min-height: calc(var(--rows, 3) * 1.5em + 22px); max-height: 55vh; }
 .o-field input:focus, .o-field textarea:focus, .o-field select:focus { outline: none; border-color: var(--app-accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--app-accent) 22%, transparent); }
 .o-field.err input, .o-field.err textarea, .o-field.err select { border-color: var(--danger); }
 /* Prüfseite: von der KI nicht eindeutig gelesen, bitte prüfen */
@@ -350,7 +352,7 @@ pre.code { margin: 0; white-space: pre-wrap; font: 12.5px/1.5 var(--k-font-mono)
   .bld[data-bereich="pal"] > :not(.pal), .bld[data-bereich="flaeche"] > :not(.bld-mitte), .bld[data-bereich="insp"] > :not(.insp) { display: none; }
   .pal-items { display: grid !important; grid-template-columns: 1fr 1fr; }
 }
-.panel { background: var(--surface); border: 1px solid var(--line); border-radius: var(--k-radius-card); padding: 20px; }
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: var(--k-radius-card); padding: 20px; box-shadow: var(--k-shadow-card); }
 .pal { display: flex; flex-direction: column; gap: 12px; padding: 12px; overflow: auto; overscroll-behavior: contain; scrollbar-width: thin; }
 .pal-groups { display: flex; flex-direction: column; gap: 14px; }
 .pal-g { display: flex; flex-direction: column; gap: 6px; }
@@ -384,7 +386,7 @@ pre.code { margin: 0; white-space: pre-wrap; font: 12.5px/1.5 var(--k-font-mono)
 .s-tab[aria-selected="true"] { background: var(--brand); color: var(--brand-ink); border-color: var(--brand); }
 .s-tab[data-over="true"] { outline: 2px dashed var(--tool); outline-offset: 2px; }
 .s-no { display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; background: var(--surface-2); color: var(--ink); font: 500 11.5px/1 var(--k-font-mono); flex: none; }
-.s-tab[aria-selected="true"] .s-no { background: var(--bg); }
+.s-tab[aria-selected="true"] .s-no { background: var(--surface); }
 .s-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .s-add { display: inline-flex; align-items: center; gap: 4px; height: 34px; padding: 0 12px; border: 1px dashed var(--line-strong); border-radius: 999px; background: none; color: var(--muted-ink); font-size: 13.5px; flex: none; }
 .s-add:hover { border-color: var(--tool); color: var(--tool-text); }
@@ -410,7 +412,7 @@ pre.code { margin: 0; white-space: pre-wrap; font: 12.5px/1.5 var(--k-font-mono)
 .insp-head h3 { font-size: 18px; flex: 1; margin: 0; }
 .insp-head .g { display: inline-grid; place-items: center; width: 28px; height: 28px; background: var(--tool-soft); color: var(--tool-text); }
 .fld { display: flex; flex-direction: column; gap: 6px; }
-.fld > label, .fld > .lbl { font-size: 13px; font-weight: 600; }
+.fld > label, .fld > .lbl { font-size: 13px; font-weight: 600; color: var(--ink); }
 .sws { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
 .sw { width: 26px; height: 26px; border-radius: 50%; border: 1px solid var(--line-strong); padding: 0; }
 .sw[aria-pressed="true"] { outline: 2px solid var(--ink); outline-offset: 2px; }
@@ -522,7 +524,7 @@ pre.code { margin: 0; white-space: pre-wrap; font: 12.5px/1.5 var(--k-font-mono)
 .neu-schritte button { display: inline-flex; align-items: center; gap: 8px; height: 34px; padding: 0 14px 0 6px; border: 1px solid var(--line); border-radius: 999px; background: var(--surface); color: var(--muted-ink); font-size: 13.5px; }
 .neu-schritte button:disabled { opacity: .5; }
 .neu-schritte li[aria-current="step"] button { background: var(--brand); color: var(--brand-ink); border-color: var(--brand); }
-.neu-schritte li[aria-current="step"] .s-no { background: var(--bg); }
+.neu-schritte li[aria-current="step"] .s-no { background: var(--surface); }
 .neu-schritte li[data-fertig="true"] .s-no { background: var(--brand-soft); color: var(--brand); }
 .neu-blatt { flex: 1; min-height: 0; display: flex; outline: none; }
 .neu-eins { justify-content: center; align-items: flex-start; }
@@ -558,7 +560,13 @@ pre.code { margin: 0; white-space: pre-wrap; font: 12.5px/1.5 var(--k-font-mono)
   .pg-lang { display: none; }
   .pg-kurz { display: inline; }
   .bld-bar { gap: 8px; }
-  .bld-bar .bar-name { flex: 1 1 100%; max-width: none; font-size: 20px !important; }
+  /* Zwei Zeilen statt drei: Name + Speichern, darunter Oberfläche/KI-Ablauf, Rückgängig, Wiederholen, Vorschau (nur Symbol) */
+  .bld-bar .bar-name { order: 0; flex: 1 1 0; min-width: 55%; max-width: none; font-size: 19px !important; }
+  .bld-bar .bar-speichern { order: 1; }
+  .bld-bar > :not(.bar-name):not(.bar-speichern) { order: 2; }
+  .bld-bar .bar-vorschau { order: 3; padding-inline: 10px; }
+  .bld-bar .bar-vorschau .bar-kurz { display: none; }
+  .bld-bar [data-slot="tabs"] { margin-right: auto; }
   .bar-txt { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
   .bld-bar > .flex-1 { display: none; }
 }
@@ -694,3 +702,44 @@ a.mh-titel:hover { text-decoration: underline; text-underline-offset: 4px; }
 .o-sperre { margin: 0; padding: 6px 24px; font-size: 13px; color: var(--muted-ink); display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; justify-content: flex-end; text-align: right; }
 .o-sperre button { border: 0; background: none; padding: 0; font: inherit; font-weight: 600; color: var(--app-accent, var(--brand)); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
 @media (max-width: 560px) { .o-sperre { padding: 6px 14px; justify-content: flex-start; text-align: left; } }
+
+/* ===== Kontraste: Auswahl klar erkennbar ===== */
+/* Umschalter (Größe, Ausrichtung, Status …): gewählte Option in Körber-Blau statt kaum sichtbarem Grau */
+[data-slot="toggle-group-item"] { border-color: var(--line-strong); color: var(--ink); }
+[data-slot="toggle-group-item"][data-state="on"] { background: var(--brand-soft); border-color: var(--brand); color: var(--k-blue-darker); font-weight: 600; position: relative; z-index: 1; }
+/* Reiter: aktiver Reiter fett und mit Markenlinie, inaktive in lesbarem Grau */
+[data-slot="tabs-trigger"] { color: var(--muted-ink); }
+[data-slot="tabs-trigger"][data-state="active"] { color: var(--ink); font-weight: 600; }
+/* Eingabefelder heben sich von weißen Panels ab */
+.insp input:not([type="checkbox"]):not([type="radio"]):not([type="color"]), .insp textarea, .insp [data-slot="select-trigger"],
+.ki-karte input:not([type="checkbox"]):not([type="radio"]), .ki-karte textarea, .ki-karte [data-slot="select-trigger"] { border-color: var(--line-strong); }
+/* Abschnitte in den Eigenschaften und App-Einstellungen: feine Trenner zwischen Gruppen */
+.insp > .fld + .fld, .insp [role="tabpanel"] > .fld + .fld { border-top: 1px solid var(--line); padding-top: 14px; }
+
+/* Neue Applikation: Grundgerüste als kleine Karten */
+.neu-gerueste { display: flex; flex-direction: column; gap: 6px; }
+.neu-gerueste .lbl { font-size: 13px; font-weight: 600; color: var(--ink); }
+.neu-gerueste-liste { display: grid; grid-template-columns: repeat(auto-fit, minmax(146px, 1fr)); gap: 8px; }
+.neu-gerueste-liste button { display: flex; flex-direction: column; gap: 2px; text-align: left; padding: 10px 12px; border: 1px solid var(--line); border-radius: var(--k-radius-input); background: var(--surface); color: var(--ink); }
+.neu-gerueste-liste button:hover:not(:disabled) { border-color: var(--brand); background: var(--brand-soft); }
+.neu-gerueste-liste b { font-size: 13.5px; font-weight: 600; }
+.neu-gerueste-liste span { font-size: 12.5px; color: var(--muted-ink); line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+@media (max-width: 640px) {
+  .neu-gerueste-liste { display: flex; overflow-x: auto; scrollbar-width: none; }
+  .neu-gerueste-liste button { flex: 0 0 200px; }
+}
+
+/* ===== Ampel (globale Regel): widersprüchlich/fehlt rot, offen/unsicher gelb, geklärt dezent grün ===== */
+.o-field[data-ampel] { --amp: transparent; }
+.o-field[data-ampel="rot"] { --amp: #c4281c; --amp-bg: #fdecea; }
+.o-field[data-ampel="gelb"] { --amp: #d98c00; --amp-bg: #fff6e0; }
+.o-field[data-ampel="gruen"] { --amp: #1f8a4c; --amp-bg: transparent; }
+.o-field[data-ampel] :is(input[type="text"], textarea, select) { border-color: var(--amp); box-shadow: inset 4px 0 0 var(--amp); background: color-mix(in srgb, var(--amp-bg) 100%, var(--app-bg)); }
+.o-field[data-ampel="gruen"] :is(input[type="text"], textarea, select) { background: var(--app-bg); border-color: color-mix(in srgb, var(--amp) 55%, var(--app-line)); }
+.o-field[data-ampel] > label::after, .o-field[data-ampel] > legend::after { content: ""; display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--amp); margin-left: 7px; vertical-align: 1px; }
+.o-field[data-ampel="rot"] > label, .o-field[data-ampel="rot"] > legend { color: #9c1f15; }
+.o-field[data-ampel="gelb"] > label, .o-field[data-ampel="gelb"] > legend { color: #7a4d00; }
+.o-field[data-ampel] :is(input, textarea, select):focus { box-shadow: inset 4px 0 0 var(--amp), 0 0 0 3px color-mix(in srgb, var(--app-accent) 22%, transparent); }
+
+/* Lange Texte im Baukasten (Aufgabe, Rolle, Vorlage) wachsen ebenfalls mit */
+.ki-karte textarea, .insp textarea { field-sizing: content; max-height: 50vh; }

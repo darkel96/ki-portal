@@ -411,7 +411,7 @@ export const RunApp = forwardRef<RunAppHandle, {
    * „Weiter“ ist gesperrt, solange ein Schritt läuft, der Felder vorbelegt (die Person soll die Werte sehen und
    * bestätigen), und solange Pflichtfelder fehlen, die der nächste automatische Schritt braucht (z. B. die Checkliste).
    */
-  const sperre = useMemo((): { text: string; ziel?: number } => {
+  const sperre = useMemo((): { text: string; ziel?: number; keys?: string[] } => {
     const keys = new Set(fieldsOf(app).map((b) => b.props.aus.trim().split(".")[0].toLowerCase()).filter(Boolean));
     const st = app.steps.find((x) => keys.has(x.key.toLowerCase()) && (outs[x.id]?.status === "laeuft" || (outs[x.id]?.status === "wartet" && laeuft)));
     if (st) return { text: `Bitte warten, bis „${st.name}“ fertig ist.` };
@@ -430,7 +430,7 @@ export const RunApp = forwardRef<RunAppHandle, {
     if (app.pflichtSperre && p) {
       const felder: Block[] = [];
       walk(p.children ?? [], (b) => { if (leer(b)) felder.push(b); });
-      if (felder.length) return { text: `Bitte zuerst ausfüllen: ${benennen(felder)}.` };
+      if (felder.length) return { text: `Bitte zuerst ausfüllen: ${benennen(felder)}.`, keys: felder.map((f) => (f.props as { key: string }).key) };
     }
     // Was „Weiter“ als Nächstes starten würde: die Ergebnisse oder den Lese-Schritt der nächsten Seite
     const i = akt + 1;
@@ -444,9 +444,17 @@ export const RunApp = forwardRef<RunAppHandle, {
     // Wo stehen die fehlenden Felder? Liegen sie auf einer anderen Seite, führt ein Knopf dorthin
     const felder = fieldsOf(app).filter((f) => fehlend.has(f.props.key));
     const ziel = eingabeSeiten.findIndex((s) => { let ja = false; walk(s.children ?? [], (b) => { if (isFieldType(b.type) && fehlend.has((b.props as { key: string }).key)) ja = true; }); return ja; });
-    return { text: `Bitte zuerst ausfüllen: ${benennen(felder)}.`, ziel: ziel >= 0 && ziel !== akt ? ziel : undefined };
+    return { text: `Bitte zuerst ausfüllen: ${benennen(felder)}.`, ziel: ziel >= 0 && ziel !== akt ? ziel : undefined, keys: felder.map((f) => f.props.key) };
   }, [app, outs, laeuft, akt, p, mitUebersicht, uebersichtIdx, nochNichtGelaufen, uebersichtAktion, eingabeSeiten, vorbelegungsSchritte, liest, werte, files]);
   const weiterGesperrt = sperre.text;
+  /** Klick auf das gesperrte „Weiter“: fehlende Pflichtfelder markieren und zum ersten führen */
+  const sperreZeigen = () => {
+    const keys = sperre.keys ?? [];
+    if (!keys.length) return;
+    setFehler(new Set(keys));
+    if (sperre.ziel !== undefined) wechseln(sperre.ziel, keys[0]);
+    else frame.current?.querySelector<HTMLElement>(feldZiel(keys[0]))?.focus();
+  };
   /** Leere Pflichtfelder einer Eingabeseite (nur mit App-Einstellung „Weiter erst mit Pflichtfeldern“) */
   const seiteHatLuecke = useCallback((j: number) => {
     const seiteJ = eingabeSeiten[j];
@@ -619,7 +627,7 @@ export const RunApp = forwardRef<RunAppHandle, {
               {sperre.ziel !== undefined && <button type="button" onClick={() => wechseln(sperre.ziel!, fieldsOf(app).find((f) => weiterGesperrt.includes(f.props.label))?.props.key)}>Zur Seite „{linearTitel(sperre.ziel)}“</button>}
             </p>
           )}
-          <Pager className="app-pager" seite={akt} anzahl={anzahl} titel={linearTitel} weiter={naechste} weiterKurz={naechste === "Ergebnisse erstellen" ? "Erstellen" : undefined} weiterGesperrt={weiterGesperrt} erreichbar={erreichbar} onWechsel={blaettern} onWeiter={() => weiterKlick(akt + 1)} />
+          <Pager className="app-pager" seite={akt} anzahl={anzahl} titel={linearTitel} weiter={naechste} weiterKurz={naechste === "Ergebnisse erstellen" ? "Erstellen" : undefined} weiterGesperrt={weiterGesperrt} onGesperrt={sperre.keys?.length ? sperreZeigen : undefined} erreichbar={erreichbar} onWechsel={blaettern} onWeiter={() => weiterKlick(akt + 1)} />
           </>
         )}
       </div>

@@ -6,7 +6,7 @@ import type { ReactNode } from "react";
  * Blättern statt Scrollen: Zurück, Seitenpunkte, Weiter.
  * Die Farben kommen aus currentColor bzw. --pg-accent, damit der Pager auch in gestalteten Apps passt.
  */
-export function Pager({ seite, anzahl, titel, onWechsel, onWeiter, label = "Seite", mehrzahl = `${label}n`, weiter, weiterKurz, ende, onEnde, weiterGesperrt, erreichbar, className = "" }: {
+export function Pager({ seite, anzahl, titel, onWechsel, onWeiter, label = "Seite", mehrzahl = `${label}n`, weiter, weiterKurz, ende, onEnde, weiterGesperrt, onGesperrt, erreichbar, className = "" }: {
   seite: number;
   anzahl: number;
   titel?: (i: number) => string;
@@ -25,6 +25,8 @@ export function Pager({ seite, anzahl, titel, onWechsel, onWeiter, label = "Seit
   onEnde?: () => void;
   /** „Weiter“ ausgegraut, solange z. B. die KI die Felder der nächsten Seite noch ausfüllt */
   weiterGesperrt?: string;
+  /** Klick auf das gesperrte „Weiter“: z. B. zu den fehlenden Pflichtfeldern führen. Ohne Angabe ist der Knopf ganz deaktiviert. */
+  onGesperrt?: () => void;
   /** Punkt anklickbar? Ohne Angabe alle; gesperrte Punkte sind ausgegraut */
   erreichbar?: (i: number) => boolean;
   className?: string;
@@ -50,7 +52,8 @@ export function Pager({ seite, anzahl, titel, onWechsel, onWeiter, label = "Seit
         </span>
       </div>
       {seite < anzahl - 1 ? (
-        <button type="button" className="pg-btn primaer" disabled={!!weiterGesperrt} title={weiterGesperrt || undefined} aria-disabled={!!weiterGesperrt || undefined} onClick={() => (onWeiter ? onWeiter() : onWechsel(seite + 1))}>
+        <button type="button" className="pg-btn primaer" disabled={!!weiterGesperrt && !onGesperrt} title={weiterGesperrt || undefined} aria-disabled={!!weiterGesperrt || undefined}
+          onClick={() => (weiterGesperrt ? onGesperrt?.() : onWeiter ? onWeiter() : onWechsel(seite + 1))}>
           {weiter
             ? <><span className="pg-weiter pg-lang">{weiter}</span><span className="pg-kurz">{weiterKurz ?? "Weiter"}</span></>
             : <span className="pg-weiter">Weiter</span>} <ChevronRight aria-hidden="true" size={16} />

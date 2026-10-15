@@ -122,3 +122,26 @@
 
 /* Ungespeicherte Änderungen: kleiner Punkt am Speichern-Knopf */
 .dirty-punkt { width: 7px; height: 7px; border-radius: 999px; background: var(--k-orange, #ff8200); box-shadow: 0 0 0 2px var(--brand); margin-left: -2px; }
+
+/* Geführter Start für neue Apps: eine schlanke Schrittleiste unter der Werkzeugleiste */
+.fuehrung { display: flex; align-items: center; gap: 12px; flex: none; padding: 6px 8px 6px 14px; border: 1px solid var(--line); border-radius: 999px; background: var(--surface); box-shadow: var(--k-shadow-card); font-size: 13px; }
+.fuehrung-titel { font: 700 11px/1 var(--k-font-body); letter-spacing: var(--k-tracking-rubrik); text-transform: uppercase; color: var(--muted-ink); white-space: nowrap; }
+.fuehrung ol { display: flex; flex: 1; gap: 4px; margin: 0; padding: 0; list-style: none; min-width: 0; }
+.fuehrung li { display: flex; align-items: center; min-width: 0; }
+.fuehrung li + li::before { content: ""; width: 18px; height: 1px; background: var(--line-strong); margin-inline: 2px 6px; flex: none; }
+.fuehrung li button { display: inline-flex; align-items: center; gap: 7px; border: 0; background: none; padding: 5px 10px 5px 5px; border-radius: 999px; color: var(--muted-ink); min-width: 0; }
+.fuehrung li button:hover { background: var(--surface-2); color: var(--ink); }
+.fuehrung-nr { display: inline-grid; place-items: center; width: 20px; height: 20px; border-radius: 999px; border: 1px solid var(--line-strong); font: 600 11px/1 var(--k-font-body); flex: none; color: var(--ink); background: var(--surface); }
+.fuehrung li[data-erledigt] .fuehrung-nr { background: var(--ok); border-color: var(--ok); color: #fff; }
+.fuehrung li[aria-current="step"] button { background: var(--brand-soft); color: var(--k-blue-darker); font-weight: 600; }
+.fuehrung li[aria-current="step"] .fuehrung-nr { background: var(--brand); border-color: var(--brand); color: var(--brand-ink); }
+.fuehrung-text { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.fuehrung-x { display: inline-grid; place-items: center; width: 28px; height: 28px; border: 0; border-radius: 999px; background: none; color: var(--muted-ink); flex: none; }
+.fuehrung-x:hover { background: var(--surface-2); color: var(--ink); }
+@media (max-width: 900px) {
+  .fuehrung-titel { display: none; }
+  .fuehrung li + li::before { width: 8px; margin-inline: 0 4px; }
+  /* Schmal: nur der nächste Schritt mit Text, die anderen als Nummer bzw. Haken */
+  .fuehrung li:not([aria-current="step"]) .fuehrung-text { display: none; }
+  .fuehrung li:not([aria-current="step"]) button { padding-right: 5px; }
+}

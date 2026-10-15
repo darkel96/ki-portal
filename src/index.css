@@ -41,13 +41,15 @@
 
 /* Semantische Rollen, abgeleitet aus den Körber-Tokens */
 :root {
-  --bg: var(--k-white);
+  /* Subtile Tiefe: Seite leicht warmgrau, Karten und Panels weiß darauf, Bänder (Kopfbereich, Fußzeile) eine Stufe dunkler */
+  --bg: #f3f1ed;
   --surface: var(--k-white);
-  --surface-2: var(--k-warm-grey-lighter); /* Warmgrau-Bänder (Kopfbereich, Fußzeile) */
+  --surface-2: var(--k-warm-grey-lighter); /* Hover, Tabellenköpfe, ruhige Flächen in Karten */
+  --band: #ebe7e1;                      /* Kopfbereich der Seiten und Fußzeile */
   --ink: var(--k-neutral-darkest);
-  --muted-ink: var(--k-warm-grey-darker);
-  --line: #e7e4df;                      /* Haarlinie der Karten und Trenner */
-  --line-strong: #cdc8c0;
+  --muted-ink: #55524f;                 /* Hinweise: etwas dunkler als Warmgrau-darker, gut lesbar auf Weiß und Warmgrau */
+  --line: #e0dcd5;                      /* Haarlinie der Karten und Trenner */
+  --line-strong: #c4bdb2;
   --brand: var(--k-blue);
   --brand-ink: var(--k-white);
   --brand-soft: var(--k-blue-lightest);
@@ -74,7 +76,7 @@
   --signal-soft: var(--k-blue-lightest);
 
   /* shadcn/ui */
-  --background: var(--bg);
+  --background: var(--surface);         /* Knöpfe, Auswahlfelder, aktive Reiter bleiben weiß; die Seite selbst nutzt --bg */
   --foreground: var(--ink);
   --card: var(--surface);
   --card-foreground: var(--ink);
@@ -100,7 +102,7 @@
 @layer base {
   * { @apply border-border outline-ring/50; }
   html { @apply font-sans; -webkit-font-smoothing: antialiased; }
-  body { @apply bg-background text-foreground; font-size: 15px; line-height: 1.6; }
+  body { @apply text-foreground; background: var(--bg); font-size: 15px; line-height: 1.6; }
   button:not(:disabled), [role="button"]:not(:disabled) { cursor: pointer; }
   h1, h2, h3 { font-family: var(--k-font-display); font-weight: 700; letter-spacing: var(--k-tracking-heading); text-wrap: balance; }
   :focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }

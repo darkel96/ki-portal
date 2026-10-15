@@ -112,7 +112,7 @@ test("Applikation aus Datei importieren: wird ein neuer, ungespeicherter Entwurf
   await expect(page.getByLabel("Name der Applikation")).toHaveValue("Reisekosten prüfen");
   // Ungespeichert: Punkt am Speichern-Knopf
   await expect(page.getByRole("button", { name: /Speichern \(ungespeicherte Änderungen\)/ })).toBeVisible();
-  await page.getByRole("button", { name: /^Speichern/ }).click();
+  await page.getByRole("button", { name: /^Speichern/ }).first().click();
   await expect(page).toHaveURL(/\/app\//);
   expect(page.url()).not.toContain("fremd-1");
   // Kaputte Datei: verständliche Meldung, kein Wechsel
@@ -120,4 +120,28 @@ test("Applikation aus Datei importieren: wird ein neuer, ungespeicherter Entwurf
   await page.getByLabel("Exportierte Applikation auswählen").setInputFiles({ name: "kaputt.json", mimeType: "application/json", buffer: Buffer.from("{nicht json") });
   await expect(page.getByText("Die Datei ist beschädigt oder keine exportierte Applikation.")).toBeVisible();
   await expect(page).toHaveURL(/\/neu$/);
+});
+
+test("Grundgerüste: ohne offene Punkte, öffnen im Baukasten mit geführtem Start", async ({ page }, info) => {
+  test.skip(info.project.name !== "desktop", "einmal reicht");
+  await page.goto("/");
+  const r = await page.evaluate(async () => {
+    const g = await import("/src/lib/gerueste.ts");
+    const m = await import("/src/lib/model.ts");
+    return g.GERUESTE.map((x) => ({ id: x.id, harte: m.appWarnings(x.bauen()).filter((w) => !w.weich).map((w) => w.text) }));
+  });
+  expect(r.length).toBe(5);
+  for (const x of r) expect(x.harte, x.id).toEqual([]);
+  await page.goto("/neu");
+  await page.getByRole("button", { name: /Datei lesen → prüfen → Bericht/ }).click();
+  await expect(page).toHaveURL(/\/baukasten$/);
+  await expect(page.getByLabel("Name der Applikation")).toHaveValue("Datei prüfen und berichten");
+  const f = page.getByRole("navigation", { name: "So entsteht deine Applikation" });
+  await expect(f.getByRole("button", { name: /Eingaben anlegen \(erledigt\)/ })).toBeVisible();
+  await expect(f.locator('[aria-current="step"]')).toContainText("Vorschau testen");
+  await f.getByRole("button", { name: /Vorschau testen/ }).click();
+  await expect(page.getByRole("button", { name: /Vorschau beenden|Zurück/ }).first()).toBeVisible();
+  await expect(f.locator('[aria-current="step"]')).toContainText("Speichern");
+  await f.getByRole("button", { name: "Hilfe ausblenden" }).click();
+  await expect(f).toHaveCount(0);
 });
