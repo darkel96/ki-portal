@@ -138,9 +138,11 @@ still unvermerkt, es öffnet sich kein Fenster.
   .xlsx, .pdf oder .pptx werden aus Markdown erzeugt.
 - **Vorlage für Aufbau und Design** (KI-Schritt → Feineinstellungen): Beispieldatei hochladen (Word, PDF, Markdown,
   Text) oder Gerüst selbst schreiben. Die KI übernimmt Gliederung, Tabellen und Tonfall, nicht die Beispielinhalte.
-  Mit einer Word-Vorlage (.docx/.dotx bis 1 MB) bekommt die erzeugte Word-Datei deren Design (Formatvorlagen,
-  Kopf- und Fußzeile, Logo); ein Absatz `{{inhalt}}` in der Vorlage bestimmt, wo das Ergebnis hinkommt,
-  `{{titel}}` und `{{datum}}` werden ersetzt.
+  Mit einer Word-Vorlage (.docx/.dotx bis 1 MB) bekommt die erzeugte Word-Datei deren Design: Seitenformat, Kopf-
+  und Fußzeile mit Logo, und für den Inhalt klont der Hub echte Beispielabsätze der Vorlage (Titelzeile, jede
+  Kapitelebene, Fließtext, Aufzählung, Nummerierung, Tabelle mit Kopfzeile und abwechselnden Zeilenfarben). Das gilt
+  auch für eigene Stilnamen und von Hand formatierten Text. Ein Absatz `{{inhalt}}` in der Vorlage bestimmt, wo das
+  Ergebnis hinkommt (Deckblatt, Briefkopf und Unterschriften bleiben); `{{titel}}` und `{{datum}}` werden ersetzt.
 - **Zeitlimit:** Copilot-Antworten kommen immer als Strom; abgebrochen wird nur, wenn 3 Minuten lang nichts mehr
   ankommt (`KI_CONFIG.timeoutMs`), nie eine Antwort, die noch entsteht. Ohne Streaming (Tenant ohne `chatOverStream`)
   gilt für die Antwort am Stück 8 Minuten.

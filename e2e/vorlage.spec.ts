@@ -67,7 +67,8 @@ test("Vorlage: Word-Ergebnis im Design der Vorlage", async ({ page }, info) => {
   expect(mitMarke.text.indexOf("Beispielüberschrift")).toBeLessThan(mitMarke.text.indexOf("Projektdaten"));
   expect(mitMarke.text.indexOf("Abnahme Fördertechnik")).toBeLessThan(mitMarke.text.indexOf("Freigabe"));
   expect(mitMarke.kopf).toMatch(/KSCA Kopfzeile \d/);
-  expect(mitMarke.xml).toContain('<w:pStyle w:val="Heading2"/>');
+  // „## Projektdaten“ ist das erste Kapitel: Formatvorlage der ersten Überschrift der Vorlage
+  expect(mitMarke.xml).toMatch(/<w:pStyle w:val="Heading1"\/><\/w:pPr><w:r><w:t xml:space="preserve">Projektdaten/);
   expect(mitMarke.xml).toContain("<w:tbl>");
 
   // Echte Firmenvorlage ohne Marke: Text der Vorlage weg, Inhalt und Seitenformat bleiben
