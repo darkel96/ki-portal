@@ -8,7 +8,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { useApps } from "@/state/apps";
 import type { App, BlockType } from "@/lib/schema";
-import { appWarnings, areaList, clone, locate, makeBlock, newApp, seiteMit, seitenTitel, seitenVon, walk } from "@/lib/model";
+import { appWarnings, areaList, clone, fieldsOf, locate, makeBlock, newApp, seiteMit, seitenTitel, seitenVon, walk } from "@/lib/model";
 import { RunApp, type RunAppHandle } from "@/components/renderer/RunApp";
 import { geloeschtToast, useBuilder } from "@/components/builder/useBuilder";
 import { Canvas, Palette, SeitenLeiste, UiDnd, listOf, scrollArt } from "@/components/builder/Canvas";
@@ -16,6 +16,7 @@ import { Inspector } from "@/components/builder/Inspector";
 import { KiTab } from "@/components/builder/KiTab";
 import { AssistantPanel, useAssistZustand } from "@/components/builder/AssistantPanel";
 import { JsonDialog } from "@/components/builder/JsonDialog";
+import { Fuehrung } from "@/components/builder/Fuehrung";
 import { BT } from "@/components/builder/catalog";
 import { NotFoundPage } from "./NotFoundPage";
 import { loadApp } from "@/lib/sanitize";
@@ -28,6 +29,9 @@ function Editor({ start, ungespeichert }: { start: App; ungespeichert: boolean }
   const nav = useNavigate();
   const [tab, setTab] = useState<"ui" | "ki">("ui");
   const [vorschau, setVorschau] = useState(false);
+  /** Für den geführten Start: Vorschau einmal geöffnet */
+  const [getestet, setGetestet] = useState(false);
+  useEffect(() => { if (vorschau) setGetestet(true); }, [vorschau]);
   const [speichert, setSpeichert] = useState(false);
   const [ansage, setAnsage] = useState("");
   /** Zählt hoch, wenn der KI-Ablauf die Prüfung zeigen soll (Speichern mit offenen Punkten). */
@@ -188,10 +192,18 @@ function Editor({ start, ungespeichert }: { start: App; ungespeichert: boolean }
         <Button variant="outline" size="icon" aria-label="Rückgängig (Strg+Z)" title="Rückgängig (Strg+Z)" disabled={!b.canUndo} onClick={b.undo}><Undo2 /></Button>
         <Button variant="outline" size="icon" aria-label="Wiederholen (Strg+Y)" title="Wiederholen (Strg+Y)" disabled={!b.canRedo} onClick={b.redo}><Redo2 /></Button>
         <span className="nur-breit"><JsonDialog b={b} /></span>
-        <Button variant={vorschau ? "secondary" : "outline"} aria-pressed={vorschau} onClick={() => setVorschau((v) => !v)}>{vorschau ? <EyeOff /> : <Eye />}<span className="bar-txt">{vorschau ? "Vorschau beenden" : "Vorschau testen"}</span><span className="bar-kurz" aria-hidden="true">{vorschau ? "Zurück" : "Vorschau"}</span></Button>
-        <Button onClick={() => void speichern()} disabled={speichert} title="Speichern (Strg+S)" aria-keyshortcuts="Control+S">{speichert ? <><Loader2 className="animate-spin motion-reduce:animate-none" aria-hidden="true" />Speichert …</> : <><Save />Speichern{b.dirty && <><span className="dirty-punkt" aria-hidden="true" /><span className="sr-only"> (ungespeicherte Änderungen)</span></>}</>}</Button>
+        <Button className="bar-vorschau" variant={vorschau ? "secondary" : "outline"} aria-pressed={vorschau} onClick={() => setVorschau((v) => !v)}>{vorschau ? <EyeOff /> : <Eye />}<span className="bar-txt">{vorschau ? "Vorschau beenden" : "Vorschau testen"}</span><span className="bar-kurz" aria-hidden="true">{vorschau ? "Zurück" : "Vorschau"}</span></Button>
+        <Button className="bar-speichern" onClick={() => void speichern()} disabled={speichert} title="Speichern (Strg+S)" aria-keyshortcuts="Control+S">{speichert ? <><Loader2 className="animate-spin motion-reduce:animate-none" aria-hidden="true" />Speichert …</> : <><Save />Speichern{b.dirty && <><span className="dirty-punkt" aria-hidden="true" /><span className="sr-only"> (ungespeicherte Änderungen)</span></>}</>}</Button>
       </div>
 
+      {!b.app.id && (
+        <Fuehrung schritte={[
+          { titel: "Eingaben anlegen", erledigt: fieldsOf(b.app).length > 0, los: () => { setTab("ui"); setVorschau(false); setBereich("pal"); } },
+          { titel: "KI-Aufgabe beschreiben", erledigt: b.app.steps.length > 0 && b.app.steps.every((st) => st.prompt.trim()) && !harte.length, los: () => { setTab("ki"); setVorschau(false); } },
+          { titel: "Vorschau testen", erledigt: getestet, los: () => setVorschau(true) },
+          { titel: "Speichern", erledigt: false, los: () => void speichern() },
+        ]} />
+      )}
       {vorschau ? (
         <div className="stage vorschau">
           <div className="mb-3.5 flex flex-wrap items-center gap-2.5 text-[13px] text-muted-foreground">

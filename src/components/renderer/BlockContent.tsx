@@ -1,7 +1,8 @@
-import { useRef, type CSSProperties, type ReactNode } from "react";
+import { useLayoutEffect, useRef, type CSSProperties, type ReactNode } from "react";
 import type { App, Block } from "@/lib/schema";
-import { inkFor } from "@/lib/model";
+import { inkFor, walk } from "@/lib/model";
 import { FILE_ACCEPT } from "@/lib/files";
+import { AMPEL_LABEL, ampelText, ampelWert, type Ampel } from "@/lib/ampel";
 import { TONES } from "./theme";
 import { useRun } from "./runContext";
 import { OutputView } from "./OutputView";
@@ -12,7 +13,20 @@ export type RenderList = (blocks: Block[], listId: string) => ReactNode;
 
 const alignStyle = (align?: string, color?: string): CSSProperties => ({ textAlign: (align as CSSProperties["textAlign"]) || "left", ...(color ? { color } : {}) });
 
-function Field({ b, mode }: { b: Extract<Block, { type: "input" | "textarea" | "select" | "radio" | "checkbox" | "number" | "date" | "file" }>; mode: Mode }) {
+/** Textfeld wächst mit dem Inhalt (CSS field-sizing; ohne Unterstützung per Höhe aus scrollHeight) */
+const FELD_WAECHST = typeof CSS !== "undefined" && CSS.supports?.("field-sizing", "content");
+function Mitwachsend(props: React.TextareaHTMLAttributes<HTMLTextAreaElement>) {
+  const ref = useRef<HTMLTextAreaElement>(null);
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el || FELD_WAECHST) return;
+    el.style.height = "auto";
+    el.style.height = `${el.scrollHeight + 2}px`;
+  }, [props.value]);
+  return <textarea ref={ref} {...props} />;
+}
+
+function Field({ b, mode, partner }: { b: Extract<Block, { type: "input" | "textarea" | "select" | "radio" | "checkbox" | "number" | "date" | "file" }>; mode: Mode; partner?: Ampel | null }) {
   const run = useRun();
   const dateiInput = useRef<HTMLInputElement>(null);
   const P = b.props;
@@ -27,19 +41,21 @@ function Field({ b, mode }: { b: Extract<Block, { type: "input" | "textarea" | "
     ? <span className={`o-help o-ki-hinweis ${klaeren ? "klaeren" : ""}`} id={`${id}-hilfe`}>{klaeren && <b className="o-klaeren-marke">Zu klären</b>}{ki?.hinweis ?? (klaeren ? "Nicht eindeutig gelesen. Bitte prüfen und von Hand setzen." : "")}</span>
     : P.hilfe ? <span className="o-help" id={`${id}-hilfe`}>{P.hilfe}</span> : null;
   const v = run?.werte[P.key];
+  // Ampel (globale Regel): Auswahlwerte nach Bedeutung, Text nach Markierungen; ein Inhaltsfeld übernimmt die Ampel seines Status-Felds
+  const ampel: Ampel | null = mode === "edit" ? null : b.type === "select" || b.type === "radio" ? ampelWert(v) : b.type === "textarea" || b.type === "input" ? ampelText(v) ?? partner ?? null : null;
   const set = (val: string | boolean) => run?.setWert(P.key, val);
   const described = [P.hilfe || ki?.hinweis || klaeren ? `${id}-hilfe` : "", err ? `${id}-fehler` : ""].filter(Boolean).join(" ") || undefined;
   const common = { id, name: P.key, autoComplete: "off", disabled: dis, tabIndex: dis ? -1 : undefined, "aria-invalid": err || undefined, "aria-describedby": described, "aria-required": P.pflicht || undefined };
   let ctl: ReactNode;
   switch (b.type) {
-    case "textarea": ctl = <textarea {...common} rows={b.props.rows} placeholder={P.placeholder} value={String(v ?? "")} onChange={(e) => set(e.target.value)} />; break;
+    case "textarea": ctl = <Mitwachsend {...common} rows={b.props.rows} style={{ "--rows": b.props.rows } as CSSProperties} placeholder={P.placeholder} value={String(v ?? "")} onChange={(e) => set(e.target.value)} />; break;
     case "select": ctl = (
       <select {...common} value={String(v ?? "")} onChange={(e) => set(e.target.value)}>
         <option value="">Bitte wählen</option>
         {b.props.optionen.map((o) => <option key={o}>{o}</option>)}
       </select>); break;
     case "radio": return (
-      <fieldset className={`o-field ${err ? "err" : ""} ${klaeren ? "klaeren" : ""}`} data-key={P.key} style={{ border: 0, padding: 0, margin: 0 }} role="radiogroup" aria-required={P.pflicht || undefined} aria-invalid={err || undefined} aria-describedby={described}>
+      <fieldset className={`o-field ${err ? "err" : ""} ${klaeren ? "klaeren" : ""}`} data-key={P.key} data-ampel={ampel ?? undefined} style={{ border: 0, padding: 0, margin: 0 }} role="radiogroup" aria-required={P.pflicht || undefined} aria-invalid={err || undefined} aria-describedby={described}>
         <legend className="o-lbl">{P.label}{req}</legend>
         <div className="o-opts">{b.props.optionen.map((o) => (
           <label key={o}><input type="radio" name={`r-${P.key}`} value={o} disabled={dis} checked={v === o} onChange={() => set(o)} /> {o}</label>
@@ -72,12 +88,24 @@ function Field({ b, mode }: { b: Extract<Block, { type: "input" | "textarea" | "
     default: ctl = <input type="text" {...common} placeholder={P.placeholder} value={String(v ?? "")} onChange={(e) => set(e.target.value)} />;
   }
   return (
-    <div className={`o-field ${err ? "err" : ""} ${klaeren ? "klaeren" : ""}`} data-key={P.key}>
+    <div className={`o-field ${err ? "err" : ""} ${klaeren ? "klaeren" : ""}`} data-key={P.key} data-ampel={ampel ?? undefined} title={ampel ? AMPEL_LABEL[ampel] : undefined}>
       <label htmlFor={id}>{P.label}{req}</label>
       {ctl}{help}
       {err && <span className="o-err" id={`${id}-fehler`}>{b.type === "select" ? "Bitte auswählen." : b.type === "file" ? "Bitte eine Datei auswählen." : "Bitte ausfüllen."}</span>}
     </div>
   );
+}
+
+/** „Status Lieferumfang“ gehört zu „Lieferumfang“: Das Inhaltsfeld zeigt die Ampel seines Status-Felds */
+function partnerAmpel(app: App, b: Block, werte?: Record<string, unknown>): Ampel | null {
+  if (!werte || (b.type !== "textarea" && b.type !== "input")) return null;
+  const label = b.props.label.trim().toLowerCase();
+  if (!label) return null;
+  let treffer: Ampel | null = null;
+  walk(app.blocks, (x) => {
+    if (!treffer && (x.type === "select" || x.type === "radio") && /^status\s+/i.test(x.props.label) && x.props.label.replace(/^status\s+/i, "").trim().toLowerCase() === label) treffer = ampelWert(werte[x.props.key]);
+  });
+  return treffer;
 }
 
 export function BlockContent({ b, app, mode, renderList }: { b: Block; app: App; mode: Mode; renderList: RenderList }) {
@@ -129,6 +157,6 @@ export function BlockContent({ b, app, mode, renderList }: { b: Block; app: App;
     case "chat":
       return <ChatView app={app} b={b} mode={mode} />;
     default:
-      return <Field b={b} mode={mode} />;
+      return <Field b={b} mode={mode} partner={partnerAmpel(app, b, run?.werte)} />;
   }
 }

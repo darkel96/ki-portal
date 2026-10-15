@@ -215,12 +215,11 @@ export function fromSimple(d: LegacyApp): App {
     const props = PropsSchemas[t].parse({ label: f.label, key: f.key, keyAuto: false, pflicht: !!f.pflicht, beispiel: f.beispiel ?? "", ...(t === "select" ? { optionen: f.optionen ?? [] } : {}) });
     return { id: rid("b"), type: t, props } as Block;
   });
-  const button = makeBlock("button");
-  (button.props as PropsOf<"button">).text = "Ausführen";
   const heading = makeBlock("heading");
   Object.assign(heading.props, { text: "Eingaben", level: 3 });
   const left = makeBlock("section");
-  left.children = [heading, ...fields, button];
+  // Kein eigener KI-Button: „Ergebnisse erstellen“ unten startet die Schritte, ein Startweg reicht
+  left.children = [heading, ...fields];
   const right: Block[] = app.steps.map((s) => {
     const o = makeBlock("output");
     Object.assign(o.props, { titel: s.name, quelle: s.id });
@@ -334,9 +333,11 @@ export function appWarnings(app: App): Warnung[] {
   let hasBtn = false;
   const outSrc = new Set<string>();
   const chatSrc = new Set<string>();
+  const alleKnoepfe: string[] = [];
   walk(app.blocks, (b) => {
     if (b.type === "button") {
       hasBtn = true;
+      if (b.props.aktion === "alle") alleKnoepfe.push(b.props.text);
       if (b.props.aktion !== "alle" && !stepsFor(app, b.props.aktion).length) hard(`Der Button „${b.props.text}“ startet einen Schritt, den es nicht mehr gibt.`);
     }
     if (b.type === "output") {
@@ -363,6 +364,16 @@ export function appWarnings(app: App): Warnung[] {
       const erreichbar = ausKeysB.has(s.key.toLowerCase()) || chatSrc.has(s.id) || !outSrc.has(s.id) || ergebnisSeiten.has(s.id);
       if (!erreichbar) hard(`„${stepName(s, i)}“ wird nirgends gestartet: Sein Ergebnis-Element steht auf einer Eingabeseite und es gibt keinen KI-Button. Button ergänzen oder das Ergebnis auf eine eigene Seite legen.`);
     });
+  }
+  // Doppelter Startweg: Liegen alle Ergebnisse auf eigenen Seiten, startet „Ergebnisse erstellen“ schon alles
+  if (alleKnoepfe.length && outSrc.size) {
+    const eigeneSeite = new Set<string>();
+    seitenVon(app).forEach((p) => {
+      let eingabe = false; const ids: string[] = [];
+      walk(p.children ?? [], (b) => { if (isFieldType(b.type) || b.type === "button") eingabe = true; if (b.type === "output") ids.push(b.props.quelle); });
+      if (!eingabe) ids.forEach((id) => eigeneSeite.add(id));
+    });
+    if ([...outSrc].every((id) => eigeneSeite.has(id))) soft(`Der Button „${alleKnoepfe[0]}“ macht dasselbe wie „Ergebnisse erstellen“ unten im Blättern. Ein Startweg ist übersichtlicher: den Button entfernen.`);
   }
   seitenVon(app).forEach((p, i) => { if (!p.children?.length) soft(`Seite ${i + 1} „${(p.props as PropsOf<"seite">).titel}“ ist leer.`); });
   const ausKeys = new Set(fieldsOf(app).map((b) => b.props.aus.trim().split(".")[0].toLowerCase()).filter(Boolean));

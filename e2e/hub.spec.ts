@@ -51,7 +51,7 @@ test("App-Ansicht: Agenten-Team blättert zum Ergebnis", async ({ page }, info) 
   if (await mehr.isVisible()) { await mehr.click(); await page.getByRole("menuitem", { name: "Beispieldaten einsetzen" }).click(); }
   else await page.getByRole("button", { name: "Beispieldaten einsetzen" }).click();
   await expect(page.getByLabel("Ausgangslage")).not.toHaveValue("");
-  await page.getByRole("button", { name: "Ausführen" }).click();
+  await page.getByRole("navigation", { name: "Seiten blättern" }).getByRole("button", { name: /Ergebnisse erstellen|Erstellen/ }).click();
   // Nach dem Start läuft alles durch; die Ergebnisse stehen als Kacheln in der Übersicht.
   await expect(page.getByLabel("Ausgangslage")).toHaveCount(0);
   await expect(page.getByRole("heading", { name: "Ergebnisse" })).toBeVisible();
@@ -71,7 +71,9 @@ test("App-Ansicht: Agenten-Team blättert zum Ergebnis", async ({ page }, info) 
 
 test("App-Ansicht: Pflichtfelder werden markiert", async ({ page }) => {
   await page.goto("/app/mail-antwort");
-  await page.getByRole("button", { name: "Ausführen" }).click();
+  // Ein Startweg: kein eigener Ausführen-Knopf, „Ergebnisse erstellen“ ist gesperrt und führt zu den fehlenden Feldern
+  await expect(page.getByRole("button", { name: "Ausführen" })).toHaveCount(0);
+  await page.getByRole("navigation", { name: "Seiten blättern" }).getByRole("button", { name: /Ergebnisse erstellen|Erstellen/ }).click({ force: true }); // aria-disabled: Playwright hält den Knopf sonst für gesperrt
   await expect(page.getByText("Bitte ausfüllen.").first()).toBeVisible();
   await expect(page.getByLabel(/Eingegangene E-Mail/)).toHaveAttribute("aria-invalid", "true");
 });
@@ -100,7 +102,7 @@ test("App-Ansicht: Weiter erst, wenn die Pflichtfelder der Seite ausgefüllt sin
   test.skip(info.project.name !== "desktop", "einmal reicht");
   await page.goto("/app/serviceangebot");
   const weiter = page.getByRole("navigation", { name: "Seiten blättern" }).getByRole("button", { name: /Weiter/ });
-  await expect(weiter).toBeDisabled();
+  await expect(weiter).toHaveAttribute("aria-disabled", "true");
   await expect(weiter).toHaveAttribute("title", /Bitte zuerst ausfüllen: Service-Checkliste/);
   // Der Grund steht sichtbar über dem Blättern, die Punkte nach vorn sind gesperrt
   await expect(page.locator(".o-sperre")).toContainText("Bitte zuerst ausfüllen: Service-Checkliste");
