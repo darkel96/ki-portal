@@ -6,7 +6,7 @@ import type { ReactNode } from "react";
  * Blättern statt Scrollen: Zurück, Seitenpunkte, Weiter.
  * Die Farben kommen aus currentColor bzw. --pg-accent, damit der Pager auch in gestalteten Apps passt.
  */
-export function Pager({ seite, anzahl, titel, onWechsel, onWeiter, label = "Seite", mehrzahl = `${label}n`, weiter, weiterKurz, ende, onEnde, weiterGesperrt, className = "" }: {
+export function Pager({ seite, anzahl, titel, onWechsel, onWeiter, label = "Seite", mehrzahl = `${label}n`, weiter, weiterKurz, ende, onEnde, weiterGesperrt, erreichbar, className = "" }: {
   seite: number;
   anzahl: number;
   titel?: (i: number) => string;
@@ -25,20 +25,23 @@ export function Pager({ seite, anzahl, titel, onWechsel, onWeiter, label = "Seit
   onEnde?: () => void;
   /** „Weiter“ ausgegraut, solange z. B. die KI die Felder der nächsten Seite noch ausfüllt */
   weiterGesperrt?: string;
+  /** Punkt anklickbar? Ohne Angabe alle; gesperrte Punkte sind ausgegraut */
+  erreichbar?: (i: number) => boolean;
   className?: string;
 }) {
   if (anzahl <= 1) return null;
   const name = (i: number) => titel?.(i) || `${label} ${i + 1}`;
   return (
     <nav className={`pager ${className}`} aria-label={`${mehrzahl} blättern`}>
-      <button type="button" className="pg-btn" onClick={() => onWechsel(seite - 1)} disabled={seite === 0}>
-        <ChevronLeft aria-hidden="true" size={16} /> Zurück
-      </button>
+      {seite > 0
+        ? <button type="button" className="pg-btn" onClick={() => onWechsel(seite - 1)}><ChevronLeft aria-hidden="true" size={16} /> Zurück</button>
+        : <span className="pg-platz" aria-hidden="true" />}
       <div className="pager-mitte">
         {anzahl <= 12 && (
           <div className="dots">
             {Array.from({ length: anzahl }, (_, i) => (
-              <button key={i} type="button" aria-label={titel ? `${label} ${i + 1}: ${name(i)}` : name(i)} aria-current={i === seite ? "step" : undefined} onClick={() => onWechsel(i)} />
+              <button key={i} type="button" aria-label={titel ? `${label} ${i + 1}: ${name(i)}` : name(i)} aria-current={i === seite ? "step" : undefined}
+                disabled={erreichbar ? !erreichbar(i) : undefined} title={erreichbar && !erreichbar(i) ? "Erst die Seiten davor ausfüllen" : undefined} onClick={() => onWechsel(i)} />
             ))}
           </div>
         )}

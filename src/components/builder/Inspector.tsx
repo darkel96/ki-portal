@@ -37,6 +37,7 @@ function AppSettings({ b, alleBereiche }: { b: Builder; alleBereiche: string[] }
             <datalist id="ap-bereiche">{alleBereiche.map((x) => <option key={x} value={x} />)}</datalist>
           </Fld>
           <TextFld label="Kurzbeschreibung für die Kachel" multiline rows={3} value={b.app.beschreibung} onChange={(v) => b.change((d) => { d.beschreibung = v; }, "beschreibung")} />
+          <Check label="„Weiter“ erst, wenn die Pflichtfelder der Seite ausgefüllt sind" checked={b.app.pflichtSperre} onChange={(v) => b.change((d) => { d.pflichtSperre = v; })} />
           <p className="hint" style={{ margin: 0 }}>Klick einen Baustein auf der Fläche an, um ihn zu bearbeiten, oder einen Seiten-Reiter für die Seite. Entf löscht den gewählten Baustein, Strg+Z macht rückgängig.</p>
         </TabsContent>
         <TabsContent value="design" className="ki-teil" tabIndex={-1}>

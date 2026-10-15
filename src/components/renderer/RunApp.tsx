@@ -253,6 +253,10 @@ export const RunApp = forwardRef<RunAppHandle, {
   const uebersichtIdx = eingabeSeiten.length;
 
   const [seite, setSeite] = useState(0);
+  /** Weiteste Seite, die über „Weiter“ erreicht wurde; über die Punkte geht es vorwärts nur bis hierhin */
+  const [erreicht, setErreicht] = useState(0);
+  useEffect(() => { setErreicht((e) => Math.max(e, seite)); }, [seite]);
+  const erreichbarRef = useRef<(i: number) => boolean>(() => true);
   const [detail, setDetail] = useState<string | null>(null);
   const akt = Math.min(seite, Math.max(0, anzahl - 1));
   const imUeberblick = mitUebersicht && akt === uebersichtIdx && !detail;
@@ -266,6 +270,7 @@ export const RunApp = forwardRef<RunAppHandle, {
   const gesperrtRef = useRef("");
   const wechseln = useCallback((i: number, fokusKey?: string) => {
     if (gesperrtRef.current && i > seite) return;   // vorwärts erst, wenn die KI die Felder ausgefüllt hat
+    if (i > seite + 1 && !erreichbarRef.current(i)) return;   // nicht an Pflichtfeldern vorbei springen
     fokusNach.current = fokusKey ?? null;
     gewechselt.current = true;
     setDetail(null);
@@ -406,21 +411,65 @@ export const RunApp = forwardRef<RunAppHandle, {
    * „Weiter“ ist gesperrt, solange ein Schritt läuft, der Felder vorbelegt (die Person soll die Werte sehen und
    * bestätigen), und solange Pflichtfelder fehlen, die der nächste automatische Schritt braucht (z. B. die Checkliste).
    */
-  const weiterGesperrt = useMemo(() => {
+  const sperre = useMemo((): { text: string; ziel?: number } => {
     const keys = new Set(fieldsOf(app).map((b) => b.props.aus.trim().split(".")[0].toLowerCase()).filter(Boolean));
     const st = app.steps.find((x) => keys.has(x.key.toLowerCase()) && (outs[x.id]?.status === "laeuft" || (outs[x.id]?.status === "wartet" && laeuft)));
-    if (st) return `Bitte warten, bis „${st.name}“ fertig ist.`;
+    if (st) return { text: `Bitte warten, bis „${st.name}“ fertig ist.` };
+    if (liest.size) return { text: "Die Datei wird noch gelesen\u00a0…" };
+    // Fehlende Pflichtfelder benennen; eine Datei ohne lesbaren Text gilt als fehlend, mit eigenem Hinweis
+    const benennen = (felder: Block[]) => felder.map((f) => {
+      const k = (f.props as { key: string }).key, name = (f.props as { label: string }).label || k;
+      return f.type === "file" && files[k] && !files[k].text.trim() ? `${name} (Datei ohne lesbaren Text)` : name;
+    }).join(", ");
+    const leer = (b: Block) => {
+      if (!isFieldType(b.type) || !("pflicht" in b.props) || !b.props.pflicht) return false;
+      const k = (b.props as { key: string }).key;
+      return b.type === "checkbox" ? !werte[k] : b.type === "file" ? !files[k]?.text?.trim() : !String(werte[k] ?? "").trim();
+    };
+    // Pflichtfelder der aktuellen Seite (App-Einstellung, Standard an)
+    if (app.pflichtSperre && p) {
+      const felder: Block[] = [];
+      walk(p.children ?? [], (b) => { if (leer(b)) felder.push(b); });
+      if (felder.length) return { text: `Bitte zuerst ausfüllen: ${benennen(felder)}.` };
+    }
     // Was „Weiter“ als Nächstes starten würde: die Ergebnisse oder den Lese-Schritt der nächsten Seite
     const i = akt + 1;
     const naechsteSteps = mitUebersicht && i === uebersichtIdx && nochNichtGelaufen ? stepsFor(app, uebersichtAktion)
       : eingabeSeiten[i] ? vorbelegungsSchritte(eingabeSeiten[i]).filter((x) => !outs[x.id]) : [];
-    if (!naechsteSteps.length) return "";
-    if (liest.size) return "Die Datei wird noch gelesen\u00a0…";
-    const fehlend = fehlendePflichtfelder(app, naechsteSteps, werte, files);
-    if (!fehlend.length) return "";
-    const namen = fieldsOf(app).filter((f) => fehlend.includes(f.props.key)).map((f) => f.props.label);
-    return `Bitte zuerst ausfüllen: ${namen.join(", ")}.`;
-  }, [app, outs, laeuft, akt, mitUebersicht, uebersichtIdx, nochNichtGelaufen, uebersichtAktion, eingabeSeiten, vorbelegungsSchritte, liest, werte, files]);
+    if (!naechsteSteps.length) return { text: "" };
+    const fehlend = new Set(fehlendePflichtfelder(app, naechsteSteps, werte, files));
+    if (!fehlend.size) return { text: "" };
+    // Wo stehen die fehlenden Felder? Liegen sie auf einer anderen Seite, führt ein Knopf dorthin
+    const felder = fieldsOf(app).filter((f) => fehlend.has(f.props.key));
+    const ziel = eingabeSeiten.findIndex((s) => { let ja = false; walk(s.children ?? [], (b) => { if (isFieldType(b.type) && fehlend.has((b.props as { key: string }).key)) ja = true; }); return ja; });
+    return { text: `Bitte zuerst ausfüllen: ${benennen(felder)}.`, ziel: ziel >= 0 && ziel !== akt ? ziel : undefined };
+  }, [app, outs, laeuft, akt, p, mitUebersicht, uebersichtIdx, nochNichtGelaufen, uebersichtAktion, eingabeSeiten, vorbelegungsSchritte, liest, werte, files]);
+  const weiterGesperrt = sperre.text;
+  /** Leere Pflichtfelder einer Eingabeseite (nur mit App-Einstellung „Weiter erst mit Pflichtfeldern“) */
+  const seiteHatLuecke = useCallback((j: number) => {
+    const seiteJ = eingabeSeiten[j];
+    if (!app.pflichtSperre || !seiteJ) return false;
+    let luecke = false;
+    walk(seiteJ.children ?? [], (b) => {
+      if (luecke || !isFieldType(b.type) || !("pflicht" in b.props) || !b.props.pflicht) return;
+      const k = (b.props as { key: string }).key;
+      luecke = b.type === "checkbox" ? !werte[k] : b.type === "file" ? !files[k]?.text?.trim() : !String(werte[k] ?? "").trim();
+    });
+    return luecke;
+  }, [app.pflichtSperre, eingabeSeiten, werte, files]);
+  /** Punkt i anklickbar? Zurück immer; vorwärts nur bis zur erreichten Seite, ohne Sperre und ohne Lücken dazwischen */
+  const erreichbar = useCallback((i: number) => {
+    if (i <= akt) return true;
+    if (!app.pflichtSperre) return !weiterGesperrt;
+    if (weiterGesperrt) return false;
+    if (i === akt + 1) return true;
+    if (i > erreicht) return false;
+    for (let j = akt; j < i; j++) if (seiteHatLuecke(j)) return false;
+    return true;
+  }, [akt, app.pflichtSperre, weiterGesperrt, erreicht, seiteHatLuecke]);
+  erreichbarRef.current = erreichbar;
+  /** Punkte und Tasten: der nächste Punkt verhält sich wie „Weiter“ (startet z. B. den Lese-Schritt der Prüfseite) */
+  const blaettern = (i: number) => (i === akt + 1 ? weiterKlick(i) : wechseln(i));
   /** „Weiter“ in die Übersicht startet den Ablauf automatisch (einmal); Punkte und Bild-Tasten blättern nur. */
   const weiterKlick = (i: number) => {
     if (mitUebersicht && i === uebersichtIdx && nochNichtGelaufen && !laeuft && app.steps.length) { void starten("uebersicht", uebersichtAktion); return; }
@@ -540,7 +589,7 @@ export const RunApp = forwardRef<RunAppHandle, {
       <div className="app-frame" style={themeStyle(app.theme)} ref={frame} data-dicht={dicht} data-fuellen={fuellen && !offen && !imUeberblick ? "1" : undefined}
         onKeyDown={(e) => {
           if (offen) blaetterTaste(e, kIdx, kacheln.length, (i) => oeffnen(kacheln[i].id));
-          else blaetterTaste(e, akt, anzahl, wechseln);
+          else blaetterTaste(e, akt, anzahl, (i) => { if (erreichbar(i)) blaettern(i); });
         }}>
         <Blatt id={ansicht} innerRef={blatt} className="app-inner innen-scroll" aria-label={offen ? offen.titel : imUeberblick ? "Ergebnisse" : linearTitel(akt)}>
           {offen ? (
@@ -561,7 +610,15 @@ export const RunApp = forwardRef<RunAppHandle, {
             weiter={kacheln[kIdx + 1] ? `Weiter: ${kacheln[kIdx + 1].titel}` : undefined} onWechsel={(i) => oeffnen(kacheln[i].id)}
             ende="Alle Ergebnisse" onEnde={() => oeffnen(null)} />
         ) : (
-          <Pager className="app-pager" seite={akt} anzahl={anzahl} titel={linearTitel} weiter={naechste} weiterKurz={naechste === "Ergebnisse erstellen" ? "Erstellen" : undefined} weiterGesperrt={weiterGesperrt} onWechsel={wechseln} onWeiter={() => weiterKlick(akt + 1)} />
+          <>
+          {weiterGesperrt && !laeuft && naechste && (
+            <p className="o-sperre" role="status">
+              {weiterGesperrt}
+              {sperre.ziel !== undefined && <button type="button" onClick={() => wechseln(sperre.ziel!, fieldsOf(app).find((f) => weiterGesperrt.includes(f.props.label))?.props.key)}>Zur Seite „{linearTitel(sperre.ziel)}“</button>}
+            </p>
+          )}
+          <Pager className="app-pager" seite={akt} anzahl={anzahl} titel={linearTitel} weiter={naechste} weiterKurz={naechste === "Ergebnisse erstellen" ? "Erstellen" : undefined} weiterGesperrt={weiterGesperrt} erreichbar={erreichbar} onWechsel={blaettern} onWeiter={() => weiterKlick(akt + 1)} />
+          </>
         )}
       </div>
       {!eingebettet && <VerlassenSchutz ungesichert={ungesichert} laeuft={!!laeuft} blatt={blatt} onVerlassen={() => ctl.current?.abort()} />}

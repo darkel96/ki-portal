@@ -208,12 +208,12 @@ function loadAppStrikt(raw: unknown): App | null {
   const name = typeof raw.name === "string" && raw.name.trim() ? raw.name.trim().slice(0, 60) : "Ohne Namen";
   const base = AppSchema.parse({ id: typeof raw.id === "string" ? raw.id : null, name });
   const app = sanitizeApp(raw, base);
-  const meta = AppSchema.pick({ typ: true, url: true, status: true, owner: true, schutz: true, version: true, geaendert: true, erstelltVon: true, rechte: true });
-  const m = meta.safeParse({ typ: raw.typ, url: raw.url, status: raw.status, owner: raw.owner, schutz: raw.schutz, version: raw.version, geaendert: raw.geaendert, erstelltVon: raw.erstelltVon, rechte: raw.rechte });
+  const meta = AppSchema.pick({ typ: true, url: true, status: true, owner: true, schutz: true, version: true, geaendert: true, erstelltVon: true, rechte: true, pflichtSperre: true });
+  const m = meta.safeParse({ typ: raw.typ, url: raw.url, status: raw.status, owner: raw.owner, schutz: raw.schutz, version: raw.version, geaendert: raw.geaendert, erstelltVon: raw.erstelltVon, rechte: raw.rechte, pflichtSperre: raw.pflichtSperre });
   if (m.success) Object.assign(app, m.data);
   else {
     // Rechte-Angaben einzeln retten, damit ein Tippfehler darin nicht die übrigen Angaben verwirft
-    const r = AppSchema.pick({ erstelltVon: true, rechte: true }).safeParse({ erstelltVon: raw.erstelltVon, rechte: raw.rechte });
+    const r = AppSchema.pick({ erstelltVon: true, rechte: true, pflichtSperre: true }).safeParse({ erstelltVon: raw.erstelltVon, rechte: raw.rechte, pflichtSperre: raw.pflichtSperre });
     if (r.success) Object.assign(app, r.data);
   }
   return app;
