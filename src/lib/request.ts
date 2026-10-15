@@ -1,6 +1,7 @@
 import type { App, Quelle, Step, WissenModus } from "./schema";
 import { fieldsOf, fill, varsIn, vorbelegtVon } from "./model";
 import { DATEI_ART, DATEI_HINWEIS, dateiWunsch, type DateiArt } from "./dokument";
+import { PRUEF_HINWEIS } from "./ampel";
 
 export const FORMAT_LABEL: Record<Step["format"], string> = {
   markdown: "Formatierter Text", text: "Schlichter Text", json: "JSON-Daten", dateien: "Dateipaket (ZIP)",
@@ -94,6 +95,9 @@ export function ergebnisDateiFuer(step: Step, nachricht: string): DateiArt | nul
 /** Zusatz zum Systemtext, wenn ein Dateipaket Vorlagen aus SharePoint kopieren darf */
 export const KOPIEN_HINWEIS = 'Vorlagen kopieren: Das Paket darf zusätzlich "ordner": ["Pfad/leerer Ordner"] (leere Ordner, die angelegt werden) und "kopien": [{"quelle": "Pfad aus der Vorlagenliste", "ziel": "Ordner/Dateiname im Paket"}] enthalten. Kopien werden unverändert aus dem Vorlagenordner übernommen; "quelle" muss genau einem Eintrag der Vorlagenliste entsprechen, und der Dateiname im "ziel" bleibt exakt der Dateiname der Quelle (auch mit Leerzeichen und Umlauten; die Regel „ohne Umlaute und Leerzeichen“ gilt nur für Dateien, die du selbst schreibst). Einträge mit dem Vermerk „inhaltsgleich“ darfst du kopieren; Einträge mit „unterschiedlichem Inhalt, nicht kopieren“ und Vorlagen, die nicht in der Liste stehen, kopierst du nicht und nennst das als offenen Punkt.';
 
+/** Liefert der Schritt die Werte einer Prüfseite (Felder mit „aus“ auf seinen key)? */
+const fuelltPruefseite = (app: App, step: Step) => step.format === "json" && fieldsOf(app).some((f) => f.props.aus.trim().split(".")[0].toLowerCase() === step.key.toLowerCase());
+
 export function buildRequest(app: App, step: Step, ctx: Record<string, string>, files?: Record<string, FileInfo>, vorlagen?: { url: string; text: string }, auszuege = ""): KiRequest {
   const w = wissenFuer(app, step);
   const inPrompt = new Set(varsIn(step.prompt));
@@ -128,7 +132,7 @@ export function buildRequest(app: App, step: Step, ctx: Record<string, string>, 
     wissensquellen: w.quellen.map((q) => ({ typ: q.typ, titel: q.titel, url: q.url })),
     dateien,
     vorlagenUrl: vorlagen?.url,
-    system: [systemText(app, step, fill(w.text, ctx)), vorlagen ? KOPIEN_HINWEIS : "", !ergebnisDatei ? "" : step.format === "dateien"
+    system: [systemText(app, step, fill(w.text, ctx)), fuelltPruefseite(app, step) ? PRUEF_HINWEIS : "", vorlagen ? KOPIEN_HINWEIS : "", !ergebnisDatei ? "" : step.format === "dateien"
       ? `Dokumente im Paket (Berichte, Dokumentationen, Protokolle) schreibst du als Markdown-Dateien mit Endung .md, niemals als HTML zum Ausdrucken. Der Hub wandelt sie beim Herunterladen selbst in ${DATEI_ART[ergebnisDatei].label}-Dateien um.`
       : DATEI_HINWEIS[ergebnisDatei]].filter(Boolean).join("\n\n"),
     nachricht,

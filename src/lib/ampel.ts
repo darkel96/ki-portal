@@ -33,3 +33,17 @@ export function ampelText(wert: unknown): Ampel | null {
 }
 
 export const AMPEL_LABEL: Record<Ampel, string> = { rot: "Widerspruch oder fehlt", gelb: "Offen oder unsicher", gruen: "Geklärt" };
+
+/** Kurzes Stichwort vor der Erklärung unter einem markierten Feld */
+export const AMPEL_KURZ: Record<Ampel, string> = { rot: "Widerspruch: ", gelb: "Prüfen: ", gruen: "" };
+/** Standardhinweis, wenn die KI keine Erklärung mitgeliefert hat */
+export const AMPEL_STANDARD: Record<"rot" | "gelb", string> = {
+  rot: "Die Angaben passen nicht zusammen. Bitte mit den Unterlagen abgleichen und den richtigen Wert festlegen.",
+  gelb: "Nicht eindeutig belegt. Bitte in den Unterlagen nachsehen und bestätigen oder korrigieren.",
+};
+export const AMPEL_STANDARD_TEXT: Record<"rot" | "gelb", string> = {
+  rot: "Im Text ist ein Widerspruch vermerkt. Bitte klären, welche Angabe gilt.",
+  gelb: "Im Text ist etwas als offen markiert. Bitte ergänzen oder bestätigen.",
+};
+/** Anweisung an die KI für Lese-Schritte von Prüfseiten: zu jedem unsicheren oder widersprüchlichen Wert ein Satz, warum */
+export const PRUEF_HINWEIS = 'Prüfseite: Ist ein Wert unsicher, ungenau, unvollständig oder widersprüchlich (insbesondere jedes Status-Feld, das nicht „Sicher“ ist), gib statt des einfachen Werts ein Objekt {"wert": <Wert>, "hinweis": "ein kurzer Satz, höchstens 25 Wörter: was genau nicht passt oder fehlt und worauf die Person achten soll, mit Fundstelle"}. Beispiel: "status_lieferumfang": {"wert": "Widersprüchlich", "hinweis": "Kunde fordert Datenmigration aus dem Altsystem (Spezifikation Abschnitt 4), im Angebot ausgeschlossen."}. Eindeutige Werte bleiben einfache Werte.';

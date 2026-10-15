@@ -52,3 +52,41 @@ test("Ampel-Regeln", async ({ page }, info) => {
   expect(r.werte).toEqual(["rot", "rot", "rot", "rot", "gelb", "gelb", "gelb", "gruen", "gruen", null, null, null, null, "gruen"]);
   expect(r.text).toEqual(["gelb", "rot", null]);
 });
+
+test("Prüfseite: Erklärung unter markierten Feldern, KI bekommt die Anweisung dazu", async ({ page }, info) => {
+  test.skip(info.project.name !== "desktop", "einmal reicht");
+  const app = {
+    id: "ampel-hinweis", name: "Prüfung", bereich: "Test", status: "freigegeben", version: 1,
+    steps: [{ id: "s1", key: "lesen", name: "Lesen", format: "json", prompt: "Lies {{datei}}" }, { id: "s2", key: "bericht", name: "Bericht", prompt: "Schreib aus {{umfang}}" }],
+    blocks: [{ id: "p1", type: "seite", props: { titel: "Datei" }, children: [{ id: "f0", type: "textarea", props: { key: "datei", label: "Text" } }] },
+      { id: "p2", type: "seite", props: { titel: "Prüfen" }, children: [
+        { id: "f1", type: "textarea", props: { key: "umfang", label: "Lieferumfang", aus: "lesen.umfang" } },
+        { id: "f2", type: "select", props: { key: "s_umfang", label: "Status Lieferumfang", aus: "lesen.status_umfang", optionen: ["Sicher", "Unsicher", "Widersprüchlich"] } },
+        { id: "f3", type: "select", props: { key: "s_platz", label: "Status Lagerplätze", aus: "lesen.status_platz", optionen: ["Sicher", "Unsicher", "Widersprüchlich"] } },
+      ] }, { id: "p3", type: "seite", props: { titel: "Bericht" }, children: [{ id: "o1", type: "output", props: { titel: "Bericht", quelle: "s2" } }] }],
+  };
+  await page.addInitScript((a) => localStorage.setItem("kihub-apps-v3", JSON.stringify([a])), app);
+  await page.goto("/");
+  const r = await page.evaluate(async (a) => {
+    const s = await import("/src/lib/sanitize.ts");
+    const rq = await import("/src/lib/request.ts");
+    const v = await import("/src/lib/vorbelegung.ts");
+    const x = s.loadApp(a)!;
+    const antwort = JSON.stringify({ umfang: "Angebot ohne Datenmigration", status_umfang: { wert: "Widersprüchlich", hinweis: "Kunde fordert Datenmigration (Spezifikation 4.2), Angebot schließt sie aus." }, status_platz: "Unsicher" });
+    return { lesen: rq.buildRequest(x, x.steps[0], {}).system, bericht: rq.buildRequest(x, x.steps[1], {}).system, vb: v.vorbelegungen(x, "lesen", antwort) };
+  }, app);
+  expect(r.lesen).toContain("Prüfseite: Ist ein Wert unsicher");
+  expect(r.bericht).not.toContain("Prüfseite: Ist ein Wert unsicher");
+  expect(r.vb?.s_umfang).toMatchObject({ wert: "Widersprüchlich", hinweis: "Kunde fordert Datenmigration (Spezifikation 4.2), Angebot schließt sie aus." });
+  // Anzeige: ohne KI-Hinweis steht der Standardhinweis in Ampelfarbe unter dem Feld
+  await page.goto("/app/ampel-hinweis");
+  await page.getByLabel("Text").fill("x");
+  await page.getByRole("navigation", { name: "Seiten blättern" }).getByRole("button", { name: /Weiter/ }).click();
+  await page.getByLabel("Status Lagerplätze").selectOption("Unsicher");
+  await expect(page.locator('.o-field[data-key="s_platz"] .o-ampel-hinweis')).toContainText("Prüfen: Nicht eindeutig belegt.");
+  await page.getByLabel("Status Lieferumfang").selectOption("Widersprüchlich");
+  await expect(page.locator('.o-field[data-key="s_umfang"] .o-ampel-hinweis')).toContainText("Widerspruch: Die Angaben passen nicht zusammen.");
+  await page.screenshot({ path: "screenshots/desktop-ampel-hinweis.png" });
+  await page.getByLabel("Status Lagerplätze").selectOption("Sicher");
+  await expect(page.locator('.o-field[data-key="s_platz"] .o-ampel-hinweis')).toHaveCount(0);
+});

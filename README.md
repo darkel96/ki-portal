@@ -147,6 +147,9 @@ still unvermerkt, es öffnet sich kein Fenster.
   „Zu klären“ gelb, „Sicher“, „Bestätigt“ dezent grün markiert; im Text lösen Marken wie „[offen]“ Gelb aus. Ein
   Inhaltsfeld übernimmt die Farbe seines Felds „Status <Feldname>“. Ja/Nein und Prioritäten bleiben neutral
   (`src/lib/ampel.ts`).
+  Unter jedem rot oder gelb markierten Feld steht in kleiner Schrift, warum: Lese-Schritte von Prüfseiten bekommen
+  automatisch die Anweisung, zu unsicheren und widersprüchlichen Werten {"wert", "hinweis"} mit einem Satz und Fundstelle
+  zu liefern; fehlt der Satz, steht ein kurzer Standardhinweis da.
 - **Mitwachsende Textfelder:** Textfelder in Apps und lange Texte im Baukasten wachsen mit dem Inhalt (bis etwa zum halben
   Bildschirm), statt intern zu scrollen.
 - **Ein Startweg:** Neue Apps haben keinen eigenen „Ausführen“-Knopf mehr, „Ergebnisse erstellen“ im Blättern startet.

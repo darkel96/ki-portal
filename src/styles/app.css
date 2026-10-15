@@ -595,12 +595,10 @@ pre.code { margin: 0; white-space: pre-wrap; font: 12.5px/1.5 var(--k-font-mono)
 .app-frame[data-dicht="1"] .o-sec.p-m { padding: 14px 18px; }
 .app-frame[data-dicht="1"] .o-sec.p-l { padding: 20px 24px; }
 .app-frame[data-dicht="1"] .o-h1 { font-size: clamp(24px, 2.6vw, 32px); }
-.app-frame[data-dicht="1"] .o-field textarea { max-height: 120px; }
 .app-frame[data-dicht="2"] .app-inner { gap: 8px; padding-top: 14px; padding-bottom: 12px; }
 .app-frame[data-dicht="2"] .o-stack, .app-frame[data-dicht="2"] .o-sec, .app-frame[data-dicht="2"] .o-reihe { gap: 8px 16px; }
 .app-frame[data-dicht="2"] .o-sec.p-m, .app-frame[data-dicht="2"] .o-sec.p-l { padding: 10px 14px; }
 .app-frame[data-dicht="2"] .o-h1 { font-size: 24px; }
-.app-frame[data-dicht="2"] .o-field textarea { max-height: 76px; }
 .app-frame[data-dicht="2"] .o-help:not([aria-live], .o-ki-hinweis) { display: none; }
 /* Notfall-Scrollen ohne klobige Pfeile */
 .innen-scroll { scrollbar-color: color-mix(in srgb, currentColor 25%, transparent) transparent; }
@@ -743,3 +741,8 @@ a.mh-titel:hover { text-decoration: underline; text-underline-offset: 4px; }
 
 /* Lange Texte im Baukasten (Aufgabe, Rolle, Vorlage) wachsen ebenfalls mit */
 .ki-karte textarea, .insp textarea { field-sizing: content; max-height: 50vh; }
+/* Erklärung unter einem rot/gelb markierten Feld: kleine Schrift in der Ampelfarbe */
+.o-field[data-ampel="rot"] .o-ampel-hinweis { color: #9c1f15; }
+.o-field[data-ampel="gelb"] .o-ampel-hinweis { color: #7a4d00; }
+.o-ampel-hinweis { font-size: 12.5px; line-height: 1.45; }
+.o-ampel-hinweis b { font-weight: 700; }
