@@ -11,6 +11,8 @@ export function assistPrompt(app: App, wunsch: string, scope: AssistScope): stri
     if (b.type === "image") b.props.src = b.props.src ? "[bild]" as never : "";
     if ("keyAuto" in b.props) delete (b.props as { keyAuto?: boolean }).keyAuto;
   });
+  // Die Word-Datei einer Vorlage geht nie an die KI, nur ihr Aufbau als Text
+  ctxApp.steps.forEach((st) => { if (st.vorlage) st.vorlage = { name: st.vorlage.name, text: st.vorlage.text } as never; });
   const regel = scope === "ui" ? "Ändere nur Oberfläche und Design (blocks, theme). Gib steps und wissen exakt unverändert zurück."
     : scope === "design" ? "Ändere nur das Aussehen: theme sowie die props align, color, size, level, bg, pad, border, stil, tone. Struktur, Texte und steps bleiben unverändert."
     : "Du darfst Oberfläche, Design und KI-Ablauf ändern. Ist die Applikation noch ein leerer Entwurf, baue sie nach dem Wunsch komplett neu auf.";
@@ -20,11 +22,12 @@ export function assistPrompt(app: App, wunsch: string, scope: AssistScope): stri
 - "blocks": Baum der Oberfläche. Die oberste Ebene besteht NUR aus Seiten ({"type": "seite", "props": {"titel"}, "children": [...]}). Die App blättert zwischen den Seiten, niemand soll scrollen müssen: Jede Seite muss auf einen Bildschirm passen (höchstens etwa 5 Eingabefelder oder ein Ergebnis je Seite). Üblich: eine oder mehrere Eingabeseiten mit Überschrift, kurzer Erklärung und Eingaben (der KI-Button auf der letzten Eingabeseite startet alle Schritte), danach je KI-Schritt eine eigene Seite nur mit seinem Ergebnis. Seiten ohne Eingaben und Buttons erscheinen in der App automatisch als Kacheln einer Ergebnisübersicht; der ganze Ablauf läuft in einem Durchgang. Deshalb gehören alle Eingaben, auch die für spätere Schritte, auf Eingabeseiten vor den Ergebnissen.
 - Jeder Block: {"id", "type", "props"}.
 - "wissen": Wissen der ganzen App: {"modus": "eingaben"|"m365"|"web", "text": festes Hintergrundwissen für alle Schritte, "quellen": [{"typ": "sharepoint"|"datei"|"web", "titel", "url"}]}. "eingaben" = nur Eingaben und hinterlegte Quellen (Standard, für fast alle Apps richtig); "m365" = zusätzlich Dokumente, E-Mails, Chats aus Microsoft 365; "web" = zusätzlich Internetsuche, nur wenn die Aufgabe ausdrücklich aktuelle Informationen aus dem Internet braucht. SharePoint-Bereiche und Dateien in "quellen" liest der Hub vor jedem Schritt aus und gibt passende Auszüge mit; Regeln und Standardbedingungen, die der Wunsch nennt, gehören in "text".
-- "steps": KI-Ablauf, läuft nacheinander. Jeder Schritt: {"id", "name", "key", "art", "rolle", "wissen", "prompt", "modell", "format", "datei", "autoAll", "wissenModus", "quellen", "bedingung", "team"}.
+- "steps": KI-Ablauf, läuft nacheinander. Jeder Schritt: {"id", "name", "key", "art", "rolle", "wissen", "prompt", "modell", "format", "datei", "autoAll", "wissenModus", "quellen", "bedingung", "team", "vorlage"}.
   - wissenModus: "app" (Standard, wie die App) oder eigener Modus "eingaben"|"m365"|"web" nur für diesen Schritt. "wissen" und "quellen" am Schritt ergänzen die der App.
   - art "prompt": ein Prompt. art "team": mehrere Agenten lösen die Aufgabe gemeinsam; dann "team": {"ziel", "maxRunden" (2–20), "moderation", "agenten": [{"id", "name", "rolle"}]} mit 2 bis 6 Agenten, "prompt" ist die Startsituation.
   - format: "markdown" | "text" | "json" | "dateien" ("dateien" erzeugt ein Dateipaket, das als ZIP heruntergeladen werden kann).
   - datei: "" | "pdf" | "docx" | "xlsx" | "pptx" | "wunsch". Soll am Ende ein fertiges Dokument stehen (PDF, Word, Excel, PowerPoint), setze datei entsprechend; der Hub erzeugt die Datei selbst aus dem Markdown-Ergebnis. Lass die KI niemals HTML zum Ausdrucken erzeugen. "wunsch" nimmt die Datei-Art, die in Aufgabe oder Eingaben genannt wird (z. B. über eine Auswahlliste „Ausgabe als“ mit PDF, Word, Excel, PowerPoint).
+  - vorlage: null oder {"name", "text"}. Beschreibt der Wunsch einen festen Aufbau des Ergebnisses (Abschnitte, Tabellen, Reihenfolge, z. B. „wie unser Übergabeprotokoll“) oder liegt eine Beispieldatei bei, schreib diesen Aufbau als Markdown-Gerüst mit Platzhaltern in [eckigen Klammern] in vorlage.text; die KI übernimmt dann Aufbau und Stil. Das Word-Design (Datei) lädt die Person selbst im Editor hoch, "docx" setzt du nie.
   - bedingung: null oder {"feld": key einer Eingabe, "op": "gleich"|"ungleich"|"gefuellt"|"leer", "wert"}.
   - Schritte, die kein Ergebnis eines anderen Schritts brauchen, laufen gleichzeitig. Nur wer {{key eines Schritts}} nutzt, wartet auf diesen Schritt.
 - Prüfseite (Mensch prüft und korrigiert, was die KI gelesen hat): Ein Schritt mit format "json" liest eine Datei oder einen Text und liefert ein JSON-Objekt. Eingabefelder auf einer späteren Seite bekommen "aus": "<key des Schritts>.<pfad im JSON>" und sind damit vorbelegt (Auswahllisten mit den gelesenen Werten, Textfelder mit Angaben); die Person korrigiert sie, spätere Schritte nutzen die korrigierten Felder mit {{key}}. Ein output mit "pfad" zeigt einen Teil des JSON (z. B. den Bericht als Markdown). Buttons mit "aktion" = Step-ID starten nur diesen Schritt (der Lese-Schritt auf der ersten Seite; Hinweis-Schritte auf der Prüfseite, deren output daneben steht), ein Button mit "ab:" + Step-ID startet die restlichen Schritte und führt zur Ergebnisübersicht.
@@ -84,5 +87,11 @@ export async function assistentAnwenden(app: App, wunsch: string, scope: AssistS
   if (!roh || typeof roh !== "object" || !roh.app || typeof roh.app !== "object" || Array.isArray(roh.app)) throw new Error("Die Antwort der KI war unvollständig. Versuch es noch einmal oder formuliere den Wunsch kürzer.");
   const next = applyScope(sanitizeApp(roh.app, app), app, scope);
   walk(next.blocks, (b) => { if (b.type === "image") b.props.src = bilder.get(b.id) ?? ""; });
+  // Vorlagen bleiben erhalten (die Word-Datei sieht die KI nicht); entfernen geht im Editor
+  next.steps.forEach((st) => {
+    const alt = app.steps.find((x) => x.id === st.id)?.vorlage;
+    if (!alt) return;
+    st.vorlage = st.vorlage ? { ...st.vorlage, docx: alt.docx } : alt;
+  });
   return { app: next, zusammenfassung: String(roh.zusammenfassung ?? "Änderungen übernommen.").slice(0, 300) };
 }

@@ -184,7 +184,8 @@ export function dokumentAus(text: string): DokBlock[] {
 }
 
 /* ---------- Gemeinsames ---------- */
-export type DokMeta = { titel: string; app: string; akzent?: string };
+/** vorlage: Word-Vorlage als Base64 (.docx/.dotx); gilt nur für Word, ihr Aufbau geht als Text an die KI */
+export type DokMeta = { titel: string; app: string; akzent?: string; vorlage?: string };
 // Farben aus src/styles/tokens.css (Körber): neutral-darkest, blue, warm-grey-darker, warm-grey, warm-grey-light, warm-grey-lighter
 const INK = "#00050D";
 const BRAND = "#0060FF";
@@ -434,6 +435,12 @@ async function alsPptx(bl: DokBlock[], meta: DokMeta): Promise<Blob> {
 export async function dateiErzeugen(art: DateiArt, text: string, meta: DokMeta): Promise<Blob> {
   const bl = dokumentAus(text);
   if (art === "pdf") return alsPdf(bl, meta);
+  if (art === "docx" && meta.vorlage) {
+    try {
+      const [titel, rest] = titelUndRest(bl, meta.titel);
+      return await (await import("./vorlage")).alsDocxMitVorlage(meta.vorlage, titel, rest, { titel, app: meta.app, datum: heute() });
+    } catch { /* Vorlage unlesbar: Word im Hub-Design */ }
+  }
   if (art === "docx") return alsDocx(bl, meta);
   if (art === "xlsx") return alsXlsx(bl, meta);
   return alsPptx(bl, meta);

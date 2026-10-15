@@ -78,7 +78,8 @@ export function paketName(appName: string, p: Paket): string {
 }
 
 /** Packt das Paket. Dateien mit Endung .pdf, .docx, .xlsx oder .pptx werden aus ihrem Markdown-Inhalt als echte Dateien erzeugt. */
-export async function zipPaket(p: Paket, appName = "", umwandeln?: DateiArt, onStand?: (text: string) => void): Promise<Blob> {
+/** vorlage: Word-Vorlage des Schritts (Base64) für die Word-Dokumente im Paket */
+export async function zipPaket(p: Paket, appName = "", umwandeln?: DateiArt, onStand?: (text: string) => void, vorlage?: string): Promise<Blob> {
   const [{ default: JSZip }, dok] = await Promise.all([import("jszip"), import("./dokument")]);
   const z = new JSZip();
   for (const o of p.ordner) z.folder(o);
@@ -101,10 +102,10 @@ export async function zipPaket(p: Paket, appName = "", umwandeln?: DateiArt, onS
     const endung = f.pfad.split(".").pop()?.toLowerCase() as never;
     const titel = f.pfad.split("/").pop()!.replace(/\.[^.]+$/, "").replace(/[_-]+/g, " ");
     if (dok.DATEI_ARTEN.includes(endung)) {
-      z.file(f.pfad, await dok.dateiErzeugen(endung, f.inhalt, { titel, app: appName }));
+      z.file(f.pfad, await dok.dateiErzeugen(endung, f.inhalt, { titel, app: appName, vorlage }));
     } else if (umwandeln && /\.(html?|md|markdown|txt)$/i.test(f.pfad)) {
       // Dokumente (HTML, Markdown, Text) in die eingestellte Datei-Art umwandeln
-      z.file(f.pfad.replace(/\.[^.]+$/, `.${dok.DATEI_ART[umwandeln].endung}`), await dok.dateiErzeugen(umwandeln, f.inhalt, { titel, app: appName }));
+      z.file(f.pfad.replace(/\.[^.]+$/, `.${dok.DATEI_ART[umwandeln].endung}`), await dok.dateiErzeugen(umwandeln, f.inhalt, { titel, app: appName, vorlage }));
     } else z.file(f.pfad, f.inhalt);
   }
   return z.generateAsync({ type: "blob" });

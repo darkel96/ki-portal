@@ -95,6 +95,7 @@ interface Step {
   web?: boolean;         // Websuche erlauben (nur Copilot: webContext.isWebEnabled)
   quellen?: Wissensquelle[];                 // SharePoint-Bereiche, Dateien, Webseiten
   bedingung?: { feld: string; op: "gleich" | "ungleich" | "gefuellt" | "leer"; wert: string } | null;
+  vorlage?: { name: string; text: string; docx: string } | null;  // Beispieldatei: Aufbau als Text an die KI, Word-Design (Base64) für die Word-Datei, siehe 17.4
 }
 
 interface Wissensquelle {
@@ -562,6 +563,7 @@ Schritt-Variablen werden `schritt1`, `schritt2` …
 - Ausgabeformat `dateien`: Die KI antwortet mit `{"hinweis": "...", "dateien": [{"pfad": "Ordner/Unterordner/Datei.md", "inhalt": "..."}]}`. Pfade werden gesäubert (keine `<>:"|?*`, keine `..`), max. 200 Dateien.
 - Darstellung: Hinweis, Ordnerbaum (├── └──), aufklappbare Dateien. Button „ZIP herunterladen“ (im Prototyp mit JSZip). Name = gemeinsamer oberster Ordner oder Slug des App-Namens.
 - Andere Formate: „Als Datei speichern“ (.md / .txt / .json).
+- **Vorlage je Schritt** (Feineinstellungen → „Vorlage für Aufbau und Design“): Beispieldatei (Word, PDF, Markdown, Text) oder selbst geschriebenes Gerüst. Der Aufbau (bei Word als Markdown mit Überschriften und Tabellen) geht als Anweisung an die KI: gleiche Abschnitte, Tabellen, Reihenfolge und Tonfall, nie die Beispielinhalte, Fehlendes als [offen]. Eine Word-Vorlage (.docx/.dotx bis 1 MB) liefert zusätzlich das Design der erzeugten Word-Datei (auch im ZIP): Formatvorlagen, Seitenränder, Kopf- und Fußzeile mit Logo bleiben; ein Absatz `{{inhalt}}` legt fest, wo das Ergebnis hinkommt (sonst ersetzt es den Text der Vorlage), `{{titel}}`, `{{datum}}`, `{{app}}` werden ersetzt. Unlesbare Vorlage: Word im Hub-Design. Die Word-Datei geht nie an die KI; der KI-Assistent sieht nur den Aufbau und behält die Datei bei Umbauten (`src/lib/vorlage.ts`).
 - Zielsystem: Zusätzlich zum ZIP-Download kann das Paket über Graph direkt in SharePoint angelegt werden (siehe 18.4).
 
 ### 17.5 Dateien lesen

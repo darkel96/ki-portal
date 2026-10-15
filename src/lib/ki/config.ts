@@ -22,8 +22,10 @@ export const KI_CONFIG = {
   scopes: String(env.VITE_GRAPH_SCOPES ?? "").split(/\s+/).filter(Boolean),
   /** Gemeinsamer Speicher: Adresse eines SharePoint-Ordners wie im Browser; leer = Browser oder hub-config.json (siehe speicher.ts) */
   spOrdnerUrl: String(env.VITE_SP_ORDNER_URL ?? "").trim(),
-  /** Wartezeit auf eine Copilot-Antwort (wie in der bestehenden Copilot-Verbindung: 3 Minuten). */
+  /** Ruhe-Limit: so lange darf Copilot nichts liefern (beim Streaming zählt jedes neue Stück als Lebenszeichen). */
   timeoutMs: 180_000,
+  /** Antwort ohne Streaming (am Stück): Gesamtzeit für lange Ergebnisse */
+  timeoutMsAmStueck: 480_000,
 };
 
 const TEST_SCHLUESSEL = "kihub-copilot-test";

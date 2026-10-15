@@ -42,12 +42,12 @@ const AV = ["var(--a0)", "var(--a2)", "var(--a1)", "var(--a6)", "var(--a4)", "va
 const AVI = ["var(--a0i)", "var(--a2i)", "var(--a1i)", "var(--a6i)", "var(--a4i)", "var(--a5i)"];
 
 /** Ergebnis als fertige Datei herunterladen: die eingestellte bzw. gewünschte Datei als Hauptknopf, alle anderen im Menü. */
-function DateiKnoepfe({ app, text, titel, haupt, roh }: { app: App; text: string; titel: string; haupt: DateiArt | null; roh: { name: string; endung: string } }) {
+function DateiKnoepfe({ app, text, titel, haupt, roh, vorlage }: { app: App; text: string; titel: string; haupt: DateiArt | null; roh: { name: string; endung: string }; vorlage?: string }) {
   const [baut, setBaut] = useState<DateiArt | null>(null);
   const laden = async (art: DateiArt) => {
     setBaut(art);
     try {
-      const blob = await dateiErzeugen(art, text, { titel, app: app.name, akzent: app.theme.accent });
+      const blob = await dateiErzeugen(art, text, { titel, app: app.name, akzent: app.theme.accent, vorlage });
       await saveFile(dateiName(`${app.name} ${titel}`, art), blob, DATEI_ART[art].mime);
     } catch (e) {
       toast.error(`${DATEI_ART[art].label}-Datei konnte nicht erstellt werden.${e instanceof Error ? " " + e.message : ""}`);
@@ -230,10 +230,10 @@ export function OutputView({ app, titel, stepId, stil, mode, pfad = "" }: { app:
             <Button size="sm" className="rounded-full" disabled={!!run?.laeuft} onClick={() => run?.starten(`wiederholen:${stepId}`, stepId)}><RotateCcw aria-hidden="true" />Erneut versuchen</Button>
           )}
           {fertig && (!o.paket || einDokument) && <KopierKnopf text={einDokument ? einDokument.inhalt : teilText ?? o.text ?? ""} format={einDokument || teilText !== null ? "markdown" : step?.format ?? "markdown"} teil={o.status !== "fertig"} />}
-          {fertig && o.paket && einDokument && <DateiKnoepfe app={app} text={einDokument.inhalt} titel={dateiTitel(einDokument.pfad)} haupt={o.req?.ergebnisDatei ?? "pdf"} roh={{ name: dateiTitel(einDokument.pfad), endung: einDokument.pfad.split(".").pop() ?? "txt" }} />}
+          {fertig && o.paket && einDokument && <DateiKnoepfe app={app} vorlage={step?.vorlage?.docx || undefined} text={einDokument.inhalt} titel={dateiTitel(einDokument.pfad)} haupt={o.req?.ergebnisDatei ?? "pdf"} roh={{ name: dateiTitel(einDokument.pfad), endung: einDokument.pfad.split(".").pop() ?? "txt" }} />}
           {fertig && o.paket && <ZipKnopf haupt={!einDokument} text={o.req?.ergebnisDatei ? `ZIP mit ${DATEI_ART[o.req.ergebnisDatei].label}-Dateien` : "ZIP herunterladen"}
-            onLaden={async (onStand) => saveFile(paketName(app.name, o.paket!), await zipPaket(o.paket!, app.name, o.req?.ergebnisDatei ?? undefined, onStand))} />}
-          {fertig && !o.paket && step && <DateiKnoepfe app={app} text={teilText ?? o.text ?? ""} titel={step.name} haupt={o.req?.ergebnisDatei ?? null} roh={{ name: slug(step.name), endung: teilText !== null ? "md" : step.format === "json" ? "json" : step.format === "text" ? "txt" : "md" }} />}
+            onLaden={async (onStand) => saveFile(paketName(app.name, o.paket!), await zipPaket(o.paket!, app.name, o.req?.ergebnisDatei ?? undefined, onStand, step?.vorlage?.docx || undefined))} />}
+          {fertig && !o.paket && step && <DateiKnoepfe app={app} vorlage={step.vorlage?.docx || undefined} text={teilText ?? o.text ?? ""} titel={step.name} haupt={o.req?.ergebnisDatei ?? null} roh={{ name: slug(step.name), endung: teilText !== null ? "md" : step.format === "json" ? "json" : step.format === "text" ? "txt" : "md" }} />}
           {o.req && step && Array.isArray(o.req.dateien) && (
             <details>
               <summary>Technische Details</summary>

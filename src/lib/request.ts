@@ -74,7 +74,15 @@ export function systemText(app: AppWissen, step: Step, wissenText: string): stri
       + "\nQuellenangaben schreibst du als Markdown-Link [Dokument, Abschnitt](Adresse), sobald du die Adresse des Dokuments kennst (aus den Auszügen oder dieser Liste); so öffnet sich die Quelle direkt. Nie die nackte Adresse ausgeben, der Linktext ist der Name des Dokuments mit der Stelle." : "",
     WISSEN_TEXT[w.modus],
     FORMAT_HINT[step.format],
+    vorlageText(step),
   ].filter(Boolean).join("\n\n");
+}
+
+/** Hinterlegte Beispieldatei/Vorlage: Aufbau und Stil übernehmen, nicht den Inhalt */
+export function vorlageText(step: Pick<Step, "format" | "vorlage">): string {
+  const t = step.vorlage?.text.trim();
+  if (step.format === "json" || !t) return "";
+  return `Vorlage für Aufbau und Stil${step.vorlage!.name ? ` („${step.vorlage!.name}“)` : ""}: Baue das Ergebnis genauso auf wie diese Vorlage, mit denselben Abschnitten und Überschriften in derselben Reihenfolge, denselben Tabellen (gleiche Spalten) und demselben Tonfall und Umfang je Abschnitt. Übernimm nur Aufbau und Stil, nie die Beispielinhalte: Setze die echten Angaben aus dieser Anfrage ein. Was dafür fehlt, kennzeichnest du als [offen] statt es zu erfinden; Abschnitte ohne passende Angaben bleiben mit [offen] stehen.\n<<<VORLAGE\n${t.slice(0, 12_000)}\nVORLAGE>>>`;
 }
 
 /** Welche Datei aus dem Ergebnis entsteht: fest eingestellt oder (bei „wunsch“) aus Aufgabe und Eingaben erkannt. */

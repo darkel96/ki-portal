@@ -138,6 +138,9 @@ export const StepSchema = z.object({
   datei: z.enum(["", "pdf", "docx", "xlsx", "pptx", "wunsch"]).default("")
     .describe('Ergebnis zusätzlich als fertige Datei: "pdf", "docx" (Word), "xlsx" (Excel), "pptx" (PowerPoint), "wunsch" = die Datei, die in Aufgabe oder Eingaben verlangt wird; "" = keine'),
   autoAll: z.boolean().default(false),
+  /** Vorlage für das Ergebnis: Aufbau und Stil als Text (aus einer Beispieldatei oder selbst geschrieben); bei einer
+      Word-Vorlage zusätzlich die Datei (Base64), deren Design der Hub für die Word-Ausgabe übernimmt */
+  vorlage: z.object({ name: z.string().max(200).default(""), text: z.string().max(20_000).default(""), docx: z.string().max(2_800_000).default("") }).nullable().default(null),
   wissenModus: z.enum(["app", "eingaben", "m365", "web"]).default("app").describe('"app" = Wissensmodus der App; sonst eigener Modus für diesen Schritt'),
   quellen: z.array(QuelleSchema).max(20).default([]),
   bedingung: BedingungSchema.nullable().default(null),
