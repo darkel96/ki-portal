@@ -1049,3 +1049,17 @@ Vorbild: `src/lib/seedServiceangebot.ts` (Produkte, Ordner, Dokumente je Sprache
   Absatzfolgen ab 30 Zeichen bleiben einmal stehen, in der Anzeige während des Streams und in der Endfassung.
 - `public/staticwebapp.config.json`: Mikrofon für die eigene Seite erlaubt (Diktat), für das spätere Hosting als
   Azure Static Web App.
+
+## 30. Blättern: Pflichtfelder und Seitenpunkte
+
+- App-Einstellung `pflichtSperre` (Standard an, App-Reiter „„Weiter“ erst, wenn die Pflichtfelder der Seite ausgefüllt
+  sind“): `sperre` in RunApp sperrt „Weiter“, solange auf der aktuellen Seite Pflichtfelder leer sind (Datei ohne
+  lesbaren Text zählt als leer, mit eigenem Hinweis). Dazu wie bisher: Lese-Schritt läuft, Datei wird gelesen, der
+  nächste automatische Schritt braucht Pflichtfelder einer anderen Seite.
+- Der Grund steht sichtbar über dem Pager (`.o-sperre`); liegen die fehlenden Felder auf einer anderen Seite, führt
+  „Zur Seite „…““ dorthin und setzt den Fokus aufs Feld.
+- Seitenpunkte und Bild-Tasten: zurück immer; der nächste Punkt verhält sich wie „Weiter“ (startet z. B. den
+  Lese-Schritt der Prüfseite); weiter vorn nur bis zur weitesten schon erreichten Seite und nur ohne leere Pflichtfelder
+  dazwischen (`erreichbar`). Gesperrte Punkte sind ausgegraut.
+- Auf der ersten Seite zeigt der Pager kein „Zurück“, nur einen Platzhalter.
+- Der KI-Assistent setzt "pflicht" für alles, was der Prozess zwingend braucht, und baut keine eigenen Blätter-Knöpfe.

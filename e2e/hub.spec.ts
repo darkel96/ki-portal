@@ -95,3 +95,23 @@ test("App-Ansicht: Weiter auf der letzten Eingabeseite erstellt alle Ergebnisse"
   await expect(page.locator(".e-kachel")).toHaveCount(2);
   await expect(page.locator(".e-kachel .status-pill").first()).toHaveText("Simulation");
 });
+
+test("App-Ansicht: Weiter erst, wenn die Pflichtfelder der Seite ausgefüllt sind", async ({ page }, info) => {
+  test.skip(info.project.name !== "desktop", "einmal reicht");
+  await page.goto("/app/serviceangebot");
+  const weiter = page.getByRole("navigation", { name: "Seiten blättern" }).getByRole("button", { name: /Weiter/ });
+  await expect(weiter).toBeDisabled();
+  await expect(weiter).toHaveAttribute("title", /Bitte zuerst ausfüllen: Service-Checkliste/);
+  // Der Grund steht sichtbar über dem Blättern, die Punkte nach vorn sind gesperrt
+  await expect(page.locator(".o-sperre")).toContainText("Bitte zuerst ausfüllen: Service-Checkliste");
+  const nav = page.getByRole("navigation", { name: "Seiten blättern" });
+  await expect(nav.getByRole("button", { name: /^Seite 2:/ })).toBeDisabled();
+  await expect(nav.getByRole("button", { name: /^Seite 4:/ })).toBeDisabled();
+  await expect(nav.getByRole("button", { name: /^Seite 1:/ })).toBeEnabled();
+  // Abschaltbar in den App-Einstellungen
+  const r = await page.evaluate(async () => {
+    const s = await import("/src/lib/sanitize.ts");
+    return [s.loadApp({ id: "x", name: "X", blocks: [], steps: [] })?.pflichtSperre, s.loadApp({ id: "x", name: "X", blocks: [], steps: [], pflichtSperre: false })?.pflichtSperre];
+  });
+  expect(r).toEqual([true, false]);
+});

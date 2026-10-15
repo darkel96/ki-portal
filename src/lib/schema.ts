@@ -158,6 +158,8 @@ export const AppSchema = z.object({
   blocks: z.array(BlockSchema).default([]),
   steps: z.array(StepSchema).max(10).default([]),
   status: z.enum(["entwurf", "pruefung", "freigegeben"]).default("entwurf"),
+  /** „Weiter“ erst, wenn die Pflichtfelder der aktuellen Seite ausgefüllt sind */
+  pflichtSperre: z.boolean().default(true),
   owner: z.string().max(120).default(""),
   /** Wer die App angelegt hat (E-Mail); darf sie immer bearbeiten */
   erstelltVon: z.string().max(200).default(""),

@@ -75,7 +75,7 @@ test("Serviceangebot: Checkliste lesen, Prüfseite korrigieren, ZIP", async ({ p
   const weiterKnopf = page.getByRole("navigation", { name: "Seiten blättern" }).getByRole("button", { name: /Weiter/ });
   await expect(page.getByText("„Checkliste lesen“ läuft, die Felder werden gleich ausgefüllt …")).toBeVisible();
   await expect(weiterKnopf).toBeDisabled();
-  await page.getByRole("navigation", { name: "Seiten blättern" }).getByRole("button", { name: /Seite 3/ }).click();
+  await expect(page.getByRole("navigation", { name: "Seiten blättern" }).getByRole("button", { name: /Seite 3/ })).toBeDisabled();
   await expect(page.getByRole("heading", { name: "Gelesene Werte prüfen (1 von 2)" })).toBeVisible();
   await expect(weiterKnopf).toBeEnabled({ timeout: 10_000 });
   await expect(page.getByLabel("Kunde")).toHaveValue("Beispielkunde GmbH", { timeout: 10_000 });
