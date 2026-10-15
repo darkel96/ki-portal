@@ -93,6 +93,9 @@ App-Einstellungen → Wissen ein.
   (Applikationen per Beschreibung bauen lassen), „Freigeben“ (Status „Freigegeben“ setzen). Ohne Baukasten-Recht gibt es
   keinen Baukasten-Menüpunkt, kein „Als Kopie im Baukasten öffnen“ und keine „Neue Applikation“. Personen lassen sich
   per E-Mail vormerken, bevor sie sich zum ersten Mal anmelden.
+- **Feste Rechte ohne gemeinsamen Speicher:** `public/hub-config.json` → `"rechte": {"e-mail": ["bauen", "assistent", "freigeben", "admin"]}`
+  gilt in jedem Browser (die Datei wird mit der Seite veröffentlicht). In der Verwaltung sind diese Rechte nicht
+  abwählbar. Übergangslösung, bis der SharePoint-Ordner eingerichtet ist; Apps bleiben bis dahin im jeweiligen Browser.
 - **Rechte je Applikation** (Baukasten → App-Einstellungen → Freigabe): „Bearbeiten dürfen“ und „Nutzen dürfen“ als
   Personenliste. Wer eine App anlegt, darf sie immer bearbeiten; leere Nutzen-Liste heißt alle; die Verwaltung darf immer.
   Wer nicht nutzen darf, sieht die App nicht in der Übersicht.

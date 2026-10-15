@@ -1,4 +1,5 @@
 import { test, expect, type Page } from "@playwright/test";
+import { readFileSync } from "node:fs";
 
 const person = (page: Page, p: { id: string; name: string; email: string } | null) =>
   page.addInitScript((v) => { if (v) localStorage.setItem("kihub-testnutzer", JSON.stringify(v)); else localStorage.removeItem("kihub-testnutzer"); }, p);
@@ -109,4 +110,26 @@ test("Speicher: Konfiguration aus dem Browser hat Vorrang, Personenliste führt 
     { id: "e1", name: "Erika M.", email: "Erika@firma.de", zuletzt: "2026-10-14T08:00:00Z", rechte: ["bauen"] },
     { id: "m1", name: "Max", email: "max@firma.de", zuletzt: "2026-10-14T09:00:00Z", rechte: [] },
   ]);
+});
+
+test("Rechte: feste Rechte aus der Hub-Konfiguration gelten in jedem Browser", async ({ page }, info) => {
+  test.skip(info.project.name !== "desktop", "einmal reicht");
+  await page.route("**/hub-config.json", (r) => r.fulfill({ json: { speicher: { ordner: "" }, rechte: { "Max.Muster@firma.de": ["bauen", "assistent", "unsinn"] } } }));
+  await person(page, { id: "u1", name: "Max Muster", email: "max.muster@firma.de" });
+  await page.goto("/");
+  // Ohne Eintrag im Browser-Speicher: Baukasten ja, Verwaltung nein
+  await expect(page.getByRole("link", { name: "Baukasten" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Verwaltung" })).toHaveCount(0);
+  expect(await page.evaluate(() => localStorage.getItem("kihub-rechte"))).toBeNull();
+  // Die Verwaltung sieht die Person mit festen, nicht abwählbaren Rechten
+  await person(page, { id: "a1", name: "Dario Keller", email: "dario.keller@koerber.com" });
+  await page.goto("/verwaltung");
+  await expect(page.getByText("Fest in der Hub-Konfiguration: Baukasten, KI-Assistent")).toBeVisible();
+  await expect(page.getByRole("checkbox", { name: /^Baukasten für (Max Muster|max\.muster@firma\.de)$/ })).toBeDisabled();
+  await expect(page.getByRole("checkbox", { name: /^Freigeben für (Max Muster|max\.muster@firma\.de)$/ })).toBeEnabled();
+});
+
+test("Hub-Konfiguration: Rouven Lips darf Baukasten und KI-Assistent", () => {
+  const cfg = JSON.parse(readFileSync("public/hub-config.json", "utf8"));
+  expect(cfg.rechte["rouven.lips@koerber.com"]).toEqual(["bauen", "assistent"]);
 });
