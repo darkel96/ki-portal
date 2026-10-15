@@ -147,13 +147,24 @@ export function stepText(s: Step): string {
   return [s.prompt, s.wissen, s.team?.ziel ?? ""].join(" ");
 }
 /** Indizes der Schritte, die ein Feld bekommen (Platzhalter oder „alle Eingaben anhängen“). */
-export function stepsUsing(app: Pick<App, "steps">, key: string): number[] {
+export function stepsUsing(app: Pick<App, "steps" | "blocks">, key: string): number[] {
   const k = key.toLowerCase();
   const out: number[] = [];
   // Zusatz-Platzhalter einer Datei ({{key_name}} usw.) zählen als Nutzung des Datei-Felds.
   const treffer = (v: string) => v === k || DATEI_ZUSATZ.some((z) => v === `${k}_${z.key}`);
-  app.steps.forEach((s, i) => { if (s.autoAll || varsIn(stepText(s)).some(treffer)) out.push(i); });
+  // „Alle Eingaben anhängen“ nimmt kein Feld mit, das dieser oder ein späterer Schritt erst vorbelegt (sonst Kreisbezug)
+  const quelle = vorbelegtVon(app, key);
+  app.steps.forEach((s, i) => { if ((s.autoAll && (quelle < 0 || quelle < i)) || varsIn(stepText(s)).some(treffer)) out.push(i); });
   return out;
+}
+
+/** Index des Schritts, aus dessen JSON-Ergebnis das Feld vorbelegt wird; -1 ohne Vorbelegung */
+export function vorbelegtVon(app: Pick<App, "steps" | "blocks">, key: string): number {
+  let aus = "";
+  walk(app.blocks ?? [], (b) => { if (!aus && isFieldType(b.type) && (b.props as { key: string }).key.toLowerCase() === key.toLowerCase()) aus = ((b.props as { aus?: string }).aus ?? "").trim(); });
+  if (!aus) return -1;
+  const q = ausQuelle(app, aus);
+  return q ? app.steps.indexOf(q) : -1;
 }
 
 /** Zusätzliche Platzhalter je Datei-Feld: Dateiname, Titel (Dateiname ohne Endung) und Änderungsdatum der Datei. */
@@ -374,6 +385,14 @@ export function appWarnings(app: App): Warnung[] {
     const q = ausQuelle(app, aus);
     if (!q) hard(`„${b.props.label}“ soll aus „${aus}“ vorbelegt werden, aber diesen KI-Schritt gibt es nicht.`);
     else if (q.format !== "json") hard(`„${b.props.label}“ wird aus „${stepName(q, app.steps.indexOf(q))}“ vorbelegt. Dafür muss dessen Ausgabeformat „JSON-Daten“ sein.`);
+    else {
+      // Kreisbezug: der Schritt (oder ein früherer) nutzt ausdrücklich ein Feld, das er erst ausfüllt
+      const qi = app.steps.indexOf(q);
+      const k = b.props.key.toLowerCase();
+      app.steps.forEach((st, i) => {
+        if (i <= qi && varsIn(stepText(st)).includes(k)) hard(`„${stepName(st, i)}“ nutzt {{${b.props.key}}}, das erst aus dem Ergebnis von „${stepName(q, qi)}“ vorbelegt wird. Den Platzhalter aus der Aufgabe entfernen.`);
+      });
+    }
   });
   walk(app.blocks, (b) => {
     if (b.type === "output" && b.props.pfad.trim()) {

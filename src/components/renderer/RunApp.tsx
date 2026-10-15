@@ -437,7 +437,9 @@ export const RunApp = forwardRef<RunAppHandle, {
     const naechsteSteps = mitUebersicht && i === uebersichtIdx && nochNichtGelaufen ? stepsFor(app, uebersichtAktion)
       : eingabeSeiten[i] ? vorbelegungsSchritte(eingabeSeiten[i]).filter((x) => !outs[x.id]) : [];
     if (!naechsteSteps.length) return { text: "" };
-    const fehlend = new Set(fehlendePflichtfelder(app, naechsteSteps, werte, files));
+    // Nur Felder auf Seiten vor dem Ziel zählen: was erst danach kommt, kann die Person hier noch gar nicht ausfüllen
+    const seiteVon = (key: string) => eingabeSeiten.findIndex((s) => { let ja = false; walk(s.children ?? [], (b) => { if (isFieldType(b.type) && (b.props as { key: string }).key === key) ja = true; }); return ja; });
+    const fehlend = new Set(fehlendePflichtfelder(app, naechsteSteps, werte, files).filter((k) => { const j = seiteVon(k); return j < 0 || j < i; }));
     if (!fehlend.size) return { text: "" };
     // Wo stehen die fehlenden Felder? Liegen sie auf einer anderen Seite, führt ein Knopf dorthin
     const felder = fieldsOf(app).filter((f) => fehlend.has(f.props.key));
