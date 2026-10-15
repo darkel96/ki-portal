@@ -40,11 +40,27 @@ export const istFesterAdmin = (email: string) => ADMINS.includes(email.trim().to
 
 const gleich = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLowerCase();
 
+/** Feste Rechte je E-Mail aus public/hub-config.json („rechte“): gelten in jedem Browser, auch ohne gemeinsamen Speicher */
+export type FesteRechte = Record<string, Recht[]>;
+export function festeRechteAus(roh: unknown): FesteRechte {
+  const out: FesteRechte = {};
+  if (!roh || typeof roh !== "object" || Array.isArray(roh)) return out;
+  for (const [email, liste] of Object.entries(roh as Record<string, unknown>)) {
+    const r = Array.isArray(liste) ? liste.filter((x): x is Recht => (RECHTE as readonly string[]).includes(x as string)) : [];
+    if (email.includes("@") && r.length) out[email.trim().toLowerCase()] = r;
+  }
+  return out;
+}
+export async function festeRechteLaden(): Promise<FesteRechte> {
+  const { hubDatei } = await import("./speicher");
+  return festeRechteAus((await hubDatei()).rechte);
+}
+
 /** Wirksame Rechte einer Person: feste Administration und „admin“ haben alles; ohne Anmeldung gilt keine Einschränkung */
-export function rechteVon(ich: Identitaet | null, stand: RechteStand): Set<Recht> {
+export function rechteVon(ich: Identitaet | null, stand: RechteStand, fest: FesteRechte = {}): Set<Recht> {
   if (!ich) return new Set(RECHTE);
   const eintrag = stand.nutzer.find((n) => (n.id && n.id === ich.id) || (n.email && gleich(n.email, ich.email)));
-  const r = new Set<Recht>(eintrag?.rechte ?? []);
+  const r = new Set<Recht>([...(eintrag?.rechte ?? []), ...(fest[ich.email.trim().toLowerCase()] ?? [])]);
   if (istFesterAdmin(ich.email) || r.has("admin")) return new Set(RECHTE);
   return r;
 }
@@ -126,12 +142,13 @@ export const rechteStore: RechteStore = {
 };
 
 /** Personenliste der Verwaltung: Einträge mit Rechten plus alle, die sich angemeldet haben; „zuletzt“ aus der Anmeldung */
-export function personenListe(stand: RechteStand, anm: Anmeldung[]): Nutzer[] {
+export function personenListe(stand: RechteStand, anm: Anmeldung[], fest: FesteRechte = {}): Nutzer[] {
   const aus: Nutzer[] = stand.nutzer.map((n) => {
     const a = anm.find((x) => (n.id && x.id === n.id) || gleich(x.email, n.email));
     return a ? { ...n, id: n.id || a.id, name: a.name || n.name, zuletzt: a.zuletzt > n.zuletzt ? a.zuletzt : n.zuletzt } : n;
   });
   for (const a of anm) if (!aus.some((n) => (n.id && n.id === a.id) || gleich(n.email, a.email))) aus.push({ id: a.id, name: a.name, email: a.email, zuletzt: a.zuletzt, rechte: [] });
+  for (const email of Object.keys(fest)) if (!aus.some((n) => gleich(n.email, email))) aus.push({ id: "", name: "", email, zuletzt: "", rechte: [] });
   return aus;
 }
 

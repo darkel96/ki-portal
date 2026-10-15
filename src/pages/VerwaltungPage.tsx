@@ -63,6 +63,7 @@ export function VerwaltungPage() {
             {nutzer.length === 0 && <tr><td colSpan={RECHTE.length + 3} className="hint">Noch keine Person angemeldet. Trag unten eine E-Mail-Adresse ein, um Rechte schon vorher zu vergeben.</td></tr>}
             {nutzer.map((n, i) => {
               const fest = istFesterAdmin(n.email);
+              const ausKonfig = r.fest[n.email.trim().toLowerCase()] ?? [];
               const ichSelbst = !!r.ich && n.email.toLowerCase() === r.ich.email.toLowerCase();
               return (
                 <tr key={n.id || n.email}>
@@ -70,15 +71,16 @@ export function VerwaltungPage() {
                     <span className="rv-name">{n.name || n.email}{ichSelbst ? " (du)" : ""}</span>
                     {n.name && <span className="hint">{n.email}</span>}
                     {fest && <span className="hint">Feste Verwaltung (in der Konfiguration eingetragen)</span>}
+                    {!fest && ausKonfig.length > 0 && <span className="hint">Fest in der Hub-Konfiguration: {ausKonfig.map((x) => RECHT_LABEL[x][0]).join(", ")}</span>}
                   </td>
                   <td className="hint">{datum(n.zuletzt)}</td>
                   {RECHTE.map((x) => (
                     <td key={x}>
-                      <input type="checkbox" aria-label={`${RECHT_LABEL[x][0]} für ${n.name || n.email}`} checked={fest || n.rechte.includes(x) || (x !== "admin" && n.rechte.includes("admin"))}
-                        disabled={fest || (x !== "admin" && n.rechte.includes("admin"))} onChange={() => umschalten(i, x)} />
+                      <input type="checkbox" aria-label={`${RECHT_LABEL[x][0]} für ${n.name || n.email}`} checked={fest || ausKonfig.includes(x) || n.rechte.includes(x) || (x !== "admin" && n.rechte.includes("admin"))}
+                        disabled={fest || ausKonfig.includes(x) || (x !== "admin" && n.rechte.includes("admin"))} onChange={() => umschalten(i, x)} />
                     </td>
                   ))}
-                  <td>{!fest && !n.zuletzt && <button type="button" className="rv-x" aria-label={`${n.email} entfernen`} onClick={() => entfernen(i)}>×</button>}</td>
+                  <td>{!fest && !ausKonfig.length && !n.zuletzt && <button type="button" className="rv-x" aria-label={`${n.email} entfernen`} onClick={() => entfernen(i)}>×</button>}</td>
                 </tr>
               );
             })}

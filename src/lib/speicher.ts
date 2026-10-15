@@ -25,6 +25,18 @@ export type SpeicherQuelle = "browser" | "datei" | "build";
 export type SpeicherKonfig = { art: "lokal" } | { art: "sharepoint"; ordner: string; quelle: SpeicherQuelle };
 
 let konfig: Promise<SpeicherKonfig> | null = null;
+let hubDateiCache: Promise<Record<string, unknown>> | null = null;
+
+/** public/hub-config.json (wird mit der Seite veröffentlicht und gilt für alle Browser); leer, wenn es sie nicht gibt */
+export function hubDatei(): Promise<Record<string, unknown>> {
+  return (hubDateiCache ??= (async () => {
+    try {
+      const r = await fetch(`${import.meta.env.BASE_URL}hub-config.json`, { cache: "no-store" });
+      if (r.ok) { const j = await r.json(); if (j && typeof j === "object" && !Array.isArray(j)) return j as Record<string, unknown>; }
+    } catch { /* keine Datei */ }
+    return {};
+  })());
+}
 
 /** Im Browser zum Testen eingetragener Ordner */
 export function browserOrdner(): string {
@@ -40,14 +52,8 @@ export function speicherKonfig(): Promise<SpeicherKonfig> {
   return (konfig ??= (async (): Promise<SpeicherKonfig> => {
     const b = browserOrdner();
     if (b) return { art: "sharepoint", ordner: b, quelle: "browser" };
-    try {
-      const r = await fetch(`${import.meta.env.BASE_URL}hub-config.json`, { cache: "no-store" });
-      if (r.ok) {
-        const j = (await r.json()) as { speicher?: { ordner?: string } };
-        const o = j.speicher?.ordner?.trim();
-        if (o) return { art: "sharepoint", ordner: o, quelle: "datei" };
-      }
-    } catch { /* keine Datei */ }
+    const o = ((await hubDatei()).speicher as { ordner?: unknown } | undefined)?.ordner;
+    if (typeof o === "string" && o.trim()) return { art: "sharepoint", ordner: o.trim(), quelle: "datei" };
     if (KI_CONFIG.spOrdnerUrl) return { art: "sharepoint", ordner: KI_CONFIG.spOrdnerUrl, quelle: "build" };
     return { art: "lokal" };
   })());

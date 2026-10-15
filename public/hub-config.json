@@ -1,1 +1,6 @@
-{ "speicher": { "ordner": "" } }
+{
+  "speicher": { "ordner": "" },
+  "rechte": {
+    "rouven.lips@koerber.com": ["bauen", "assistent"]
+  }
+}
