@@ -6,7 +6,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import type { App, Step } from "@/lib/schema";
-import { CHAT_KEYS, DATEI_ZUSATZ, agentName, allKeys, appWarnings, chatSteps, fieldsOf, makeStep, renameRefs, rid, slug, stepName, stepText, stepsUsing, uniqueKey, varsIn, walk } from "@/lib/model";
+import { CHAT_KEYS, DATEI_ZUSATZ, agentName, allKeys, appWarnings, chatSteps, fieldsOf, makeStep, renameRefs, rid, slug, stepName, stepText, stepsUsing, uniqueKey, varsIn, vorbelegtVon, walk } from "@/lib/model";
 import { FORMAT_LABEL, MODELL_LABEL, buildRequest, graphPreview } from "@/lib/request";
 import { WISSEN_MODUS_LABEL } from "@/lib/schema";
 import { QuellenEditor } from "./QuellenEditor";
@@ -82,6 +82,8 @@ function StepCard({ b, i, onAktiv }: { b: Builder; i: number; onAktiv: (id: stri
     if (x.type === "output" && x.props.quelle === s.id) anzeigen++;
     if (x.type === "chat" && x.props.quelle === s.id) chats.push(x.props.titel);
   });
+  // Prüfseiten-Schritt: Sein Ergebnis füllt Felder vor, dafür braucht er kein Ergebnis-Element
+  const vorbelegt = fieldsOf(b.app).filter((x) => vorbelegtVon(b.app, x.props.key) === i).length;
   const team = s.art === "team" && s.team;
   const [teil, setTeil] = useState("aufgabe");
   const aktTeil = teil === "team" && !team ? "aufgabe" : teil;
@@ -188,7 +190,7 @@ function StepCard({ b, i, onAktiv }: { b: Builder; i: number; onAktiv: (id: stri
       </Tabs>
       <div className="ki-fuss">
         <span className="hint">{[...fl, ...prev].length ? <>Bekommt: <b style={{ color: "var(--ink)", fontWeight: 600 }}>{[...fl, ...prev].join(", ")}</b></> : "Bekommt noch keine Eingaben."}</span>
-        <span className="hint" style={!anzeigen && !chats.length ? { color: "var(--tool-text)" } : undefined}>{chats.length ? `Antwortet als Experte im Chat „${chats.join("“, „")}“.` : anzeigen ? `Wird in ${anzeigen} Ergebnis-Element${anzeigen > 1 ? "en" : ""} angezeigt.` : "Kein Ergebnis-Element auf der Oberfläche. Das Ergebnis erscheint als Kachel in der Ergebnisübersicht."}</span>
+        <span className="hint" style={!anzeigen && !chats.length && !vorbelegt ? { color: "var(--tool-text)" } : undefined}>{chats.length ? `Antwortet als Experte im Chat „${chats.join("“, „")}“.` : anzeigen ? `Wird in ${anzeigen} Ergebnis-Element${anzeigen > 1 ? "en" : ""} angezeigt.` : vorbelegt ? `Füllt ${vorbelegt} Feld${vorbelegt > 1 ? "er" : ""} der Prüfseite vor.` : "Kein Ergebnis-Element auf der Oberfläche. Das Ergebnis erscheint als Kachel in der Ergebnisübersicht."}</span>
       </div>
     </section>
   );

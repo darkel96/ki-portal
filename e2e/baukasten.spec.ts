@@ -102,3 +102,22 @@ test("Baukasten mobil: Baustein per Klick hinzufügen", async ({ page }, info) =
   await expect.poll(() => page.evaluate(() => document.documentElement.scrollHeight - window.innerHeight)).toBeLessThanOrEqual(1);
   await page.screenshot({ path: `screenshots/${info.project.name}-baukasten.png` });
 });
+
+test("Applikation aus Datei importieren: wird ein neuer, ungespeicherter Entwurf", async ({ page }, info) => {
+  test.skip(info.project.name !== "desktop", "einmal reicht");
+  const app = { id: "fremd-1", name: "Reisekosten prüfen", status: "freigegeben", version: 7, erstelltVon: "kollege@firma.de", blocks: [{ id: "f1", type: "textarea", props: { key: "beleg", label: "Beleg" } }], steps: [{ id: "s1", key: "pruefung", name: "Prüfung", prompt: "Prüfe {{beleg}}" }] };
+  await page.goto("/neu");
+  await page.getByLabel("Exportierte Applikation auswählen").setInputFiles({ name: "reisekosten.json", mimeType: "application/json", buffer: Buffer.from(JSON.stringify(app)) });
+  await expect(page).toHaveURL(/\/baukasten$/);
+  await expect(page.getByLabel("Name der Applikation")).toHaveValue("Reisekosten prüfen");
+  // Ungespeichert: Punkt am Speichern-Knopf
+  await expect(page.getByRole("button", { name: /Speichern \(ungespeicherte Änderungen\)/ })).toBeVisible();
+  await page.getByRole("button", { name: /^Speichern/ }).click();
+  await expect(page).toHaveURL(/\/app\//);
+  expect(page.url()).not.toContain("fremd-1");
+  // Kaputte Datei: verständliche Meldung, kein Wechsel
+  await page.goto("/neu");
+  await page.getByLabel("Exportierte Applikation auswählen").setInputFiles({ name: "kaputt.json", mimeType: "application/json", buffer: Buffer.from("{nicht json") });
+  await expect(page.getByText("Die Datei ist beschädigt oder keine exportierte Applikation.")).toBeVisible();
+  await expect(page).toHaveURL(/\/neu$/);
+});
