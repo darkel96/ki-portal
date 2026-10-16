@@ -4,7 +4,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import { assistentAnwenden } from "@/lib/assistant";
+import { assistentAnwenden, standUhr } from "@/lib/assistant";
 import { KiSimulation } from "@/lib/ki";
 import { useKiModus } from "@/components/layout/KiSchluessel";
 import type { App } from "@/lib/schema";
@@ -47,9 +47,12 @@ export function AssistantPanel({ b, a }: { b: Builder; a: Assist }) {
     const basis = JSON.stringify(vorlage);
     const c = new AbortController();
     ctl.current = c;
-    patch({ laeuft: true, meldung: { art: "info", text: "Die KI baut um. Das dauert meist 30 bis 90 Sekunden." } });
+    patch({ laeuft: true });
+    // Live-Stand statt fester Zeitangabe: Man sieht, dass die KI arbeitet und wie weit die Antwort ist
+    const uhr = standUhr((text) => { if (!c.signal.aborted) patch({ meldung: { art: "info", text } }); });
     try {
-      const r = await assistentAnwenden(vorlage, wunsch.trim(), scope, c.signal);
+      const r = await assistentAnwenden(vorlage, wunsch.trim(), scope, c.signal, uhr.zeichen);
+      uhr.stopp();
       if (JSON.stringify(b.aktuell()) !== basis) { patch({ meldung: { art: "fehler", text: "Du hast währenddessen weitergearbeitet. Der Vorschlag wurde nicht übernommen, schick den Wunsch noch einmal." } }); return; }
       b.replace(r.app);
       b.setSel(null);
@@ -60,6 +63,7 @@ export function AssistantPanel({ b, a }: { b: Builder; a: Assist }) {
       else if (e instanceof KiSimulation) patch({ meldung: { art: "fehler", text: "Der KI-Assistent braucht die zentrale KI-Anbindung. Sie ist in dieser Umgebung nicht eingerichtet." } });
       else patch({ meldung: { art: "fehler", text: e instanceof Error ? e.message : "Das Umbauen ist fehlgeschlagen. Versuch es noch einmal." } });
     } finally {
+      uhr.stopp();
       ctl.current = null;
       patch({ laeuft: false });
     }

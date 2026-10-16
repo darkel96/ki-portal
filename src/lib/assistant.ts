@@ -1,6 +1,6 @@
 /** KI-Assistent im Baukasten: baut die aktuelle App nach einem Wunsch um. */
 import type { App } from "./schema";
-import { blockSchemaForPrompt } from "./schema";
+import { PropsSchemas, StepSchema, blockSchemaForPrompt } from "./schema";
 import { clone, walk } from "./model";
 import { applyScope, sanitizeApp, type AssistScope } from "./sanitize";
 import { jsonAus, kiFragen } from "./ki";
@@ -13,6 +13,7 @@ export function assistPrompt(app: App, wunsch: string, scope: AssistScope): stri
   });
   // Die Word-Datei einer Vorlage geht nie an die KI, nur ihr Aufbau als Text
   ctxApp.steps.forEach((st) => { if (st.vorlage) st.vorlage = { name: st.vorlage.name, text: st.vorlage.text } as never; });
+  ohneStandardwerte(ctxApp);
   const regel = scope === "ui" ? "Ändere nur Oberfläche und Design (blocks, theme). Gib steps und wissen exakt unverändert zurück."
     : scope === "design" ? "Ändere nur das Aussehen: theme sowie die props align, color, size, level, bg, pad, border, stil, tone. Struktur, Texte und steps bleiben unverändert."
     : "Du darfst Oberfläche, Design und KI-Ablauf ändern. Ist die Applikation noch ein leerer Entwurf, baue sie nach dem Wunsch komplett neu auf.";
@@ -71,21 +72,65 @@ Schritt mit format "dateien" und einer Wissensquelle {"typ": "sharepoint", "tite
 - ${regel}
 - Ändere nur, was der Wunsch verlangt oder was dafür nötig ist.
 
-## Aktuelle Applikation
+## Aktuelle Applikation (Eigenschaften mit Standardwert sind weggelassen)
 ${JSON.stringify(ctxApp)}
 
 ## Wunsch der Person
 """${wunsch}"""
 
 Antworte nur mit einem JSON-Objekt dieser Form:
-{"zusammenfassung": "ein bis zwei Sätze, was du geändert hast", "app": {"name", "bereich", "beschreibung", "theme", "wissen", "blocks", "steps"}}`;
+{"zusammenfassung": "ein bis zwei Sätze, was du geändert hast", "app": {"name", "bereich", "beschreibung", "theme", "wissen", "blocks", "steps"}}
+
+So kurz wie möglich antworten (lange Antworten dauern Minuten):
+- Jede Seite (oberste Ebene von "blocks") und jeden Schritt in "steps", an dem du nichts änderst, gibst du nur als {"id": "<id>", "unveraendert": true} zurück, in der bisherigen Reihenfolge. Vollständig schreibst du nur Seiten und Schritte, die du änderst oder neu anlegst.
+- Ändert sich "wissen" oder "theme" nicht, schreib dort "unveraendert".
+- Eigenschaften mit Standardwert darfst du weglassen; der Baukasten ergänzt sie.`;
 }
 
-export async function assistentAnwenden(app: App, wunsch: string, scope: AssistScope, signal?: AbortSignal): Promise<{ app: App; zusammenfassung: string }> {
+/** Eigenschaften mit Standardwert weglassen: kürzerer Kontext, und die KI schreibt sie nicht unnötig ab */
+function ohneStandardwerte(ctx: { blocks: App["blocks"]; steps: App["steps"] }) {
+  const gleich = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
+  walk(ctx.blocks, (b) => {
+    const schema = (PropsSchemas as Record<string, { safeParse: (v: unknown) => { success: boolean; data?: unknown } }>)[b.type];
+    const std = schema?.safeParse({});
+    if (!std?.success) return;
+    const d = std.data as Record<string, unknown>, p = b.props as Record<string, unknown>;
+    for (const k of Object.keys(p)) if (k !== "key" && k !== "label" && k !== "quelle" && gleich(p[k], d[k])) delete p[k];
+  });
+  const std = StepSchema.parse({ id: "x", key: "x" }) as Record<string, unknown>;
+  for (const st of ctx.steps as unknown as Record<string, unknown>[]) for (const k of Object.keys(st)) if (!["id", "key", "name", "prompt"].includes(k) && gleich(st[k], std[k])) delete st[k];
+}
+
+type Roh = Record<string, unknown>;
+const istObj = (v: unknown): v is Roh => !!v && typeof v === "object" && !Array.isArray(v);
+const unveraendert = (v: unknown) => v === undefined || v === "unveraendert" || v === "unverändert" || (istObj(v) && v.unveraendert === true && Object.keys(v).length <= 2);
+/** „Unverändert“-Marken der KI durch die bisherigen Seiten, Schritte, Wissen und Design ersetzen */
+export function ergaenzen(roh: Roh, app: App): Roh {
+  const out = { ...roh };
+  for (const k of ["name", "bereich", "beschreibung"] as const) if (out[k] === undefined) out[k] = app[k];
+  if (unveraendert(out.theme)) out.theme = clone(app.theme);
+  if (unveraendert(out.wissen)) out.wissen = clone(app.wissen);
+  const liste = (neu: unknown, alt: { id?: string | null }[]) => {
+    if (unveraendert(neu)) return clone(alt);
+    if (!Array.isArray(neu)) return neu;
+    return neu.flatMap((x) => {
+      if (!(istObj(x) && x.unveraendert === true)) return [x];
+      const a = alt.find((y) => y.id === x.id);
+      return a ? [clone(a)] : [];
+    });
+  };
+  out.blocks = liste(out.blocks, app.blocks);
+  out.steps = liste(out.steps, app.steps);
+  return out;
+}
+
+/** onTeil: bisher empfangene Zeichen der Antwort (für die Fortschrittsanzeige) */
+export async function assistentAnwenden(app: App, wunsch: string, scope: AssistScope, signal?: AbortSignal, onTeil?: (zeichen: number) => void): Promise<{ app: App; zusammenfassung: string }> {
   const bilder = new Map<string, string>();
   walk(app.blocks, (b) => { if (b.type === "image") bilder.set(b.id, b.props.src); });
-  const roh = jsonAus(await kiFragen(assistPrompt(app, wunsch, scope), signal)) as { zusammenfassung?: unknown; app?: unknown };
+  const roh = jsonAus(await kiFragen(assistPrompt(app, wunsch, scope), signal, onTeil ? (t) => onTeil(t.length) : undefined)) as { zusammenfassung?: unknown; app?: unknown };
   if (!roh || typeof roh !== "object" || !roh.app || typeof roh.app !== "object" || Array.isArray(roh.app)) throw new Error("Die Antwort der KI war unvollständig. Versuch es noch einmal oder formuliere den Wunsch kürzer.");
+  roh.app = ergaenzen(roh.app as Roh, app);
   const next = applyScope(sanitizeApp(roh.app, app), app, scope);
   walk(next.blocks, (b) => { if (b.type === "image") b.props.src = bilder.get(b.id) ?? ""; });
   // Vorlagen bleiben erhalten (die Word-Datei sieht die KI nicht); entfernen geht im Editor
@@ -95,4 +140,22 @@ export async function assistentAnwenden(app: App, wunsch: string, scope: AssistS
     st.vorlage = st.vorlage ? { ...st.vorlage, docx: alt.docx } : alt;
   });
   return { app: next, zusammenfassung: String(roh.zusammenfassung ?? "Änderungen übernommen.").slice(0, 300) };
+}
+
+/** Live-Stand für die Anzeige: Wartezeit und wie viel der Antwort schon da ist */
+export function assistentStand(start: number, zeichen: number, was = "die Änderungen"): string {
+  const s = Math.max(0, Math.round((Date.now() - start) / 1000));
+  const zeit = `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
+  return zeichen > 0
+    ? `Die KI schreibt ${was} … ${zeit} · ${zeichen.toLocaleString("de-DE")} Zeichen empfangen`
+    : `Die KI liest die Applikation und plant … ${zeit}`;
+}
+
+/** Zählt die Sekunden mit und meldet den Stand jede Sekunde; gibt den Zähler für empfangene Zeichen und eine Aufräumfunktion zurück */
+export function standUhr(melden: (text: string) => void, was?: string): { zeichen: (n: number) => void; stopp: () => void } {
+  const start = Date.now();
+  let n = 0;
+  melden(assistentStand(start, 0, was));
+  const t = setInterval(() => melden(assistentStand(start, n, was)), 1000);
+  return { zeichen: (x) => { n = x; }, stopp: () => clearInterval(t) };
 }

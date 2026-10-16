@@ -11,7 +11,7 @@ import { useRechte } from "@/state/rechte";
 import { KeineRechte } from "@/pages/VerwaltungPage";
 import type { App } from "@/lib/schema";
 import { appWarnings, areaList, fieldsOf, leereApp, seitenVon } from "@/lib/model";
-import { assistentAnwenden } from "@/lib/assistant";
+import { assistentAnwenden, standUhr } from "@/lib/assistant";
 import { KiSimulation } from "@/lib/ki";
 import { useKiModus } from "@/components/layout/KiSchluessel";
 import { Blatt } from "@/components/layout/Pager";
@@ -85,6 +85,7 @@ function NeuSeite() {
     return () => window.removeEventListener("beforeunload", h);
   }, [warnen]);
 
+  const [stand, setStand] = useState("");
   const fragen = async (art: "bauen" | "aendern") => {
     if (ctl.current) { ctl.current.abort(); return; }
     const text = art === "bauen" ? beschreibung.trim() : aenderung.trim();
@@ -96,9 +97,10 @@ function NeuSeite() {
     ctl.current = c;
     setLaeuft(art);
     setMeldung("");
-    setAnsage(art === "bauen" ? "Die KI baut den Entwurf. Das dauert meist 30 bis 90 Sekunden." : "Die KI ändert den Entwurf …");
+    setAnsage(art === "bauen" ? "Die KI baut den Entwurf." : "Die KI ändert den Entwurf …");
+    const uhr = standUhr(setStand, art === "bauen" ? "den Entwurf" : "die Änderungen");
     try {
-      const r = await assistentAnwenden(art === "bauen" ? leereApp(bereich) : entwurf!, wunsch, "alles", c.signal);
+      const r = await assistentAnwenden(art === "bauen" ? leereApp(bereich) : entwurf!, wunsch, "alles", c.signal, uhr.zeichen);
       setEntwurf(r.app);
       setNr((n) => n + 1);
       setVerlauf((v) => (art === "bauen" ? [r.zusammenfassung] : [r.zusammenfassung, ...v]).slice(0, 4));
@@ -112,6 +114,8 @@ function NeuSeite() {
       else if (e instanceof KiSimulation) setMeldung("Die KI-Anbindung ist hier nicht eingerichtet. Du kannst im Baukasten selbst bauen.");
       else setMeldung(e instanceof Error ? e.message : "Der Entwurf ist fehlgeschlagen. Versuch es noch einmal.");
     } finally {
+      uhr.stopp();
+      setStand("");
       ctl.current = null;
       setLaeuft(null);
     }
@@ -196,7 +200,7 @@ function NeuSeite() {
                     : <Link to="/baukasten" viewTransition className="link-back">Lieber selbst im Baukasten bauen</Link>}
                   {!laeuft && rechte.darf("bauen") && <ImportKnopf variant="ghost" />}
                   <span className="flex-1" />
-                  {laeuft === "bauen" && <span className="status-pill mit-icon" data-s="laeuft" aria-hidden="true"><Loader2 size={12} className="animate-spin motion-reduce:animate-none" />Die KI baut den Entwurf, meist 30 bis 90 Sekunden</span>}
+                  {laeuft === "bauen" && <span className="status-pill mit-icon" data-s="laeuft" aria-hidden="true"><Loader2 size={12} className="animate-spin motion-reduce:animate-none" />{stand || "Die KI baut den Entwurf …"}</span>}
                   {laeuft === "bauen"
                     ? <Button size="lg" variant="outline" onClick={() => ctl.current?.abort()}><X aria-hidden="true" />Abbrechen</Button>
                     : <Button size="lg" className="ki-knopf" disabled={!!laeuft} onClick={() => void fragen("bauen")}><Sparkles aria-hidden="true" />Entwurf erstellen</Button>}
@@ -234,7 +238,7 @@ function NeuSeite() {
             {laeuft === "aendern"
               ? <Button variant="outline" onClick={() => ctl.current?.abort()}><X aria-hidden="true" />Abbrechen</Button>
               : <Button className="ki-knopf" disabled={!!laeuft} onClick={() => void fragen("aendern")}><Sparkles aria-hidden="true" />Entwurf ändern</Button>}
-            {laeuft === "aendern" && <span className="status-pill mit-icon" data-s="laeuft" aria-hidden="true"><Loader2 size={12} className="animate-spin motion-reduce:animate-none" />Die KI ändert den Entwurf …</span>}
+            {laeuft === "aendern" && <span className="status-pill mit-icon" data-s="laeuft" aria-hidden="true"><Loader2 size={12} className="animate-spin motion-reduce:animate-none" />{stand || "Die KI ändert den Entwurf …"}</span>}
             <span className="flex-1" />
             <div className="neu-weiter">
               <Button variant="outline" disabled={!!laeuft} onClick={imBaukasten}>Im Baukasten feinschleifen</Button>
