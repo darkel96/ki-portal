@@ -7,6 +7,7 @@ import { isFieldType, type App, type Block, type Step } from "@/lib/schema";
 import { fieldsOf, seiteMit, seitenTitel, seitenVon, stepsFor, walk } from "@/lib/model";
 import { Blatt, Pager, blaetterTaste } from "@/components/layout/Pager";
 import { readFileInfo, UnsupportedFormatError } from "@/lib/files";
+import { ampelPaare, ampelText, ampelWert } from "@/lib/ampel";
 import { STATUS_LABEL, abhaengigkeiten, ablaufStarten, fehlendePflichtfelder, fehlendeVorstufe, type OutState, type Werte } from "@/lib/runner";
 import type { FileInfo } from "@/lib/request";
 import { BlockContent, type RenderList } from "./BlockContent";
@@ -142,6 +143,31 @@ function VorbelegungStand({ schritte, outs, laeuft, onStart }: { schritte: Step[
         if (o.status === "simuliert") return <div key={st.id} className="o-vorbelegung"><span>Simulation: Ohne KI-Anbindung bleiben die Felder leer. Bitte von Hand ausfüllen.</span></div>;
         return <div key={st.id} className="o-vorbelegung"><span>„{st.name}“ läuft, die Felder werden gleich ausgefüllt&nbsp;…</span></div>;
       })}
+    </div>
+  );
+}
+
+/** Überblick oben auf einer Seite: alle rot/gelb markierten Status- und Textfelder, ein Klick führt zum Feld */
+function AmpelUeberblick({ app, seite, werte, onFeld }: { app: App; seite: Block; werte: Werte; onFeld: (key: string) => void }) {
+  const paare = ampelPaare(app);
+  const name = (k: string) => fieldsOf(app).find((f) => f.props.key === k)?.props.label;
+  const treffer: { key: string; label: string; ampel: "rot" | "gelb" }[] = [];
+  walk(seite.children ?? [], (b) => {
+    if (!isFieldType(b.type)) return;
+    const k = (b.props as { key: string }).key, label = (b.props as { label: string }).label;
+    const a = b.type === "select" || b.type === "radio" ? ampelWert(werte[k]) : b.type === "textarea" || b.type === "input" ? ampelText(werte[k]) : null;
+    // Im Überblick heißt ein Status-Feld wie sein Inhaltsfeld („Durchsatz und Leistung“ statt „Bewertung“)
+    const inhalt = paare.zuInhalt.get(k);
+    if (a === "rot" || a === "gelb") treffer.push({ key: k, label: (inhalt && name(inhalt)) || label.replace(/^status\s+/i, ""), ampel: a });
+  });
+  if (!treffer.length) return null;
+  const rot = treffer.filter((t) => t.ampel === "rot").length, gelb = treffer.length - rot;
+  const zeigen = treffer.length > 10 ? treffer.slice(0, 10) : treffer;
+  return (
+    <div className="o-ampel-summe" role="status">
+      <b>Bitte prüfen: {[rot ? `${rot} ${rot === 1 ? "Widerspruch" : "Widersprüche"}` : "", gelb ? `${gelb} unsicher` : ""].filter(Boolean).join(", ")}</b>
+      {zeigen.map((t) => <button key={t.key} type="button" data-ampel={t.ampel} onClick={() => onFeld(t.key)}><i aria-hidden="true" />{t.label}</button>)}
+      {treffer.length > zeigen.length && <span className="o-help">und {treffer.length - zeigen.length} weitere</span>}
     </div>
   );
 }
@@ -613,6 +639,7 @@ export const RunApp = forwardRef<RunAppHandle, {
               onStart={() => void starten("uebersicht", uebersichtAktion)} onOeffnen={oeffnen} />
           ) : p && <>
             <VorbelegungStand schritte={vorbelegungsSchritte(p)} outs={outs} laeuft={!!laeuft} onStart={(st) => void starten(`vorbelegen:${st.id}`, st.id, true)} />
+            <AmpelUeberblick app={app} seite={p} werte={werte} onFeld={(k) => frame.current?.querySelector<HTMLElement>(feldZiel(k))?.focus()} />
             {renderList(p.children ?? [], `${p.id}:c`)}{mitPflicht && <p className="o-pflicht o-help"><em aria-hidden="true">*</em> Pflichtfeld</p>}</>}
         </Blatt>
         {offen ? (

@@ -746,3 +746,14 @@ a.mh-titel:hover { text-decoration: underline; text-underline-offset: 4px; }
 .o-field[data-ampel="gelb"] .o-ampel-hinweis { color: #7a4d00; }
 .o-ampel-hinweis { font-size: 12.5px; line-height: 1.45; }
 .o-ampel-hinweis b { font-weight: 700; }
+/* Inhaltsfeld, das die Ampel seines Status-Felds übernimmt: nur Balken und Rahmen, ohne Fläche, damit das Paar ruhig bleibt */
+.o-field[data-ampel-geerbt] :is(input[type="text"], textarea) { background: var(--app-bg); }
+.o-field[data-ampel-geerbt] > label { color: inherit; }
+/* Überblick oben auf der Seite: was zu prüfen ist, Klick springt zum Feld */
+.o-ampel-summe { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; padding: 9px 12px; border-radius: var(--app-radius); border: 1px solid var(--app-line); background: var(--app-soft); font-size: 13px; }
+.o-ampel-summe > b { margin-right: 2px; }
+.o-ampel-summe button { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--app-line); background: var(--app-bg); color: var(--app-ink); border-radius: 999px; padding: 3px 10px; font: inherit; font-size: 12.5px; }
+.o-ampel-summe button:hover { border-color: currentColor; }
+.o-ampel-summe button i { width: 8px; height: 8px; border-radius: 50%; flex: none; }
+.o-ampel-summe button[data-ampel="rot"] i { background: #c4281c; }
+.o-ampel-summe button[data-ampel="gelb"] i { background: #d98c00; }

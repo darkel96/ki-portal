@@ -149,7 +149,11 @@ still unvermerkt, es öffnet sich kein Fenster.
   (`src/lib/ampel.ts`).
   Unter jedem rot oder gelb markierten Feld steht in kleiner Schrift, warum: Lese-Schritte von Prüfseiten bekommen
   automatisch die Anweisung, zu unsicheren und widersprüchlichen Werten {"wert", "hinweis"} mit einem Satz und Fundstelle
-  zu liefern; fehlt der Satz, steht ein kurzer Standardhinweis da.
+  zu liefern (auch als eigener Schlüssel „<feld>_hinweis“, ausdrücklich je Status-Feld am Ende der Aufgabe verlangt);
+  fehlt der Satz, steht ein kurzer Standardhinweis da. Inhaltsfeld und Status-Feld werden als Paar erkannt, auch bei
+  abweichenden Namen („Lagerplätze und Kapazitäten“ ↔ „Status Lagerplätze“) oder wenn das Status-Feld direkt dahinter
+  steht; die Begründung steht genau einmal, unter dem Status-Feld. Oben auf der Seite fasst „Bitte prüfen“ alle
+  Widersprüche und unsicheren Punkte zusammen, ein Klick führt zum Feld.
 - **Mitwachsende Textfelder:** Textfelder in Apps und lange Texte im Baukasten wachsen mit dem Inhalt (bis etwa zum halben
   Bildschirm), statt intern zu scrollen.
 - **Ein Startweg:** Neue Apps haben keinen eigenen „Ausführen“-Knopf mehr, „Ergebnisse erstellen“ im Blättern startet.

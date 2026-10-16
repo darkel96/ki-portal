@@ -1,8 +1,8 @@
 import { useLayoutEffect, useRef, type CSSProperties, type ReactNode } from "react";
 import type { App, Block } from "@/lib/schema";
-import { inkFor, walk } from "@/lib/model";
+import { inkFor } from "@/lib/model";
 import { FILE_ACCEPT } from "@/lib/files";
-import { AMPEL_KURZ, AMPEL_LABEL, AMPEL_STANDARD, AMPEL_STANDARD_TEXT, ampelText, ampelWert, type Ampel } from "@/lib/ampel";
+import { AMPEL_KURZ, AMPEL_LABEL, AMPEL_STANDARD, AMPEL_STANDARD_TEXT, ampelPaare, ampelText, ampelWert, type Ampel } from "@/lib/ampel";
 import { TONES } from "./theme";
 import { useRun } from "./runContext";
 import { OutputView } from "./OutputView";
@@ -26,7 +26,10 @@ function Mitwachsend(props: React.TextareaHTMLAttributes<HTMLTextAreaElement>) {
   return <textarea ref={ref} {...props} />;
 }
 
-function Field({ b, mode, partner }: { b: Extract<Block, { type: "input" | "textarea" | "select" | "radio" | "checkbox" | "number" | "date" | "file" }>; mode: Mode; partner?: Ampel | null }) {
+/** Partner im Paar aus Inhaltsfeld und Status-Feld (siehe ampelPaare) */
+type Paar = { key: string; rolle: "status" | "inhalt" } | null;
+
+function Field({ b, mode, paar }: { b: Extract<Block, { type: "input" | "textarea" | "select" | "radio" | "checkbox" | "number" | "date" | "file" }>; mode: Mode; paar?: Paar }) {
   const run = useRun();
   const dateiInput = useRef<HTMLInputElement>(null);
   const P = b.props;
@@ -38,20 +41,28 @@ function Field({ b, mode, partner }: { b: Extract<Block, { type: "input" | "text
   const klaeren = !!ki?.klaeren;
   const v = run?.werte[P.key];
   // Ampel (globale Regel): Auswahlwerte nach Bedeutung, Text nach Markierungen; ein Inhaltsfeld übernimmt die Ampel seines Status-Felds
-  const eigene: Ampel | null = mode === "edit" ? null : b.type === "select" || b.type === "radio" ? ampelWert(v) : b.type === "textarea" || b.type === "input" ? ampelText(v) : null;
-  const ampel: Ampel | null = eigene ?? (mode === "edit" ? null : partner ?? null);
+  const aktiv = mode !== "edit" && !!run;
+  const eigene: Ampel | null = !aktiv ? null : b.type === "select" || b.type === "radio" ? ampelWert(v) : b.type === "textarea" || b.type === "input" ? ampelText(v) : null;
+  const geerbt: Ampel | null = aktiv && paar?.rolle === "inhalt" ? ampelWert(run!.werte[paar.key]) : null;
+  const ampel: Ampel | null = eigene ?? geerbt;
   const warnt = eigene === "rot" || eigene === "gelb";
-  // Erklärung unter einem rot/gelb markierten Feld: der Satz der KI („hinweis“) oder ein kurzer Standardhinweis
-  const erklaerung = warnt ? (ki?.hinweis || (b.type === "select" || b.type === "radio" ? AMPEL_STANDARD[eigene] : AMPEL_STANDARD_TEXT[eigene])) : "";
-  // Hinweis der KI zum vorbelegten Wert ersetzt den allgemeinen Hilfetext; „zu klären“ bekommt eine Markierung
-  // „Zu klären“ (KI war unsicher beim Lesen) hat Vorrang, die Erklärung der KI steht dann dort
+  const geerbtWarnt = !eigene && (geerbt === "rot" || geerbt === "gelb");
+  // Begründung steht genau einmal, unter dem Status-Feld: dessen eigener Satz, sonst der Satz der KI zum Inhaltsfeld, sonst ein Standardhinweis
+  const partnerHinweis = aktiv && paar?.rolle === "status" ? run!.hinweise[paar.key]?.hinweis : undefined;
+  const erklaerung = warnt ? (ki?.hinweis || partnerHinweis || (b.type === "select" || b.type === "radio" ? AMPEL_STANDARD[eigene] : AMPEL_STANDARD_TEXT[eigene])) : "";
+  // Ein Inhaltsfeld, dessen Status warnt, gibt seinen Satz an das Status-Feld ab (sonst stünde er doppelt da)
+  const statusHatEigenen = paar?.rolle === "inhalt" && !!run?.hinweise[paar.key]?.hinweis;
+  // Hat die Person den Status auf „geklärt“ gesetzt, ist die alte Begründung erledigt
+  const erledigt = eigene === "gruen" && (b.type === "select" || b.type === "radio");
+  const eigenerHinweis = (geerbtWarnt && !statusHatEigenen) || erledigt ? undefined : ki?.hinweis;
+  // „Zu klären“ (KI war beim Lesen unsicher) hat Vorrang; sonst ersetzt der Hinweis der KI den allgemeinen Hilfetext
   const help = erklaerung && !klaeren
     ? <span className="o-help o-ki-hinweis o-ampel-hinweis" id={`${id}-hilfe`}><b>{AMPEL_KURZ[eigene!]}</b>{erklaerung}</span>
-    : ki?.hinweis || klaeren
-    ? <span className={`o-help o-ki-hinweis ${klaeren ? "klaeren" : ""}`} id={`${id}-hilfe`}>{klaeren && <b className="o-klaeren-marke">Zu klären</b>}{ki?.hinweis ?? (klaeren ? "Nicht eindeutig gelesen. Bitte prüfen und von Hand setzen." : "")}</span>
+    : eigenerHinweis || klaeren
+    ? <span className={`o-help o-ki-hinweis ${klaeren ? "klaeren" : ""}`} id={`${id}-hilfe`}>{klaeren && <b className="o-klaeren-marke">Zu klären</b>}{eigenerHinweis ?? (klaeren ? "Nicht eindeutig gelesen. Bitte prüfen und von Hand setzen." : "")}</span>
     : P.hilfe ? <span className="o-help" id={`${id}-hilfe`}>{P.hilfe}</span> : null;
   const set = (val: string | boolean) => run?.setWert(P.key, val);
-  const described = [P.hilfe || ki?.hinweis || klaeren || erklaerung ? `${id}-hilfe` : "", err ? `${id}-fehler` : ""].filter(Boolean).join(" ") || undefined;
+  const described = [help ? `${id}-hilfe` : "", err ? `${id}-fehler` : ""].filter(Boolean).join(" ") || undefined;
   const common = { id, name: P.key, autoComplete: "off", disabled: dis, tabIndex: dis ? -1 : undefined, "aria-invalid": err || undefined, "aria-describedby": described, "aria-required": P.pflicht || undefined };
   let ctl: ReactNode;
   switch (b.type) {
@@ -95,7 +106,7 @@ function Field({ b, mode, partner }: { b: Extract<Block, { type: "input" | "text
     default: ctl = <input type="text" {...common} placeholder={P.placeholder} value={String(v ?? "")} onChange={(e) => set(e.target.value)} />;
   }
   return (
-    <div className={`o-field ${err ? "err" : ""} ${klaeren ? "klaeren" : ""}`} data-key={P.key} data-ampel={ampel ?? undefined} title={ampel ? AMPEL_LABEL[ampel] : undefined}>
+    <div className={`o-field ${err ? "err" : ""} ${klaeren ? "klaeren" : ""}`} data-key={P.key} data-ampel={ampel ?? undefined} data-ampel-geerbt={!eigene && geerbt ? "" : undefined} title={ampel ? AMPEL_LABEL[ampel] : undefined}>
       <label htmlFor={id}>{P.label}{req}</label>
       {ctl}{help}
       {err && <span className="o-err" id={`${id}-fehler`}>{b.type === "select" ? "Bitte auswählen." : b.type === "file" ? "Bitte eine Datei auswählen." : "Bitte ausfüllen."}</span>}
@@ -103,16 +114,13 @@ function Field({ b, mode, partner }: { b: Extract<Block, { type: "input" | "text
   );
 }
 
-/** „Status Lieferumfang“ gehört zu „Lieferumfang“: Das Inhaltsfeld zeigt die Ampel seines Status-Felds */
-function partnerAmpel(app: App, b: Block, werte?: Record<string, unknown>): Ampel | null {
-  if (!werte || (b.type !== "textarea" && b.type !== "input")) return null;
-  const label = b.props.label.trim().toLowerCase();
-  if (!label) return null;
-  let treffer: Ampel | null = null;
-  walk(app.blocks, (x) => {
-    if (!treffer && (x.type === "select" || x.type === "radio") && /^status\s+/i.test(x.props.label) && x.props.label.replace(/^status\s+/i, "").trim().toLowerCase() === label) treffer = ampelWert(werte[x.props.key]);
-  });
-  return treffer;
+/** Paar aus Inhaltsfeld und Status-Feld zu diesem Feld */
+function paarVon(app: App, key: string): Paar {
+  const p = ampelPaare(app);
+  const s = p.zuStatus.get(key);
+  if (s) return { key: s, rolle: "inhalt" };
+  const i = p.zuInhalt.get(key);
+  return i ? { key: i, rolle: "status" } : null;
 }
 
 export function BlockContent({ b, app, mode, renderList }: { b: Block; app: App; mode: Mode; renderList: RenderList }) {
@@ -164,6 +172,6 @@ export function BlockContent({ b, app, mode, renderList }: { b: Block; app: App;
     case "chat":
       return <ChatView app={app} b={b} mode={mode} />;
     default:
-      return <Field b={b} mode={mode} partner={partnerAmpel(app, b, run?.werte)} />;
+      return <Field b={b} mode={mode} paar={paarVon(app, b.props.key)} />;
   }
 }

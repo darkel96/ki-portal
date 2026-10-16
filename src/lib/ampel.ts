@@ -6,6 +6,9 @@
  *   gruen = sicher, bestätigt, erfüllt, geklärt, in Ordnung
  * Ja/Nein und Prioritäten (hoch/niedrig) bleiben bewusst neutral: Ihre Bedeutung hängt vom Feld ab.
  */
+import type { App } from "./schema";
+import { fieldsOf } from "./model";
+
 export type Ampel = "rot" | "gelb" | "gruen";
 
 const norm = (s: string) => s.trim().toLowerCase().replace(/\s+/g, " ");
@@ -46,4 +49,42 @@ export const AMPEL_STANDARD_TEXT: Record<"rot" | "gelb", string> = {
   gelb: "Im Text ist etwas als offen markiert. Bitte ergänzen oder bestätigen.",
 };
 /** Anweisung an die KI für Lese-Schritte von Prüfseiten: zu jedem unsicheren oder widersprüchlichen Wert ein Satz, warum */
-export const PRUEF_HINWEIS = 'Prüfseite: Ist ein Wert unsicher, ungenau, unvollständig oder widersprüchlich (insbesondere jedes Status-Feld, das nicht „Sicher“ ist), gib statt des einfachen Werts ein Objekt {"wert": <Wert>, "hinweis": "ein kurzer Satz, höchstens 25 Wörter: was genau nicht passt oder fehlt und worauf die Person achten soll, mit Fundstelle"}. Beispiel: "status_lieferumfang": {"wert": "Widersprüchlich", "hinweis": "Kunde fordert Datenmigration aus dem Altsystem (Spezifikation Abschnitt 4), im Angebot ausgeschlossen."}. Eindeutige Werte bleiben einfache Werte.';
+export const PRUEF_HINWEIS = 'Prüfseite: Ist ein Wert unsicher, ungenau, unvollständig oder widersprüchlich, begründe das in einem kurzen Satz (höchstens 25 Wörter): was genau nicht passt oder fehlt, mit Fundstelle. Die Begründung steht in einem zusätzlichen Schlüssel auf derselben Ebene mit der Endung "_hinweis", z. B. "status_lieferumfang": "Widersprüchlich", "status_lieferumfang_hinweis": "Kunde fordert Datenmigration (Spezifikation 4.2), Angebot schließt sie aus." Eindeutige Werte brauchen keinen Hinweis.';
+
+/* ---------- Paare aus Inhaltsfeld und Status-Feld ---------- */
+type FeldLike = { type: string; props: { key: string; label: string; optionen?: string[] } };
+const istText = (b: FeldLike) => b.type === "textarea" || b.type === "input";
+/** Status-Feld: Auswahl, die „Status“ heißt oder Optionen mit Ampel-Bedeutung hat (z. B. Sicher/Unsicher/Widersprüchlich) */
+export function istStatusFeld(b: FeldLike): boolean {
+  if (b.type !== "select" && b.type !== "radio") return false;
+  if (/^status\b|\bstatus$/i.test(b.props.label.trim()) || /^status_|_status$/i.test(b.props.key)) return true;
+  const o = b.props.optionen ?? [];
+  return o.some((x) => ampelWert(x) === "rot" || ampelWert(x) === "gelb") && o.some((x) => ampelWert(x) === "gruen");
+}
+const wortstamm = (s: string) => s.toLowerCase().replace(/^status\s+/, "").replace(/\s+status$/, "").replace(/[^a-zäöüß0-9 ]/g, " ").split(/\s+/).filter((w) => w.length >= 4);
+/** Passt der Name eines Status-Felds zu einem Inhaltsfeld? („Status Lagerplätze“ ↔ „Lagerplätze und Kapazitäten“) */
+const passt = (status: string, inhalt: string) => {
+  const a = wortstamm(status), b = wortstamm(inhalt);
+  return a.length > 0 && a.some((w) => b.some((x) => x.startsWith(w.slice(0, 6)) || w.startsWith(x.slice(0, 6))));
+};
+
+export type Paare = { zuStatus: Map<string, string>; zuInhalt: Map<string, string> };
+const cache = new WeakMap<object, Paare>();
+/**
+ * Ordnet jedem Status-Feld sein Inhaltsfeld zu: das passend benannte unter den drei Textfeldern davor, sonst das
+ * unmittelbar davor stehende Textfeld. So färbt sich auch „Lagerplätze und Kapazitäten“ nach „Status Lagerplätze“.
+ */
+export function ampelPaare(app: Pick<App, "blocks">): Paare {
+  const c = cache.get(app.blocks);
+  if (c) return c;
+  const felder = fieldsOf(app) as unknown as FeldLike[];
+  const p: Paare = { zuStatus: new Map(), zuInhalt: new Map() };
+  felder.forEach((b, i) => {
+    if (!istStatusFeld(b)) return;
+    const davor = felder.slice(Math.max(0, i - 3), i).reverse().filter((x) => istText(x) && !p.zuStatus.has(x.props.key));
+    const ziel = davor.find((x) => passt(b.props.label, x.props.label)) ?? (davor[0] === felder[i - 1] ? davor[0] : undefined);
+    if (ziel) { p.zuStatus.set(ziel.props.key, b.props.key); p.zuInhalt.set(b.props.key, ziel.props.key); }
+  });
+  cache.set(app.blocks, p);
+  return p;
+}

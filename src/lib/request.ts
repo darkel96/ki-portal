@@ -1,7 +1,7 @@
 import type { App, Quelle, Step, WissenModus } from "./schema";
 import { fieldsOf, fill, varsIn, vorbelegtVon } from "./model";
 import { DATEI_ART, DATEI_HINWEIS, dateiWunsch, type DateiArt } from "./dokument";
-import { PRUEF_HINWEIS } from "./ampel";
+import { PRUEF_HINWEIS, istStatusFeld } from "./ampel";
 
 export const FORMAT_LABEL: Record<Step["format"], string> = {
   markdown: "Formatierter Text", text: "Schlichter Text", json: "JSON-Daten", dateien: "Dateipaket (ZIP)",
@@ -111,6 +111,9 @@ export function buildRequest(app: App, step: Step, ctx: Record<string, string>, 
     if (rest.length) nachricht = (nachricht.trim() ? nachricht.trim() + "\n\n" : "") + "Eingaben:\n\n" +
       rest.map((b) => `${b.props.label}:\n${ctx[b.props.key.toLowerCase()] ?? ""}`).join("\n\n");
   }
+  // Prüfseite mit Status-Feldern: die Begründungen ausdrücklich und je Feld am Ende der Aufgabe verlangen (dort befolgt die KI sie zuverlässig)
+  const statusPfade = fuelltPruefseite(app, step) ? fieldsOf(app).filter((f) => istStatusFeld(f) && f.props.aus.trim().split(".")[0].toLowerCase() === step.key.toLowerCase()).map((f) => f.props.aus.trim().split(".").slice(1).join(".")).filter(Boolean) : [];
+  if (statusPfade.length) nachricht = `${nachricht.trim()}\n\nZusätzlich im selben JSON: Für jedes dieser Status-Felder, dessen Wert nicht eindeutig positiv ist, ein Schlüssel daneben mit Endung "_hinweis" und einem Satz Begründung mit Fundstelle: ${statusPfade.map((x) => `"${x}_hinweis"`).join(", ")}.`;
   if (auszuege) nachricht = `${nachricht.trim()}\n\n${auszuege}`;
   if (vorlagen) nachricht = `${nachricht.trim()}\n\n${vorlagen.text}`;
   const ergebnisDatei = ergebnisDateiFuer(step, nachricht);

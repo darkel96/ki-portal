@@ -90,3 +90,60 @@ test("Prüfseite: Erklärung unter markierten Feldern, KI bekommt die Anweisung 
   await page.getByLabel("Status Lagerplätze").selectOption("Sicher");
   await expect(page.locator('.o-field[data-key="s_platz"] .o-ampel-hinweis')).toHaveCount(0);
 });
+
+test("Ampel zuverlässig: Paare auch bei abweichenden Namen, Begründung als eigener Schlüssel, Überblick oben", async ({ page }, info) => {
+  test.skip(info.project.name !== "desktop", "einmal reicht");
+  const ST = ["Sicher", "Unsicher", "Widersprüchlich"];
+  const app = {
+    id: "ampel-paare", name: "Prüfung", bereich: "Test", status: "freigegeben", version: 1,
+    steps: [{ id: "s1", key: "lesen", name: "Lesen", format: "json", prompt: "Lies {{datei}}" }, { id: "s2", key: "bericht", name: "Bericht", prompt: "Schreib aus {{kap}}" }],
+    blocks: [{ id: "p1", type: "seite", props: { titel: "Datei" }, children: [{ id: "f0", type: "textarea", props: { key: "datei", label: "Text" } }] },
+      { id: "p2", type: "seite", props: { titel: "Prüfen" }, children: [
+        { id: "f1", type: "textarea", props: { key: "kap", label: "Lagerplätze und Kapazitäten", aus: "lesen.kap" } },
+        { id: "f2", type: "select", props: { key: "s_kap", label: "Status Lagerplätze", aus: "lesen.status_kap", optionen: ST } },
+        { id: "f3", type: "textarea", props: { key: "durchsatz", label: "Durchsatz und Leistung", aus: "lesen.durchsatz" } },
+        { id: "f4", type: "select", props: { key: "s_durch", label: "Bewertung", aus: "lesen.status_durch", optionen: ST } },
+        { id: "f5", type: "select", props: { key: "remote", label: "Remote Service", optionen: ["Ja", "Nein"] } },
+      ] }, { id: "p3", type: "seite", props: { titel: "Bericht" }, children: [{ id: "o1", type: "output", props: { titel: "Bericht", quelle: "s2" } }] }],
+  };
+  await page.addInitScript((a) => localStorage.setItem("kihub-apps-v3", JSON.stringify([a])), app);
+  await page.goto("/");
+  const r = await page.evaluate(async (a) => {
+    const s = await import("/src/lib/sanitize.ts");
+    const am = await import("/src/lib/ampel.ts");
+    const rq = await import("/src/lib/request.ts");
+    const v = await import("/src/lib/vorbelegung.ts");
+    const x = s.loadApp(a)!;
+    const p = am.ampelPaare(x);
+    const antwort = JSON.stringify({ kap: "Angebot 9.600, Kunde 9.500 plus Erweiterung", status_kap: "Widersprüchlich", status_kap_hinweis: "Erweiterung um eine Gasse (Spezifikation 2.1) fehlt im Angebot.", status_durch: { wert: "Unsicher", hinweis: "Spitzenlast 200/h nicht belegt." } });
+    return { paare: [...p.zuStatus.entries()], nachricht: rq.buildRequest(x, x.steps[0], {}).nachricht, vb: v.vorbelegungen(x, "lesen", antwort) };
+  }, app);
+  // „Status Lagerplätze“ gehört zu „Lagerplätze und Kapazitäten“; „Bewertung“ steht direkt hinter „Durchsatz“; Ja/Nein ist kein Status
+  expect(r.paare).toEqual([["kap", "s_kap"], ["durchsatz", "s_durch"]]);
+  expect(r.nachricht).toContain('"status_kap_hinweis", "status_durch_hinweis"');
+  expect(r.vb?.s_kap).toMatchObject({ wert: "Widersprüchlich", hinweis: "Erweiterung um eine Gasse (Spezifikation 2.1) fehlt im Angebot." });
+  expect(r.vb?.s_durch).toMatchObject({ wert: "Unsicher", hinweis: "Spitzenlast 200/h nicht belegt." });
+
+  await page.goto("/app/ampel-paare");
+  await page.getByLabel("Text").fill("x");
+  await page.getByRole("navigation", { name: "Seiten blättern" }).getByRole("button", { name: /Weiter/ }).click();
+  await page.getByLabel("Status Lagerplätze").selectOption("Widersprüchlich");
+  await page.getByLabel("Bewertung").selectOption("Unsicher");
+  const feld = (k: string) => page.locator(`.o-field[data-key="${k}"]`);
+  await expect(feld("kap")).toHaveAttribute("data-ampel", "rot");
+  await expect(feld("kap")).toHaveAttribute("data-ampel-geerbt", "");
+  await expect(feld("durchsatz")).toHaveAttribute("data-ampel", "gelb");
+  // Genau eine Erklärung je Paar, unter dem Status-Feld
+  await expect(feld("kap").locator(".o-ampel-hinweis")).toHaveCount(0);
+  await expect(feld("s_kap").locator(".o-ampel-hinweis")).toHaveCount(1);
+  // Überblick oben, Klick führt zum Feld
+  const summe = page.locator(".o-ampel-summe");
+  await expect(summe).toContainText("Bitte prüfen: 1 Widerspruch, 1 unsicher");
+  await expect(summe.getByRole("button", { name: "Durchsatz und Leistung" })).toBeVisible();
+  await summe.getByRole("button", { name: "Lagerplätze und Kapazitäten" }).click();
+  await expect(page.getByLabel("Status Lagerplätze")).toBeFocused();
+  await page.screenshot({ path: "screenshots/desktop-ampel-paare.png" });
+  await page.getByLabel("Status Lagerplätze").selectOption("Sicher");
+  await page.getByLabel("Bewertung").selectOption("Sicher");
+  await expect(summe).toHaveCount(0);
+});
