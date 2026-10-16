@@ -44,8 +44,10 @@ test("Chat: Diagramm wird gezeichnet und als SVG, PNG und draw.io angeboten", as
   const drawio = readFileSync((await (await dl).path())!, "utf8");
   expect((await dl).suggestedFilename()).toMatch(/\.drawio$/);
   expect(drawio).toContain("<mxfile");
-  expect(drawio).toContain('value="Lokal umsetzbar?" style="rhombus;');
-  expect(drawio).toContain('value="Mitarbeitende&#xa;Idee, Frage oder Problem"');
+  // Titel fett, Erläuterung kleiner; Farben nach Rolle (Start grau, Entscheidung dunkel, Ergebnis violett)
+  expect(drawio).toContain('value="&lt;b&gt;Lokal umsetzbar?&lt;/b&gt;" style="rhombus;whiteSpace=wrap;html=1;fillColor=#2b2f36;');
+  expect(drawio).toMatch(/value="&lt;b&gt;Mitarbeitende&lt;\/b&gt;&lt;br&gt;&lt;font[^"]*&gt;Idee, Frage oder Problem&lt;\/font&gt;" style="rounded=1;[^"]*fillColor=#f0eeea;/);
+  expect(drawio).toMatch(/Umsetzung in Leingarten[^"]*" style="[^"]*fillColor=#eceafb;/);
   expect(drawio.match(/edge="1"/g)?.length).toBe(5);
   expect(drawio).toContain('value="Nein / BA-Thema"');
   // PNG und SVG
@@ -112,4 +114,41 @@ test("Diagramme kommen als Bild in Word, PDF, PowerPoint und Word mit Firmenvorl
   const pp = await JSZip.loadAsync(Buffer.from(r.pptx, "base64"));
   expect(Object.keys(pp.files).some((p) => /^ppt\/media\/.+\.png$/.test(p))).toBe(true);
   expect(r.pdf).toBeGreaterThan(5000);
+});
+
+test("Diagramme: Gestaltung nach Rolle, Titel fett, lange Fragen umbrochen, Text-Pfeildiagramm wird gezeichnet", async ({ page }, info) => {
+  test.skip(info.project.name !== "desktop", "einmal reicht");
+  await page.goto("/");
+  const r = await page.evaluate(async (ablauf) => {
+    const md = await import("/src/lib/markdown.ts");
+    const dia = await import("/src/lib/diagramm.ts");
+    const div = document.createElement("div");
+    document.body.append(div);
+    const text = "```text\nCRA Quick Check\n      ↓\nRisk Classification\nCRA-Geltungsbereich + Produktklassifizierung\n      ↓\nBetrieb / Lifecycle\nSBOM + Sicherheitsupdates\n```";
+    div.innerHTML = md.markdown("## Ablauf\n\n```mermaid\n" + ablauf + "\n  F --> G[Schwachstellen überwachen und dauerhaft bewerten im Betrieb]\n```\n\n" + text);
+    await dia.diagrammeZeichnen(div, "Test");
+    const [eins, zwei] = [...div.querySelectorAll("figure")];
+    const knoten = (fig: Element, teil: string) => [...fig.querySelectorAll("g.node")].find((g) => g.textContent?.includes(teil))!;
+    const reihen = (g: Element) => [...g.querySelectorAll("tspan.row")].map((t) => ({ text: t.textContent, gewicht: (t.querySelector("tspan") as SVGElement).style.fontWeight, groesse: (t as SVGElement).style.fontSize }));
+    return {
+      start: (knoten(eins, "Mitarbeitende").querySelector("rect") as SVGElement).style.fill,
+      raute: (knoten(eins, "Lokal umsetzbar?").querySelector("polygon") as SVGElement).style.fill,
+      schritt: (knoten(eins, "Dario Keller").querySelector("rect") as SVGElement).style.fill,
+      reihenStart: reihen(knoten(eins, "Mitarbeitende")),
+      // ohne <br/> umgebrochen: alles Titel, keine kleine zweite Zeile
+      reihenLang: reihen(knoten(eins, "Schwachstellen")),
+      textAblauf: { stand: zwei.getAttribute("data-stand"), kaesten: zwei.querySelectorAll("g.node").length, quelle: zwei.querySelector("pre")?.textContent },
+      umbruch: dia.rautenUmbrechen("flowchart TD\n  M{Aktiv ausgenutzt oder schwerer Sicherheitsvorfall?} --> N[Ok]\n  X{{Sechseck bleibt}}"),
+    };
+  }, ABLAUF);
+  expect(r.start).toBe("rgb(240, 238, 234)");
+  expect(r.raute).toBe("rgb(43, 47, 54)");
+  expect(r.schritt).toBe("rgb(231, 243, 237)");
+  expect(r.reihenStart).toEqual([{ text: "Mitarbeitende", gewicht: "700", groesse: "" }, { text: "Idee, Frage oder Problem", gewicht: "400", groesse: "0.84em" }]);
+  expect(r.reihenLang.every((x) => x.gewicht === "700" && !x.groesse)).toBe(true);
+  expect(r.textAblauf.stand).toBe("fertig");
+  expect(r.textAblauf.kaesten).toBe(3);
+  expect(r.textAblauf.quelle).toContain('n1["Risk Classification<br/>CRA-Geltungsbereich + Produktklassifizierung"]');
+  expect(r.umbruch).toContain("M{Aktiv ausgenutzt oder<br/>schwerer<br/>Sicherheitsvorfall?}");
+  expect(r.umbruch).toContain("X{{Sechseck bleibt}}");
 });

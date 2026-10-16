@@ -197,14 +197,14 @@ export const bildMass = (b: { breite: number; hoehe: number }, maxW: number, max
 /** Mermaid- und SVG-Codeblöcke werden in Dateien zu Bildern; was sich nicht zeichnen lässt, bleibt Quelltext */
 async function diagrammeAlsBild(bl: DokBlock[], titel: string): Promise<DokBlock[]> {
   if (typeof document === "undefined" || !bl.some((b) => b.typ === "code")) return bl;
-  const { diagrammArt } = await import("./markdown");
+  const { diagrammQuelle } = await import("./markdown");
   const out: DokBlock[] = [];
   for (const [i, b] of bl.entries()) {
-    const art = b.typ === "code" ? diagrammArt(b.sprache ?? "", b.text) : null;
-    if (b.typ !== "code" || (art !== "mermaid" && art !== "svg")) { out.push(b); continue; }
+    const q = b.typ === "code" ? diagrammQuelle(b.sprache ?? "", b.text) : null;
+    if (b.typ !== "code" || !q || q.art === "drawio") { out.push(b); continue; }
     try {
       const dia = await import("./diagramm");
-      const bild = await dia.diagrammAlsPng(b.text, art);
+      const bild = await dia.diagrammAlsPng(q.code, q.art);
       // Beschriftung: die Überschrift direkt davor, sonst der Titel des Dokuments
       const davor = bl[i - 1];
       out.push({ typ: "bild", ...bild, alt: davor?.typ === "ueberschrift" ? reinText(davor.laeufe) : titel || "Diagramm" });
