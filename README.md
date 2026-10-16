@@ -160,6 +160,10 @@ still unvermerkt, es öffnet sich kein Fenster.
   Ein gesperrtes „Weiter“ springt beim Klick zum ersten fehlenden Pflichtfeld und markiert es.
 - **Neu aus Grundgerüst:** „Neue Applikation“ bietet fünf fertig verdrahtete Gerüste (Formular → Word, Datei lesen →
   prüfen → Bericht, Fachexperten-Chat, Dateipaket, Agenten-Team); neue Apps zeigen im Baukasten einen geführten Start.
+- **KI-Assistent schnell auch bei großen Apps:** Die KI schreibt nur geänderte oder neue Seiten und Schritte vollständig
+  zurück; unveränderte kommen als `{"id", "unveraendert": true}`, unverändertes Wissen und Design als „unveraendert“, und der
+  Baukasten setzt die bisherigen wieder ein (`ergaenzen` in `src/lib/assistant.ts`). Der Kontext lässt Standardwerte weg.
+  Während des Umbaus zeigt der Assistent Wartezeit und empfangene Zeichen.
 - **Zeitlimit:** Copilot-Antworten kommen immer als Strom; abgebrochen wird nur, wenn 3 Minuten lang nichts mehr
   ankommt (`KI_CONFIG.timeoutMs`), nie eine Antwort, die noch entsteht. Ohne Streaming (Tenant ohne `chatOverStream`)
   gilt für die Antwort am Stück 8 Minuten.
