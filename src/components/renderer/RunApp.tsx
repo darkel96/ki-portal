@@ -11,7 +11,7 @@ import { ampelPaare, ampelText, ampelWert } from "@/lib/ampel";
 import { STATUS_LABEL, abhaengigkeiten, ablaufStarten, fehlendePflichtfelder, fehlendeVorstufe, type OutState, type Werte } from "@/lib/runner";
 import type { FileInfo } from "@/lib/request";
 import { BlockContent, type RenderList } from "./BlockContent";
-import { OutputView } from "./OutputView";
+import { DownloadLeiste, OutputView, SammelDownloads } from "./OutputView";
 import { RunContext, type RunCtx } from "./runContext";
 import { vorbelegungen } from "@/lib/vorbelegung";
 import { themeStyle } from "./theme";
@@ -630,6 +630,12 @@ export const RunApp = forwardRef<RunAppHandle, {
   gesperrtRef.current = weiterGesperrt;
   const naechste = akt + 1 < anzahl ? (akt + 1 === uebersichtIdx && mitUebersicht && nochNichtGelaufen ? "Ergebnisse erstellen" : `Weiter: ${linearTitel(akt + 1)}`) : undefined;
 
+  // Mehrere Ergebnisse auf der sichtbaren Seite: Downloads gesammelt in einer festen Leiste unten statt unter jedem Ergebnis
+  const ausgaben: { stepId: string; titel: string; pfad: string }[] = [];
+  const sichtbar = offen ? offen.seite : imUeberblick ? undefined : p;
+  if (sichtbar) walk(sichtbar.children ?? [], (b) => { if (b.type === "output" && b.props.quelle) ausgaben.push({ stepId: b.props.quelle, titel: b.props.titel || app.steps.find((s) => s.id === b.props.quelle)?.name || "Ergebnis", pfad: b.props.pfad ?? "" }); });
+  const sammeln = ausgaben.length > 1;
+
   return (
     <RunContext.Provider value={ctx}>
       <div className="app-frame" style={themeStyle(app.theme)} ref={frame} data-dicht={dicht} data-fuellen={fuellen && !offen && !imUeberblick ? "1" : undefined}
@@ -638,6 +644,7 @@ export const RunApp = forwardRef<RunAppHandle, {
           else blaetterTaste(e, akt, anzahl, (i) => { if (erreichbar(i)) blaettern(i); });
         }}>
         <Blatt id={ansicht} innerRef={blatt} className="app-inner innen-scroll" aria-label={offen ? offen.titel : imUeberblick ? "Ergebnisse" : linearTitel(akt)}>
+          <SammelDownloads.Provider value={sammeln}>
           {offen ? (
             <>
               <div className="e-zurueck"><button type="button" className="pg-btn" onClick={() => oeffnen(null)}><ChevronLeft aria-hidden="true" size={16} />Alle Ergebnisse</button></div>
@@ -651,6 +658,8 @@ export const RunApp = forwardRef<RunAppHandle, {
             <VorbelegungStand schritte={vorbelegungsSchritte(p)} outs={outs} laeuft={!!laeuft} onStart={(st) => void starten(`vorbelegen:${st.id}`, st.id, true)} />
             <AmpelUeberblick app={app} seite={p} werte={werte} onFeld={(k) => frame.current?.querySelector<HTMLElement>(feldZiel(k))?.focus()} />
             {renderList(p.children ?? [], `${p.id}:c`)}{mitPflicht && <p className="o-pflicht o-help"><em aria-hidden="true">*</em> Pflichtfeld</p>}</>}
+          </SammelDownloads.Provider>
+          {sammeln && <DownloadLeiste app={app} ausgaben={ausgaben} />}
         </Blatt>
         {offen ? (
           <Pager className="app-pager" label="Ergebnis" mehrzahl="Ergebnisse" seite={kIdx} anzahl={kacheln.length} titel={(i) => kacheln[i].titel}
