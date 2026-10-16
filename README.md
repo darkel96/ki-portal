@@ -128,6 +128,10 @@ still unvermerkt, es öffnet sich kein Fenster.
   einzelne Datei, Webseite). Einzelne KI-Schritte können im Reiter „Wissen“ davon abweichen und eigene Quellen ergänzen.
 - **Quellen wirken:** Vor jedem Schritt holt der Hub passende Auszüge aus SharePoint-Bereichen (Copilot Retrieval API)
   und den Inhalt einzelner Dateien und hängt sie der Anfrage an (`src/lib/ki/wissen.ts`). Webseiten bleiben ein Hinweis.
+  Textdateien (.md, .txt, .csv, .json …) wertet die Retrieval API nicht aus; der Hub liest sie in hinterlegten Ordnern
+  (bis drei Ebenen, höchstens 40 Dateien) selbst und gibt sie ganz mit oder, bei großen Beständen, die zur Frage
+  passenden Abschnitte mit Überschrift als Fundstelle. Adressen aus der Bibliotheksansicht (`…/Forms/…aspx?id=/sites/…`)
+  werden in die direkte Ordner- bzw. Dateiadresse umgewandelt, auch wenn sie in einer Chat-Frage stehen.
 - **Wissensbibliothek:** Mit dem Lesezeichen an einer Quelle landet sie in der Bibliothek (`src/lib/wissensbibliothek.ts`,
   im Browser) und ist in jeder App über „Aus der Wissensbibliothek …“ wählbar.
 - Der Modus ist eine Anweisung an Copilot; technisch abschaltbar ist nur die Websuche.

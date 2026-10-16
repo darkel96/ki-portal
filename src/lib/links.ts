@@ -23,8 +23,9 @@ export function linkQuellen(text: string): Quelle[] {
     try {
       const u = new URL(url);
       if (!/sharepoint\.com$/i.test(u.hostname)) continue;
-      const datei = u.searchParams.get("file") || decodeURIComponent(u.pathname.split("/").filter(Boolean).at(-1) ?? "");
-      const titel = /\.(docx?|xlsx?|pptx?|pdf|txt|md|csv)$/i.test(datei) ? datei : "";
+      // Auch Bibliotheksansichten („…/Forms/…aspx?id=/sites/…/Datei.md“): der Dateiname steht dann im Parameter id
+      const datei = u.searchParams.get("file") || (u.searchParams.get("id")?.split("/").pop() ?? "") || decodeURIComponent(u.pathname.split("/").filter(Boolean).at(-1) ?? "");
+      const titel = /\.(docx?|xlsx?|pptx?|pdf|txt|md|markdown|csv)$/i.test(datei) ? datei : "";
       if (titel && !aus.some((q) => q.url === url)) aus.push({ typ: "datei", titel, url });
     } catch { /* keine Adresse */ }
   }
