@@ -42,6 +42,9 @@ test("KI-Assistent: nur Geändertes zurück, Rest bleibt erhalten, Fortschritt s
   // Kontext ohne Standardwerte, Antwortregel mit „unveraendert“
   expect(prompt).toContain('{"id": "<id>", "unveraendert": true}');
   expect(prompt).not.toContain('"align":"left"');
+  // Schneller: kompaktes JSON, neue Blöcke ohne id
+  expect(prompt).toContain("kompakt in einer einzigen Zeile");
+  expect(prompt).toContain('Neue Blöcke schreibst du ohne "id"');
   await expect(page.getByRole("tab", { name: /Checkliste hochladen/ }).or(page.getByRole("button", { name: /Checkliste hochladen/ })).first()).toBeVisible();
   // Alles andere blieb erhalten: Seitenzahl, Schritte mit vollständigen Aufgaben
   await page.getByRole("button", { name: /Exportieren/ }).click();
@@ -62,4 +65,29 @@ test("Assistent: ergaenzen ersetzt Marken, unbekannte IDs fallen weg", async ({ 
     return { titel: (out.blocks as { props?: { titel: string } }[]).map((b) => b.props?.titel), steps: (out.steps as { prompt: string }[]).map((x) => x.prompt), name: out.name };
   });
   expect(r).toEqual({ titel: ["Eins", "Neu"], steps: ["P"], name: "A" });
+});
+
+test("Assistent: kompakte Antwort ohne Block-IDs ergibt eine vollständige App", async ({ page }, info) => {
+  test.skip(info.project.name !== "desktop", "einmal reicht");
+  await page.goto("/");
+  const r = await page.evaluate(async () => {
+    const as = await import("/src/lib/assistant.ts");
+    const s = await import("/src/lib/sanitize.ts");
+    const k = await import("/src/lib/ki/index.ts");
+    const leer = s.loadApp({ id: "a", name: "Neu", blocks: [], steps: [] })!;
+    // So antwortet die KI jetzt: eine Zeile, neue Blöcke ohne id, nur Schritte mit id
+    const antwort = '{"zusammenfassung":"Neu gebaut.","app":{"name":"Retrofit","blocks":[{"type":"seite","props":{"titel":"Anlage"},"children":[{"type":"heading","props":{"text":"Retrofit-Check","level":1}},{"type":"section","children":[{"type":"input","props":{"key":"kunde","label":"Kunde","pflicht":true}},{"type":"input","props":{"key":"baujahr","label":"Baujahr"}}]}]},{"type":"seite","props":{"titel":"Konzept"},"children":[{"type":"output","props":{"titel":"Konzept","quelle":"n1"}}]}],"steps":[{"id":"n1","key":"konzept","name":"Konzept","prompt":"Konzept für {{kunde}}, Baujahr {{baujahr}}","datei":"docx"}]}}';
+    const roh = k.jsonAus(antwort) as { app: Record<string, unknown> };
+    const app = s.sanitizeApp(as.ergaenzen(roh.app, leer), leer);
+    const ids: string[] = [];
+    const lauf = (bs: { id: string; children?: unknown[] }[]) => bs.forEach((b) => { ids.push(b.id); lauf((b.children ?? []) as never); });
+    lauf(app.blocks as never);
+    const out = (app.blocks[1].children ?? [])[0] as { props: { quelle: string } };
+    return { anzahl: ids.length, eindeutig: new Set(ids).size, leer: ids.filter((x) => !x).length, quelle: out.props.quelle, step: app.steps[0].id, datei: app.steps[0].datei };
+  });
+  expect(r.anzahl).toBe(7);
+  expect(r.eindeutig).toBe(7);
+  expect(r.leer).toBe(0);
+  expect(r.quelle).toBe(r.step);
+  expect(r.datei).toBe("docx");
 });

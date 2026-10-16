@@ -64,7 +64,7 @@ Eine Seite mit Überschrift und einem chat-Block; der Experte ist ein Schritt (a
 Schritt mit format "dateien" und einer Wissensquelle {"typ": "sharepoint", "titel", "url": Adresse des Vorlagenordners}. Der Hub listet den Ordner vor dem Aufruf auf und hängt die Dateiliste an; die KI darf dann "ordner" (leere Ordner) und "kopien" [{"quelle": Pfad aus der Liste, "ziel": Pfad im Paket}] liefern, der Hub lädt die Kopien unverändert ins ZIP. Der Prompt beschreibt Ordnerstruktur und Zuordnung der Vorlagen als Regeln und verlangt ein Prüfprotokoll als Textdatei.
 
 ## Regeln
-- Behalte die ids bestehender Blöcke und Schritte bei. Neue bekommen kurze ids wie "n1", "n2".
+- Behalte die ids bestehender Blöcke und Schritte bei. Neue Schritte bekommen kurze ids, die es noch nicht gibt, z. B. "n1", "n2" (output und Buttons verweisen darauf). Neue Blöcke schreibst du ohne "id", der Baukasten vergibt sie.
 - In Prompts setzt du Eingaben mit {{key}} ein und Ergebnisse früherer Schritte mit {{key des Schritts}}. Für ein Datei-Feld gibt es zusätzlich {{key_name}} (Dateiname), {{key_titel}} (Dateiname ohne Endung) und {{key_datum}} (Datum der Datei); andere erfundene Platzhalter gibt es nicht.
 - Jede wichtige Eingabe kommt in mindestens einem Prompt vor. Jeder Schritt, dessen Ergebnis Menschen lesen sollen, hat ein Ergebnis-Element (output mit quelle = id des Schritts); Schritte, die nur Felder vorbelegen, brauchen keins. Ein KI-Button ist nur nötig, wenn ein Schritt bewusst von Hand gestartet werden soll; stehen die Ergebnisse auf eigenen Seiten, startet „Ergebnisse erstellen“ im Blättern sie schon, dann kein zusätzlicher „Ausführen“-Button (ein Startweg).
 - Gute Gestaltung: klare Überschrift, kurze Erklärung, zusammengehörige Eingaben in einem Abschnitt (section), Ergebnisse gut sichtbar. Farben nur als #RRGGBB, ruhig und geschäftlich.
@@ -84,7 +84,8 @@ Antworte nur mit einem JSON-Objekt dieser Form:
 So kurz wie möglich antworten (lange Antworten dauern Minuten):
 - Jede Seite (oberste Ebene von "blocks") und jeden Schritt in "steps", an dem du nichts änderst, gibst du nur als {"id": "<id>", "unveraendert": true} zurück, in der bisherigen Reihenfolge. Vollständig schreibst du nur Seiten und Schritte, die du änderst oder neu anlegst.
 - Ändert sich "wissen" oder "theme" nicht, schreib dort "unveraendert".
-- Eigenschaften mit Standardwert darfst du weglassen; der Baukasten ergänzt sie.`;
+- Eigenschaften mit Standardwert lässt du weg; der Baukasten ergänzt sie.
+- Schreib das JSON kompakt in einer einzigen Zeile: keine Einrückung, keine Zeilenumbrüche außerhalb von Texten, kein Leerzeichen nach ":" und ",", kein Codeblock drumherum.`;
 }
 
 /** Eigenschaften mit Standardwert weglassen: kürzerer Kontext, und die KI schreibt sie nicht unnötig ab */
