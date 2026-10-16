@@ -10,8 +10,11 @@ export const MODELL_LABEL: Record<Step["modell"], string> = { quick: "Schnell", 
 export const QUELL_TYP: Record<string, string> = {
   sharepoint: "SharePoint (Website, Bibliothek oder Ordner)", datei: "Einzelne Datei (SharePoint/OneDrive)", web: "Webseite",
 };
+/** Globale Regel: Diagramme als Mermaid, die der Hub zeichnet und als SVG, PNG und draw.io anbietet; keine erfundenen Datei-Links */
+export const DIAGRAMM_HINWEIS = "Ist ein Ablauf, Prozess, Organigramm, Entscheidungsweg oder Zeitplan gefragt oder hilfreich, zeichne ihn als Mermaid-Codeblock (```mermaid, z. B. flowchart TD mit kurzen Beschriftungen, Entscheidungen als {Frage?}, Beschriftungen an Pfeilen mit |Ja|). Der Hub zeigt das Diagramm an und bietet es als SVG, PNG und draw.io-Datei zum Herunterladen an. Du kannst keine Dateien bereitstellen: Verweise nie auf Download-Links oder Dateien, die du selbst erstellt hättest.";
+
 export const FORMAT_HINT: Record<Step["format"], string> = {
-  markdown: "Formatiere mit einfachem Markdown: ## Überschriften, - Listen, Tabellen nur wenn sie helfen. Beginne direkt mit dem Ergebnis.",
+  markdown: "Formatiere mit einfachem Markdown: ## Überschriften, - Listen, Tabellen nur wenn sie helfen. Beginne direkt mit dem Ergebnis. " + DIAGRAMM_HINWEIS,
   text: "Antworte als schlichter Text ohne Markdown. Beginne direkt mit dem Ergebnis.",
   json: "Antworte nur mit gültigem JSON, ohne Erklärung davor oder danach.",
   dateien: 'Antworte nur mit gültigem JSON in dieser Form: {"hinweis": "ein Satz zum Paket", "dateien": [{"pfad": "Ordner/Unterordner/Datei.md", "inhalt": "vollständiger Dateiinhalt als Text oder Markdown"}]}. Pfade mit / trennen, ohne Umlaute, Leerzeichen und Sonderzeichen. Soll eine Datei ein PDF, Word-, Excel- oder PowerPoint-Dokument sein, gib ihr die Endung .pdf, .docx, .xlsx bzw. .pptx und schreibe den Inhalt als Markdown; der Hub wandelt sie automatisch um. Keine Erklärung vor oder nach dem JSON.',

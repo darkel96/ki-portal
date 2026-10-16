@@ -6,6 +6,7 @@ import { fill } from "@/lib/model";
 import { GespraechVerfallen, KiSimulation, kiSenden } from "@/lib/ki";
 import { anfrageVorbereiten, kontext } from "@/lib/runner";
 import { markdown } from "@/lib/markdown";
+import { diagrammeZeichnen } from "@/lib/diagramm";
 import { FILE_ACCEPT, UnsupportedFormatError, loadImage, readFileInfo } from "@/lib/files";
 import { diktatKorrigieren, fachbegriffe } from "@/lib/diktat";
 import { linkQuellen } from "@/lib/links";
@@ -220,6 +221,9 @@ export function ChatView({ app, b, mode }: { app: App; b: Extract<Block, { type:
   const inZwischenablage = (text: string, meldung: string) => navigator.clipboard.writeText(text)
     .then(() => toast.success(meldung), () => toast.error("Kopieren nicht möglich."));
   const kopieren = () => inZwischenablage(verlauf.map((n) => `${n.von === "mensch" ? "Ich" : b.props.titel}: ${n.text}`).join("\n\n"), "Verlauf kopiert.");
+
+  // Diagramme (Mermaid, SVG, draw.io) in fertigen Antworten zeichnen und zum Herunterladen anbieten
+  useEffect(() => { if (!laeuft) void diagrammeZeichnen(liste.current, b.props.titel); }, [verlauf, laeuft, b.props.titel]);
 
   if (mode === "edit") {
     return (

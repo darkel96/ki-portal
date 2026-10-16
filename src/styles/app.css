@@ -257,6 +257,8 @@ a.tile:hover .tile-go svg { transform: translateX(5px); }
 .o-chat-n.von-mensch { align-self: flex-end; background: var(--app-accent); color: var(--app-accent-ink); border-bottom-right-radius: 4px; white-space: pre-wrap; }
 .o-chat-n.von-mensch p { margin: 0; }
 .o-chat-n.von-experte { align-self: flex-start; background: var(--app-soft); border-bottom-left-radius: 4px; }
+/* Antworten mit Diagramm nutzen die volle Blasenbreite */
+.o-chat-n.von-experte:has(.o-diagramm) { width: 85%; }
 .o-chat-n.von-experte.fehler { color: var(--danger); background: color-mix(in srgb, var(--danger) 8%, var(--app-bg)); }
 .o-chat-n .o-body > :first-child { margin-top: 0; } .o-chat-n .o-body > :last-child { margin-bottom: 0; }
 .o-chat-eingabe { display: flex; gap: 8px; align-items: flex-end; }
@@ -757,3 +759,17 @@ a.mh-titel:hover { text-decoration: underline; text-underline-offset: 4px; }
 .o-ampel-summe button i { width: 8px; height: 8px; border-radius: 50%; flex: none; }
 .o-ampel-summe button[data-ampel="rot"] i { background: #c4281c; }
 .o-ampel-summe button[data-ampel="gelb"] i { background: #d98c00; }
+
+/* ----- Diagramme in KI-Antworten (Mermaid, SVG, draw.io): gezeichnet, mit Downloads (alle Apps) ----- */
+.o-diagramm { margin: 10px 0; padding: 12px; border: 1px solid var(--app-line); border-radius: var(--app-radius); background: #fff; color: #1f2328; display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.o-diagramm-bild { overflow-x: auto; display: flex; justify-content: center; }
+.o-diagramm-bild svg { width: 100%; max-width: 860px; height: auto; max-height: 70vh; }
+.o-diagramm-aktionen { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: 12.5px; color: #5b6470; }
+.o-diagramm-knopf { display: inline-flex; align-items: center; border: 1px solid #c9ced6; background: #fff; color: #1f2328; border-radius: 999px; padding: 3px 11px; font: inherit; font-weight: 600; cursor: pointer; }
+.o-diagramm-knopf:hover { border-color: #1f2328; }
+.o-diagramm-knopf:disabled { opacity: .6; cursor: progress; }
+.o-diagramm-quelle summary { cursor: pointer; font-size: 12.5px; color: #5b6470; }
+.o-diagramm-quelle pre { margin-top: 6px; max-height: 260px; overflow: auto; }
+.o-diagramm[data-stand="fehler"] { background: var(--app-soft); color: inherit; }
+.o-totlink { border-bottom: 1px dashed currentColor; cursor: help; }
+.o-totlink em { font-style: normal; font-size: .9em; color: var(--app-muted); }
