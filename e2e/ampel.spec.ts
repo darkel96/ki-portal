@@ -195,3 +195,40 @@ test("Ampel: „Bitte prüfen“ bleibt beim Scrollen oben, angesprungene Felder
   await expect(ziel).toBeFocused();
   await expect.poll(async () => { const z = await ziel.boundingBox(), l = await summe.boundingBox(); return z!.y >= l!.y + l!.height; }).toBe(true);
 });
+
+test("Ampel: Begründung wird gefunden, egal wo die KI sie ablegt", async ({ page }, info) => {
+  test.skip(info.project.name !== "desktop", "einmal reicht");
+  await page.goto("/");
+  const r = await page.evaluate(async () => {
+    const s = await import("/src/lib/sanitize.ts");
+    const v = await import("/src/lib/vorbelegung.ts");
+    const am = await import("/src/lib/ampel.ts");
+    const rq = await import("/src/lib/request.ts");
+    const ST = ["Sicher", "Unsicher", "Widersprüchlich"];
+    const f = (id: string, type: string, key: string, label: string, aus: string) => ({ id, type, props: { key, label, aus, ...(type === "select" ? { optionen: ST } : {}) } });
+    const app = s.loadApp({ id: "x", name: "X", steps: [{ id: "s1", key: "lesen", name: "Lesen", format: "json", prompt: "Gib nur dieses JSON zurück: {\"steuerung\": {\"befund\": \"\", \"status\": \"\"}}\n{{datei}}" }],
+      blocks: [{ id: "p1", type: "seite", props: { titel: "P" }, children: [
+        f("a1", "textarea", "steuerung", "Steuerung", "lesen.steuerung.befund"), f("a2", "select", "s_steuerung", "Status Steuerung", "lesen.steuerung.status"),
+        f("b1", "textarea", "rbg", "Regalbediengeräte", "lesen.rbg"), f("b2", "select", "s_rbg", "Status Regalbediengeräte", "lesen.status_rbg"),
+        f("c1", "textarea", "lvs", "Lagerverwaltung", "lesen.lvs"), f("c2", "select", "s_lvs", "Status Lagerverwaltung", "lesen.status_lvs"),
+        f("d1", "select", "s_mech", "Status Mechanik", "lesen.zwei.mechanik"), f("d2", "select", "s_elek", "Status Elektrik", "lesen.zwei.elektrik"),
+      ] }] })!;
+    const antwort = JSON.stringify({
+      steuerung: { befund: "S5-115U je RBG", status: "Unsicher", hinweis: "S7-300 seit 2017 ergänzt, Dokumentation unvollständig (Wartungsbericht)." },
+      rbg: "4 RBG", status_rbg: "Widersprüchlich – Anlagenliste nennt 4 RBG, Wartungsbericht 5 RBG.",
+      lvs: "StoreMaster 4.2", status_lvs: "Unsicher", hinweise: { status_lvs: "Version des Oracle-Clients nicht angegeben." },
+      zwei: { mechanik: "Unsicher", elektrik: "Sicher", hinweis: "nicht zuordenbar" },
+    });
+    const vb = v.vorbelegungen(app, "lesen", antwort)!;
+    return { vb, regel: am.PRUEF_HINWEIS, nachricht: rq.buildRequest(app, app.steps[0], {}).nachricht };
+  });
+  expect(r.vb.s_steuerung).toMatchObject({ wert: "Unsicher", hinweis: "S7-300 seit 2017 ergänzt, Dokumentation unvollständig (Wartungsbericht)." });
+  expect(r.vb.steuerung.hinweis).toBeUndefined(); // Inhaltsfeld bekommt die Begründung nicht doppelt
+  expect(r.vb.s_rbg).toMatchObject({ wert: "Widersprüchlich", hinweis: "Anlagenliste nennt 4 RBG, Wartungsbericht 5 RBG." });
+  expect(r.vb.s_lvs).toMatchObject({ wert: "Unsicher", hinweis: "Version des Oracle-Clients nicht angegeben." });
+  expect(r.vb.s_mech.hinweis).toBeUndefined(); // zwei Status-Felder im selben Objekt: nicht raten
+  // Beleglage statt Zustand, und die Begründungs-Schlüssel gehören auch bei festem Schema dazu
+  expect(r.regel).toContain("bewertet die Beleglage, nicht den Zustand");
+  expect(r.nachricht).toContain('"steuerung.status_hinweis"');
+  expect(r.nachricht).toContain("auch wenn das JSON-Schema oben sie nicht nennt");
+});
