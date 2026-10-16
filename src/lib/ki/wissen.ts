@@ -19,12 +19,116 @@ export type Auszug = { titel: string; url: string; text: string; fehler?: string
 
 export const wissenMoeglich = () => kiModus() === "copilot";
 
-/** Treffer der Copilot Retrieval API für einen SharePoint-Bereich (Website, Bibliothek oder Ordner) */
+/**
+ * Adresse aus einer Bibliotheksansicht („…/Forms/Ansicht.aspx?id=/sites/…/Ordner“) in die direkte Ordner- bzw.
+ * Dateiadresse umwandeln; so kopieren viele die Adresse aus dem Browser. Andere Adressen bleiben, wie sie sind.
+ */
+export function bereichAdresse(url: string): string {
+  try {
+    const u = new URL(url.trim());
+    const id = u.searchParams.get("id");
+    if (/sharepoint\.com$/i.test(u.hostname) && id?.startsWith("/")) return `${u.origin}${encodeURI(id)}`;
+  } catch { /* keine Adresse */ }
+  return url.trim();
+}
+
+/** Textdateien, die die Retrieval API nicht auswertet (Markdown, Text, CSV …): der Hub liest sie selbst */
+export const TEXT_DATEI = /\.(md|markdown|txt|csv|json|xml|html?|vtt)$/i;
+const STOPP = new Set("der die das den dem des ein eine einer eines und oder aber ab an auf aus bei bis für mit nach von vor zu zum zur im in ist sind wird werden wie was wer wo wann gilt gelten welche welcher welches nicht kein keine auch noch nur über unter als dass sich es er sie wir ihr man mal bitte the and for".split(" "));
+const FRAGE: Record<string, string[]> = {
+  wann: ["datum", "frist", "zeitplan", "termin", "anwendbar", "inkraft"], gilt: ["anwendbar", "geltung", "inkraft"], gelten: ["anwendbar", "geltung"],
+  wer: ["verantwort", "rolle", "zuständig"], welche: [], wie: ["prozess", "schritt", "vorgehen"], warum: ["zweck", "ziel"],
+};
+type TextDatei = { name: string; link: string; text: string };
+const ordnerCache = new Map<string, { zeit: number; dateien: TextDatei[] }>();
+
+/** Alle Textdateien eines Ordners (drei Ebenen tief, höchstens 40) bzw. die Datei selbst */
+async function textDateien(url: string, token: string, signal?: AbortSignal): Promise<TextDatei[]> {
+  const alt = ordnerCache.get(url);
+  if (alt && Date.now() - alt.zeit < DATEI_CACHE_MS) return alt.dateien;
+  const kopf = { headers: { Authorization: `Bearer ${token}` }, signal };
+  type Item = { id: string; name: string; webUrl?: string; size?: number; file?: object; folder?: object; parentReference?: { driveId?: string } };
+  const r = await fetch(`${GRAPH}/shares/${shareId(url)}/driveItem?$select=id,name,webUrl,size,file,folder,parentReference`, kopf);
+  if (!r.ok) return [];
+  const start = (await r.json()) as Item;
+  const drive = start.parentReference?.driveId;
+  const gefunden: (Item & { drive: string })[] = [];
+  if (start.file && TEXT_DATEI.test(start.name) && drive) gefunden.push({ ...start, drive });
+  const lauf = async (driveId: string, id: string, tiefe: number) => {
+    const k = await fetch(`${GRAPH}/drives/${driveId}/items/${id}/children?$select=id,name,webUrl,size,file,folder&$top=200`, kopf);
+    if (!k.ok) return;
+    const liste = ((await k.json()) as { value?: Item[] }).value ?? [];
+    for (const x of liste) if (x.file && TEXT_DATEI.test(x.name) && (x.size ?? 0) < 2_000_000 && gefunden.length < 40) gefunden.push({ ...x, drive: driveId });
+    if (tiefe < 3) for (const x of liste) if (x.folder && gefunden.length < 40) await lauf(driveId, x.id, tiefe + 1);
+  };
+  if (start.folder && drive) await lauf(drive, start.id, 0);
+  const dateien = (await Promise.all(gefunden.map(async (x) => {
+    const c = await fetch(`${GRAPH}/drives/${x.drive}/items/${x.id}/content`, kopf).catch(() => null);
+    return c?.ok ? { name: x.name, link: x.webUrl ?? "", text: (await c.text()).trim() } : null;
+  }))).filter((x): x is TextDatei => !!x?.text);
+  ordnerCache.set(url, { zeit: Date.now(), dateien });
+  return dateien;
+}
+
+/** Abschnitte (an Überschriften getrennt, höchstens etwa 1.800 Zeichen) mit ihrer Überschrift */
+function abschnitte(text: string): { titel: string; text: string }[] {
+  const out: { titel: string; text: string }[] = [];
+  let titel = "", teil: string[] = [];
+  const raus = () => { const t = teil.join("\n").trim(); if (t) for (let i = 0; i < t.length; i += 1800) out.push({ titel, text: t.slice(i, i + 1800) }); teil = []; };
+  for (const z of text.split(/\r?\n/)) {
+    const m = /^#{1,4}\s+(.+)$/.exec(z);
+    if (m) { raus(); titel = m[1].trim(); }
+    teil.push(z);
+  }
+  raus();
+  return out;
+}
+
+/**
+ * Text aus Textdateien für die Anfrage: kleine Bestände ganz (bis 24.000 Zeichen), große als die Abschnitte, die
+ * am besten zur Frage passen. Jede Stelle nennt ihren Abschnitt, damit die KI ihn als Fundstelle angeben kann.
+ */
+export function textAuszug(dateien: TextDatei[], suche: string, max = 24_000): string {
+  if (!dateien.length) return "";
+  const gesamt = dateien.reduce((n, d) => n + d.text.length, 0);
+  if (gesamt <= max) return dateien.map((d) => [`Dokument: ${d.name}`, d.link ? `Link: ${d.link}` : "", d.text].filter(Boolean).join("\n")).join("\n\n");
+  const roh = suche.toLowerCase().replace(/[^a-zäöüß0-9 ]/g, " ").split(/\s+/);
+  // Fragewörter auf das abbilden, wonach in Dokumenten gesucht werden muss („Ab wann gilt …?“ → Datum, Frist, anwendbar)
+  const dazu = roh.flatMap((w) => FRAGE[w] ?? []);
+  const woerter = [...new Set([...roh.filter((w) => w.length >= 3 && !STOPP.has(w)), ...dazu])];
+  const kandidaten = dateien.flatMap((d) => abschnitte(d.text).map((a) => {
+    const t = (a.titel + " " + a.text).toLowerCase();
+    const punkte = woerter.reduce((n, w) => n + (t.includes(w.slice(0, 7)) ? (a.titel.toLowerCase().includes(w.slice(0, 7)) ? 2 : 1) : 0), 0);
+    return { d, a, punkte };
+  })).filter((k) => k.punkte > 0).sort((x, y) => y.punkte - x.punkte);
+  const je = new Map<TextDatei, string[]>();
+  let laenge = 0;
+  for (const k of kandidaten) {
+    if (laenge + k.a.text.length > max) break;
+    const liste = je.get(k.d) ?? [];
+    liste.push(`Stelle ${liste.length + 1}${k.a.titel ? ` (Abschnitt „${k.a.titel}“)` : ""}:\n${k.a.text}`);
+    je.set(k.d, liste);
+    laenge += k.a.text.length;
+  }
+  return [...je.entries()].map(([d, stellen]) => [`Dokument: ${d.name}`, d.link ? `Link: ${d.link}` : "", ...stellen].filter(Boolean).join("\n")).join("\n\n");
+}
+
+/** Treffer der Copilot Retrieval API für einen SharePoint-Bereich (Website, Bibliothek oder Ordner), ergänzt um die Textdateien darin */
 async function sharepointAuszuege(q: Quelle, suche: string, token: string, signal?: AbortSignal): Promise<Auszug> {
+  const url = bereichAdresse(q.url);
+  let retrieval = "", fehler = "";
+  try { retrieval = await retrievalText(url, suche, token, signal); } catch (e) { if (signal?.aborted) throw e; fehler = e instanceof Error ? e.message : String(e); }
+  const extra = textAuszug(await textDateien(url, token, signal).catch(() => []), suche);
+  const text = [retrieval, extra].filter(Boolean).join("\n\n").slice(0, MAX_JE_QUELLE);
+  if (!text && fehler) throw new Error(fehler);
+  return { titel: q.titel || q.url, url: q.url, text };
+}
+
+async function retrievalText(url: string, suche: string, token: string, signal?: AbortSignal): Promise<string> {
   const r = await fetch(`${GRAPH}/copilot/retrieval`, {
     method: "POST", signal,
     headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ queryString: suche.slice(0, 1500), dataSource: "sharePoint", filterExpression: `path:"${q.url.trim()}"`, maximumNumberOfResults: MAX_TREFFER, resourceMetadata: ["title"] }),
+    body: JSON.stringify({ queryString: suche.slice(0, 1500), dataSource: "sharePoint", filterExpression: `path:"${url}"`, maximumNumberOfResults: MAX_TREFFER, resourceMetadata: ["title"] }),
   });
   if (!r.ok) {
     const t = await r.text().catch(() => "");
@@ -42,7 +146,7 @@ async function sharepointAuszuege(q: Quelle, suche: string, token: string, signa
     if (d.stellen.length) dokumente.set(link || titel, d);
   }
   const teile = [...dokumente.values()].map((d) => [`Dokument: ${d.titel}`, d.link ? `Link: ${d.link}` : "", ...d.stellen.map((t, i) => `Stelle ${i + 1}:\n${t}`)].filter(Boolean).join("\n"));
-  return { titel: q.titel || q.url, url: q.url, text: teile.join("\n\n").slice(0, MAX_JE_QUELLE) };
+  return teile.join("\n\n");
 }
 
 /** Gelesene Dateien bleiben zehn Minuten im Speicher: Ein Chat fragt sie bei jeder Frage, der Inhalt ändert sich dabei nicht */
@@ -85,7 +189,7 @@ async function dateiFinden(url: string, token: string, signal?: AbortSignal): Pr
 }
 
 async function dateiLaden(q: Quelle, token: string, signal?: AbortSignal): Promise<Auszug> {
-  const meta = await dateiFinden(q.url, token, signal);
+  const meta = await dateiFinden(bereichAdresse(q.url), token, signal);
   const inhalt = await fetch(meta.inhaltUrl, { headers: { Authorization: `Bearer ${token}` }, signal });
   if (!inhalt.ok) throw new Error(`Download HTTP ${inhalt.status}`);
   const blob = await inhalt.blob();
