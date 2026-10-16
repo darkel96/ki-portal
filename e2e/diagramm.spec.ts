@@ -60,6 +60,13 @@ test("Chat: Diagramm wird gezeichnet und als SVG, PNG und draw.io angeboten", as
   const svgText = readFileSync((await (await svg).path())!, "utf8");
   expect(svgText).toMatch(/^<svg[^>]+xmlns="http:\/\/www.w3.org\/2000\/svg"/);
   expect(svgText).not.toMatch(/<script|onload=/i);
+  // Im Chat kompakt (70 %), auf Wunsch volle Größe
+  const breite = async () => (await fig.locator("svg").boundingBox())!.width;
+  const klein = await breite();
+  await fig.getByRole("button", { name: "Ablauf KI-Ideen größer anzeigen" }).click();
+  await expect(fig).toHaveAttribute("data-gross", "");
+  expect(await breite()).toBeGreaterThan(klein * 1.3);
+  await fig.getByRole("button", { name: "Ablauf KI-Ideen kleiner anzeigen" }).click();
   // Quelltext bleibt erreichbar
   await fig.getByText("Mermaid-Quelltext").click();
   await expect(fig.locator("pre")).toContainText("flowchart TD");
@@ -151,4 +158,12 @@ test("Diagramme: Gestaltung nach Rolle, Titel fett, lange Fragen umbrochen, Text
   expect(r.textAblauf.quelle).toContain('n1["Risk Classification<br/>CRA-Geltungsbereich + Produktklassifizierung"]');
   expect(r.umbruch).toContain("M{Aktiv ausgenutzt oder<br/>schwerer<br/>Sicherheitsvorfall?}");
   expect(r.umbruch).toContain("X{{Sechseck bleibt}}");
+});
+
+test("Apps nutzen auf Full-HD-Bildschirmen die ganze Breite", async ({ page }, info) => {
+  test.skip(info.project.name !== "desktop", "einmal reicht");
+  await page.setViewportSize({ width: 1920, height: 1000 });
+  await page.goto("/app/cra-experte");
+  const rahmen = (await page.locator(".app-frame").boundingBox())!, innen = (await page.locator(".app-inner").boundingBox())!;
+  expect(innen.width).toBeGreaterThan(rahmen.width - 4);
 });
