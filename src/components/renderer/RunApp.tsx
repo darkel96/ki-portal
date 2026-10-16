@@ -160,11 +160,21 @@ function AmpelUeberblick({ app, seite, werte, onFeld }: { app: App; seite: Block
     const inhalt = paare.zuInhalt.get(k);
     if (a === "rot" || a === "gelb") treffer.push({ key: k, label: (inhalt && name(inhalt)) || label.replace(/^status\s+/i, ""), ampel: a });
   });
-  if (!treffer.length) return null;
+  // Die Leiste bleibt beim Scrollen oben stehen; ihre Höhe hält Felder, die man anspringt oder per Tab erreicht, frei darunter
+  const ref = useRef<HTMLDivElement>(null);
+  const da = treffer.length > 0;
+  useEffect(() => {
+    const el = ref.current, box = el?.parentElement;
+    if (!el || !box) return;
+    const ro = new ResizeObserver(() => box.style.setProperty("--ampel-h", `${el.offsetHeight}px`));
+    ro.observe(el);
+    return () => { ro.disconnect(); box.style.removeProperty("--ampel-h"); };
+  }, [da]);
+  if (!da) return null;
   const rot = treffer.filter((t) => t.ampel === "rot").length, gelb = treffer.length - rot;
   const zeigen = treffer.length > 10 ? treffer.slice(0, 10) : treffer;
   return (
-    <div className="o-ampel-summe" role="status">
+    <div ref={ref} className="o-ampel-summe" role="status">
       <b>Bitte prüfen: {[rot ? `${rot} ${rot === 1 ? "Widerspruch" : "Widersprüche"}` : "", gelb ? `${gelb} unsicher` : ""].filter(Boolean).join(", ")}</b>
       {zeigen.map((t) => <button key={t.key} type="button" data-ampel={t.ampel} onClick={() => onFeld(t.key)}><i aria-hidden="true" />{t.label}</button>)}
       {treffer.length > zeigen.length && <span className="o-help">und {treffer.length - zeigen.length} weitere</span>}

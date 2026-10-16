@@ -37,6 +37,16 @@
 .app-inner { --innen-unten: 24px; --innen-oben: 28px; }
 .app-frame[data-dicht="1"] .app-inner { --innen-oben: 20px; }
 .app-frame[data-dicht="2"] .app-inner { --innen-oben: 14px; }
+.app-frame[data-dicht="3"] .app-inner { --innen-oben: 12px; }
+/* „Bitte prüfen“ bleibt beim Scrollen oben sichtbar (für alle Apps). Der Streifen darüber deckt durchlaufenden Inhalt ab. */
+.app-inner.innen-scroll > .o-ampel-summe { flex: none; position: sticky; top: calc(8px - var(--innen-oben)); z-index: 3; box-shadow: 0 -10px 0 2px var(--app-bg), 0 6px 14px -10px rgb(0 0 0 / .35); }
+.app-inner.innen-scroll:has(> .o-ampel-summe) { scroll-padding-top: calc(var(--ampel-h, 48px) + 16px - var(--innen-oben)); }
+@media (max-width: 700px) {
+  /* Schmal: Überschrift eigene Zeile, kompakte Hinweise; bei vielen höchstens ein Viertel des Bildschirms, darin scrollbar */
+  .app-inner.innen-scroll > .o-ampel-summe { max-height: 25dvh; overflow-y: auto; scrollbar-width: thin; padding: 8px 10px; gap: 5px 6px; }
+  .app-inner.innen-scroll > .o-ampel-summe > b { flex-basis: 100%; }
+  .app-inner.innen-scroll > .o-ampel-summe button { padding: 2px 9px; font-size: 12px; }
+}
 /* Ergebnis-Detail: „Alle Ergebnisse“ bleibt beim Scrollen langer Antworten oben im Bild */
 .app-inner.innen-scroll .e-zurueck { position: sticky; top: calc(-1 * var(--innen-oben)); z-index: 3; margin: calc(-1 * var(--innen-oben)) 0 0; padding: var(--innen-oben) 0 8px; background: var(--app-bg); }
 .app-frame[data-dicht="1"] .app-inner { --innen-unten: 16px; }
