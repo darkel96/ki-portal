@@ -16,9 +16,10 @@ function mermaid(): Promise<Mermaid> {
       startOnLoad: false, securityLevel: "strict", theme: "base", htmlLabels: false,
       fontFamily: "Noto Sans, Segoe UI, Arial, sans-serif",
       // Ruhig und geschäftlich: helles Blau mit dunkler Schrift, abgerundete Formen
-      themeVariables: { primaryColor: "#eaf1ff", primaryBorderColor: "#7d9fdc", primaryTextColor: "#00050d", secondaryColor: "#f0eeea", tertiaryColor: "#fbfaf9", lineColor: "#5c5a58", clusterBkg: "#fbfaf9", clusterBorder: "#c9c4bc", edgeLabelBackground: "#ffffff", fontSize: "15px" },
-      themeCSS: ".node rect, .node path { rx: 8px; ry: 8px; } .edgeLabel { font-size: 13px; }",
-      flowchart: { htmlLabels: false, useMaxWidth: true, curve: "basis", padding: 14, nodeSpacing: 40, rankSpacing: 46 },
+      themeVariables: { primaryColor: "#eaf1ff", primaryBorderColor: "#7d9fdc", primaryTextColor: "#00050d", secondaryColor: "#f0eeea", tertiaryColor: "#fbfaf9", lineColor: "#8a857e", clusterBkg: "#fbfaf9", clusterBorder: "#c9c4bc", edgeLabelBackground: "#ffffff", fontSize: "16px" },
+      themeCSS: ".node rect, .node path { rx: 10px; ry: 10px; } .edgeLabel { font-size: 13px; font-weight: 600; }",
+      // Breite Kästen statt schmaler Textsäulen, großzügige Abstände
+      flowchart: { htmlLabels: false, useMaxWidth: true, curve: "step", padding: 18, nodeSpacing: 50, rankSpacing: 50, wrappingWidth: 400 },
     });
     return m;
   });
@@ -28,13 +29,31 @@ function mermaid(): Promise<Mermaid> {
 // Mermaid zeichnet nacheinander (gemeinsamer Zustand); eine Warteschlange verhindert Überschneidungen
 let schlange: Promise<unknown> = Promise.resolve();
 let nr = 0;
+/** Lange Fragen in Entscheidungsrauten umbrechen: Die Raute wächst mit der Textbreite und würde sonst riesig */
+export function rautenUmbrechen(code: string, max = 22): string {
+  if (!/^\s*(flowchart|graph)\b/.test(code)) return code;
+  return code.replace(/(\b[\w-]+)\{(?!\{)([^{}\n]+)\}(?!\})/g, (ganz, id: string, roh: string) => {
+    const zitat = /^".*"$/.test(roh.trim());
+    const text = zitat ? roh.trim().slice(1, -1) : roh;
+    if (/<br\s*\/?>/i.test(text) || text.length <= max) return ganz;
+    const zeilen: string[] = [];
+    let akt = "";
+    for (const w of text.trim().split(/\s+/)) {
+      if (akt && (akt + " " + w).length > max) { zeilen.push(akt); akt = w; } else akt = akt ? `${akt} ${w}` : w;
+    }
+    if (akt) zeilen.push(akt);
+    const neu = zeilen.join("<br/>");
+    return `${id}{${zitat ? `"${neu}"` : neu}}`;
+  });
+}
+
 /** Mermaid-Quelltext als bereinigtes SVG */
 export function mermaidSvg(code: string): Promise<string> {
   const lauf = schlange.then(async () => {
     const m = await mermaid();
     const id = `kihub-dia-${++nr}`;
     try {
-      const { svg } = await m.render(id, code);
+      const { svg } = await m.render(id, rautenUmbrechen(code));
       return svgSauber(svg);
     } finally {
       // Bei Syntaxfehlern lässt Mermaid sein Fehlerbild im Dokument stehen
@@ -49,12 +68,93 @@ export function mermaidSvg(code: string): Promise<string> {
 /** SVG ohne Skripte, Ereignisse und fremde Inhalte */
 export const svgSauber = (svg: string) => DOMPurify.sanitize(svg, { USE_PROFILES: { svg: true, svgFilters: true }, ADD_TAGS: ["style"] });
 
+const htmlEsc = (s: string) => s.replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" })[c]!);
 const xmlEsc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]!).replace(/\n/g, "&#xa;");
 const hex = (farbe: string, ersatz: string) => {
   const m = farbe.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?/);
   if (!m || m[4] === "0") return farbe.startsWith("#") ? farbe : ersatz;
   return "#" + [m[1], m[2], m[3]].map((x) => Number(x).toString(16).padStart(2, "0")).join("");
 };
+
+/* ---------- Aufbau eines gezeichneten Ablaufdiagramms ---------- */
+type Knoten = { mid: string; g: Element; form: Element };
+type Kante = { id: string; von: string; nach: string };
+/** Knoten und Kanten eines von Mermaid gezeichneten Flowcharts (leer bei anderen Diagrammarten) */
+function graphAus(svg: SVGSVGElement): { knoten: Map<string, Knoten>; kanten: Kante[] } {
+  const knoten = new Map<string, Knoten>();
+  svg.querySelectorAll("g.node").forEach((g) => {
+    const mid = (g.getAttribute("id") ?? "").replace(/^.*?flowchart-/, "").replace(/-\d+$/, "");
+    const form = g.querySelector("rect, polygon, circle, ellipse, path");
+    if (mid && form) knoten.set(mid, { mid, g, form });
+  });
+  const ids = [...knoten.keys()].sort((a, b) => b.length - a.length);
+  const kanten: Kante[] = [];
+  svg.querySelectorAll("path.flowchart-link, .edgePaths path").forEach((p) => {
+    const id = p.getAttribute("data-id") ?? p.getAttribute("id") ?? "";
+    const kern = id.replace(/^.*?L[_-]/, "").replace(/[_-]\d+$/, "");
+    const von = ids.find((a) => kern.startsWith(a + "_") && knoten.has(kern.slice(a.length + 1)));
+    if (von) kanten.push({ id, von, nach: kern.slice(von.length + 1) });
+  });
+  return { knoten, kanten };
+}
+const reihenVon = (el: Element | null) => (el ? [...el.querySelectorAll("tspan.row, tspan.text-outer-tspan")] : []);
+
+/** Farben nach Rolle im Ablauf (wie in Präsentationen üblich): Start, Schritt, Entscheidung, Ergebnis */
+const ROLLEN = {
+  start: { fill: "#f0eeea", stroke: "#a8a29b", titel: "#2b2926", text: "#5c5a58" },
+  schritt: { fill: "#e7f3ed", stroke: "#78b394", titel: "#0d4a33", text: "#2f6650" },
+  entscheidung: { fill: "#2b2f36", stroke: "#2b2f36", titel: "#ffffff", text: "#e6e2dc" },
+  ende: { fill: "#eceafb", stroke: "#8f86d8", titel: "#33288a", text: "#5b52a8" },
+} as const;
+
+/**
+ * Gestaltet ein gezeichnetes Ablaufdiagramm: erste Zeile eines Kastens fett als Titel, weitere Zeilen kleiner als
+ * Erläuterung, Farben nach Rolle (ohne eingehende Pfeile = Start, ohne ausgehende = Ergebnis, Raute = Entscheidung).
+ * Hat die KI selbst Farben gesetzt (style/classDef), bleiben die. Natürliche Größe statt auf Spaltenbreite gestaucht.
+ */
+/** Beschriftung eines Knotens im Quelltext (A[Titel<br/>Erläuterung], B{Frage}, C("Text") …) */
+function beschriftungIm(code: string, mid: string): string | null {
+  const m = new RegExp(`(?:^|[^\\w-])${mid.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\s*[\\[({>]+`, "m").exec(code);
+  if (!m) return null;
+  const rest = code.slice(m.index + m[0].length);
+  const ende = rest.search(/[\])}]/);
+  return (ende < 0 ? rest : rest.slice(0, ende)).replace(/^"|"$/g, "").trim();
+}
+
+export function gestalten(svg: SVGSVGElement, code = ""): void {
+  const eigeneFarben = /^\s*(style|classDef|class|linkStyle)\s/m.test(code);
+  const { knoten, kanten } = graphAus(svg);
+  const rein = new Set(kanten.map((k) => k.nach)), raus = new Set(kanten.map((k) => k.von));
+  knoten.forEach((k) => {
+    const rolle = k.form.tagName === "polygon" ? "entscheidung" : !rein.has(k.mid) && raus.size ? "start" : !raus.has(k.mid) && rein.size ? "ende" : "schritt";
+    const f = ROLLEN[rolle];
+    if (!eigeneFarben) (k.form as SVGElement).style.cssText += `fill:${f.fill};stroke:${f.stroke};stroke-width:1.3px;`;
+    const reihen = reihenVon(k.g.querySelector("text"));
+    const raute = rolle === "entscheidung";
+    // Positionen von em in Pixel umrechnen: sonst rückt die kleinere Erläuterung an den Titel heran
+    const basis = parseFloat(reihen[0] ? getComputedStyle(reihen[0]).fontSize : "") || 16;
+    const px = (v: string | null) => (v && /em$/.test(v) ? parseFloat(v) * basis : parseFloat(v ?? "0") || 0);
+    // Titel = erste Zeile der Beschriftung (bei Umbruch über mehrere Reihen); ohne <br/> ist alles Titel
+    const quelle = beschriftungIm(code, k.mid);
+    const teile = quelle ? quelle.split(/<br\s*\/?>/i) : [];
+    const titelLaenge = teile.length > 1 ? teile[0].replace(/\s+/g, "").length : Infinity;
+    let bisher = 0;
+    const istTitel = reihen.map((r) => { const t = bisher < titelLaenge; bisher += (r.textContent ?? "").replace(/\s+/g, "").length; return t || raute; });
+    const versatz = istTitel.includes(false) ? 2.5 : 0;
+    reihen.forEach((r, i) => {
+      const st = (r as SVGElement).style;
+      const titel = istTitel[i];
+      r.setAttribute("y", `${px(r.getAttribute("y")) + (titel ? -versatz : versatz)}px`);
+      r.setAttribute("dy", `${px(r.getAttribute("dy"))}px`);
+      if (!titel) st.fontSize = "0.84em";
+      if (!eigeneFarben) st.fill = titel ? f.titel : f.text;
+      // Die inneren Wörter tragen font-weight="normal" als Attribut: dort setzen
+      r.querySelectorAll("tspan").forEach((w) => { (w as SVGElement).style.fontWeight = titel ? "700" : "400"; });
+    });
+  });
+  const vb = svg.viewBox.baseVal;
+  if (vb?.width) { svg.style.width = `${Math.round(vb.width)}px`; svg.style.maxWidth = "100%"; svg.style.height = "auto"; }
+}
 
 /** SVG als eigenständige Datei: mit Namensraum und fester Größe */
 function svgDatei(svg: SVGSVGElement): { text: string; breite: number; hoehe: number } {
@@ -79,6 +179,7 @@ export async function diagrammAlsPng(code: string, art: "mermaid" | "svg"): Prom
   try {
     const svg = halter.querySelector("svg");
     if (!svg) throw new Error("Kein Diagramm");
+    if (art === "mermaid") gestalten(svg, code);
     const s = svgDatei(svg);
     const blob = await svgAlsPng(s.text, s.breite, s.hoehe);
     return { png: new Uint8Array(await blob.arrayBuffer()), breite: s.breite, hoehe: s.hoehe };
@@ -125,28 +226,27 @@ export function alsDrawio(svg: SVGSVGElement, titel: string): string {
     const l = lage(form);
     zellen.push(`<mxCell id="c${n++}" value="${xmlEsc(zeilen(g.querySelector(".cluster-label") ?? g.querySelector("text")))}" style="rounded=1;dashed=1;fillColor=none;verticalAlign=top;fontStyle=1;strokeColor=#8a94a3;" vertex="1" parent="1"><mxGeometry x="${l.x}" y="${l.y}" width="${l.w}" height="${l.h}" as="geometry"/></mxCell>`);
   });
-  svg.querySelectorAll("g.node").forEach((g) => {
-    const mid = (g.getAttribute("id") ?? "").replace(/^.*?flowchart-/, "").replace(/-\d+$/, "");
-    const form = g.querySelector("rect, polygon, circle, ellipse, path");
-    if (!mid || !form) return;
+  const { knoten: graph, kanten } = graphAus(svg);
+  graph.forEach(({ mid, g, form }) => {
     const l = lage(form);
     const st = getComputedStyle(form);
-    const text = g.querySelector("text");
+    const reihen = reihenVon(g.querySelector("text"));
+    const farbe = (el: Element | undefined, ersatz: string) => (el ? hex(getComputedStyle(el).fill, ersatz) : ersatz);
     const art = form.tagName === "polygon" ? "rhombus;" : form.tagName === "circle" || form.tagName === "ellipse" ? "ellipse;" : "rounded=1;arcSize=12;";
     const id = `k${n++}`;
     knoten.set(mid, id);
-    zellen.push(`<mxCell id="${id}" value="${xmlEsc(zeilen(g.querySelector(".label") ?? g))}" style="${art}whiteSpace=wrap;html=0;fillColor=${hex(st.fill, "#eef2f7")};strokeColor=${hex(st.stroke, "#5b6b7f")};fontColor=${text ? hex(getComputedStyle(text).fill, "#1f2328") : "#1f2328"};" vertex="1" parent="1"><mxGeometry x="${l.x}" y="${l.y}" width="${l.w}" height="${l.h}" as="geometry"/></mxCell>`);
+    // Titel fett, Erläuterung kleiner (wie in der Zeichnung)
+    const texte = reihen.map((r) => r.textContent?.trim() ?? "").filter(Boolean);
+    const html = texte.length > 1
+      ? `<b>${htmlEsc(texte[0])}</b><br><font style="font-size:11px" color="${farbe(reihen[1], "#1f2328")}">${texte.slice(1).map(htmlEsc).join("<br>")}</font>`
+      : `<b>${htmlEsc(texte[0] ?? zeilen(g))}</b>`;
+    zellen.push(`<mxCell id="${id}" value="${xmlEsc(html)}" style="${art}whiteSpace=wrap;html=1;fillColor=${hex(st.fill, "#eef2f7")};strokeColor=${hex(st.stroke, "#5b6b7f")};fontColor=${farbe(reihen[0], "#1f2328")};" vertex="1" parent="1"><mxGeometry x="${l.x}" y="${l.y}" width="${l.w}" height="${l.h}" as="geometry"/></mxCell>`);
   });
   if (knoten.size) {
-    const ids = [...knoten.keys()].sort((a, b) => b.length - a.length);
-    svg.querySelectorAll("path.flowchart-link, .edgePaths path").forEach((p) => {
-      const kante = p.getAttribute("data-id") ?? p.getAttribute("id") ?? "";
-      const kern = kante.replace(/^L[_-]/, "").replace(/[_-]\d+$/, "");
-      const von = ids.find((a) => kern.startsWith(a + "_") && knoten.has(kern.slice(a.length + 1)));
-      if (!von) return;
-      const nach = kern.slice(von.length + 1);
-      const beschriftung = zeilen(svg.querySelector(`.edgeLabels [data-id="${CSS.escape(kante)}"]`));
-      zellen.push(`<mxCell id="e${n++}" value="${xmlEsc(beschriftung)}" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=0;endArrow=block;strokeColor=#5b6b7f;fontColor=#1f2328;labelBackgroundColor=#ffffff;" edge="1" parent="1" source="${knoten.get(von)}" target="${knoten.get(nach)}"><mxGeometry relative="1" as="geometry"/></mxCell>`);
+    kanten.forEach((k) => {
+      if (!knoten.has(k.nach)) return;
+      const beschriftung = zeilen(svg.querySelector(`.edgeLabels [data-id="${CSS.escape(k.id.replace(/^.*?(L[_-])/, "$1"))}"]`));
+      zellen.push(`<mxCell id="e${n++}" value="${xmlEsc(beschriftung)}" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=0;endArrow=block;strokeColor=#8a857e;fontColor=#1f2328;fontStyle=1;labelBackgroundColor=#ffffff;" edge="1" parent="1" source="${knoten.get(k.von)}" target="${knoten.get(k.nach)}"><mxGeometry relative="1" as="geometry"/></mxCell>`);
     });
   } else {
     // Kein Ablaufdiagramm: als Bild einbetten (bleibt in draw.io sichtbar und lässt sich überzeichnen)
@@ -235,6 +335,7 @@ export async function diagrammeZeichnen(bereich: HTMLElement | null, name = "Dia
         svg.setAttribute("aria-label", titel);
         pre?.remove();
         fig.prepend(bild);
+        if (fig.dataset.art === "mermaid") gestalten(svg, code);
         aktionen(fig, svg, fig.dataset.art === "mermaid" ? { name: "Mermaid", endung: "mmd", text: code } : null, titel);
         quelltext(fig.dataset.art === "mermaid" ? "Mermaid-Quelltext" : "SVG-Quelltext");
       }
