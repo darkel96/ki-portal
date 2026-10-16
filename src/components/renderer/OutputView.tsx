@@ -10,7 +10,7 @@ import { saveFile } from "@/lib/files";
 import { DATEI_ART, DATEI_ARTEN, dateiErzeugen, dateiName, type DateiArt } from "@/lib/dokument";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Check, ChevronDown, Copy, Download, RotateCcw } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { createContext, useContext, useEffect, useRef, useState } from "react";
 import { initials, slug, stepsFor, walk } from "@/lib/model";
 import { useRun } from "./runContext";
 import type { Mode } from "./BlockContent";
@@ -42,7 +42,7 @@ const AV = ["var(--a0)", "var(--a2)", "var(--a1)", "var(--a6)", "var(--a4)", "va
 const AVI = ["var(--a0i)", "var(--a2i)", "var(--a1i)", "var(--a6i)", "var(--a4i)", "var(--a5i)"];
 
 /** Ergebnis als fertige Datei herunterladen: die eingestellte bzw. gewünschte Datei als Hauptknopf, alle anderen im Menü. */
-function DateiKnoepfe({ app, text, titel, haupt, roh, vorlage }: { app: App; text: string; titel: string; haupt: DateiArt | null; roh: { name: string; endung: string }; vorlage?: string }) {
+function DateiKnoepfe({ app, text, titel, haupt, roh, vorlage, kompakt }: { app: App; text: string; titel: string; haupt: DateiArt | null; roh: { name: string; endung: string }; vorlage?: string; /** Sammelleiste: kurze Beschriftung, Ergebnisname für Screenreader */ kompakt?: string }) {
   const [baut, setBaut] = useState<DateiArt | null>(null);
   const laden = async (art: DateiArt) => {
     setBaut(art);
@@ -58,14 +58,14 @@ function DateiKnoepfe({ app, text, titel, haupt, roh, vorlage }: { app: App; tex
   return (
     <>
       {haupt && (
-        <Button size="sm" className="rounded-full" disabled={!!baut} onClick={() => void laden(haupt)}>
-          <Download aria-hidden="true" />{baut === haupt ? `${DATEI_ART[haupt].label} wird erstellt\u00a0…` : `${DATEI_ART[haupt].label} herunterladen`}
+        <Button size="sm" className="rounded-full" disabled={!!baut} onClick={() => void laden(haupt)} aria-label={kompakt && baut !== haupt ? `${kompakt}: ${DATEI_ART[haupt].label} herunterladen` : undefined}>
+          <Download aria-hidden="true" />{baut === haupt ? `${DATEI_ART[haupt].label} wird erstellt\u00a0…` : kompakt ? DATEI_ART[haupt].label : `${DATEI_ART[haupt].label} herunterladen`}
         </Button>
       )}
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button size="sm" variant="outline" className="rounded-full" disabled={!!baut}>
-            {baut && baut !== haupt ? `${DATEI_ART[baut].label} wird erstellt\u00a0…` : haupt ? "Anderes Format" : "Als Datei herunterladen"}<ChevronDown aria-hidden="true" />
+          <Button size="sm" variant="outline" className="rounded-full" disabled={!!baut} aria-label={kompakt && !(baut && baut !== haupt) ? `${kompakt}: ${haupt ? "anderes Format" : "als Datei herunterladen"}` : undefined}>
+            {baut && baut !== haupt ? `${DATEI_ART[baut].label} wird erstellt\u00a0…` : kompakt ? (haupt ? "" : "Herunterladen") : haupt ? "Anderes Format" : "Als Datei herunterladen"}<ChevronDown aria-hidden="true" />
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="start">
@@ -102,10 +102,10 @@ function KopierKnopf({ text, format, teil }: { text: string; format: string; tei
 }
 
 /** ZIP mit Ladezustand und Fehlermeldung */
-function ZipKnopf({ onLaden, text, haupt }: { onLaden: (onStand: (t: string) => void) => Promise<void>; text: string; haupt: boolean }) {
+function ZipKnopf({ onLaden, text, haupt, label }: { onLaden: (onStand: (t: string) => void) => Promise<void>; text: string; haupt: boolean; label?: string }) {
   const [baut, setBaut] = useState<string | null>(null);
   return (
-    <Button size="sm" variant={haupt ? "default" : "outline"} className="rounded-full" disabled={!!baut} onClick={async () => {
+    <Button size="sm" variant={haupt ? "default" : "outline"} className="rounded-full" disabled={!!baut} aria-label={baut ? undefined : label} onClick={async () => {
       setBaut("ZIP wird erstellt\u00a0…");
       try { await onLaden(setBaut); } catch (e) { toast.error(`Das ZIP konnte nicht erstellt werden.${e instanceof Error ? " " + e.message : ""}`); } finally { setBaut(null); }
     }}><Download aria-hidden="true" />{baut ?? text}</Button>
@@ -140,14 +140,60 @@ function TeamLogView({ o, app, stepId }: { o: OutState; app: App; stepId: string
   );
 }
 
+/** Liegen mehrere Ergebnisse auf einer Seite, stehen ihre Downloads gesammelt in einer Leiste unten (siehe DownloadLeiste) */
+export const SammelDownloads = createContext(false);
+
+/** Ergebnis-Text (bzw. JSON-Teil) und Paket eines Schritts, aus denen die Downloads entstehen */
+function downloadStand(app: App, stepId: string, o: OutState | undefined, pfad: string) {
+  const step = app.steps.find((s) => s.id === stepId);
+  const teil = step?.format === "json" && pfad.trim() && o?.text && o.status !== "laeuft" ? teilAus(o.text, pfad.trim()) : undefined;
+  const teilText = typeof teil === "string" ? teil : teil !== undefined ? alsText(teil) : null;
+  const fertig = !!o && (o.status === "fertig" || o.status === "fehler" || o.status === "gestoppt") && !!o.text;
+  // Besteht ein Paket im Kern aus einem Dokument (HTML, Markdown, Text), gibt es das direkt als PDF, Word usw.
+  const dokumente = o?.paket?.dateien.filter((f) => istDokument(f.pfad)) ?? [];
+  return { step, teil, teilText, fertig, einDokument: dokumente.length === 1 ? dokumente[0] : null };
+}
+
+/** Download-Knöpfe eines Ergebnisses: Datei (Hauptformat plus Menü) oder ZIP */
+function Downloads({ app, stepId, o, pfad, kompakt }: { app: App; stepId: string; o: OutState; pfad: string; kompakt?: string }) {
+  const { step, teilText, fertig, einDokument } = downloadStand(app, stepId, o, pfad);
+  if (!fertig) return null;
+  return (
+    <>
+      {o.paket && einDokument && <DateiKnoepfe app={app} kompakt={kompakt} vorlage={step?.vorlage?.docx || undefined} text={einDokument.inhalt} titel={dateiTitel(einDokument.pfad)} haupt={o.req?.ergebnisDatei ?? "pdf"} roh={{ name: dateiTitel(einDokument.pfad), endung: einDokument.pfad.split(".").pop() ?? "txt" }} />}
+      {o.paket && <ZipKnopf haupt={!einDokument} text={kompakt ? "ZIP" : o.req?.ergebnisDatei ? `ZIP mit ${DATEI_ART[o.req.ergebnisDatei].label}-Dateien` : "ZIP herunterladen"} label={kompakt ? `${kompakt}: ZIP herunterladen` : undefined}
+        onLaden={async (onStand) => saveFile(paketName(app.name, o.paket!), await zipPaket(o.paket!, app.name, o.req?.ergebnisDatei ?? undefined, onStand, step?.vorlage?.docx || undefined))} />}
+      {!o.paket && step && <DateiKnoepfe app={app} kompakt={kompakt} vorlage={step.vorlage?.docx || undefined} text={teilText ?? o.text ?? ""} titel={step.name} haupt={o.req?.ergebnisDatei ?? null} roh={{ name: slug(step.name), endung: teilText !== null ? "md" : step.format === "json" ? "json" : step.format === "text" ? "txt" : "md" }} />}
+    </>
+  );
+}
+
+/** Feste Leiste unten mit den Downloads aller fertigen Ergebnisse einer Seite, nebeneinander */
+export function DownloadLeiste({ app, ausgaben }: { app: App; ausgaben: { stepId: string; titel: string; pfad: string }[] }) {
+  const run = useRun();
+  const fertige = ausgaben.filter((a) => downloadStand(app, a.stepId, run?.outs[a.stepId], a.pfad).fertig);
+  if (!fertige.length) return null;
+  return (
+    <div className="o-downloads" role="region" aria-label="Downloads">
+      <span className="o-downloads-t">Downloads</span>
+      {fertige.map((a) => (
+        <div key={`${a.stepId}:${a.pfad}`} className="o-downloads-g" role="group" aria-label={a.titel}>
+          <span className="o-downloads-n">{a.titel}</span>
+          <Downloads app={app} stepId={a.stepId} o={run!.outs[a.stepId]!} pfad={a.pfad} kompakt={a.titel} />
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export function OutputView({ app, titel, stepId, stil, mode, pfad = "" }: { app: App; titel: string; stepId: string; stil: "card" | "plain"; mode: Mode; /** bei JSON: nur dieser Teil */ pfad?: string }) {
   const run = useRun();
   const step = app.steps.find((s) => s.id === stepId);
   const o = run?.outs[stepId];
   const team = step?.art === "team";
   // Teil eines JSON-Ergebnisses (Prüfseite: z. B. der lesbare Bericht neben den vorbelegten Feldern)
-  const teil = step?.format === "json" && pfad.trim() && o?.text && o.status !== "laeuft" ? teilAus(o.text, pfad.trim()) : undefined;
-  const teilText = typeof teil === "string" ? teil : teil !== undefined ? alsText(teil) : null;
+  const { teil, teilText, fertig, einDokument } = downloadStand(app, stepId, o, pfad);
+  const gesammelt = useContext(SammelDownloads);
   // Agenten-Team: Das fertige Ergebnis ins Bild holen, es steht über dem (dann eingeklappten) Verlauf
   const ergebnisRef = useRef<HTMLDivElement>(null);
   const warLaeuft = useRef(false);
@@ -208,10 +254,6 @@ export function OutputView({ app, titel, stepId, stil, mode, pfad = "" }: { app:
     </>
   );
 
-  const fertig = o && (o.status === "fertig" || o.status === "fehler" || o.status === "gestoppt") && o.text;
-  // Besteht ein Paket im Kern aus einem Dokument (HTML, Markdown, Text), gibt es das direkt als PDF, Word usw.
-  const dokumente = o?.paket?.dateien.filter((f) => istDokument(f.pfad)) ?? [];
-  const einDokument = dokumente.length === 1 ? dokumente[0] : null;
   return (
     <div className={`o-out ${stil === "card" ? "card" : ""}`} data-src={stepId} data-status={o?.status}>
       <div className="o-out-head">
@@ -225,15 +267,12 @@ export function OutputView({ app, titel, stepId, stil, mode, pfad = "" }: { app:
         {body}
       </motion.div>
       {mode === "run" && o && (fertig || o.req) && (
-        <div className="o-foot">
+        <div className="o-foot" data-gesammelt={gesammelt ? "" : undefined}>
           {(o.status === "fehler" || o.status === "gestoppt") && step && (
             <Button size="sm" className="rounded-full" disabled={!!run?.laeuft} onClick={() => run?.starten(`wiederholen:${stepId}`, stepId)}><RotateCcw aria-hidden="true" />Erneut versuchen</Button>
           )}
           {fertig && (!o.paket || einDokument) && <KopierKnopf text={einDokument ? einDokument.inhalt : teilText ?? o.text ?? ""} format={einDokument || teilText !== null ? "markdown" : step?.format ?? "markdown"} teil={o.status !== "fertig"} />}
-          {fertig && o.paket && einDokument && <DateiKnoepfe app={app} vorlage={step?.vorlage?.docx || undefined} text={einDokument.inhalt} titel={dateiTitel(einDokument.pfad)} haupt={o.req?.ergebnisDatei ?? "pdf"} roh={{ name: dateiTitel(einDokument.pfad), endung: einDokument.pfad.split(".").pop() ?? "txt" }} />}
-          {fertig && o.paket && <ZipKnopf haupt={!einDokument} text={o.req?.ergebnisDatei ? `ZIP mit ${DATEI_ART[o.req.ergebnisDatei].label}-Dateien` : "ZIP herunterladen"}
-            onLaden={async (onStand) => saveFile(paketName(app.name, o.paket!), await zipPaket(o.paket!, app.name, o.req?.ergebnisDatei ?? undefined, onStand, step?.vorlage?.docx || undefined))} />}
-          {fertig && !o.paket && step && <DateiKnoepfe app={app} vorlage={step.vorlage?.docx || undefined} text={teilText ?? o.text ?? ""} titel={step.name} haupt={o.req?.ergebnisDatei ?? null} roh={{ name: slug(step.name), endung: teilText !== null ? "md" : step.format === "json" ? "json" : step.format === "text" ? "txt" : "md" }} />}
+          {!gesammelt && <Downloads app={app} stepId={stepId} o={o} pfad={pfad} />}
           {o.req && step && Array.isArray(o.req.dateien) && (
             <details>
               <summary>Technische Details</summary>
