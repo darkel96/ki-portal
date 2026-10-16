@@ -282,6 +282,7 @@ export function inhaltBauen(doc: Document, bl: DokBlock[], titel: string | null,
   const ebenen = bl.flatMap((b) => (b.typ === "ueberschrift" ? [b.ebene] : []));
   const versatz = ebenen.length ? Math.min(...ebenen) - 1 : 0;
   if (titel) ueberschrift([{ text: titel }], 0);
+  let bilder = 0;
   for (const b of bl) {
     if (b.typ === "ueberschrift") ueberschrift(b.laeufe, b.ebene - versatz);
     else if (b.typ === "absatz") out.push(absatz(b.laeufe, m.text));
@@ -307,6 +308,7 @@ export function inhaltBauen(doc: Document, bl: DokBlock[], titel: string | null,
       out.push(tabelle(b.kopf, b.zeilen), absatz([], m.text));
     }
     else if (b.typ === "code") b.text.split("\n").forEach((z) => out.push(absatz([{ text: z, code: true }], m.text, null, (pPr) => setze(pPr, "spacing", { before: "0", after: "0" }))));
+    else if (b.typ === "bild") out.push(bildAbsatz(doc, b, ++bilder));
     else out.push(absatz([], null, null, (pPr) => { const bdr = setze(pPr, "pBdr"); const u = doc.createElementNS(W, "w:bottom"); for (const [k, v] of Object.entries({ val: "single", sz: "4", space: "4", color: "auto" })) u.setAttributeNS(W, `w:${k}`, v); bdr.appendChild(u); }));
   }
   return out;
@@ -377,6 +379,32 @@ export type VorlageMeta = { titel: string; app: string; datum: string };
  * Baut das Word-Dokument aus der Vorlage (Base64 einer .docx/.dotx) und den Inhaltsblöcken.
  * titel: aus # Überschrift oder Schrittname; rest: übrige Blöcke.
  */
+/* ---------- Diagramme als Bild ---------- */
+const BILD_REL = (n: number) => `rIdKiHubDia${n}`;
+const BILD_PFAD = (n: number) => `media/kihub_diagramm${n}.png`;
+/** Absatz mit eingebettetem Bild (DrawingML, zentriert, höchstens 16 cm breit) */
+function bildAbsatz(doc: Document, b: { breite: number; hoehe: number; alt: string }, n: number): Node {
+  const f = Math.min(1, 600 / b.breite, 800 / b.hoehe);
+  const cx = Math.round(b.breite * f * 9525), cy = Math.round(b.hoehe * f * 9525);
+  const alt = b.alt.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]!);
+  const xml = `<w:p xmlns:w="${W}" xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><w:pPr><w:jc w:val="center"/></w:pPr><w:r><w:drawing><wp:inline distT="0" distB="0" distL="0" distR="0"><wp:extent cx="${cx}" cy="${cy}"/><wp:docPr id="${9000 + n}" name="Diagramm ${n}" descr="${alt}"/><a:graphic><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:pic><pic:nvPicPr><pic:cNvPr id="${9000 + n}" name="kihub_diagramm${n}.png"/><pic:cNvPicPr/></pic:nvPicPr><pic:blipFill><a:blip r:embed="${BILD_REL(n)}"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill><pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="${cx}" cy="${cy}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr></pic:pic></a:graphicData></a:graphic></wp:inline></w:drawing></w:r></w:p>`;
+  return doc.importNode(new DOMParser().parseFromString(xml, "application/xml").documentElement, true);
+}
+/** Bilddateien, Beziehungen und Inhaltstyp für die Diagramme in die Word-Datei schreiben */
+async function bilderEinfuegen(zip: import("jszip"), bl: DokBlock[]) {
+  const bilder = bl.filter((b): b is Extract<DokBlock, { typ: "bild" }> => b.typ === "bild");
+  if (!bilder.length) return;
+  const relPfad = "word/_rels/document.xml.rels";
+  let rels = (await zip.file(relPfad)?.async("string")) ?? '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"></Relationships>';
+  bilder.forEach((b, i) => {
+    zip.file(`word/${BILD_PFAD(i + 1)}`, b.png);
+    rels = rels.replace("</Relationships>", `<Relationship Id="${BILD_REL(i + 1)}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="${BILD_PFAD(i + 1)}"/></Relationships>`);
+  });
+  zip.file(relPfad, rels);
+  const typen = await zip.file("[Content_Types].xml")?.async("string");
+  if (typen && !/Extension="png"/i.test(typen)) zip.file("[Content_Types].xml", typen.replace("<Types ", "<Types ").replace(/(<Types[^>]*>)/, '$1<Default Extension="png" ContentType="image/png"/>'));
+}
+
 export async function alsDocxMitVorlage(vorlageBase64: string, titel: string, rest: DokBlock[], meta: VorlageMeta): Promise<Blob> {
   const { default: JSZip } = await import("jszip");
   const zip = await JSZip.loadAsync(vorlageBase64, { base64: true });
@@ -408,6 +436,7 @@ export async function alsDocxMitVorlage(vorlageBase64: string, titel: string, re
     neu.forEach((n) => body.insertBefore(n, sectPr ?? null));
   }
   zip.file(docPfad, new XMLSerializer().serializeToString(doc));
+  await bilderEinfuegen(zip, rest);
   if (num && numXml) zip.file("word/numbering.xml", new XMLSerializer().serializeToString(num));
 
   // Platzhalter auch in Kopf- und Fußzeilen
@@ -436,6 +465,7 @@ export function alsMarkdown(bl: DokBlock[]): string {
       return [zeile(b.kopf), zeile(b.kopf.map(() => "---")), ...b.zeilen.map(zeile)].join("\n");
     }
     if (b.typ === "code") return "```\n" + b.text + "\n```";
+    if (b.typ === "bild") return `[Diagramm: ${b.alt}]`;
     return "---";
   }).filter((t) => t.trim()).join("\n\n");
 }

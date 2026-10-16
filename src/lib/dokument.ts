@@ -41,7 +41,9 @@ export type DokBlock =
   | { typ: "absatz"; laeufe: Lauf[] }
   | { typ: "liste"; nummeriert: boolean; punkte: { laeufe: Lauf[]; tiefe: number }[] }
   | { typ: "tabelle"; kopf: string[]; zeilen: string[][] }
-  | { typ: "code"; text: string }
+  | { typ: "code"; text: string; sprache?: string }
+  /** Gezeichnetes Diagramm (aus einem Mermaid- oder SVG-Codeblock) als PNG; breite/hoehe in Pixeln */
+  | { typ: "bild"; png: Uint8Array; breite: number; hoehe: number; alt: string }
   | { typ: "linie" };
 
 const reinText = (l: Lauf[]) => l.map((x) => x.text).join("");
@@ -75,10 +77,11 @@ export function ausMarkdown(src: string): DokBlock[] {
     let m: RegExpMatchArray | null;
     if (!l.trim()) { i++; continue; }
     if (/^\s*```/.test(l)) {
+      const sprache = (l.match(/^\s*```\s*([\w.+-]*)/)?.[1] ?? "").toLowerCase();
       const code: string[] = []; i++;
       while (i < lines.length && !/^\s*```/.test(lines[i])) code.push(lines[i++]);
       i++;
-      out.push({ typ: "code", text: code.join("\n") });
+      out.push({ typ: "code", text: code.join("\n"), ...(sprache ? { sprache } : {}) });
       continue;
     }
     if ((m = l.match(/^(#{1,4})\s+(.*)$/))) { out.push({ typ: "ueberschrift", ebene: m[1].length as 1, laeufe: laeufe(m[2].replace(/#+\s*$/, "").trim()) }); i++; continue; }
@@ -184,6 +187,31 @@ export function dokumentAus(text: string): DokBlock[] {
 }
 
 /* ---------- Gemeinsames ---------- */
+export const base64 = (b: Uint8Array) => { let s = ""; for (let i = 0; i < b.length; i += 0x8000) s += String.fromCharCode(...b.subarray(i, i + 0x8000)); return btoa(s); };
+/** Bildgröße innerhalb eines Rahmens, Seitenverhältnis bleibt */
+export const bildMass = (b: { breite: number; hoehe: number }, maxW: number, maxH: number) => {
+  const f = Math.min(1, maxW / b.breite, maxH / b.hoehe);
+  return { w: Math.round(b.breite * f), h: Math.round(b.hoehe * f) };
+};
+
+/** Mermaid- und SVG-Codeblöcke werden in Dateien zu Bildern; was sich nicht zeichnen lässt, bleibt Quelltext */
+async function diagrammeAlsBild(bl: DokBlock[], titel: string): Promise<DokBlock[]> {
+  if (typeof document === "undefined" || !bl.some((b) => b.typ === "code")) return bl;
+  const { diagrammArt } = await import("./markdown");
+  const out: DokBlock[] = [];
+  for (const [i, b] of bl.entries()) {
+    const art = b.typ === "code" ? diagrammArt(b.sprache ?? "", b.text) : null;
+    if (b.typ !== "code" || (art !== "mermaid" && art !== "svg")) { out.push(b); continue; }
+    try {
+      const dia = await import("./diagramm");
+      const bild = await dia.diagrammAlsPng(b.text, art);
+      // Beschriftung: die Überschrift direkt davor, sonst der Titel des Dokuments
+      const davor = bl[i - 1];
+      out.push({ typ: "bild", ...bild, alt: davor?.typ === "ueberschrift" ? reinText(davor.laeufe) : titel || "Diagramm" });
+    } catch { out.push(b); }
+  }
+  return out;
+}
 /** vorlage: Word-Vorlage als Base64 (.docx/.dotx); gilt nur für Word, ihr Aufbau geht als Text an die KI */
 export type DokMeta = { titel: string; app: string; akzent?: string; vorlage?: string };
 // Farben aus src/styles/tokens.css (Körber): neutral-darkest, blue, warm-grey-darker, warm-grey, warm-grey-light, warm-grey-lighter
@@ -235,6 +263,7 @@ async function alsPdf(bl: DokBlock[], meta: DokMeta): Promise<Blob> {
         margin: [0, 4, 0, 12],
       });
     } else if (b.typ === "code") content.push({ text: b.text, style: "code" });
+    else if (b.typ === "bild") content.push({ image: `data:image/png;base64,${base64(b.png)}`, fit: [483, 600], alignment: "center", margin: [0, 6, 0, 12] });
     else content.push({ canvas: [{ type: "line", x1: 0, y1: 0, x2: 483, y2: 0, lineWidth: 0.5, lineColor: LINIE }], margin: [0, 8, 0, 12] });
   }
   const def = {
@@ -292,6 +321,7 @@ async function alsDocx(bl: DokBlock[], meta: DokMeta): Promise<Blob> {
       kinder.push(new d.Table({ width: { size: 100, type: d.WidthType.PERCENTAGE }, rows: [zeile(b.kopf, true), ...b.zeilen.map((r) => zeile(r, false))] }));
       kinder.push(new d.Paragraph({ children: [] }));
     } else if (b.typ === "code") for (const z of b.text.split("\n")) kinder.push(new d.Paragraph({ children: [new d.TextRun({ text: z, font: "Consolas", size: 18 })], shading: { type: d.ShadingType.CLEAR, color: "auto", fill: CODE_FLAECHE.slice(1) } }));
+    else if (b.typ === "bild") { const g = bildMass(b, 600, 800); kinder.push(new d.Paragraph({ alignment: d.AlignmentType.CENTER, children: [new d.ImageRun({ type: "png", data: b.png, transformation: { width: g.w, height: g.h }, altText: { title: b.alt, description: b.alt, name: b.alt } })] })); }
     else kinder.push(new d.Paragraph({ children: [], border: { bottom: { style: d.BorderStyle.SINGLE, size: 4, color: LINIE.slice(1), space: 4 } } }));
   }
   const doc = new d.Document({
@@ -348,6 +378,7 @@ async function alsXlsx(bl: DokBlock[], meta: DokMeta): Promise<Blob> {
       else if (b.typ === "absatz") data.push([{ value: reinText(b.laeufe), wrap: true }]);
       else if (b.typ === "liste") b.punkte.forEach((p, i) => data.push([{ value: `${b.nummeriert ? `${i + 1}.` : "•"} ${reinText(p.laeufe)}`, wrap: true, indent: p.tiefe }]));
       else if (b.typ === "code") b.text.split("\n").forEach((z) => data.push([{ value: z, fontFamily: "Consolas" }]));
+      else if (b.typ === "bild") data.push([{ value: `Diagramm „${b.alt}“: in der Word-, PDF- oder PowerPoint-Fassung als Bild`, wrap: true }]);
     }
     blaetter.push({ data, sheet: blattName("Ergebnis"), columns: [{ width: 100 }] });
   }
@@ -420,6 +451,16 @@ async function alsPptx(bl: DokBlock[], meta: DokMeta): Promise<Blob> {
         }
         continue;
       }
+      if (b.typ === "bild") {
+        textRaus();
+        if (y > 2.2) { s = neueFolie(`${f.titel} (Diagramm)`); y = 1.55; }
+        // Fläche unter dem Titel: 12,1 × (7,0 − y) Zoll, Seitenverhältnis bleibt
+        const maxW = 12.1, maxH = 7.0 - y, v = b.breite / b.hoehe;
+        const w = Math.min(maxW, maxH * v), h = w / v;
+        s.addImage({ data: `data:image/png;base64,${base64(b.png)}`, x: 0.6 + (maxW - w) / 2, y, w, h, altText: b.alt });
+        y += h + 0.2;
+        continue;
+      }
       if (b.typ === "liste") b.punkte.forEach((p) => punkte.push({ text: runs(p.laeufe), tiefe: p.tiefe, aufzaehlung: true }));
       else if (b.typ === "absatz") punkte.push({ text: runs(b.laeufe), tiefe: 0, aufzaehlung: false });
       else if (b.typ === "ueberschrift") punkte.push({ text: [{ text: reinText(b.laeufe), options: { bold: true, color: akzent } }], tiefe: 0, aufzaehlung: false });
@@ -433,7 +474,7 @@ async function alsPptx(bl: DokBlock[], meta: DokMeta): Promise<Blob> {
 
 /** Erzeugt die Datei. */
 export async function dateiErzeugen(art: DateiArt, text: string, meta: DokMeta): Promise<Blob> {
-  const bl = dokumentAus(text);
+  const bl = art === "xlsx" ? dokumentAus(text) : await diagrammeAlsBild(dokumentAus(text), meta.titel);
   if (art === "pdf") return alsPdf(bl, meta);
   if (art === "docx" && meta.vorlage) {
     try {

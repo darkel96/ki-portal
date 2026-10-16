@@ -15,6 +15,7 @@ import { initials, slug, stepsFor, walk } from "@/lib/model";
 import { useRun } from "./runContext";
 import type { Mode } from "./BlockContent";
 import { alsText, teilAus } from "@/lib/vorbelegung";
+import { diagrammeZeichnen } from "@/lib/diagramm";
 
 /** Ein Teil eines JSON-Ergebnisses: Text als Markdown, Listen als Aufzählung oder Tabelle, Objekte als Tabelle „Schlüssel | Wert“. */
 function JsonTeil({ wert }: { wert: unknown }) {
@@ -194,6 +195,9 @@ export function OutputView({ app, titel, stepId, stil, mode, pfad = "" }: { app:
   // Teil eines JSON-Ergebnisses (Prüfseite: z. B. der lesbare Bericht neben den vorbelegten Feldern)
   const { teil, teilText, fertig, einDokument } = downloadStand(app, stepId, o, pfad);
   const gesammelt = useContext(SammelDownloads);
+  // Diagramme (Mermaid, SVG, draw.io) im fertigen Ergebnis zeichnen und zum Herunterladen anbieten
+  const inhalt = useRef<HTMLDivElement>(null);
+  useEffect(() => { if (o?.status !== "laeuft") void diagrammeZeichnen(inhalt.current, titel); }, [o?.status, o?.text, titel, teilText]);
   // Agenten-Team: Das fertige Ergebnis ins Bild holen, es steht über dem (dann eingeklappten) Verlauf
   const ergebnisRef = useRef<HTMLDivElement>(null);
   const warLaeuft = useRef(false);
@@ -262,7 +266,7 @@ export function OutputView({ app, titel, stepId, stil, mode, pfad = "" }: { app:
         {/* Nur der Status wird angesagt, nicht jedes Stück des entstehenden Texts */}
         <span className="sr-only" aria-live="polite">{o && mode === "run" ? `${titel}: ${STATUS_LABEL[o.status]}` : ""}</span>
       </div>
-      <motion.div key={o ? "da" : "leer"} className="o-body"
+      <motion.div key={o ? "da" : "leer"} ref={inhalt} className="o-body"
         initial={o ? { opacity: 0, y: 4 } : false} animate={{ opacity: 1, y: 0, transition: { duration: 0.2, ease: EASE_OUT } }} aria-busy={o?.status === "laeuft"}>
         {body}
       </motion.div>

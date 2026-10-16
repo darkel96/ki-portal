@@ -6,7 +6,16 @@ const esc = (s: string) => s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&
 DOMPurify.addHook("afterSanitizeAttributes", (node) => {
   if (node.tagName === "A") { node.setAttribute("target", "_blank"); node.setAttribute("rel", "noopener noreferrer"); }
 });
-const link = (href: string, text: string, title = "") => `<a href="${href}"${title ? ` title="${title}"` : ""}>${text}</a>`;
+/**
+ * Dateien, die Copilot in seiner eigenen Umgebung ablegt (Teams-Objektspeicher), sind von außen nicht abrufbar:
+ * kein toter Link, sondern ein ehrlicher Hinweis.
+ */
+export const istTotLink = (href: string) => {
+  try { return /(^|\.)asyncgw\.teams\.microsoft\.com$/i.test(new URL(href.replace(/&amp;/g, "&")).hostname); } catch { return false; }
+};
+const link = (href: string, text: string, title = "") => istTotLink(href)
+  ? `<span class="o-totlink" title="Diese Datei liegt nur in der Copilot-Umgebung und lässt sich hier nicht herunterladen.">${text} <em>(nur in Copilot abrufbar)</em></span>`
+  : `<a href="${href}"${title ? ` title="${title}"` : ""}>${text}</a>`;
 /** Lesbarer Name für eine nackte Adresse: der Dateiname bzw. letzte Pfadteil ohne Prozentzeichen, sonst der Host */
 export function linkName(url: string): string {
   try {
@@ -21,6 +30,7 @@ export function linkName(url: string): string {
 const inline = (s: string) => esc(s)
   // [Text](https://…) und nackte Adressen (nicht schon Teil eines Links); Satzzeichen am Ende bleiben draußen
   // Adressen dürfen Klammern enthalten („…/Cyber Resilience Act (CRA) EU …“), solange sie paarig sind
+  .replace(/\[([^\]]+)\]\(((?:sandbox|attachment):[^\s)]+)\)/g, (_, t: string) => `<span class="o-totlink" title="Diese Datei liegt nur in der Copilot-Umgebung und lässt sich hier nicht herunterladen.">${t} <em>(nur in Copilot abrufbar)</em></span>`)
   .replace(/\[([^\]]+)\]\((https?:\/\/(?:[^\s()]|\([^\s()]*\))+)\)/g, (_, t: string, u: string) => link(u, t))
   .replace(/(^|[^"&>\w/])(https?:\/\/[^\s<]*[^\s<.,;:)!?])/g, (_, vor: string, u: string) => vor + link(u, linkName(u), u))
   .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>").replace(/`([^`]+)`/g, "<code>$1</code>");
@@ -40,6 +50,15 @@ export function markdown(src: string): string {
   return DOMPurify.sanitize(bloecke(String(src).replace(/\r/g, "").split("\n")), { USE_PROFILES: { html: true }, ADD_ATTR: ["target"] });
 }
 
+/** Codeblock, den der Hub als Diagramm zeichnet: Mermaid, SVG oder eine draw.io-Datei */
+export function diagrammArt(sprache: string, text: string): "mermaid" | "svg" | "drawio" | null {
+  const t = text.trim();
+  if (sprache === "mermaid" || (!sprache && /^(flowchart|graph|sequenceDiagram|gantt|classDiagram|stateDiagram(-v2)?|erDiagram|journey|mindmap|timeline|pie)\b/.test(t))) return "mermaid";
+  if (sprache === "svg" || ((sprache === "xml" || sprache === "html" || !sprache) && /^(<\?xml[^>]*>\s*)?<svg[\s>]/i.test(t))) return "svg";
+  if (sprache === "drawio" || /^(<\?xml[^>]*>\s*)?<(mxfile|mxGraphModel)[\s>]/i.test(t)) return "drawio";
+  return null;
+}
+
 function bloecke(lines: string[]): string {
   let html = "", i = 0;
   while (i < lines.length) {
@@ -47,10 +66,15 @@ function bloecke(lines: string[]): string {
     let m: RegExpMatchArray | null;
     if (!l.trim()) { i++; continue; }
     if (/^\s*```/.test(l)) {
+      const sprache = (l.match(/^\s*```\s*([\w.+-]*)/)?.[1] ?? "").toLowerCase();
       const code: string[] = []; i++;
       while (i < lines.length && !/^\s*```/.test(lines[i])) code.push(lines[i++]);
+      const offen = i >= lines.length; // Block noch nicht geschlossen (Antwort kommt noch)
       i++;
-      html += `<pre class="code">${esc(code.join("\n"))}</pre>`;
+      const text = code.join("\n"), art = diagrammArt(sprache, text);
+      html += art
+        ? `<figure class="o-diagramm" data-art="${art}"${offen ? ' data-offen="1"' : ""}><pre class="code">${esc(text)}</pre></figure>`
+        : `<pre class="code">${esc(text)}</pre>`;
       continue;
     }
     if ((m = l.match(/^(#{1,4})\s+(.*)/))) { const h = Math.min(m[1].length + 2, 5); html += `<h${h}>${inline(m[2])}</h${h}>`; i++; continue; }
