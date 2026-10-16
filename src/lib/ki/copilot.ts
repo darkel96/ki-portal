@@ -121,8 +121,15 @@ export function fastGleich(a: string, b: string): boolean {
   const hinten = Math.min(gemeinsamesEnde(a, b), n - vorn);
   return vorn + hinten >= n * 0.9;
 }
-/** Ist „rest“ der (noch wachsende) Anfang einer Zweitfassung von „text“? Kleine Längenverschiebungen sind erlaubt. */
+const kompakt = (s: string) => s.replace(/\s+/g, " ").trim();
+/**
+ * Ist „rest“ der (noch wachsende) Anfang einer Zweitfassung von „text“? Entweder (fast) gleich oder ein Neubeginn:
+ * Der angehängte Text beginnt mit denselben ersten 40 Zeichen wie die Antwort. Eine echte Fortsetzung wiederholt nie
+ * wörtlich den Anfang; eine Zweitfassung tut es, auch wenn sie danach abweicht (z. B. längere Quellenlinks).
+ */
 function zweitfassung(text: string, rest: string): boolean {
+  const kopf = kompakt(text).slice(0, 40), r = kompakt(rest);
+  if (kopf.length >= 30 && r.length >= 20 && (r.startsWith(kopf) || kopf.startsWith(r))) return true;
   for (let d = -12; d <= 12; d++) {
     const z = text.slice(0, rest.length + d);
     if (z.length >= 20 && fastGleich(rest, z)) return true;
@@ -137,6 +144,16 @@ function zweitfassung(text: string, rest: string): boolean {
  */
 export function entdoppeln(text: string): string {
   const t = text.trim();
+  // Neubeginn: Der Anfang der Antwort (40 Zeichen) steht später noch einmal, und der Teil ab dort ist eine ganze Antwort
+  // (halb bis doppelt so lang wie der Teil davor): Copilot hat eine überarbeitete Fassung angehängt, sie gilt
+  const kopf = t.slice(0, 40);
+  if (kopf.length === 40) {
+    const p = t.indexOf(kopf, Math.max(40, Math.floor(t.length * 0.25)));
+    if (p > 0) {
+      const a = t.slice(0, p).trim().replace(/(?:\n\s*[-*_]{3,}\s*)+$/, ""), b = t.slice(p).trim();
+      if (b.length >= a.length * 0.5 && b.length <= a.length * 2) return b;
+    }
+  }
   const mitte = Math.floor(t.length / 2);
   for (let k = mitte - 12; k <= mitte + 12; k++) {
     if (k < 20 || k > t.length) continue;
@@ -176,6 +193,8 @@ export async function streamLesen(res: Response, frage: string, onTeil: (t: stri
   }
   const leser = res.body.pipeThrough(new TextDecoderStream()).getReader();
   let puffer = "", text = "", roh = "";
+  /** Erste Fassung, sobald Copilot eine Zweitfassung anhängt: weitere Momentaufnahmen enthalten beide, gezeigt wird die zweite */
+  let erste = "";
   const ereignis = (block: string) => {
     const daten = block.split(/\r?\n/).filter((z) => z.startsWith("data:")).map((z) => z.slice(5).trimStart()).join("\n");
     if (!daten || daten === "[DONE]") return;
@@ -183,6 +202,7 @@ export async function streamLesen(res: Response, frage: string, onTeil: (t: stri
     let t = "";
     try { t = letzterText(JSON.parse(daten), frage); } catch { return; }
     if (!t) return;
+    if (erste && t.startsWith(erste)) t = t.slice(erste.length).replace(/^\s+/, "").replace(/^(?:[-*_]{3,}\s*)+/, "");
     const vorher = text;
     // Jedes Ereignis trägt den ganzen bisherigen Text der Antwort (Copilot schickt Momentaufnahmen der Nachricht,
     // nie einzelne Stücke) und ersetzt den alten Stand. Copilot schreibt den bisherigen Text dabei auch um, z. B. eine
@@ -197,7 +217,7 @@ export async function streamLesen(res: Response, frage: string, onTeil: (t: stri
       if (anfang > 0 && anfang <= 12) rest = rest.slice(anfang);
       if (text.length >= 40 && rest.length >= 20 && zweitfassung(text, rest)) {
         // Zweitfassung wächst noch: nichts anzeigen; ist sie (fast) vollständig, gilt die spätere Fassung
-        if (rest.length >= text.length - 12) text = rest;
+        if (rest.length >= text.length - 12) { erste = t.slice(0, t.length - rest.length); text = rest; }
       } else text = t;
     }
     else if (text.startsWith(t)) { /* kürzer als bekannt: nichts Neues */ }

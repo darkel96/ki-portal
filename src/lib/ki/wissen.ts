@@ -19,6 +19,9 @@ export type Auszug = { titel: string; url: string; text: string; fehler?: string
 
 export const wissenMoeglich = () => kiModus() === "copilot";
 
+/** Klammern in Adressen kodieren, sonst endet ein Markdown-Link der KI an der ersten „)“ (z. B. Ordner „… (CRA) …“) */
+export const linkSauber = (u: string) => u.replace(/\(/g, "%28").replace(/\)/g, "%29");
+
 /**
  * Adresse aus einer Bibliotheksansicht („…/Forms/Ansicht.aspx?id=/sites/…/Ordner“) in die direkte Ordner- bzw.
  * Dateiadresse umwandeln; so kopieren viele die Adresse aus dem Browser. Andere Adressen bleiben, wie sie sind.
@@ -91,7 +94,7 @@ function abschnitte(text: string): { titel: string; text: string }[] {
 export function textAuszug(dateien: TextDatei[], suche: string, max = 24_000): string {
   if (!dateien.length) return "";
   const gesamt = dateien.reduce((n, d) => n + d.text.length, 0);
-  if (gesamt <= max) return dateien.map((d) => [`Dokument: ${d.name}`, d.link ? `Link: ${d.link}` : "", d.text].filter(Boolean).join("\n")).join("\n\n");
+  if (gesamt <= max) return dateien.map((d) => [`Dokument: ${d.name}`, d.link ? `Link: ${linkSauber(d.link)}` : "", d.text].filter(Boolean).join("\n")).join("\n\n");
   const roh = suche.toLowerCase().replace(/[^a-zäöüß0-9 ]/g, " ").split(/\s+/);
   // Fragewörter auf das abbilden, wonach in Dokumenten gesucht werden muss („Ab wann gilt …?“ → Datum, Frist, anwendbar)
   const dazu = roh.flatMap((w) => FRAGE[w] ?? []);
@@ -110,7 +113,7 @@ export function textAuszug(dateien: TextDatei[], suche: string, max = 24_000): s
     je.set(k.d, liste);
     laenge += k.a.text.length;
   }
-  return [...je.entries()].map(([d, stellen]) => [`Dokument: ${d.name}`, d.link ? `Link: ${d.link}` : "", ...stellen].filter(Boolean).join("\n")).join("\n\n");
+  return [...je.entries()].map(([d, stellen]) => [`Dokument: ${d.name}`, d.link ? `Link: ${linkSauber(d.link)}` : "", ...stellen].filter(Boolean).join("\n")).join("\n\n");
 }
 
 /** Treffer der Copilot Retrieval API für einen SharePoint-Bereich (Website, Bibliothek oder Ordner), ergänzt um die Textdateien darin */
@@ -145,7 +148,7 @@ async function retrievalText(url: string, suche: string, token: string, signal?:
     for (const e of h.extracts ?? []) { const t = e.text?.trim(); if (t && !d.stellen.includes(t)) d.stellen.push(t); }
     if (d.stellen.length) dokumente.set(link || titel, d);
   }
-  const teile = [...dokumente.values()].map((d) => [`Dokument: ${d.titel}`, d.link ? `Link: ${d.link}` : "", ...d.stellen.map((t, i) => `Stelle ${i + 1}:\n${t}`)].filter(Boolean).join("\n"));
+  const teile = [...dokumente.values()].map((d) => [`Dokument: ${d.titel}`, d.link ? `Link: ${linkSauber(d.link)}` : "", ...d.stellen.map((t, i) => `Stelle ${i + 1}:\n${t}`)].filter(Boolean).join("\n"));
   return teile.join("\n\n");
 }
 
@@ -216,5 +219,5 @@ export async function wissenAuszuege(quellen: Quelle[], suche: string, signal?: 
 export function auszuegeText(a: Auszug[]): string {
   if (!a.length) return "";
   return "Auszüge aus den hinterlegten Wissensquellen (nur diese Inhalte gelten als belegt). Nutze alle passenden Dokumente und Stellen, nicht nur das erste. Quellenangaben schreibst du als Markdown-Link auf den Link des Dokuments und nennst die Stelle: die Überschrift oder den Abschnitt, unter dem der Inhalt in der Stelle steht, sonst die Nummer der Stelle, z. B. [CRA Q&A, Abschnitt Scope](https://…) oder [CRA Schulung, Stelle 3](https://…). Gib nie die nackte Adresse aus, immer Linktext in eckigen Klammern und Adresse in runden Klammern:\n\n" + a.map((x) =>
-    x.fehler ? `### ${x.titel}\n(konnte nicht gelesen werden: ${x.fehler})` : `### ${x.titel}\n${x.text ? `${x.quelleTyp === "datei" ? `Link: ${x.url}\n` : ""}${x.text}` : "(keine passenden Inhalte gefunden)"}`).join("\n\n");
+    x.fehler ? `### ${x.titel}\n(konnte nicht gelesen werden: ${x.fehler})` : `### ${x.titel}\n${x.text ? `${x.quelleTyp === "datei" ? `Link: ${linkSauber(x.url)}\n` : ""}${x.text}` : "(keine passenden Inhalte gefunden)"}`).join("\n\n");
 }

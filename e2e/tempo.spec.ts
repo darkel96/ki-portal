@@ -132,3 +132,30 @@ test("Abhängige Schritte bleiben nacheinander (Stellenanzeige)", async ({ page 
   expect(log).toHaveLength(2);
   expect(log[1].start).toBeGreaterThanOrEqual(log[0].ende);
 });
+
+test("Copilot hängt eine überarbeitete Fassung mit längeren Quellenlinks an: nur die zweite bleibt, Links mit Klammern funktionieren", async ({ page }, info) => {
+  test.skip(info.project.name !== "desktop", "einmal reicht");
+  await page.goto("/");
+  const r = await page.evaluate(async () => {
+    const c = await import("/src/lib/ki/copilot.ts");
+    const md = await import("/src/lib/markdown.ts");
+    const basis = "https://x.sharepoint.com/sites/K/Lib/KPSS%20Templates/Cyber%20Resilience%20Act%20(CRA)%20EU%202024_2847/KPSS_CRA_FAQ_DE/";
+    const kern = "Der CRA ist bereits am **10.12.2024 in Kraft getreten**. Die Pflichten starten gestaffelt: Seit **11.09.2026** gelten die Meldepflichten; vollständig anwendbar ist der CRA ab **11.12.2027**.\n\n- 10.12.2024: Inkrafttreten\n- 11.09.2026: Meldepflichten\n- 11.12.2027: vollständige Anwendung\n\n**Quellen:**\n";
+    const a = kern + `[01 Allgemeines.md](${basis}01%20Allgemeines.md)\n[08 Meldepflichten.md](${basis}08%20Meldepflichten.md)`;
+    const b = kern + `[01 Allgemeines.md, Abschnitt „CRA-Antwort“](${basis}01%20Allgemeines.md)\n[08 Meldepflichten.md, Abschnitt „CRA-Antwort“](${basis}08%20Meldepflichten.md)`;
+    const sse = (events: string[]) => new Response(new ReadableStream({ start(ctl) { const e = new TextEncoder(); for (const x of events) ctl.enqueue(e.encode(x)); ctl.close(); } }), { headers: { "content-type": "text/event-stream" } });
+    const conv = (t: string) => `data: ${JSON.stringify({ id: "c1", messages: [{ text: "F" }, { text: t }] })}\n\n`;
+    const teile: string[] = [];
+    const schritte = [a.slice(0, 120), a, a + b.slice(0, 60), a + b.slice(0, 200), a + b.slice(0, 400), a + b];
+    const ende = await c.streamLesen(sse(schritte.map(conv)), "F", (t) => teile.push(t), 0, {});
+    const html = md.markdown(`[01 Allgemeines.md](${basis}01%20Allgemeines.md)`);
+    return { ende, final: c.entdoppeln(a + b), b, teile, html, echteFortsetzung: c.entdoppeln(kern + "Weitere Hinweise zur Umsetzung folgen im Abschnitt Pflichten.") };
+  });
+  expect(r.final).toBe(r.b);
+  expect(r.ende).toBe(r.b);
+  // Nie beide Fassungen gleichzeitig angezeigt
+  for (const t of r.teile) expect(t.split("Der CRA ist bereits am").length - 1).toBeLessThanOrEqual(1);
+  expect(r.html).toContain('href="https://x.sharepoint.com/sites/K/Lib/KPSS%20Templates/Cyber%20Resilience%20Act%20(CRA)%20EU%202024_2847/KPSS_CRA_FAQ_DE/01%20Allgemeines.md"');
+  expect(r.html).toContain(">01 Allgemeines.md</a>");
+  expect(r.echteFortsetzung).toContain("Weitere Hinweise");
+});

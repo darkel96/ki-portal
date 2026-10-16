@@ -20,7 +20,8 @@ export function linkName(url: string): string {
 }
 const inline = (s: string) => esc(s)
   // [Text](https://…) und nackte Adressen (nicht schon Teil eines Links); Satzzeichen am Ende bleiben draußen
-  .replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, (_, t: string, u: string) => link(u, t))
+  // Adressen dürfen Klammern enthalten („…/Cyber Resilience Act (CRA) EU …“), solange sie paarig sind
+  .replace(/\[([^\]]+)\]\((https?:\/\/(?:[^\s()]|\([^\s()]*\))+)\)/g, (_, t: string, u: string) => link(u, t))
   .replace(/(^|[^"&>\w/])(https?:\/\/[^\s<]*[^\s<.,;:)!?])/g, (_, vor: string, u: string) => vor + link(u, linkName(u), u))
   .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>").replace(/`([^`]+)`/g, "<code>$1</code>");
 
