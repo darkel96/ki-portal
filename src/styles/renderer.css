@@ -56,15 +56,13 @@
 /* … und das Textfeld füllt sein Feld auch in den Verdichtungsstufen ganz aus */
 .app-frame[data-fuellen] .app-inner .o-field textarea { max-height: none; }
 
-/* ----- Verdichtung: Stufe 2 nimmt Einleitungen weg und lässt Textfeldern drei Zeilen, Stufe 3 (Notfall) zwei ----- */
-.app-frame[data-dicht="2"] .o-field textarea { max-height: calc(3lh + 22px); }
+/* ----- Verdichtung: Stufe 2 nimmt Einleitungen weg, Stufe 3 (Notfall) verkleinert Abstände. Textfelder bleiben so groß wie ihr Inhalt (globale Regel), dann scrollt das Blatt ----- */
 .app-frame[data-dicht="2"] .app-inner .o-p, .app-frame[data-dicht="2"] .app-inner .o-call,
 .app-frame[data-dicht="3"] .app-inner .o-p, .app-frame[data-dicht="3"] .app-inner .o-call { display: none; }
 .app-frame[data-dicht="3"] .app-inner { gap: 8px; padding-top: 12px; padding-bottom: 10px; }
 .app-frame[data-dicht="3"] .o-stack, .app-frame[data-dicht="3"] .o-sec, .app-frame[data-dicht="3"] .o-reihe { gap: 8px 16px; }
 .app-frame[data-dicht="3"] .o-sec.p-m, .app-frame[data-dicht="3"] .o-sec.p-l { padding: 10px 14px; }
 .app-frame[data-dicht="3"] .o-h1 { font-size: 22px; }
-.app-frame[data-dicht="3"] .o-field textarea { max-height: calc(2lh + 22px); }
 .app-frame[data-dicht="3"] .o-help:not([aria-live], .o-ki-hinweis) { display: none; }
 .app-frame[data-dicht="3"] .o-field { gap: 4px; }
 

@@ -147,3 +147,18 @@ test("Ampel zuverlässig: Paare auch bei abweichenden Namen, Begründung als eig
   await page.getByLabel("Bewertung").selectOption("Sicher");
   await expect(summe).toHaveCount(0);
 });
+
+test("Mitwachsen gilt auch auf vollen Seiten (Verdichtung deckelt keine Textfelder)", async ({ page }, info) => {
+  test.skip(info.project.name !== "desktop", "einmal reicht");
+  const viele = Array.from({ length: 14 }, (_, i) => ({ id: `f${i}`, type: "textarea", props: { key: `t${i}`, label: `Thema ${i + 1}`, rows: 3 } }));
+  const app = { id: "voll", name: "Voll", bereich: "Test", status: "freigegeben", version: 1, steps: [{ id: "s1", key: "b", name: "B", prompt: "{{t0}}" }],
+    blocks: [{ id: "p1", type: "seite", props: { titel: "Viel" }, children: viele }, { id: "p2", type: "seite", props: { titel: "E" }, children: [{ id: "o", type: "output", props: { titel: "E", quelle: "s1" } }] }] };
+  await page.addInitScript((a) => localStorage.setItem("kihub-apps-v3", JSON.stringify([a])), app);
+  await page.goto("/app/voll");
+  const lang = Array.from({ length: 8 }, (_, i) => `Hoch | Punkt ${i + 1} | Angebot weicht ab | klären`).join("\n");
+  const ta = page.getByLabel("Thema 14");
+  await ta.fill(lang);
+  await expect.poll(() => page.locator(".app-frame").getAttribute("data-dicht")).not.toBe("0");
+  const [h, sh] = await ta.evaluate((el) => [el.clientHeight, el.scrollHeight]);
+  expect(sh - h).toBeLessThanOrEqual(2);
+});
