@@ -68,6 +68,11 @@ export function vorbelegungen(app: Pick<App, "blocks">, stepKey: string, text: s
       klaeren = o.klaeren === true || /^(ja|true|1)$/i.test(String(o.klaeren ?? ""));
       roh = o.wert;
     }
+    // Begründung auch als eigener Schlüssel daneben („status_x_hinweis“, „status_xHinweis“, „status_x_begruendung“)
+    if (!hinweis && pfad) {
+      const neben = [`${pfad}_hinweis`, `${pfad}Hinweis`, `${pfad}_begruendung`, `${pfad}_begründung`, `${pfad}_grund`].map((x) => wertUnter(json, x)).find((x) => typeof x === "string" && x.trim());
+      if (typeof neben === "string") hinweis = neben.trim().slice(0, 500);
+    }
     const w = feldWert(b, roh);
     if (w === undefined && !hinweis) continue;
     // Auswahl ohne passende Option (z. B. „Unklar“ bei Ja/Nein) gilt als zu klären
