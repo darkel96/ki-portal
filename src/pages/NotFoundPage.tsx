@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { Link, useRouteError } from "react-router";
+import { istVersionsFehler, neuLadenFuerNeueVersion } from "@/lib/neueVersion";
 
 export function NotFoundPage() {
   useEffect(() => { document.title = "Seite nicht gefunden – KI-Hub"; }, []);
@@ -19,6 +20,20 @@ export function NotFoundPage() {
 export function FehlerPage() {
   const err = useRouteError();
   const text = err instanceof Error ? err.message : String(err ?? "");
+  const neu = istVersionsFehler(err);
+  useEffect(() => { if (neu) neuLadenFuerNeueVersion(); }, [neu]);
+  if (neu) return (
+    <main className="wrap page">
+      <section className="hero hero-meldung">
+        <div className="hero-text">
+          <p className="eyebrow">Neue Version</p>
+          <h1>Der KI-Hub wurde aktualisiert.</h1>
+          <p className="lede">Dieser Tab war noch mit der vorigen Version geöffnet. Lade die Seite einmal neu, dann geht es weiter.</p>
+          <p className="hero-links"><button type="button" className="link-back" onClick={() => location.reload()}>Neu laden</button></p>
+        </div>
+      </section>
+    </main>
+  );
   return (
     <main className="wrap page">
       <section className="hero hero-meldung">

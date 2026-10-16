@@ -10,12 +10,21 @@ import { MeinHubProvider } from "@/state/meinhub";
 import { RechteProvider } from "@/state/rechte";
 import { Shell } from "@/components/layout/Shell";
 import { HubPage } from "@/pages/HubPage";
-const AppPage = lazy(() => import("@/pages/AppPage").then((m) => ({ default: m.AppPage })));
-const BuilderPage = lazy(() => import("@/pages/BuilderPage").then((m) => ({ default: m.BuilderPage })));
-const MeinHubPage = lazy(() => import("@/pages/MeinHubPage").then((m) => ({ default: m.MeinHubPage })));
-const NeuPage = lazy(() => import("@/pages/NeuPage").then((m) => ({ default: m.NeuPage })));
-const VerwaltungPage = lazy(() => import("@/pages/VerwaltungPage").then((m) => ({ default: m.VerwaltungPage })));
+import { nachladen } from "@/lib/neueVersion";
+import { toast } from "sonner";
+const AppPage = lazy(nachladen(() => import("@/pages/AppPage").then((m) => ({ default: m.AppPage }))));
+const BuilderPage = lazy(nachladen(() => import("@/pages/BuilderPage").then((m) => ({ default: m.BuilderPage }))));
+const MeinHubPage = lazy(nachladen(() => import("@/pages/MeinHubPage").then((m) => ({ default: m.MeinHubPage }))));
+const NeuPage = lazy(nachladen(() => import("@/pages/NeuPage").then((m) => ({ default: m.NeuPage }))));
+const VerwaltungPage = lazy(nachladen(() => import("@/pages/VerwaltungPage").then((m) => ({ default: m.VerwaltungPage }))));
 const laden = <p className="hint">Wird geladen …</p>;
+
+// Andere nachgeladene Teile (z. B. Word- oder PDF-Erzeugung) einer inzwischen ersetzten Version: Hinweis statt stiller Fehler,
+// kein automatisches Neuladen, damit Eingaben auf der Seite nicht verloren gehen
+// (der Fehler läuft weiter: Seitenwechsel fangen ihn in nachladen() ab und laden neu)
+window.addEventListener("vite:preloadError", () => {
+  toast.info("Es gibt eine neue Version des KI-Hubs. Bitte die Seite neu laden.", { duration: 15_000, action: { label: "Neu laden", onClick: () => location.reload() } });
+});
 import { FehlerPage, NotFoundPage } from "@/pages/NotFoundPage";
 import "./index.css";
 
