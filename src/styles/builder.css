@@ -60,8 +60,9 @@
 /* ===== Nachbesserungen aus dem Audit (A3/A4) ===== */
 /* KI-Assistent: Inhalt scrollt in sich, Vorschläge einzeilig wischbar, „Umsetzen“ als feste Fußzeile – immer sichtbar */
 .bld-mitte > .ai-box .ai-inhalt { overflow: auto; overscroll-behavior: contain; scrollbar-width: thin; }
-.bld-mitte > .ai-box .ai-sugg { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
-.bld-mitte > .ai-box .ai-sugg button { white-space: nowrap; flex: none; }
+/* Vorschläge: genau eine Zeile; was nicht ganz passt, rutscht in die verborgene zweite Zeile, statt angeschnitten zu werden */
+.bld-mitte > .ai-box .ai-sugg { --chip-h: 30px; flex-wrap: wrap; height: var(--chip-h); overflow: hidden; align-content: flex-start; }
+.bld-mitte > .ai-box .ai-sugg button { height: var(--chip-h); white-space: nowrap; flex: none; max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
 .bld-mitte > .ai-box .ai-aktion { position: sticky; bottom: 0; z-index: 1; background: var(--surface); padding-top: 2px; }
 .ai-head h2 { font-size: 18px; margin: 0; }
 .ai-umsetzen svg { color: var(--signal); }
@@ -97,6 +98,7 @@
   .srow-head [data-size="icon-sm"], .agent-row [data-size="icon-sm"], .qrow [data-size="icon-sm"] { width: 40px; height: 40px; }
   .srow-head input[data-slot="input"] { height: 40px; }
   .ki-steps button, .s-tab, .s-add, .var, .ai-sugg button, .bld-bereiche button, .ki-bereiche button { min-height: 40px; }
+  .bld-mitte > .ai-box .ai-sugg { --chip-h: 40px; }
   .ki [data-slot="toggle-group-item"], .insp [data-slot="toggle-group-item"], .ai-box [data-slot="toggle-group-item"] { min-height: 40px; }
   .agent-row { grid-template-columns: 160px minmax(0, 1fr) 40px; }
   .qrow { grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr) minmax(0, 1.6fr) 40px; }

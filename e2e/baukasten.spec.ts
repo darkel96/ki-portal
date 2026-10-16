@@ -145,3 +145,17 @@ test("Grundgerüste: ohne offene Punkte, öffnen im Baukasten mit geführtem Sta
   await f.getByRole("button", { name: "Hilfe ausblenden" }).click();
   await expect(f).toHaveCount(0);
 });
+
+test("KI-Assistent: Vorschläge nie angeschnitten", async ({ page }, info) => {
+  test.skip(info.project.name !== "desktop", "einmal reicht");
+  await page.addInitScript(() => localStorage.setItem("kihub-anthropic-key", "sk-ant-test"));
+  for (const w of [1440, 1100]) {
+    await page.setViewportSize({ width: w, height: 900 });
+    await page.goto("/baukasten");
+    const box = page.locator(".ai-sugg");
+    await expect(box).toBeVisible();
+    const r = await box.evaluate((el) => { const b = el.getBoundingClientRect(); return [...el.querySelectorAll("button")].map((x) => { const c = x.getBoundingClientRect(); return { sichtbar: c.top < b.bottom - 1, ganz: c.right <= b.right + 0.5 }; }); });
+    expect(r.filter((x) => x.sichtbar).length).toBeGreaterThan(0);
+    for (const x of r) if (x.sichtbar) expect(x.ganz).toBe(true);
+  }
+});

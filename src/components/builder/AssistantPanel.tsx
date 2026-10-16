@@ -11,12 +11,13 @@ import type { App } from "@/lib/schema";
 import type { AssistScope } from "@/lib/sanitize";
 import type { Builder } from "./useBuilder";
 
+/** Kurze zuerst: In die eine Zeile passen so mehr Vorschläge */
 const VORSCHLAEGE = [
-  "Lies die hochgeladene Datei und lass die Werte auf einer Prüfseite mit Auswahlfeldern bestätigen",
-  "Erzeuge am Ende ein ZIP mit Ordnerstruktur und den Originalvorlagen aus SharePoint",
   "Verteile die Eingaben auf zwei Seiten",
   "Gestalte es seriös in Dunkelblau mit runden Ecken",
   "Mach daraus ein Agenten-Team aus Planer, Fachexperte und Prüfer",
+  "Lies die hochgeladene Datei und lass die Werte auf einer Prüfseite mit Auswahlfeldern bestätigen",
+  "Erzeuge am Ende ein ZIP mit Ordnerstruktur und den Originalvorlagen aus SharePoint",
 ];
 /** Wortlaut der Erfolgsmeldung je Umfang: „Nur Design“ darf keine Strukturänderungen behaupten. */
 const UMFANG: Record<AssistScope, string> = { alles: "Umgebaut", ui: "Nur Oberfläche übernommen", design: "Nur Gestaltung übernommen" };
@@ -101,7 +102,7 @@ export function AssistantPanel({ b, a }: { b: Builder; a: Assist }) {
         onKeyDown={(e) => { if ((e.ctrlKey || e.metaKey) && e.key === "Enter" && wunsch.trim()) { e.preventDefault(); void umsetzen(); } }} aria-keyshortcuts="Control+Enter"
         placeholder="z. B. Mach daraus ein Formular für Reisekosten mit Datum, Ziel, Betrag und Beleg-Upload. Oben ein Hinweis zum Datenschutz, Akzentfarbe Dunkelblau …" />
       {/* Vorschläge nur, solange das Feld leer ist: Sie füllen es ohnehin nur vor und kosten sonst Platz */}
-      {!wunsch.trim() && <div className="ai-sugg">{VORSCHLAEGE.map((v) => <button key={v} type="button" disabled={laeuft} onClick={() => patch({ wunsch: v })}>{v}</button>)}</div>}
+      {!wunsch.trim() && <div className="ai-sugg">{VORSCHLAEGE.map((v) => <button key={v} type="button" title={v} disabled={laeuft} onClick={() => patch({ wunsch: v })}>{v}</button>)}</div>}
       {/* Feste Fußzeile im Klappbereich: „Umsetzen“ bleibt auch bei langem Wunsch und niedrigem Fenster sichtbar */}
       <div className="ai-aktion flex flex-wrap items-center gap-3">
         {wunsch.trim() && <ToggleGroup type="single" variant="outline" size="sm" value={scope} disabled={laeuft} onValueChange={(v) => v && patch({ scope: v as AssistScope })} aria-label="Was darf die KI ändern?" className="flex-wrap">
