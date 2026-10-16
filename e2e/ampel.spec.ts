@@ -162,3 +162,36 @@ test("Mitwachsen gilt auch auf vollen Seiten (Verdichtung deckelt keine Textfeld
   const [h, sh] = await ta.evaluate((el) => [el.clientHeight, el.scrollHeight]);
   expect(sh - h).toBeLessThanOrEqual(2);
 });
+
+test("Ampel: „Bitte prüfen“ bleibt beim Scrollen oben, angesprungene Felder liegen frei darunter", async ({ page }, info) => {
+  const ST = ["Sicher", "Unsicher", "Widersprüchlich"];
+  const felder = Array.from({ length: 12 }, (_, i) => [
+    { id: `t${i}`, type: "textarea", props: { key: `inhalt${i}`, label: `Kapitel ${i + 1}`, rows: 4 } },
+    { id: `s${i}`, type: "select", props: { key: `s_inhalt${i}`, label: `Status Kapitel ${i + 1}`, optionen: ST } },
+  ]).flat();
+  const app = {
+    id: "ampel-lang", name: "Prüfung lang", bereich: "Test", status: "freigegeben", version: 1,
+    steps: [{ id: "s1", key: "bericht", name: "Bericht", prompt: "Schreib" }],
+    blocks: [{ id: "p1", type: "seite", props: { titel: "Prüfen" }, children: felder },
+      { id: "p2", type: "seite", props: { titel: "Bericht" }, children: [{ id: "o1", type: "output", props: { titel: "Bericht", quelle: "s1" } }] }],
+  };
+  await page.addInitScript((a) => localStorage.setItem("kihub-apps-v3", JSON.stringify([a])), app);
+  await page.goto("/app/ampel-lang");
+  await page.getByLabel("Status Kapitel 1", { exact: true }).selectOption("Widersprüchlich");
+  await page.getByLabel("Status Kapitel 12").selectOption("Unsicher");
+  const summe = page.locator(".o-ampel-summe");
+  await expect(summe).toContainText("Bitte prüfen: 1 Widerspruch, 1 unsicher");
+  const blatt = page.locator(".app-inner.innen-scroll");
+  await blatt.evaluate((el) => el.scrollTo({ top: el.scrollHeight }));
+  // Nach ganz unten gescrollt: die Leiste steht weiter oben im sichtbaren Bereich
+  const oben = await blatt.boundingBox(), leiste = await summe.boundingBox();
+  expect(leiste!.y).toBeGreaterThanOrEqual(oben!.y - 1);
+  expect(leiste!.y).toBeLessThan(oben!.y + 20);
+  await expect(summe).toBeInViewport();
+  await page.screenshot({ path: `screenshots/${info.project.name}-ampel-sticky.png` });
+  // Sprung zum ersten Kapitel: das Feld liegt unter der Leiste, nicht dahinter
+  await summe.getByRole("button", { name: "Kapitel 1", exact: true }).click();
+  const ziel = page.getByLabel("Status Kapitel 1", { exact: true });
+  await expect(ziel).toBeFocused();
+  await expect.poll(async () => { const z = await ziel.boundingBox(), l = await summe.boundingBox(); return z!.y >= l!.y + l!.height; }).toBe(true);
+});
