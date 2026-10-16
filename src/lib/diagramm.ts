@@ -153,7 +153,8 @@ export function gestalten(svg: SVGSVGElement, code = ""): void {
     });
   });
   const vb = svg.viewBox.baseVal;
-  if (vb?.width) { svg.style.width = `${Math.round(vb.width)}px`; svg.style.maxWidth = "100%"; svg.style.height = "auto"; }
+  // Im Chat kleiner (--dia-mass), damit mehr vom Ablauf auf einmal zu sehen ist
+  if (vb?.width) { svg.style.width = `calc(${Math.round(vb.width)}px * var(--dia-mass, 1))`; svg.style.maxWidth = "100%"; svg.style.height = "auto"; }
 }
 
 /** SVG als eigenständige Datei: mit Namensraum und fester Größe */
@@ -281,6 +282,16 @@ function aktionen(fig: HTMLElement, svg: SVGSVGElement | null, quelle: { name: s
       knopf("PNG", `${titel || "Diagramm"} als PNG herunterladen`, async () => { const s = svgDatei(svg); await saveFile(`${name}.png`, await svgAlsPng(s.text, s.breite, s.hoehe), "image/png"); }),
       knopf("draw.io", `${titel || "Diagramm"} als draw.io-Datei herunterladen`, () => saveFile(`${name}.drawio`, alsDrawio(svg, titel), "application/vnd.jgraph.mxfile")),
     );
+  }
+  // Im Chat: zwischen kompakter und voller Größe umschalten
+  if (svg && fig.closest(".o-chat")) {
+    const gross = knopf("Größer", `${titel || "Diagramm"} größer anzeigen`, () => {
+      const an = fig.toggleAttribute("data-gross");
+      gross.textContent = an ? "Kleiner" : "Größer";
+      gross.setAttribute("aria-label", `${titel || "Diagramm"} ${an ? "kleiner" : "größer"} anzeigen`);
+    });
+    gross.classList.add("o-diagramm-zoom");
+    leiste.prepend(gross);
   }
   if (quelle) leiste.append(knopf(quelle.name, `${titel || "Diagramm"} als ${quelle.name} herunterladen`, () => saveFile(`${name}.${quelle.endung}`, quelle.text, "text/plain;charset=utf-8")));
   fig.append(leiste);

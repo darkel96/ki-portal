@@ -6,7 +6,7 @@ const FONTS: Record<Theme["font"], string> = { sans: "var(--k-font-body)", serif
 const HEADS: Record<Theme["font"], string> = { sans: "var(--k-font-display)", serif: '"Source Serif 4", Georgia, serif', display: "var(--k-font-display)", mono: "var(--k-font-mono)" };
 // Standard „m“ wie die Karten im KSCA-Portal (Charlestown)
 const RADIUS: Record<Theme["radius"], string> = { s: "2px", m: "10px", l: "18px" };
-const WIDTH: Record<Theme["width"], string> = { s: "760px", m: "1600px", l: "100%" };
+const WIDTH: Record<Theme["width"], string> = { s: "760px", m: "1920px", l: "100%" };
 
 export function themeStyle(t: Theme): CSSProperties {
   const ink = inkFor(t.bg);
