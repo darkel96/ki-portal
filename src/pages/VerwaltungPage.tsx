@@ -8,6 +8,8 @@ import { RECHTE, RECHT_LABEL, istFesterAdmin, lokalerRechteStore, rechteStore, t
 import { browserOrdner, browserOrdnerSetzen, ordnerPruefen, speicherKonfig, type SpeicherKonfig } from "@/lib/speicher";
 import { appStore, lokalerAppStore } from "@/lib/store";
 import { useApps } from "@/state/apps";
+import { SEED_APPS } from "@/lib/seeds";
+import type { HubApp } from "@/lib/schema";
 
 /** Verwaltung: angemeldete Personen und ihre Rechte im Portal (nur für die Verwaltung sichtbar). */
 export function VerwaltungPage() {
@@ -33,7 +35,7 @@ export function VerwaltungPage() {
   const entfernen = (i: number) => setNutzer((v) => v.filter((_, k) => k !== i));
   const speichern = async () => {
     setLaeuft(true);
-    try { await r.speichern({ nutzer }); toast.success("Rechte gespeichert."); }
+    try { await r.speichern({ ...r.stand, nutzer }); toast.success("Rechte gespeichert."); }
     catch (e) { toast.error(e instanceof Error ? e.message : "Speichern fehlgeschlagen."); }
     finally { setLaeuft(false); }
   };
@@ -96,6 +98,7 @@ export function VerwaltungPage() {
         <span className="hint">Gespeichert in: {r.speicherName}</span>
         <Button className="rounded-full" disabled={!geaendert || laeuft} onClick={() => void speichern()}>{laeuft ? "Speichert …" : "Rechte speichern"}</Button>
       </div>
+      <AppsBereich />
       <SpeicherBereich />
       </div>
     </>
@@ -117,6 +120,63 @@ export function KeineRechte({ was }: { was: string }) {
 }
 
 /** Gemeinsamer Speicher: SharePoint-Ordner prüfen, im eigenen Browser verwenden, Daten aus dem Browser übernehmen */
+const STATUS_TEXT: Record<HubApp["status"], string> = { entwurf: "Entwurf", pruefung: "In Prüfung", freigegeben: "Freigegeben", gesperrt: "Gesperrt" };
+
+/** Alle Applikationen an einem Ort: öffnen, bearbeiten, sperren, löschen; mitgelieferte Vorlagen übernehmen, ausblenden und wieder einblenden */
+function AppsBereich() {
+  const r = useRechte();
+  const { apps, save, remove } = useApps();
+  const [bestaetigen, setBestaetigen] = useState<string | null>(null);
+  const [laeuft, setLaeuft] = useState("");
+  const tun = async (id: string, was: () => Promise<unknown>, meldung: string) => {
+    setLaeuft(id);
+    try { await was(); toast.success(meldung); }
+    catch (e) { toast.error(e instanceof Error ? e.message : "Das hat nicht geklappt."); }
+    finally { setLaeuft(""); setBestaetigen(null); }
+  };
+  const sperren = (a: HubApp, zu: boolean) => tun(a.id!, () => save({ ...a, status: zu ? "gesperrt" : "freigegeben" }), zu ? `„${a.name}“ gesperrt.` : `„${a.name}“ freigegeben.`);
+  const loeschen = (a: HubApp) => tun(a.id!, () => remove(a.id!), `„${a.name}“ gelöscht.`);
+  const ausblenden = (a: HubApp) => tun(a.id!, () => r.speichern({ ...r.stand, ausgeblendet: [...new Set([...r.stand.ausgeblendet, a.id!])] }), `„${a.name}“ aus dem Hub genommen.`);
+  const einblenden = (id: string, name: string) => tun(id, () => r.speichern({ ...r.stand, ausgeblendet: r.stand.ausgeblendet.filter((x) => x !== id) }), `„${name}“ ist wieder im Hub.`);
+  const versteckt = SEED_APPS.filter((a) => r.stand.ausgeblendet.includes(a.id ?? "") && !apps.some((x) => x.id === a.id && x._src === "eigene"));
+  const liste = [...apps].sort((a, b) => (a._src === b._src ? a.name.localeCompare(b.name, "de") : a._src === "eigene" ? -1 : 1));
+  return (
+    <section className="rv-apps" aria-labelledby="apps-titel">
+      <h2 id="apps-titel">Applikationen</h2>
+      <p className="hint" style={{ margin: 0 }}>Eigene Applikationen lassen sich hier bearbeiten, sperren und löschen. Mitgelieferte Vorlagen übernimmst du unter ihrem Namen (die bearbeitete Fassung ersetzt dann das Original) oder nimmst sie aus dem Hub.</p>
+      <div className="rv-tabelle" role="region" aria-label="Applikationen"><table>
+        <thead><tr><th>Applikation</th><th>Bereich</th><th>Herkunft</th><th>Status</th><th>Aktionen</th></tr></thead>
+        <tbody>
+          {liste.map((a) => {
+            const eigene = a._src === "eigene", gesperrt = a.status === "gesperrt", id = a.id ?? "";
+            return (
+              <tr key={id} data-status={a.status}>
+                <td><Link to={`/app/${id}`}>{a.name}</Link></td>
+                <td>{a.bereich}</td>
+                <td>{eigene ? "Eigene" : "Vorlage"}</td>
+                <td><span className="status" data-s={eigene ? a.status : "freigegeben"}>{eigene ? STATUS_TEXT[a.status] : "Vorlage"}</span></td>
+                <td className="rv-aktionen">
+                  <Button asChild variant="outline" size="sm" className="rounded-full"><Link to={`/baukasten/${id}`}>{eigene ? "Bearbeiten" : "Übernehmen und bearbeiten"}</Link></Button>
+                  {eigene && <Button variant="outline" size="sm" className="rounded-full" disabled={laeuft === id} onClick={() => void sperren(a, !gesperrt)}>{gesperrt ? "Entsperren" : "Sperren"}</Button>}
+                  {bestaetigen === id
+                    ? <><Button variant="destructive" size="sm" className="rounded-full" disabled={laeuft === id} onClick={() => void (eigene ? loeschen(a) : ausblenden(a))}>{eigene ? "Wirklich löschen" : "Wirklich aus dem Hub nehmen"}</Button><Button variant="ghost" size="sm" className="rounded-full" onClick={() => setBestaetigen(null)}>Abbrechen</Button></>
+                    : <Button variant="ghost" size="sm" className="rounded-full" onClick={() => setBestaetigen(id)}>{eigene ? "Löschen" : "Aus dem Hub nehmen"}</Button>}
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table></div>
+      {versteckt.length > 0 && (
+        <div className="rv-speicher-zeile">
+          <span className="hint">Aus dem Hub genommene Vorlagen:</span>
+          {versteckt.map((a) => <Button key={a.id} variant="outline" size="sm" className="rounded-full" disabled={laeuft === a.id} onClick={() => void einblenden(a.id!, a.name)}>{a.name}: wieder einblenden</Button>)}
+        </div>
+      )}
+    </section>
+  );
+}
+
 function SpeicherBereich() {
   const r = useRechte();
   const apps = useApps();
@@ -154,7 +214,7 @@ function SpeicherBereich() {
         const i = nutzer.findIndex((x) => x.email.toLowerCase() === n.email.toLowerCase());
         if (i < 0) nutzer.push(n); else nutzer[i] = { ...nutzer[i], rechte: [...new Set([...nutzer[i].rechte, ...n.rechte])] };
       }
-      await rechteStore.speichern({ nutzer });
+      await rechteStore.speichern({ ...sp, nutzer });
       await neuLaden();
       toast.success(`${liste.length} Applikation${liste.length === 1 ? "" : "en"} und ${lok.nutzer.length} Rechte-Einträge übernommen.`);
     } catch (e) { toast.error(e instanceof Error ? e.message : "Übernehmen fehlgeschlagen."); }

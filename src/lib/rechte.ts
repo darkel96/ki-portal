@@ -27,7 +27,8 @@ export const NutzerSchema = z.object({
   rechte: z.array(z.enum(RECHTE)).default([]),
 });
 export type Nutzer = z.output<typeof NutzerSchema>;
-export const RechteStandSchema = z.object({ nutzer: z.array(NutzerSchema).default([]) });
+/** ausgeblendet: IDs mitgelieferter Vorlagen, die die Verwaltung aus dem Hub genommen hat (lassen sich wieder einblenden) */
+export const RechteStandSchema = z.object({ nutzer: z.array(NutzerSchema).default([]), ausgeblendet: z.array(z.string().max(80)).default([]) });
 export type RechteStand = z.output<typeof RechteStandSchema>;
 
 /** Angemeldete Person (aus Entra ID oder Testperson) */
@@ -99,7 +100,7 @@ const LS_ANM = "kihub-anmeldungen";
 const heute = () => new Date().toISOString().slice(0, 10);
 
 class LokalerRechteStore implements RechteStore {
-  async laden() { try { return RechteStandSchema.parse(JSON.parse(localStorage.getItem(LS_KEY) || "{}")); } catch { return { nutzer: [] }; } }
+  async laden() { try { return RechteStandSchema.parse(JSON.parse(localStorage.getItem(LS_KEY) || "{}")); } catch { return { nutzer: [], ausgeblendet: [] }; } }
   async speichern(s: RechteStand) { localStorage.setItem(LS_KEY, JSON.stringify(s)); }
   async anmeldungen(): Promise<Anmeldung[]> { try { const v = JSON.parse(localStorage.getItem(LS_ANM) || "[]"); return Array.isArray(v) ? v : []; } catch { return []; } }
   async vermerken(ich: Identitaet) {

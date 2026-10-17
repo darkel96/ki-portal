@@ -173,7 +173,8 @@ export const AppSchema = z.object({
   wissen: WissenSchema.default({ modus: "eingaben", text: "", quellen: [] }),
   blocks: z.array(BlockSchema).default([]),
   steps: z.array(StepSchema).max(10).default([]),
-  status: z.enum(["entwurf", "pruefung", "freigegeben"]).default("entwurf"),
+  /** gesperrt: nur noch für Personen mit Bearbeiten-Recht zu öffnen (Entsperren setzt „freigegeben“) */
+  status: z.enum(["entwurf", "pruefung", "freigegeben", "gesperrt"]).default("entwurf"),
   /** „Weiter“ erst, wenn die Pflichtfelder der aktuellen Seite ausgefüllt sind */
   pflichtSperre: z.boolean().default(true),
   owner: z.string().max(120).default(""),

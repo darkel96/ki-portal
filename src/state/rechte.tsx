@@ -25,7 +25,7 @@ const Ctx = createContext<RechteCtx | null>(null);
 
 export function RechteProvider({ children }: { children: ReactNode }) {
   const [ich, setIch] = useState<Identitaet | null>(null);
-  const [stand, setStand] = useState<RechteStand>({ nutzer: [] });
+  const [stand, setStand] = useState<RechteStand>({ nutzer: [], ausgeblendet: [] });
   const [personen, setPersonen] = useState<Nutzer[]>([]);
   const [geladen, setGeladen] = useState(false);
   const [name, setName] = useState("Dieser Browser");
@@ -33,7 +33,7 @@ export function RechteProvider({ children }: { children: ReactNode }) {
 
   const neuLaden = useCallback(async () => {
     const person = await identitaetLaden();
-    let s: RechteStand = { nutzer: [] };
+    let s: RechteStand = { nutzer: [], ausgeblendet: [] };
     const f = await festeRechteLaden().catch(() => ({}));
     try { s = await rechteStore.laden(); } catch (e) { console.warn("Rechte nicht geladen:", e); }
     // Anmeldung vermerken (eigene Datei je Person), damit die Verwaltung sie sieht; Fehler ohne Folgen

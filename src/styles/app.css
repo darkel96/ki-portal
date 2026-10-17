@@ -166,6 +166,13 @@ a.tile:hover .tile-go svg { transform: translateX(5px); }
 .status::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
 .status[data-s="entwurf"] { color: var(--muted-ink); }
 .status[data-s="pruefung"] { color: var(--tool-text); }
+.status[data-s="gesperrt"] { color: var(--danger); }
+/* Verwaltung: Bereich „Applikationen“; die Seite ist eine rollende Spalte, deshalb darf kein Bereich auf Null schrumpfen */
+.rv > * { flex-shrink: 0; }
+.rv-apps { display: grid; gap: 12px; }
+.rv-apps td { vertical-align: middle; }
+.rv-aktionen { display: flex; flex-wrap: wrap; gap: 6px; }
+.rv-apps tr[data-status="gesperrt"] td:first-child a { color: var(--danger); }
 .tile-go { display: inline-flex; align-items: center; gap: 8px; color: var(--muted-ink); white-space: nowrap; overflow: hidden; }
 .tile-go svg { color: var(--brand); flex: none; transition: transform .18s ease; }
 @media (max-width: 560px) { .tile { padding: 12px 14px; gap: 8px; } .tile-desc { display: none; } .mono { width: 36px; height: 36px; font-size: 13px; } .tile-foot { padding-top: 8px; } }

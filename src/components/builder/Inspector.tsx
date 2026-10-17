@@ -14,7 +14,7 @@ import type { Builder } from "./useBuilder";
 import { useRechte } from "@/state/rechte";
 
 const ALIGN: ["left" | "center" | "right", string][] = [["left", "Links"], ["center", "Mitte"], ["right", "Rechts"]];
-const STATUS: [App["status"], string][] = [["entwurf", "Entwurf"], ["pruefung", "In Prüfung"], ["freigegeben", "Freigegeben"]];
+const STATUS: [App["status"], string][] = [["entwurf", "Entwurf"], ["pruefung", "In Prüfung"], ["freigegeben", "Freigegeben"], ["gesperrt", "Gesperrt"]];
 const SCHUTZ: [App["schutz"], string][] = [["oeffentlich", "Öffentlich"], ["intern", "Intern"], ["vertraulich", "Vertraulich"]];
 
 function AppSettings({ b, alleBereiche }: { b: Builder; alleBereiche: string[] }) {
