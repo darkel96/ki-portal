@@ -10,6 +10,20 @@ const APP = {
   blocks: [{ id: "p1", type: "seite", props: { titel: "Chat" }, children: [{ id: "c1", type: "chat", props: { titel: "Experte", quelle: "s1", begruessung: "Frag mich.", platzhalter: "Frage …" } }] }],
 };
 
+test("Häufige Fragen gehen als Wissen in die Anfrage", async ({ page }, info) => {
+  test.skip(info.project.name !== "desktop", "einmal reicht");
+  await page.goto("/");
+  const system = await page.evaluate(async (app) => {
+    const rq = await import("/src/lib/request.ts");
+    const s = await import("/src/lib/sanitize.ts");
+    const a = s.loadApp(app)!;
+    return rq.buildRequest(a, a.steps[0], {}).system;
+  }, APP);
+  expect(system).toContain("Freigegebene häufige Fragen");
+  expect(system).toContain("Frage: Welche Pflichten haben Hersteller?");
+  expect(system.indexOf("Wissensgrenze:")).toBeLessThan(system.indexOf("Freigegebene häufige Fragen"));
+});
+
 async function kiNachbau(page: Page) {
   const prompts: string[] = [];
   await page.route("https://api.anthropic.com/**", async (route) => {

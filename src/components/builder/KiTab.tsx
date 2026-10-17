@@ -211,15 +211,11 @@ function StepCard({ b, i, onAktiv }: { b: Builder; i: number; onAktiv: (id: stri
             options={[["app", `Wie die App (${WISSEN_MODUS_LABEL[b.app.wissen.modus]})`], ...(Object.entries(WISSEN_MODUS_LABEL) as [Step["wissenModus"], string][])]} />
           <p className="hint" style={{ margin: 0 }}>Der Modus der App steht in den App-Einstellungen unter „Wissen“, zusammen mit Quellen und Hintergrundwissen für alle Schritte. Hier kommt dazu, was nur dieser Schritt braucht.</p>
           <TextFld label="Hintergrundwissen nur für diesen Schritt" multiline rows={4} value={s.wissen} placeholder="Feste Informationen, die die KI in diesem Schritt kennen soll …" onChange={(v) => set("wissen", v, true)} />
-          {b.app.wissen.quellen.length > 0 && (
-            <div className="box neutral" role="region" aria-label="Quellen der App">
-              <span className="text-[13px] font-semibold">Quellen der App (gelten für alle Schritte, auch diesen)</span>
-              <ul className="ki-appquellen">
-                {b.app.wissen.quellen.map((q, k) => <li key={k}><b>{q.titel || q.url}</b>{q.url && <span className="hint" style={{ margin: 0, wordBreak: "break-all" }}>{q.url}</span>}</li>)}
-              </ul>
-              <p className="hint" style={{ margin: 0 }}>Bearbeiten unter „Oberfläche“ → App-Einstellungen (nichts auf der Fläche gewählt) → Reiter „Wissen“.</p>
-            </div>
-          )}
+          <div className="box neutral" role="region" aria-label="Quellen der App">
+            <span className="text-[13px] font-semibold">Quellen der App (gelten für alle Schritte, auch diesen)</span>
+            <QuellenEditor id={`aq-${s.id}`} quellen={b.app.wissen.quellen} onChange={(q) => b.change((d) => { d.wissen.quellen = q; }, "wissen-quellen")} />
+            <p className="hint" style={{ margin: 0 }}>Dieselbe Liste wie unter „Oberfläche“ → App-Einstellungen → „Wissen“.</p>
+          </div>
           <span className="lbl">Wissensquellen nur für diesen Schritt</span>
           <QuellenEditor id={`sq-${s.id}`} quellen={s.quellen} onChange={(q) => b.change((d) => { d.steps[i].quellen = q; }, `${s.id}:quellen`)} />
           <p className="hint" style={{ margin: 0 }}>SharePoint-Bereiche und einzelne Dateien liest der Hub vor dem Aufruf aus und gibt passende Auszüge mit; bei Dateipaketen ist ein SharePoint-Ordner die Quelle für kopierte Vorlagen. Webseiten bleiben ein Hinweis an die KI.</p>

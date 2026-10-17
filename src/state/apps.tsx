@@ -38,9 +38,11 @@ export function AppsProvider({ children }: { children: ReactNode }) {
 
   const apps = useMemo<HubApp[]>(() => {
     const own = [...eigene].sort((a, b) => b.geaendert.localeCompare(a.geaendert)).map((a) => ({ ...a, _src: "eigene" as const }));
-    // Eine übernommene Vorlage (eigene App mit derselben ID) ersetzt das mitgelieferte Original; ausgeblendete Vorlagen fehlen
-    const weg = new Set(stand.ausgeblendet), eigeneIds = new Set(own.map((a) => a.id));
-    return [...own, ...SEED_APPS.filter((a) => !weg.has(a.id ?? "") && !eigeneIds.has(a.id))];
+    // Eine übernommene Vorlage ersetzt das mitgelieferte Original: eigene App mit derselben ID oder demselben Namen
+    // (eine frühere Kopie, zurückbenannt); ausgeblendete Vorlagen fehlen
+    const norm = (s: string) => s.trim().toLowerCase().replace(/\s*\(kopie\)$/, "");
+    const weg = new Set(stand.ausgeblendet), eigeneIds = new Set(own.map((a) => a.id)), eigeneNamen = new Set(own.map((a) => norm(a.name)));
+    return [...own, ...SEED_APPS.filter((a) => !weg.has(a.id ?? "") && !eigeneIds.has(a.id) && !eigeneNamen.has(norm(a.name)))];
   }, [eigene, stand.ausgeblendet]);
 
   const save = useCallback(async (app: App) => {

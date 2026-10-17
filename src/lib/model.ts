@@ -317,7 +317,7 @@ export function appWarnings(app: App): Warnung[] {
     if (!s.name.trim()) hard(`„${nm}“ braucht einen Namen.`);
     // Ein Chat-Experte bekommt dazu die Frage und den bisherigen Verlauf
     const avail = new Set([...fieldKeys, ...zusatzKeys(app), ...app.steps.slice(0, i).map((x) => x.key), ...(chat.has(s.id) ? CHAT_KEYS : [])]);
-    for (const k of varsIn(stepText(s))) if (!avail.has(k)) hard(`„${nm}“ nutzt {{${k}}}. Diese Variable gibt es an dieser Stelle nicht.`);
+    for (const k of varsIn(stepText(s))) if (!avail.has(k)) hard(`„${nm}“ nutzt {{${k}}}. Diese Variable gibt es an dieser Stelle nicht: Eingabe mit diesem Namen anlegen, den Platzhalter aus der Aufgabe nehmen oder den Schritt löschen (Papierkorb neben dem Schrittnamen), wenn die App keine KI-Aufgabe braucht.`);
     if (!s.prompt.trim()) hard(`„${nm}“ hat noch keine Aufgabe.`);
     if (s.bedingung?.feld && !fieldKeys.includes(s.bedingung.feld)) hard(`Die Bedingung von „${nm}“ verweist auf ein Feld, das es nicht mehr gibt.`);
     if (s.quellen.some((q) => !q.url.trim())) soft(`„${nm}“ hat eine Wissensquelle ohne Adresse.`);

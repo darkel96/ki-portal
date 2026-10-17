@@ -21,6 +21,15 @@ test("Vorlage übernehmen: bearbeitete Fassung ersetzt das Original unter dersel
   await expect(page.locator(".rv-apps tr", { hasText: "Fachexperte Cyber Resilience Act" })).toContainText("Eigene");
 });
 
+test("Eigene App mit dem Namen einer Vorlage ersetzt die Vorlage in der Übersicht", async ({ page }, info) => {
+  test.skip(info.project.name !== "desktop", "einmal reicht");
+  const app = { id: "app-eigen1", name: "Meeting-Protokoll", bereich: "Allgemein", status: "freigegeben", version: 1, steps: [], blocks: [{ id: "p1", type: "seite", props: { titel: "Start" }, children: [] }] };
+  await page.addInitScript((a) => localStorage.setItem("kihub-apps-v3", JSON.stringify([a])), app);
+  await page.goto("/");
+  await expect(page.getByRole("link", { name: /Meeting-Protokoll/ })).toHaveCount(1);
+  await expect(page.getByRole("link", { name: /Meeting-Protokoll/ })).toHaveAttribute("href", /app-eigen1/);
+});
+
 test("Sperren: nur Bearbeitende sehen die App, Verwaltung listet alle Apps", async ({ page }, info) => {
   test.skip(info.project.name !== "desktop", "einmal reicht");
   const app = { id: "sperr-app", name: "Sperrtest", bereich: "Allgemein", status: "freigegeben", version: 1, steps: [], erstelltVon: "chef@firma.de",

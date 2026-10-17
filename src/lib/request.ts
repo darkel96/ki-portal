@@ -2,7 +2,7 @@ import type { App, Quelle, Step, WissenModus } from "./schema";
 import { fieldsOf, fill, varsIn, vorbelegtVon } from "./model";
 import { DATEI_ART, DATEI_HINWEIS, dateiWunsch, type DateiArt } from "./dokument";
 import { PRUEF_HINWEIS, istStatusFeld } from "./ampel";
-import { hausregelnBlock } from "./lernen";
+import { faqBlock, hausregelnBlock } from "./lernen";
 
 export const FORMAT_LABEL: Record<Step["format"], string> = {
   markdown: "Formatierter Text", text: "Schlichter Text", json: "JSON-Daten", dateien: "Dateipaket (ZIP)",
@@ -112,6 +112,8 @@ export function systemText(app: AppWissen, step: Step, wissenText: string): stri
     WISSEN_TEXT[w.modus],
     // Hausregeln erst nach der Wissensgrenze: Sie sind Kontext (Begriffe, Tonfall), kein Wissen und kein Grund, die Auszüge zu übergehen
     hausregelnBlock(step),
+    // Freigegebene häufige Fragen sind dagegen Wissen (bestätigte Antworten mit Quellen)
+    faqBlock(step),
     FORMAT_HINT[step.format],
     vorlageText(step),
   ].filter(Boolean).join("\n\n");
