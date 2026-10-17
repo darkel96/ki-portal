@@ -10,3 +10,6 @@ dist-artifact
 *.tsbuildinfo
 .claude/settings.local.json
 screenshots/audit/
+daten/
+server/dist
+server/.env

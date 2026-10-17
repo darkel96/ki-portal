@@ -9,11 +9,12 @@
  * Andere Adressen (Freigabelinks, OneDrive) gehen über die Graph-API „shares“.
  */
 import { graphToken } from "./auth";
+import { KI_CONFIG } from "./config";
 import { kiModus } from "./index";
 
 export type Vorlage = { pfad: string; groesse: number; hash?: string; doppelt?: string };
 
-const GRAPH = "https://graph.microsoft.com/v1.0";
+const GRAPH = `${KI_CONFIG.graph}/v1.0`;
 /** Ordner mit „Archiv“ im Namen werden nie als Quelle genutzt */
 const ARCHIV = /archiv|archive/i;
 const MAX_DATEIEN = 400;

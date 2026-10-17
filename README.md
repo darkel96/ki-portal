@@ -28,8 +28,15 @@ Werte in `.env.local` eintragen (Vorlage: [.env.example](.env.example)):
 | `VITE_GRAPH_SCOPES` | Delegierte Graph-Berechtigungen, durch Leerzeichen getrennt; leer = die sieben der Copilot-Chat-API (siehe unten) |
 | `VITE_SP_ORDNER_URL` | Gemeinsamer Speicher: Adresse eines SharePoint-Ordners (leer = Browser bzw. `public/hub-config.json`) |
 | `VITE_ADMINS` | Feste Verwaltung, E-Mails mit Komma (Standard `dario.keller@koerber.com`) |
+| `VITE_DIENST_URL` | Adresse des Hub-Dienstes, wenn er den Hub nicht selbst ausliefert (sonst `public/hub-config.json` → `dienst.url`) |
 
 In der App-Registrierung als Redirect-URI (Typ „Single-page application“) `https://<host>/auth-redirect.html` eintragen.
+
+## Hub-Dienst: Läufe ohne offenen Tab
+
+Mit dem Hub-Dienst (`server/`) laufen Läufe und Aufträge auf dem eigenen Linux-Server weiter, auch wenn der Tab
+geschlossen oder der PC aus ist; Aufträge laufen nach Zeitplan und gehen auf Wunsch per E-Mail raus. Einrichtung,
+Azure-Schritte und Betrieb: [SERVER.md](SERVER.md). Ohne Dienst läuft alles wie bisher im Browser.
 
 ## Anmeldung (Betrieb mit Copilot)
 

@@ -5,9 +5,10 @@
  * Files.ReadWrite.AppFolder (nur dieser Ordner, nicht die ganzen Dateien der Person).
  */
 import { graphToken } from "./auth";
+import { KI_CONFIG } from "./config";
 import { copilotVerbindung } from "./config";
 
-const GRAPH = "https://graph.microsoft.com/v1.0";
+const GRAPH = `${KI_CONFIG.graph}/v1.0`;
 export const ONEDRIVE_SCOPE = "https://graph.microsoft.com/Files.ReadWrite.AppFolder";
 const ENDUNG: Record<string, string> = { "image/webp": "webp", "image/png": "png", "image/jpeg": "jpg", "image/gif": "gif", "image/svg+xml": "svg" };
 
