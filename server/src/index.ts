@@ -8,6 +8,7 @@ import { extname, join, normalize } from "node:path";
 import { api } from "./api";
 import { attrappe } from "./attrappe";
 import { Laeufe } from "./laeufe";
+import { Lernen } from "./lernen";
 import { DateiSpeicher } from "./speicher";
 import { UMGEBUNG, umgebungPruefen } from "./umgebung";
 import { perEmail } from "./versand";
@@ -75,6 +76,7 @@ async function start() {
   const speicher = new DateiSpeicher(UMGEBUNG.daten);
   const laeufe = new Laeufe(speicher);
   const zeitplan = new Zeitplan(speicher, laeufe);
+  const lernen = new Lernen(speicher);
   laeufe.onEnde = async (l) => {
     console.info(`[Hub-Dienst] Lauf ${l.id} „${l.titel}“: ${l.status}${l.meldung ? ` (${l.meldung})` : ""}`);
     if (l.auftragId && l.ziel?.art === "email") {
@@ -85,12 +87,14 @@ async function start() {
   await laeufe.laden();
   zeitplan.start();
   setInterval(() => { void laeufe.aufraeumen(); }, 6 * 3600_000);
+  // Lernschicht: fällige Auswertungen (Standard alle 10 Minuten prüfen)
+  setInterval(() => { void lernen.faellige(); }, Number(process.env.HUB_LERNEN_MS) || 600_000);
 
   const server = createServer(async (req, res) => {
     const url = new URL(req.url ?? "/", "http://hub");
     try {
       if (cors(req, res)) return;
-      if (url.pathname.startsWith("/api/")) return await api(req, res, url.pathname.slice(4), url.searchParams, await body(req), { speicher, laeufe, zeitplan });
+      if (url.pathname.startsWith("/api/")) return await api(req, res, url.pathname.slice(4), url.searchParams, await body(req), { speicher, laeufe, zeitplan, lernen });
       if (UMGEBUNG.testmodus && url.pathname.startsWith("/attrappe/")) return await attrappe(req, res, url.pathname.slice(9), await body(req), speicher);
       if (await statisch(url.pathname, res)) return;
       res.writeHead(404, { "Content-Type": "text/plain; charset=utf-8" });

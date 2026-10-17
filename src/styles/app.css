@@ -779,3 +779,11 @@ a.mh-titel:hover { text-decoration: underline; text-underline-offset: 4px; }
 
 /* ----- Lauf im Hub-Dienst (geht ohne offenen Tab weiter) ----- */
 .o-hintergrund { margin: 0; padding: 8px 12px; border-radius: var(--app-radius); border: 1px dashed var(--app-line); background: var(--app-soft); color: var(--app-muted); font-size: 13px; }
+
+/* ----- Lernschicht: Rückmeldung unter Chat-Antworten ----- */
+.o-chat-feedback { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 8px; font-size: 12px; color: var(--app-muted); }
+.o-chat-daumen { display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 26px; border-radius: 50%; border: 1px solid var(--app-line); background: var(--app-bg); color: var(--app-muted); cursor: pointer; }
+.o-chat-daumen:hover { color: var(--app-ink); border-color: currentColor; }
+.o-chat-vermerk { font-size: 12px; color: var(--app-muted); }
+.o-chat-kommentar { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 6px; flex: 1 1 100%; }
+.o-chat-kommentar textarea { flex: 1 1 220px; min-height: 48px; font: inherit; font-size: 13px; padding: 6px 8px; border: 1px solid var(--app-line); border-radius: var(--app-radius); background: var(--app-bg); color: var(--app-ink); }

@@ -11,6 +11,10 @@ const warten = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 function antwortZu(frage: string): string {
   const kern = frage.replace(/\s+/g, " ").trim().slice(0, 90);
+  if (/"vorschlaege": \[\{"art"/.test(frage)) return JSON.stringify({ zusammenfassung: "Attrappe: Mehrere Rückfragen zum Begriff SBOM, eine Frage ohne Fundstelle.", vorschlaege: [
+    { art: "glossar", text: "SBOM (Software Bill of Materials): Stückliste aller Softwarebestandteile eines Produkts.", begruendung: "Mehrere Rückmeldungen fragten, was SBOM bedeutet.", belege: 2 },
+    { art: "faq", text: "Unterlage ergänzen: Übersicht der Meldefristen nach Art. 14 CRA.", begruendung: "Eine Frage dazu blieb ohne Fundstelle.", belege: 1 },
+  ] });
   if (/Antworte nur mit gültigem JSON in dieser Form: \{"hinweis"/.test(frage)) return JSON.stringify({ hinweis: "Paket der Attrappe", dateien: [{ pfad: "Attrappe/Ergebnis.md", inhalt: `# Ergebnis\n\nAttrappe zu: ${kern}` }] });
   if (/Antworte nur mit gültigem JSON/.test(frage)) return JSON.stringify({ attrappe: true, hinweis: `Attrappe zu: ${kern}` });
   return `## Ergebnis der Attrappe\n\nDiese Antwort stammt aus dem Testmodus des Hub-Dienstes, nicht von Copilot.\n\nAufgabe: ${kern} …`;

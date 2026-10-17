@@ -11,8 +11,9 @@ import { kiModus } from "./ki";
 import { hubDatei } from "./speicher";
 import type { OutState, Werte } from "./runner";
 import type { FileInfo } from "./request";
-import type { App } from "./schema";
+import type { App, Step } from "./schema";
 import type { Auftrag, Lauf, Voreinstellung, Ziel } from "./meinhub";
+import type { LernStand, Rueckmeldung, Vorschlag } from "./lernen";
 
 const LS_URL = "kihub-dienst-url";
 const LS_NUTZER = "kihub-dienst-nutzer";
@@ -114,6 +115,12 @@ export const auftraegeLesen = () => ruf<AuftragsAbgleich>("/auftraege");
 export const auftraegeSchreiben = (b: { auftraege: Auftrag[]; voreinstellungen: Voreinstellung[]; apps: Record<string, App> }) =>
   ruf<AuftragsAbgleich>("/auftraege", { method: "PUT", body: JSON.stringify(b) });
 export const auftragJetzt = (id: string) => ruf<{ id: string }>(`/auftraege/${encodeURIComponent(id)}/jetzt`, { method: "POST" });
+/* Lernschicht: Rückmeldungen und Vorschläge liegen im Dienst, die Auswertung läuft dort (auch nach Zeitplan) */
+export const lernStandHolen = (appId: string) => ruf<LernStand>(`/lernen/${encodeURIComponent(appId)}`);
+export const rueckmeldungSenden = (appId: string, r: Rueckmeldung) => ruf<{ ok: true }>(`/lernen/${encodeURIComponent(appId)}/rueckmeldungen`, { method: "POST", body: JSON.stringify(r) });
+export const lernenAuswerten = (appId: string, b: { stepId: string; step: Step; appName: string; intervallTage?: number }) => ruf<LernStand>(`/lernen/${encodeURIComponent(appId)}/auswerten`, { method: "POST", body: JSON.stringify(b) });
+export const vorschlagSetzen = (appId: string, id: string, stand: Vorschlag["stand"]) => ruf<LernStand>(`/lernen/${encodeURIComponent(appId)}/vorschlaege/${encodeURIComponent(id)}`, { method: "PUT", body: JSON.stringify({ stand }) });
+
 /** Gespeicherte Anmeldung im Dienst löschen (danach laufen Aufträge erst nach dem nächsten Speichern wieder) */
 export const kontoLoeschen = () => ruf<{ ok: true }>("/konto", { method: "DELETE" });
 

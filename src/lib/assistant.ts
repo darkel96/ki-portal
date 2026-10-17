@@ -125,6 +125,20 @@ export function ergaenzen(roh: Roh, app: App): Roh {
   return out;
 }
 
+/**
+ * Was der Assistent nie anfasst: Word-Vorlagen (die Datei sieht die KI nicht; entfernen geht im Editor) und die
+ * freigegebenen Hausregeln der Lernschicht (die ändert nur eine Person im Reiter „Lernen“).
+ */
+export function bewahren(next: App, app: App): App {
+  next.steps.forEach((st) => {
+    const alt = app.steps.find((x) => x.id === st.id);
+    if (!alt) return;
+    if (alt.vorlage) st.vorlage = st.vorlage ? { ...st.vorlage, docx: alt.vorlage.docx } : alt.vorlage;
+    if (alt.hausregeln.fassungen.length) st.hausregeln = alt.hausregeln;
+  });
+  return next;
+}
+
 /** onTeil: bisher empfangene Zeichen der Antwort (für die Fortschrittsanzeige) */
 export async function assistentAnwenden(app: App, wunsch: string, scope: AssistScope, signal?: AbortSignal, onTeil?: (zeichen: number) => void): Promise<{ app: App; zusammenfassung: string }> {
   const bilder = new Map<string, string>();
@@ -134,13 +148,7 @@ export async function assistentAnwenden(app: App, wunsch: string, scope: AssistS
   roh.app = ergaenzen(roh.app as Roh, app);
   const next = applyScope(sanitizeApp(roh.app, app), app, scope);
   walk(next.blocks, (b) => { if (b.type === "image") b.props.src = bilder.get(b.id) ?? ""; });
-  // Vorlagen bleiben erhalten (die Word-Datei sieht die KI nicht); entfernen geht im Editor
-  next.steps.forEach((st) => {
-    const alt = app.steps.find((x) => x.id === st.id)?.vorlage;
-    if (!alt) return;
-    st.vorlage = st.vorlage ? { ...st.vorlage, docx: alt.docx } : alt;
-  });
-  return { app: next, zusammenfassung: String(roh.zusammenfassung ?? "Änderungen übernommen.").slice(0, 300) };
+  return { app: bewahren(next, app), zusammenfassung: String(roh.zusammenfassung ?? "Änderungen übernommen.").slice(0, 300) };
 }
 
 /** Live-Stand für die Anzeige: Wartezeit und wie viel der Antwort schon da ist */

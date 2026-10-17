@@ -147,3 +147,17 @@
   .fuehrung li:not([aria-current="step"]) .fuehrung-text { display: none; }
   .fuehrung li:not([aria-current="step"]) button { padding-right: 5px; }
 }
+
+/* ----- Reiter „Lernen“ (Lernschicht der Fachexperten-Chats) ----- */
+.lern-tab { display: grid; gap: 16px; padding: 16px; max-width: 980px; margin-inline: auto; }
+.lern-schritt { display: grid; gap: 12px; }
+.lern-zahlen { display: flex; flex-wrap: wrap; gap: 10px 24px; margin: 0; }
+.lern-zahlen div { display: grid; gap: 2px; }
+.lern-zahlen dt { font-size: 12px; color: var(--muted-foreground); }
+.lern-zahlen dd { margin: 0; font-size: 20px; font-weight: 600; }
+.lern-vorschlaege { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
+.lern-vorschlaege li { display: grid; gap: 6px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--background); }
+.lern-vorschlaege li > .status-pill { justify-self: start; }
+.lern-text { margin: 0; font-size: 14px; }
+.lern-fassungen { margin: 0; padding-left: 18px; display: grid; gap: 8px; font-size: 13px; }
+.lern-fassung-text { margin: 4px 0 0; white-space: pre-wrap; font: 12.5px/1.5 var(--k-font-mono); background: var(--surface-2); padding: 8px 10px; border-radius: 8px; max-height: 160px; overflow: auto; }

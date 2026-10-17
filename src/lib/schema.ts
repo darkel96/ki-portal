@@ -144,6 +144,10 @@ export const StepSchema = z.object({
   wissenModus: z.enum(["app", "eingaben", "m365", "web"]).default("app").describe('"app" = Wissensmodus der App; sonst eigener Modus für diesen Schritt'),
   quellen: z.array(QuelleSchema).max(20).default([]),
   bedingung: BedingungSchema.nullable().default(null),
+  /** Lernschicht: aus Rückmeldungen freigegebene Hausregeln, als Fassungen (die letzte gilt); der Hub hängt sie an die Rolle an */
+  hausregeln: z.object({
+    fassungen: z.array(z.object({ nr: z.number().int().min(1), datum: z.string().max(40).default(""), text: z.string().max(6000).default(""), grund: z.string().max(300).default("") })).max(60).default([]),
+  }).default({ fassungen: [] }),
   team: TeamSchema.optional(),
 });
 

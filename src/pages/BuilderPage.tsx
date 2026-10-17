@@ -8,12 +8,13 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { useApps } from "@/state/apps";
 import type { App, BlockType } from "@/lib/schema";
-import { appWarnings, areaList, clone, fieldsOf, locate, makeBlock, newApp, seiteMit, seitenTitel, seitenVon, walk } from "@/lib/model";
+import { appWarnings, areaList, chatSteps, clone, fieldsOf, locate, makeBlock, newApp, seiteMit, seitenTitel, seitenVon, walk } from "@/lib/model";
 import { RunApp, type RunAppHandle } from "@/components/renderer/RunApp";
 import { geloeschtToast, useBuilder } from "@/components/builder/useBuilder";
 import { Canvas, Palette, SeitenLeiste, UiDnd, listOf, scrollArt } from "@/components/builder/Canvas";
 import { Inspector } from "@/components/builder/Inspector";
 import { KiTab } from "@/components/builder/KiTab";
+import { LernTab } from "@/components/builder/LernTab";
 import { AssistantPanel, useAssistZustand } from "@/components/builder/AssistantPanel";
 import { JsonDialog } from "@/components/builder/JsonDialog";
 import { Fuehrung } from "@/components/builder/Fuehrung";
@@ -27,7 +28,7 @@ function Editor({ start, ungespeichert }: { start: App; ungespeichert: boolean }
   const b = useBuilder(start, ungespeichert);
   const { save, apps } = useApps();
   const nav = useNavigate();
-  const [tab, setTab] = useState<"ui" | "ki">("ui");
+  const [tab, setTab] = useState<"ui" | "ki" | "lernen">("ui");
   const [vorschau, setVorschau] = useState(false);
   /** Für den geführten Start: Vorschau einmal geöffnet */
   const [getestet, setGetestet] = useState(false);
@@ -182,10 +183,11 @@ function Editor({ start, ungespeichert }: { start: App; ungespeichert: boolean }
       <div className="bld-bar">
         <label htmlFor="bld-name" className="sr-only">Name der Applikation</label>
         <Input id="bld-name" className="bar-name" maxLength={60} value={b.app.name} placeholder="Name der Applikation" onChange={(e) => b.change((d) => { d.name = e.target.value; }, "name")} />
-        <Tabs value={tab} onValueChange={(v) => { setTab(v as "ui" | "ki"); setVorschau(false); setPruefen(0); }}>
+        <Tabs value={tab} onValueChange={(v) => { setTab(v as "ui" | "ki" | "lernen"); setVorschau(false); setPruefen(0); }}>
           <TabsList className="rounded-full">
             <TabsTrigger value="ui" className="rounded-full px-4">Oberfläche</TabsTrigger>
             <TabsTrigger value="ki" className="rounded-full px-4">KI-Ablauf{harte.length > 0 && <><span className="ml-1.5 rounded-full bg-destructive/15 px-1.5 text-[11px] text-destructive" aria-hidden="true">{harte.length}</span><span className="sr-only">, {harte.length} offene Punkte</span></>}</TabsTrigger>
+            {chatSteps(b.app).size > 0 && <TabsTrigger value="lernen" className="rounded-full px-4">Lernen</TabsTrigger>}
           </TabsList>
         </Tabs>
         <span className="flex-1" />
@@ -213,7 +215,7 @@ function Editor({ start, ungespeichert }: { start: App; ungespeichert: boolean }
           </div>
           <RunApp ref={runRef} app={b.app} eingebettet />
         </div>
-      ) : tab === "ki" ? <KiTab b={b} fokusPruefung={pruefen} /> : (
+      ) : tab === "ki" ? <KiTab b={b} fokusPruefung={pruefen} /> : tab === "lernen" ? <LernTab b={b} /> : (
         <UiDnd b={b} onAdded={(id) => b.setSel(id)} onSeiteNeu={() => addByClick("seite")}>
           <div className="bld-bereiche" role="group" aria-label="Bereich anzeigen">
             {([["pal", "Bausteine"], ["flaeche", "Fläche"], ["insp", "Eigenschaften"]] as const).map(([k, l]) => (
