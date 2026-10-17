@@ -121,7 +121,22 @@ export const AgentSchema = z.object({
   id: Id,
   name: z.string().min(1).max(60).default("Agent"),
   rolle: z.string().max(2000).default("").describe("Aufgabe und Haltung des Agenten"),
+  /** ID eines Agenten aus der Agentenbibliothek: Name und Rolle kommen beim Lauf von dort (Feinjustierung wirkt in allen Apps) */
+  vorlage: z.string().max(60).default("").describe("nie selbst setzen"),
 });
+
+/** Agent der Agentenbibliothek: einmal angelegt und feinjustiert, in jedem Agenten-Team verwendbar */
+export const AgentVorlageSchema = z.object({
+  id: z.string().min(1).max(60),
+  name: z.string().min(1).max(60),
+  beschreibung: z.string().max(300).default(""),
+  rolle: z.string().max(4000).default(""),
+  /** Feinjustierung: Regeln, Tonfall, Grenzen; wird an die Rolle angehängt */
+  hinweise: z.string().max(4000).default(""),
+  geaendert: z.string().default(""),
+  erstelltVon: z.string().max(200).default(""),
+});
+export type AgentVorlage = z.output<typeof AgentVorlageSchema>;
 
 export const TeamSchema = z.object({
   ziel: z.string().max(4000).default("").describe("Woran das Team erkennt, dass es fertig ist; darf {{variablen}} enthalten"),

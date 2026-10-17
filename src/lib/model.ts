@@ -87,9 +87,9 @@ export function makeStep(app: Pick<App, "blocks" | "steps">, art: "prompt" | "te
       maxRunden: 8,
       moderation: "",
       agenten: [
-        { id: rid("g"), name: "Planer", rolle: "Zerlegt die Aufgabe in Schritte und schlägt das Vorgehen vor." },
-        { id: rid("g"), name: "Fachexperte", rolle: "Bringt Fachwissen ein und arbeitet Inhalte konkret aus." },
-        { id: rid("g"), name: "Prüfer", rolle: "Prüft Ergebnisse kritisch auf Lücken, Risiken und Widersprüche." },
+        { id: rid("g"), name: "Planer", rolle: "Zerlegt die Aufgabe in Schritte und schlägt das Vorgehen vor.", vorlage: "" },
+        { id: rid("g"), name: "Fachexperte", rolle: "Bringt Fachwissen ein und arbeitet Inhalte konkret aus.", vorlage: "" },
+        { id: rid("g"), name: "Prüfer", rolle: "Prüft Ergebnisse kritisch auf Lücken, Risiken und Widersprüche.", vorlage: "" },
       ],
     };
     step.prompt = "";

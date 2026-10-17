@@ -167,3 +167,6 @@
 .lern-faq summary { cursor: pointer; font-size: 13px; color: var(--muted-foreground); }
 .lern-faq-antwort { margin: 6px 0 0; white-space: pre-wrap; font-size: 13px; }
 .lern-faq-neu { display: grid; gap: 8px; }
+
+.ag-team-zeile { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.agent-row.ist-verknuepft input, .agent-row.ist-verknuepft textarea { opacity: .75; }

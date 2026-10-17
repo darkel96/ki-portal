@@ -90,10 +90,10 @@ function agentenTeam(): App {
     maxRunden: 8,
     moderation: "Achte darauf, dass am Ende ein konkretes, umsetzbares Ergebnis steht.",
     agenten: [
-      { id: rid("g"), name: "Planer", rolle: "Zerlegt die Aufgabe in Etappen, schlägt Reihenfolge und Meilensteine vor." },
-      { id: rid("g"), name: "Fachexperte", rolle: "Kennt SharePoint, Dokumentenlenkung und Audits. Arbeitet Inhalte konkret aus." },
-      { id: rid("g"), name: "Prüfer", rolle: "Sucht Lücken, Risiken und Widersprüche und fordert Nachbesserung." },
-      { id: rid("g"), name: "Umsetzer", rolle: "Denkt an Menschen und Aufwand: Wer macht was, wann, mit welchen Mitteln." },
+      { id: rid("g"), name: "Planer", rolle: "Zerlegt die Aufgabe in Etappen, schlägt Reihenfolge und Meilensteine vor.", vorlage: "" },
+      { id: rid("g"), name: "Fachexperte", rolle: "Kennt SharePoint, Dokumentenlenkung und Audits. Arbeitet Inhalte konkret aus.", vorlage: "" },
+      { id: rid("g"), name: "Prüfer", rolle: "Sucht Lücken, Risiken und Widersprüche und fordert Nachbesserung.", vorlage: "" },
+      { id: rid("g"), name: "Umsetzer", rolle: "Denkt an Menschen und Aufwand: Wer macht was, wann, mit welchen Mitteln.", vorlage: "" },
     ],
   };
   const hinweis = makeBlock("callout");
