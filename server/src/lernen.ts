@@ -3,7 +3,7 @@
  * und danach von selbst nach Zeitplan, sobald genug neue Rückmeldungen da sind. Freigeben tut immer ein Mensch im Baukasten.
  */
 import { kiFragen } from "@/lib/ki";
-import { AUSWERTUNG_MIN, MAX_RUECKMELDUNGEN, auswertungEinarbeiten, auswertungsPrompt, leererStand, neueSeit, rueckmeldungAnlegen, vorschlagAnlegen, vorschlaegeAus, type LernStand, type Vorschlag, type VorschlagArt } from "@/lib/lernen";
+import { AUSWERTUNG_MIN, MAX_RUECKMELDUNGEN, auswertungDurchfuehren, auswertungEinarbeiten, auswertungsPrompt, leererStand, neueSeit, rueckmeldungAnlegen, vorschlagAnlegen, type LernStand, type Vorschlag, type VorschlagArt } from "@/lib/lernen";
 import { StepSchema, type Step } from "@/lib/schema";
 import { tokenKontext } from "./alias/auth";
 import { graphTokenFuer } from "./anmeldung";
@@ -59,8 +59,8 @@ export class Lernen {
 
   private async durchfuehren(appId: string, d: Datei, cfg: Auswertung): Promise<void> {
     const r = d.rueckmeldungen.filter((x) => x.stepId === cfg.step.id);
-    const antwort = await tokenKontext.run({ token: () => graphTokenFuer(this.speicher, cfg.nutzer) }, () => kiFragen(auswertungsPrompt({ name: cfg.appName }, cfg.step, r)));
-    const neu = auswertungEinarbeiten(d, cfg.step.id, vorschlaegeAus(antwort, cfg.step.id));
+    const erg = await tokenKontext.run({ token: () => graphTokenFuer(this.speicher, cfg.nutzer) }, () => auswertungDurchfuehren(auswertungsPrompt({ name: cfg.appName }, cfg.step, r), cfg.step.id, (t) => kiFragen(t)));
+    const neu = auswertungEinarbeiten(d, cfg.step.id, erg);
     Object.assign(d, neu);
     await this.schreiben(appId, d);
   }

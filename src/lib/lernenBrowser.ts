@@ -5,7 +5,7 @@
 import type { App, Step } from "./schema";
 import { kiFragen } from "./ki";
 import { dienstAktiv, lernStandHolen, lernenAuswerten, rueckmeldungSenden, vorschlagEinreichenDienst, vorschlagSetzen } from "./dienst";
-import { auswertungEinarbeiten, auswertungsPrompt, leererStand, rueckmeldungAnlegen, vorschlaegeAus, MAX_RUECKMELDUNGEN, type LernStand, type Rueckmeldung, type Vorschlag } from "./lernen";
+import { auswertungDurchfuehren, auswertungEinarbeiten, auswertungsPrompt, leererStand, rueckmeldungAnlegen, MAX_RUECKMELDUNGEN, type LernStand, type Rueckmeldung, type Vorschlag } from "./lernen";
 
 const LS = (appId: string) => `kihub-lernen:${appId}`;
 
@@ -53,8 +53,7 @@ export async function auswerten(app: App, step: Step, signal?: AbortSignal): Pro
   if (await dienstAktiv()) return lernenAuswerten(appId, { stepId: step.id, step, appName: app.name });
   const st = lokalLesen(appId);
   const r = st.rueckmeldungen.filter((x) => x.stepId === step.id);
-  const antwort = await kiFragen(auswertungsPrompt(app, step, r), signal);
-  const neu = auswertungEinarbeiten(st, step.id, vorschlaegeAus(antwort, step.id));
+  const neu = auswertungEinarbeiten(st, step.id, await auswertungDurchfuehren(auswertungsPrompt(app, step, r), step.id, (t) => kiFragen(t, signal)));
   lokalSchreiben(appId, neu);
   return neu;
 }

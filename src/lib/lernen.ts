@@ -140,6 +140,18 @@ export function vorschlaegeAus(antwort: string, stepId: string): { zusammenfassu
   return { zusammenfassung: String(j.zusammenfassung ?? "").slice(0, 600), vorschlaege };
 }
 
+/**
+ * Auswertung mit zweitem Versuch: Liefert die KI kein vollständiges JSON (lange FAQ-Antworten werden gern abgeschnitten
+ * oder mit Text umrahmt), wird einmal knapper nachgefragt. fragen = KI-Aufruf (Browser oder Dienst).
+ */
+export async function auswertungDurchfuehren(prompt: string, stepId: string, fragen: (text: string) => Promise<string>): Promise<ReturnType<typeof vorschlaegeAus>> {
+  try { return vorschlaegeAus(await fragen(prompt), stepId); }
+  catch (e) {
+    const nachfrage = `${prompt}\n\nWichtig: Deine Antwort muss ein einziges, vollständiges JSON-Objekt sein, ohne Text davor oder danach und ohne Codeblock. Halte es kurz: höchstens 4 Vorschläge, jede "antwort" höchstens 800 Zeichen (Quellenlink am Ende behalten).`;
+    try { return vorschlaegeAus(await fragen(nachfrage), stepId); } catch { throw e; }
+  }
+}
+
 /** Neue Vorschläge in den Stand einarbeiten: offene aus der vorigen Auswertung werden ersetzt, entschiedene und im Chat vorgeschlagene bleiben (begrenzt) */
 export function auswertungEinarbeiten(st: LernStand, stepId: string, erg: { zusammenfassung: string; vorschlaege: Vorschlag[] }): LernStand {
   const alte = st.vorschlaege.filter((v) => !(v.stepId === stepId && v.stand === "offen" && (v.herkunft ?? "auswertung") === "auswertung")).slice(-100);
