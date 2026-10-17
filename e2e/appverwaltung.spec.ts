@@ -13,9 +13,12 @@ test("Vorlage übernehmen: bearbeitete Fassung ersetzt das Original unter dersel
   await expect(page.getByRole("button", { name: "Sperren" })).toBeVisible();
   const apps = await page.evaluate(() => JSON.parse(localStorage.getItem("kihub-apps-v3") || "[]") as { id: string }[]);
   expect(apps.map((a) => a.id)).toContain("cra-experte");
-  // Übersicht zeigt die App nur einmal
+  // Übersicht und Verwaltung zeigen die App nur einmal (die übernommene Fassung ersetzt die Vorlage)
   await page.goto("/");
   await expect(page.getByRole("link", { name: /Fachexperte Cyber Resilience Act/ })).toHaveCount(1);
+  await page.goto("/verwaltung");
+  await expect(page.locator(".rv-apps tr", { hasText: "Fachexperte Cyber Resilience Act" })).toHaveCount(1);
+  await expect(page.locator(".rv-apps tr", { hasText: "Fachexperte Cyber Resilience Act" })).toContainText("Eigene");
 });
 
 test("Sperren: nur Bearbeitende sehen die App, Verwaltung listet alle Apps", async ({ page }, info) => {
