@@ -24,7 +24,7 @@ import { RunContext, type RunCtx } from "@/components/renderer/runContext";
 import { themeStyle } from "@/components/renderer/theme";
 import { NotFoundPage } from "./NotFoundPage";
 
-const STATUS = { entwurf: "Entwurf", pruefung: "In Prüfung", freigegeben: "Freigegeben" } as const;
+const STATUS = { entwurf: "Entwurf", pruefung: "In Prüfung", freigegeben: "Freigegeben", gesperrt: "Gesperrt" } as const;
 const SCHUTZ = { oeffentlich: "Öffentlich", intern: "Intern", vertraulich: "Vertraulich" } as const;
 
 /** Letztes Ergebnis dieser Applikation im Dialog, ohne die Seite (und die Eingaben) zu verlassen. */
@@ -62,10 +62,11 @@ function LetzterLaufDialog({ lauf, app, offen, onOffen }: { lauf: Lauf; app: App
 
 export function AppPage() {
   const { id } = useParams();
-  const { find, remove, geladen } = useApps();
+  const { find, remove, save, geladen } = useApps();
   const nav = useNavigate();
   const runRef = useRef<RunAppHandle>(null);
   const [loeschen, setLoeschen] = useState(false);
+  const [ausblenden, setAusblenden] = useState(false);
   const mh = useMeinHub();
   const [sp, setSp] = useSearchParams();
   const [vorlage, setVorlage] = useState<Voreinstellung | null>(null);
@@ -99,10 +100,22 @@ export function AppPage() {
   const hatBeispiele = fieldsOf(a).some((f) => f.type !== "file" && f.props.beispiel);
   const eigene = a._src === "eigene";
   const rechte = useRechte();
-  // Eigene App: nur wer sie bearbeiten darf; Vorlage als Kopie: wer bauen darf
+  // Eigene App: nur wer sie bearbeiten darf. Vorlage: die Verwaltung übernimmt sie unter ihrer ID (verdeckt das Original), wer bauen darf, öffnet eine Kopie
+  const admin = rechte.darf("admin");
   const darfBearbeiten = eigene ? rechte.darfApp(a, "bearbeiten") : rechte.darf("bauen");
-  const bearbeiten = () => nav(eigene ? `/baukasten/${a.id}` : `/baukasten?kopie=${a.id}`, { viewTransition: true });
-  const bearbeitenText = eigene ? "Im Baukasten bearbeiten" : "Als Kopie im Baukasten öffnen";
+  const bearbeiten = () => nav(eigene || admin ? `/baukasten/${a.id}` : `/baukasten?kopie=${a.id}`, { viewTransition: true });
+  const kopieren = () => nav(`/baukasten?kopie=${a.id}`, { viewTransition: true });
+  const bearbeitenText = eigene ? "Im Baukasten bearbeiten" : admin ? "Vorlage übernehmen und bearbeiten" : "Als Kopie im Baukasten öffnen";
+  const gesperrt = a.status === "gesperrt";
+  const sperrbar = eigene && darfBearbeiten;
+  const sperren = async (zu: boolean) => {
+    try { await save({ ...a, status: zu ? "gesperrt" : "freigegeben" }); toast.success(zu ? `„${a.name}“ ist gesperrt. Nur Personen mit Bearbeiten-Recht können sie noch öffnen.` : `„${a.name}“ ist wieder freigegeben.`); }
+    catch (e) { toast.error(e instanceof Error ? e.message : "Speichern fehlgeschlagen."); }
+  };
+  const vorlageAusblenden = async () => {
+    try { await rechte.speichern({ ...rechte.stand, ausgeblendet: [...new Set([...rechte.stand.ausgeblendet, a.id!])] }); toast.success(`„${a.name}“ ist aus dem Hub genommen. In der Verwaltung lässt sie sich wieder einblenden.`); nav("/", { viewTransition: true }); }
+    catch (e) { toast.error(e instanceof Error ? e.message : "Speichern fehlgeschlagen."); }
+  };
 
   return (
     <>
@@ -149,7 +162,9 @@ export function AppPage() {
         <span className="nur-breit app-aktionen">
           {hatBeispiele && <Button variant="outline" className="rounded-full" onClick={beispiele}>Beispieldaten einsetzen</Button>}
           {darfBearbeiten && <Button variant="outline" className="rounded-full" onClick={bearbeiten}>{bearbeitenText}</Button>}
+          {sperrbar && <Button variant="ghost" className="rounded-full" onClick={() => void sperren(!gesperrt)}>{gesperrt ? "Entsperren" : "Sperren"}</Button>}
           {eigene && darfBearbeiten && <Button variant="ghost" className="rounded-full" onClick={() => setLoeschen(true)}>Löschen</Button>}
+          {!eigene && admin && <Button variant="ghost" className="rounded-full" onClick={() => setAusblenden(true)}>Aus dem Hub nehmen</Button>}
         </span>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -167,7 +182,10 @@ export function AppPage() {
             </>}
             {hatBeispiele && <DropdownMenuItem onSelect={beispiele}>Beispieldaten einsetzen</DropdownMenuItem>}
             {darfBearbeiten && <DropdownMenuItem onSelect={bearbeiten}>{bearbeitenText}</DropdownMenuItem>}
+            {!eigene && admin && <DropdownMenuItem onSelect={kopieren}>Als Kopie im Baukasten öffnen</DropdownMenuItem>}
+            {sperrbar && <DropdownMenuItem onSelect={() => void sperren(!gesperrt)}>{gesperrt ? "Entsperren" : "Sperren"}</DropdownMenuItem>}
             {eigene && darfBearbeiten && <DropdownMenuItem variant="destructive" onSelect={() => setLoeschen(true)}>Löschen</DropdownMenuItem>}
+            {!eigene && admin && <DropdownMenuItem variant="destructive" onSelect={() => setAusblenden(true)}>Aus dem Hub nehmen</DropdownMenuItem>}
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
@@ -194,7 +212,25 @@ export function AppPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-      {a.typ === "link" ? (
+      <AlertDialog open={ausblenden} onOpenChange={setAusblenden}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>„{a.name}“ aus dem Hub nehmen?</AlertDialogTitle>
+            <AlertDialogDescription>Die mitgelieferte Vorlage verschwindet für alle aus der Übersicht. In der Verwaltung lässt sie sich jederzeit wieder einblenden.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Abbrechen</AlertDialogCancel>
+            <AlertDialogAction className="bg-destructive text-white hover:bg-destructive/90" onClick={() => void vorlageAusblenden()}>Aus dem Hub nehmen</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+      {gesperrt && (
+        <section className="hero hero-meldung" role="status" aria-label="Gesperrt">
+          <h1 style={{ fontSize: 28, letterSpacing: "-0.03em", margin: 0 }}>Diese Applikation ist gesperrt.</h1>
+          <p className="lede" style={{ margin: 0 }}>{darfBearbeiten ? "Nur Personen mit Bearbeiten-Recht sehen sie noch. Mit „Entsperren“ ist sie wieder für alle da." : "Sie wurde von der Verwaltung oder den Verantwortlichen vorübergehend gesperrt. Bei Fragen wende dich an die Verantwortlichen der Applikation."}</p>
+        </section>
+      )}
+      {gesperrt && !darfBearbeiten ? null : a.typ === "link" ? (
         <section className="panel" style={{ display: "flex", flexDirection: "column", gap: 14, padding: 32 }}>
           <h1 style={{ fontSize: 40, letterSpacing: "-0.035em", margin: 0 }}>{a.name}</h1>
           <p className="lede">{a.beschreibung}</p>

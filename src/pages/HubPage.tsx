@@ -25,7 +25,7 @@ export function kuerzel(apps: HubApp[]): Map<string, string> {
   return out;
 }
 
-const STATUS_TILE: Record<HubApp["status"], string> = { entwurf: "Entwurf", pruefung: "In Prüfung", freigegeben: "Bereit" };
+const STATUS_TILE: Record<HubApp["status"], string> = { entwurf: "Entwurf", pruefung: "In Prüfung", freigegeben: "Bereit", gesperrt: "Gesperrt" };
 /** Die Eintrittsanimation läuft nur beim ersten Besuch der Startseite, nicht nach jedem Zurückkommen. */
 let schonAnimiert = false;
 const SCHMAL = "(max-width: 560px)";

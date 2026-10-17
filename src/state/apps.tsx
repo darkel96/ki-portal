@@ -20,7 +20,7 @@ export function AppsProvider({ children }: { children: ReactNode }) {
   const [eigene, setEigene] = useState<App[]>([]);
   const [geladen, setGeladen] = useState(false);
   const [fehler, setFehler] = useState<string | null>(null);
-  const { ich } = useRechte();
+  const { ich, stand } = useRechte();
 
   const reload = useCallback(async () => {
     try {
@@ -36,8 +36,10 @@ export function AppsProvider({ children }: { children: ReactNode }) {
 
   const apps = useMemo<HubApp[]>(() => {
     const own = [...eigene].sort((a, b) => b.geaendert.localeCompare(a.geaendert)).map((a) => ({ ...a, _src: "eigene" as const }));
-    return [...own, ...SEED_APPS];
-  }, [eigene]);
+    // Eigene Apps zuerst: Eine übernommene Vorlage (gleiche ID) verdeckt so das mitgelieferte Original; ausgeblendete Vorlagen fehlen
+    const weg = new Set(stand.ausgeblendet);
+    return [...own, ...SEED_APPS.filter((a) => !weg.has(a.id ?? ""))];
+  }, [eigene, stand.ausgeblendet]);
 
   const save = useCallback(async (app: App) => {
     const def: App = {

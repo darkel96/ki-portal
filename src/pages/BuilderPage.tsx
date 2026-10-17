@@ -275,7 +275,9 @@ export function BuilderPage() {
   const entwurf = !id && !kopie ? (loc.state as { entwurf?: App } | null)?.entwurf : undefined;
   const quelle = id ? find(id) : kopie ? find(kopie) : undefined;
   if ((id || kopie) && !quelle) return geladen ? <NotFoundPage /> : <p className="hint">Applikation wird geladen …</p>;
-  if (id && quelle && quelle._src !== "eigene") return <NotFoundPage />;
+  // Eine mitgelieferte Vorlage unter ihrer ID bearbeiten darf nur die Verwaltung: Beim Speichern wird sie zur eigenen App und verdeckt das Original
+  const uebernahme = !!id && !!quelle && quelle._src !== "eigene";
+  if (uebernahme && rechte.geladen && !rechte.darf("admin")) return <NotFoundPage />;
   if (rechte.geladen && !rechte.darf("bauen")) return <KeineRechte was="den Baukasten" />;
   if (rechte.geladen && id && quelle && !rechte.darfApp(quelle, "bearbeiten")) return <KeineRechte was={`das Bearbeiten von „${quelle.name}“`} />;
   let start: App;
@@ -285,5 +287,5 @@ export function BuilderPage() {
     start = kopie ? { ...rest, id: null, name: `${rest.name} (Kopie)`, status: "entwurf", version: 0, geaendert: "" } : rest;
   } else start = entwurf ? loadApp(entwurf) ?? newApp() : newApp();
   // Entwurf und Kopie sind noch nicht gespeichert: Verlassen soll warnen.
-  return <Editor key={`${id ?? ""}|${kopie ?? ""}|${entwurf ? loc.key : ""}`} start={start} ungespeichert={!!kopie || (!quelle && !!entwurf)} />;
+  return <Editor key={`${id ?? ""}|${kopie ?? ""}|${entwurf ? loc.key : ""}`} start={start} ungespeichert={!!kopie || uebernahme || (!quelle && !!entwurf)} />;
 }
