@@ -259,7 +259,19 @@ export function Inspector({ b, onDelete, bereiche, onSeite }: { b: Builder; onDe
       <TextFld id="insp-first" label="Titel" value={x.props.titel} onChange={(v) => set("titel", v, true)} />
       <Seg label="Nachrichten je Seite" value={x.props.anzahl} options={[[10, "10"], [25, "25"], [50, "50"]]} onChange={(v) => set("anzahl", v)} />
       <Check label="Vorschau des Inhalts in der Liste" checked={x.props.vorschau} onChange={(v) => set("vorschau", v)} />
-      <p className="hint" style={{ margin: 0 }}>Zeigt das Postfach der angemeldeten Person wie in Outlook: Ordner, Nachrichten, geöffnete Nachricht. Nur lesen, über Microsoft Graph (Mail.Read). Ohne Copilot-Anbindung ein Beispielpostfach.</p></>; break;
+      <span className="lbl">Prozeduren (vordefiniert)</span>
+      {x.props.prozeduren.map((p, k) => (
+        <div key={k} className="insp-proz">
+          <TextFld label="Name" value={p.name} onChange={(v) => set("prozeduren", x.props.prozeduren.map((q, j) => (j === k ? { ...q, name: v } : q)), true)} />
+          <TextFld label="Thema oder Suchbegriffe" value={p.thema} onChange={(v) => set("prozeduren", x.props.prozeduren.map((q, j) => (j === k ? { ...q, thema: v } : q)), true)} />
+          <Sel label="Zeitraum" value={String(p.tage)} options={[["7", "7 Tage"], ["14", "14 Tage"], ["30", "30 Tage"], ["60", "60 Tage"], ["90", "90 Tage"], ["180", "180 Tage"]]} onChange={(v) => set("prozeduren", x.props.prozeduren.map((q, j) => (j === k ? { ...q, tage: Number(v) } : q)))} />
+          <TextFld label="Zielordner" value={p.zielordner} onChange={(v) => set("prozeduren", x.props.prozeduren.map((q, j) => (j === k ? { ...q, zielordner: v } : q)), true)} />
+          <Check label="KI wählt thematisch (sonst nur Wortsuche)" checked={p.ki} onChange={(v) => set("prozeduren", x.props.prozeduren.map((q, j) => (j === k ? { ...q, ki: v } : q)))} />
+          <Button variant="ghost" size="sm" onClick={() => set("prozeduren", x.props.prozeduren.filter((_, j) => j !== k))}>Prozedur entfernen</Button>
+        </div>
+      ))}
+      <div><Button variant="outline" size="sm" disabled={x.props.prozeduren.length >= 10} onClick={() => set("prozeduren", [...x.props.prozeduren, { name: "Aufräumen", thema: "", tage: 30, zielordner: "", ki: true }])}>Prozedur hinzufügen</Button></div>
+      <p className="hint" style={{ margin: 0 }}>Postfach der angemeldeten Person wie in Outlook. KI zur geöffneten Mail (Zusammenfassung, Antwortentwurf, Aufgaben, freie Frage) und Prozeduren, die Mails zu einem Thema in einen Ordner ablegen; die Auswahl wird vorher bestätigt. Lesen mit Mail.Read; Verschieben, Ordner und Entwürfe brauchen die Zustimmung zu Mail.ReadWrite. Ohne Copilot-Anbindung ein Beispielpostfach.</p></>; break;
     case "output": f = <>
       <TextFld id="insp-first" label="Titel" value={x.props.titel} onChange={(v) => set("titel", v, true)} />
       <Sel label="Zeigt das Ergebnis von" value={x.props.quelle || "__none"} onChange={(v) => set("quelle", v === "__none" ? "" : v)} options={[["__none", "Bitte wählen"], ...steps]} />

@@ -61,7 +61,15 @@ export const PropsSchemas = {
     titel: z.string().max(120).default("Postfach"),
     anzahl: z.union([z.literal(10), z.literal(25), z.literal(50)]).default(25).describe("Nachrichten je Seite"),
     vorschau: z.boolean().default(true).describe("erste Zeile des Inhalts in der Liste zeigen"),
-  }).describe("Postfach der angemeldeten Person wie in Outlook: Ordner, Nachrichten, geöffnete Nachricht (nur lesen, Microsoft Graph Mail.Read)"),
+    /** Vordefinierte Prozeduren: Mails zu einem Thema aus den letzten Tagen in einen Ordner ablegen */
+    prozeduren: z.array(z.object({
+      name: z.string().max(80).default("Aufräumen"),
+      thema: z.string().max(200).default("").describe("Thema oder Suchbegriffe, z. B. „Cyber Resilience Act, CRA“"),
+      tage: z.number().int().min(1).max(365).default(30),
+      zielordner: z.string().max(120).default("").describe("Name des Zielordners; wird angelegt, wenn es ihn nicht gibt"),
+      ki: z.boolean().default(true).describe("KI entscheidet thematisch, sonst nur Wortsuche in Betreff, Absender und Vorschau"),
+    })).max(10).default([]),
+  }).describe("Postfach der angemeldeten Person wie in Outlook: Ordner, Nachrichten, geöffnete Nachricht; KI zur offenen Mail (Zusammenfassung, Antwortentwurf, Aufgaben, freie Frage) und Prozeduren (Mails zu einem Thema in einen Ordner ablegen). Microsoft Graph Mail.Read, Schreiben mit Mail.ReadWrite"),
   output: z.object({ titel: z.string().max(120).default("Ergebnis"), quelle: z.string().max(40).default("").describe("ID eines Schritts"), stil: z.enum(["card", "plain"]).default("card"), pfad: z.string().max(120).default("").describe('bei format json: nur diesen Teil des Ergebnisses zeigen, z. B. "bericht" oder "produkte.wartung"; Text wird als Markdown gezeigt, Listen und Objekte als Liste bzw. Tabelle; "" = ganzes Ergebnis') }),
 } as const;
 

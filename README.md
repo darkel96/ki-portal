@@ -130,6 +130,14 @@ Absender, Datum, Betreff, Anhang und Vorschau, rechts die geöffnete Nachricht (
 mit der delegierten Berechtigung Mail.Read, die die Copilot-Anbindung ohnehin verlangt. Ohne Copilot-Anbindung zeigt
 der Baustein ein Beispielpostfach. Einstellbar: Titel, Nachrichten je Seite, Vorschau.
 
+**KI zur geöffneten Mail:** Unter der Nachricht stehen „Zusammenfassen“, „Antwort entwerfen“, „Aufgaben herausziehen“,
+„Übersetzen“ und eine freie Frage; die Mail (Kopf und Text) geht als Kontext mit. Ein Antwortentwurf lässt sich als
+Entwurf in Outlook anlegen (Antwort an den Absender, Original darunter). **Prozeduren:** „Mails zu Thema X der letzten
+N Tage in Ordner Y ablegen“, vordefiniert am Baustein oder ad hoc. Der Hub holt die Mails des Zeitraums (ohne Gelöschte,
+Junk, Entwürfe, Gesendete), wählt per Wortsuche und auf Wunsch per KI thematisch aus, zeigt die Auswahl zur Bestätigung
+(an- und abwählbar) und verschiebt dann; der Zielordner wird angelegt, wenn es ihn nicht gibt. Verschieben, Ordner und
+Entwürfe brauchen die delegierte Berechtigung Mail.ReadWrite (Zustimmung beim ersten Mal im Anmeldefenster).
+
 ## Rechte und Verwaltung
 
 **Applikationen verwalten:** In der Verwaltung stehen alle Applikationen in einer Tabelle: eigene bearbeiten, sperren,
