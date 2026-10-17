@@ -171,3 +171,5 @@
 .ag-team-zeile { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
 .agent-row.ist-verknuepft input, .agent-row.ist-verknuepft textarea { opacity: .75; }
 
+
+.insp-proz { display: grid; gap: 8px; padding: 10px; border: 1px solid var(--line); border-radius: 10px; }

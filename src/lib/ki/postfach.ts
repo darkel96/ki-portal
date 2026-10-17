@@ -14,20 +14,27 @@ export type NachrichtenSeite = { liste: Nachricht[]; weiter: string | null };
 
 const GRAPH = `${KI_CONFIG.graph}/v1.0/me`;
 const SCOPES = ["https://graph.microsoft.com/Mail.Read"];
+/** Verschieben, Ordner anlegen, Entwürfe: braucht die Zustimmung zu Mail.ReadWrite (einmal im Anmeldefenster) */
+const SCOPES_SCHREIBEN = ["https://graph.microsoft.com/Mail.ReadWrite"];
 /** Bekannte Ordnernamen in der Reihenfolge von Outlook */
 const REIHENFOLGE = ["inbox", "drafts", "sentitems", "deleteditems", "junkemail", "archive"];
 const DEUTSCH: Record<string, string> = { inbox: "Posteingang", drafts: "Entwürfe", sentitems: "Gesendete Elemente", deleteditems: "Gelöschte Elemente", junkemail: "Junk-E-Mail", archive: "Archiv", outbox: "Postausgang" };
 
 export const postfachEcht = () => kiModus() === "copilot";
 
-async function graph<T>(pfad: string, signal?: AbortSignal): Promise<T> {
-  const token = await graphToken(SCOPES);
-  const r = await fetch(pfad.startsWith("http") ? pfad : `${GRAPH}${pfad}`, { headers: { Authorization: `Bearer ${token}`, Prefer: 'outlook.body-content-type="html"' }, signal });
+async function graph<T>(pfad: string, signal?: AbortSignal, opts: { method?: string; body?: unknown; schreiben?: boolean } = {}): Promise<T> {
+  const token = await graphToken(opts.schreiben ? SCOPES_SCHREIBEN : SCOPES);
+  const r = await fetch(pfad.startsWith("http") ? pfad : `${GRAPH}${pfad}`, {
+    method: opts.method ?? "GET", signal,
+    headers: { Authorization: `Bearer ${token}`, Prefer: 'outlook.body-content-type="html"', ...(opts.body !== undefined ? { "Content-Type": "application/json" } : {}) },
+    body: opts.body !== undefined ? JSON.stringify(opts.body) : undefined,
+  });
   if (!r.ok) {
     const t = await r.text().catch(() => "");
     const code = /"code"\s*:\s*"([^"]+)"/.exec(t)?.[1] ?? "";
-    throw new Error(r.status === 403 ? "Kein Zugriff auf das Postfach (Berechtigung Mail.Read fehlt oder wurde nicht zugestimmt)." : r.status === 401 ? "Die Anmeldung wurde nicht akzeptiert. Abmelden und neu anmelden." : `Graph antwortet mit Fehler ${r.status}${code ? ` (${code})` : ""}.`);
+    throw new Error(r.status === 403 ? `Kein Zugriff auf das Postfach (Berechtigung ${opts.schreiben ? "Mail.ReadWrite" : "Mail.Read"} fehlt oder wurde nicht zugestimmt).` : r.status === 401 ? "Die Anmeldung wurde nicht akzeptiert. Abmelden und neu anmelden." : `Graph antwortet mit Fehler ${r.status}${code ? ` (${code})` : ""}.`);
   }
+  if (r.status === 204) return undefined as T;
   return (await r.json()) as T;
 }
 
@@ -86,6 +93,69 @@ export async function nachrichtLaden(id: string, signal?: AbortSignal): Promise<
   const html = m.body?.contentType?.toLowerCase() === "html" ? (m.body.content ?? "") : "";
   return { ...nachrichtAus(m), an: namen(m.toRecipients), cc: namen(m.ccRecipients), html, text: html ? "" : (m.body?.content ?? "") };
 }
+
+/** Nachrichten der letzten Tage aus dem ganzen Postfach (ohne Gelöschte, Junk, Entwürfe, Gesendete), neueste zuerst, höchstens 300 */
+export async function nachrichtenSeit(tage: number, signal?: AbortSignal): Promise<(Nachricht & { ordnerId: string })[]> {
+  const ab = new Date(Date.now() - tage * 86_400_000);
+  if (!postfachEcht()) {
+    return beispiel.nachrichten.filter((n) => Date.parse(n.empfangen) >= ab.getTime() && !["deleteditems", "junkemail", "drafts", "sentitems"].includes(n.ordner))
+      .sort((a, b) => b.empfangen.localeCompare(a.empfangen)).map(({ ordner, an: _a, cc: _c, html: _h, text: _t, ...n }) => ({ ...n, ordnerId: ordner }));
+  }
+  const weg = new Set((await Promise.all(["deleteditems", "junkemail", "drafts", "sentitems"].map(async (w) => { try { return (await graph<{ id: string }>(`/mailFolders/${w}?$select=id`, signal)).id; } catch { return ""; } }))).filter(Boolean));
+  const aus: (Nachricht & { ordnerId: string })[] = [];
+  let pfad: string | null = `/messages?$filter=receivedDateTime ge ${ab.toISOString()}&$orderby=receivedDateTime desc&$top=100&$select=id,subject,from,receivedDateTime,isRead,hasAttachments,bodyPreview,importance,parentFolderId`;
+  while (pfad && aus.length < 300) {
+    const j: { value: (GraphNachricht & { parentFolderId?: string })[]; "@odata.nextLink"?: string } = await graph(pfad, signal);
+    for (const m of j.value) if (!weg.has(m.parentFolderId ?? "")) aus.push({ ...nachrichtAus(m), ordnerId: m.parentFolderId ?? "" });
+    pfad = j["@odata.nextLink"] ?? null;
+  }
+  return aus;
+}
+
+/** Nachrichten in einen Ordner verschieben; liefert die Zahl der verschobenen */
+export async function nachrichtenVerschieben(ids: string[], zielOrdnerId: string, signal?: AbortSignal): Promise<number> {
+  if (!postfachEcht()) {
+    let n = 0;
+    for (const m of beispiel.nachrichten) if (ids.includes(m.id) && m.ordner !== zielOrdnerId) { m.ordner = zielOrdnerId; n++; }
+    return n;
+  }
+  let n = 0;
+  for (const id of ids) { await graph(`/messages/${encodeURIComponent(id)}/move`, signal, { method: "POST", body: { destinationId: zielOrdnerId }, schreiben: true }); n++; }
+  return n;
+}
+
+/** Ordner anlegen (unter dem Posteingang oder oberste Ebene); gibt es ihn schon, den vorhandenen liefern */
+export async function ordnerAnlegen(name: string, signal?: AbortSignal): Promise<Ordner> {
+  const alle = await ordnerLaden(signal);
+  const flach = alle.flatMap((o) => [o, ...(o.kinder ?? [])]);
+  const da = flach.find((o) => o.name.trim().toLowerCase() === name.trim().toLowerCase());
+  if (da) return da;
+  if (!postfachEcht()) { const o = { id: `neu-${Date.now().toString(36)}`, name: name.trim(), ungelesen: 0, gesamt: 0 }; beispiel.ordner.push(o); return o; }
+  const o = await graph<GraphOrdner>("/mailFolders", signal, { method: "POST", body: { displayName: name.trim() }, schreiben: true });
+  return ordnerAus(o);
+}
+
+/** Antwortentwurf in Outlook anlegen (Antwort an den Absender, Text oben, Original darunter); liefert den Link zum Entwurf */
+export async function antwortEntwurf(id: string, text: string, signal?: AbortSignal): Promise<{ webLink: string }> {
+  if (!postfachEcht()) return { webLink: "" };
+  const e = await graph<{ id: string; webLink?: string; body?: { content?: string } }>(`/messages/${encodeURIComponent(id)}/createReply`, signal, { method: "POST", body: {}, schreiben: true });
+  const html = `<div>${text.split(/\n/).map((z) => z.replace(/&/g, "&amp;").replace(/</g, "&lt;")).join("<br>")}</div><br>${e.body?.content ?? ""}`;
+  await graph(`/messages/${encodeURIComponent(e.id)}`, signal, { method: "PATCH", body: { body: { contentType: "html", content: html } }, schreiben: true });
+  return { webLink: e.webLink ?? "" };
+}
+
+/** Lesbarer Text einer Nachricht für die KI (HTML entfernt, begrenzt) */
+export function nachrichtAlsText(n: NachrichtVoll, max = 12_000): string {
+  let t = n.text;
+  if (!t && n.html) {
+    const doc = new DOMParser().parseFromString(n.html, "text/html");
+    doc.querySelectorAll("style,script,head").forEach((e) => e.remove());
+    t = (doc.body?.innerText ?? doc.body?.textContent ?? "").replace(/\n{3,}/g, "\n\n").trim();
+  }
+  return t.slice(0, max);
+}
+/** Kopf und Text einer Nachricht als Kontext für die KI */
+export const mailKontext = (n: NachrichtVoll) => [`Betreff: ${n.betreff}`, `Von: ${n.von}${n.vonAdresse ? ` <${n.vonAdresse}>` : ""}`, n.an.length ? `An: ${n.an.join(", ")}` : "", n.cc.length ? `Cc: ${n.cc.join(", ")}` : "", `Datum: ${n.empfangen}`, "", nachrichtAlsText(n)].filter((z) => z !== "").join("\n");
 
 /* ---------- Beispielpostfach (ohne Copilot-Anbindung) ---------- */
 const tag = (vorTagen: number, stunde: number) => { const d = new Date(); d.setDate(d.getDate() - vorTagen); d.setHours(stunde, 15, 0, 0); return d.toISOString(); };

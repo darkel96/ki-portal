@@ -538,7 +538,7 @@ pre.code { margin: 0; white-space: pre-wrap; font: 12.5px/1.5 var(--k-font-mono)
 .neu-schritte li[data-fertig="true"] .s-no { background: var(--brand-soft); color: var(--brand); }
 .neu-blatt { flex: 1; min-height: 0; display: flex; outline: none; }
 .neu-eins { justify-content: center; align-items: flex-start; }
-.neu-form { width: 100%; max-width: 860px; display: flex; flex-direction: column; gap: 14px; max-height: 100%; overflow: auto; scrollbar-width: thin; }
+.neu-form { width: 100%; display: flex; flex-direction: column; gap: 14px; max-height: 100%; overflow: auto; scrollbar-width: thin; }
 .neu-form h2, .neu-seite h2 { font-size: 24px; letter-spacing: -0.02em; margin: 0; }
 .neu-zwei { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 14px; align-items: start; }
 @media (max-width: 700px) { .neu-zwei { grid-template-columns: 1fr; } }
@@ -867,3 +867,23 @@ a.mh-titel:hover { text-decoration: underline; text-underline-offset: 4px; }
 .ag-probe { display: grid; gap: 8px; border-top: 1px solid var(--line); padding-top: 14px; }
 .ag-antwort { border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; background: var(--surface-2); font-size: 14px; }
 @media (max-width: 760px) { .ag-seite { grid-template-columns: 1fr; } }
+
+/* Postfach: KI zur Mail und Prozeduren */
+.o-post-ki { display: grid; gap: 8px; margin: 0 0 14px; padding: 10px 12px; border: 1px dashed var(--app-line); border-radius: var(--app-radius); background: var(--app-soft); }
+.o-post-ki-zeile { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.o-post-ki-zeile input { flex: 1 1 240px; min-width: 0; font: inherit; font-size: 13.5px; padding: 6px 10px; border: 1px solid var(--app-line); border-radius: 999px; background: var(--app-bg); color: var(--app-ink); }
+.o-post-ki-antwort { display: grid; gap: 8px; padding: 10px 12px; border: 1px solid var(--app-line); border-radius: var(--app-radius); background: var(--app-bg); font-size: 14px; }
+.o-chat-knopf.ist-aktiv { border-color: var(--app-accent); color: var(--app-accent); }
+.o-post-proz { display: grid; gap: 10px; padding: 12px 14px; border: 1px solid var(--app-line); border-radius: var(--app-radius); background: var(--app-soft); }
+.o-post-proz-liste { display: flex; flex-wrap: wrap; gap: 6px; }
+.o-post-proz-form { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.o-post-proz-form input, .o-post-proz-form select { font: inherit; font-size: 13.5px; padding: 7px 10px; border: 1px solid var(--app-line); border-radius: var(--app-radius); background: var(--app-bg); color: var(--app-ink); }
+.o-post-proz-form input:first-child { flex: 2 1 260px; }
+.o-post-proz-form input:not(:first-child) { flex: 1 1 160px; }
+.o-post-proz-ki { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; }
+.o-post-proz-treffer { display: grid; gap: 6px; }
+.o-post-proz-kopf { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; font-size: 13.5px; }
+.o-post-proz-treffer ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; max-height: 320px; overflow: auto; border: 1px solid var(--app-line); border-radius: var(--app-radius); background: var(--app-bg); }
+.o-post-proz-treffer li label { display: flex; align-items: center; gap: 10px; padding: 6px 10px; font-size: 13.5px; border-bottom: 1px solid var(--app-line); cursor: pointer; }
+.o-post-proz-treffer li:last-child label { border-bottom: 0; }
+.o-post-proz-treffer li b { flex: 0 0 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
