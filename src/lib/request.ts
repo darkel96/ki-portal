@@ -49,7 +49,32 @@ export type KiRequest = {
   diagnose?: { suche: string; gelesen: boolean; auszuege: { titel: string; zeichen: number; fehler?: string }[];
     /** Dokumente mit Adresse aus den Auszügen: damit der Hub Quellennamen ohne Link selbst verlinken kann */
     links?: { titel: string; link: string }[] };
+  /** Die gelesenen Auszüge selbst (für ein Nachschlagen, das sie behält) */
+  auszuege?: WissenAuszug[];
 };
+
+/** Gelesener Auszug einer Wissensquelle (SharePoint-Bereich oder Datei) */
+export type WissenAuszug = { titel: string; url: string; text: string; fehler?: string; quelleTyp?: Quelle["typ"] };
+/** Höchstens so viele Zeichen je Quelle, auch nach dem Zusammenlegen */
+export const MAX_JE_QUELLE = 40_000;
+
+/**
+ * Nachgeschlagene Auszüge zu den schon vorhandenen dazulegen statt sie zu ersetzen: je Quelle die Dokumentblöcke
+ * beider Durchläufe ohne Doppelte, bis zur Höchstlänge. So gehen beim Nachschlagen die ersten Treffer nicht verloren.
+ */
+export function auszuegeZusammen(vorher: WissenAuszug[], neu: WissenAuszug[]): WissenAuszug[] {
+  const out = neu.map((n) => ({ ...n }));
+  for (const v of vorher) {
+    if (!v.text) continue;
+    const z = out.find((x) => x.titel === v.titel && x.url === v.url);
+    if (!z) { out.push({ ...v }); continue; }
+    const bloecke = z.text ? z.text.split("\n\n") : [];
+    for (const b of v.text.split("\n\n")) if (b.trim() && !bloecke.includes(b)) bloecke.push(b);
+    z.text = bloecke.join("\n\n").slice(0, MAX_JE_QUELLE);
+    delete z.fehler;
+  }
+  return out;
+}
 
 type AppWissen = Pick<App, "name" | "wissen">;
 

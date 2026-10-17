@@ -9,14 +9,14 @@ import { kiModus } from "./index";
 import { shareId } from "./vorlagen";
 import { officeLink } from "../links";
 import type { Quelle } from "../schema";
+import { MAX_JE_QUELLE, type WissenAuszug } from "../request";
 
 const GRAPH = `${KI_CONFIG.graph}/v1.0`;
 /** Zeichen je Quelle, die höchstens in die Anfrage wandern */
-const MAX_JE_QUELLE = 40_000;
 /** Treffer je SharePoint-Bereich (die Retrieval API erlaubt bis 25) */
 const MAX_TREFFER = 20;
 
-export type Auszug = { titel: string; url: string; text: string; fehler?: string; quelleTyp?: Quelle["typ"] };
+export type Auszug = WissenAuszug;
 
 export const wissenMoeglich = () => kiModus() === "copilot";
 

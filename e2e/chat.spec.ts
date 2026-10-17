@@ -239,6 +239,22 @@ test("Chat: SharePoint-Links in der Frage werden zur Wissensquelle", async ({ pa
   expect(prompts[0]).toContain("CyRPS_CRA_Attest.docx (Einzelne Datei (SharePoint/OneDrive)): https://firma.sharepoint.com/sites/KSC/Lib/CyRPS_CRA_Attest.docx");
 });
 
+test("Nachschlagen: neue Auszüge ergänzen die bisherigen, sie ersetzen sie nicht", async ({ page }, info) => {
+  test.skip(info.project.name !== "desktop", "einmal reicht");
+  await page.goto("/");
+  const r = await page.evaluate(async () => {
+    const rq = await import("/src/lib/request.ts");
+    const vorher = [{ titel: "Bibliothek", url: "https://x/lib", text: "Dokument: A\nLink: https://x/a\nStelle 1:\nErster Treffer" }, { titel: "Datei", url: "https://x/d.md", text: "Inhalt", quelleTyp: "datei" }];
+    const neu = [{ titel: "Bibliothek", url: "https://x/lib", text: "Dokument: B\nLink: https://x/b\nStelle 1:\nNachgeschlagen" }, { titel: "Datei", url: "https://x/d.md", text: "", fehler: "HTTP 429" }];
+    return rq.auszuegeZusammen(vorher, neu);
+  });
+  expect(r[0].text).toBe("Dokument: B\nLink: https://x/b\nStelle 1:\nNachgeschlagen\n\nDokument: A\nLink: https://x/a\nStelle 1:\nErster Treffer");
+  expect(r[1]).toEqual({ titel: "Datei", url: "https://x/d.md", text: "Inhalt" });
+  // Leere zweite Suche: der erste Stand bleibt vollständig
+  const leer = await page.evaluate(async () => (await import("/src/lib/request.ts")).auszuegeZusammen([{ titel: "B", url: "u", text: "x\n\ny" }], [{ titel: "B", url: "u", text: "" }]));
+  expect(leer[0].text).toBe("x\n\ny");
+});
+
 test("Chat: Nachschlagen, wenn die Auszüge auf ein anderes Dokument verweisen", async ({ page }, info) => {
   test.skip(info.project.name !== "desktop", "einmal reicht");
   // Nachgebaute KI: erste Antwort verlangt Nachschlagen, zweite antwortet endgültig
