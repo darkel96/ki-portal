@@ -15,6 +15,9 @@ import { KI_ZENTRAL } from "@/lib/ki/config";
 import { kiModus } from "@/lib/ki";
 import { Check, Fld, Sel, TextFld } from "./controls";
 import { geloeschtToast, type Builder } from "./useBuilder";
+import { agentAusVorlage, agentSpeichern, agentenLaden, neueAgentId } from "@/lib/agenten";
+import type { AgentVorlage } from "@/lib/schema";
+import { toast } from "sonner";
 
 const DATEI_OPTIONEN: [string, string][] = [["keine", "Keine (nur anzeigen)"], ["pdf", "PDF"], ["docx", "Word (.docx)"], ["xlsx", "Excel (.xlsx)"], ["pptx", "PowerPoint (.pptx)"], ["wunsch", "Wie in Aufgabe oder Eingabe verlangt"]];
 const BED_OP: [NonNullable<Step["bedingung"]>["op"], string][] = [["gleich", "ist gleich"], ["ungleich", "ist nicht"], ["gefuellt", "ist ausgefüllt"], ["leer", "ist leer"]];
@@ -74,6 +77,19 @@ function StepCard({ b, i, onAktiv }: { b: Builder; i: number; onAktiv: (id: stri
   const zielRef = useRef<HTMLTextAreaElement>(null);
   const set = <K extends keyof Step>(k: K, v: Step[K], coalesce = false) => b.change((d) => { d.steps[i][k] = v; }, coalesce ? `${s.id}:${String(k)}` : undefined);
   const setTeam = (mut: (t: NonNullable<Step["team"]>) => void, coalesce?: string) => b.change((d) => { const t = d.steps[i].team; if (t) mut(t); }, coalesce);
+  // Agentenbibliothek: verknüpfte Agenten zeigen Name und Rolle von dort; „In die Bibliothek“ legt einen Teamagenten global an
+  const [bibliothek, setBibliothek] = useState<AgentVorlage[]>([]);
+  useEffect(() => { if (s.art === "team") agentenLaden().then(setBibliothek, () => setBibliothek([])); }, [s.art]);
+  const inBibliothek = async (ai: number) => {
+    const a = s.team?.agenten[ai];
+    if (!a) return;
+    try {
+      const v = await agentSpeichern({ id: neueAgentId(), name: a.name.trim() || `Agent ${ai + 1}`, beschreibung: "", rolle: a.rolle, hinweise: "", geaendert: "", erstelltVon: "" });
+      setBibliothek(await agentenLaden(true));
+      setTeam((t) => { t.agenten[ai].vorlage = v.id; });
+      toast.success(`„${v.name}“ ist jetzt in der Agentenbibliothek und hier verknüpft.`);
+    } catch (e) { toast.error(e instanceof Error ? e.message : "Das hat nicht geklappt."); }
+  };
   const fl = fieldsOf(b.app).filter((x) => stepsUsing(b.app, x.props.key).includes(i)).map((x) => x.props.label);
   const prev = b.app.steps.slice(0, i).flatMap((p, pi) => varsIn(stepText(s)).includes(p.key.toLowerCase()) ? [`Ergebnis von ${stepName(p, pi)}`] : []);
   let anzeigen = 0;
@@ -136,13 +152,25 @@ function StepCard({ b, i, onAktiv }: { b: Builder; i: number; onAktiv: (id: stri
           <Sel label="Höchstens Runden" value={String(team.maxRunden)} options={[4, 6, 8, 10, 12, 16, 20].map((r) => [String(r), `${r} Runden`] as [string, string])} onChange={(v) => setTeam((t) => { t.maxRunden = Number(v); })} />
           <span className="lbl text-[13px] font-semibold">Agenten</span>
           {team.agenten.map((a, ai) => (
-            <div className="agent-row" key={a.id}>
-              <Input aria-label={`Name von Agent ${ai + 1}`} value={a.name} onChange={(e) => setTeam((t) => { t.agenten[ai].name = e.target.value; }, `${a.id}:name`)} />
-              <Textarea aria-label={`Rolle von ${agentName(a, ai)}`} rows={2} value={a.rolle} placeholder="Aufgabe und Haltung dieses Agenten" onChange={(e) => setTeam((t) => { t.agenten[ai].rolle = e.target.value; }, `${a.id}:rolle`)} />
+            <div className={`agent-row${a.vorlage ? " ist-verknuepft" : ""}`} key={a.id}>
+              <Input aria-label={`Name von Agent ${ai + 1}`} value={a.name} disabled={!!a.vorlage} onChange={(e) => setTeam((t) => { t.agenten[ai].name = e.target.value; }, `${a.id}:name`)} />
+              <Textarea aria-label={`Rolle von ${agentName(a, ai)}`} rows={2} value={a.rolle} disabled={!!a.vorlage} placeholder="Aufgabe und Haltung dieses Agenten" onChange={(e) => setTeam((t) => { t.agenten[ai].rolle = e.target.value; }, `${a.id}:rolle`)} />
               <Button variant="outline" size="icon-sm" aria-label={`${agentName(a, ai)} entfernen`} disabled={team.agenten.length <= 2} onClick={() => { const vorher = b.aktuell(); setTeam((t) => { t.agenten.splice(ai, 1); }); geloeschtToast(b, vorher, `„${agentName(a, ai)}“ entfernt.`); }}><Trash /></Button>
             </div>
           ))}
-          <div><Button variant="outline" size="sm" disabled={team.agenten.length >= 6} onClick={() => setTeam((t) => { t.agenten.push({ id: rid("g"), name: `Agent ${t.agenten.length + 1}`, rolle: "" }); })}><Plus />Agent hinzufügen</Button></div>
+          {team.agenten.some((a) => a.vorlage) && <p className="hint" style={{ margin: 0 }}>Verknüpfte Agenten (aus der Bibliothek) bekommen Name und Rolle beim Lauf von dort; feinjustiert wird unter „Agenten“.</p>}
+          <div className="ag-team-zeile">
+            {team.agenten.map((a, ai) => a.vorlage
+              ? <Button key={a.id} variant="outline" size="sm" onClick={() => setTeam((t) => { t.agenten[ai].vorlage = ""; })} title="Verknüpfung lösen: Name und Rolle bleiben als eigene Kopie">{agentName(a, ai)}: Verknüpfung lösen</Button>
+              : <Button key={a.id} variant="outline" size="sm" onClick={() => void inBibliothek(ai)} title="Als Bibliotheksagenten anlegen und hier verknüpfen">{agentName(a, ai)}: In die Bibliothek</Button>)}
+          </div>
+          <div className="ag-team-zeile">
+            <Button variant="outline" size="sm" disabled={team.agenten.length >= 6} onClick={() => setTeam((t) => { t.agenten.push({ id: rid("g"), name: `Agent ${t.agenten.length + 1}`, rolle: "", vorlage: "" }); })}><Plus />Agent hinzufügen</Button>
+            {bibliothek.length > 0 && (
+              <Sel label="Aus der Bibliothek" value="" options={[["", "Agent wählen …"], ...bibliothek.filter((v) => !team.agenten.some((a) => a.vorlage === v.id)).map((v) => [v.id, v.name] as [string, string])]}
+                onChange={(id) => { const v = bibliothek.find((x) => x.id === id); if (v && team.agenten.length < 6) setTeam((t) => { t.agenten.push(agentAusVorlage(v, rid("g"))); }); }} />
+            )}
+          </div>
           <TextFld label="Regeln für die Moderation (optional)" multiline rows={2} value={team.moderation} onChange={(v) => setTeam((t) => { t.moderation = v; }, `${s.id}:mod`)} />
         </div>
         </TabsContent>

@@ -21,7 +21,7 @@ export function Shell() {
   // Fenstertitel je Bereich; App-Seiten setzen ihren eigenen
   useEffect(() => {
     if (loc.pathname.startsWith("/app/")) return;
-    const t = loc.pathname === "/" ? "Applikationen" : loc.pathname.startsWith("/mein") ? "Mein Hub" : loc.pathname.startsWith("/baukasten") ? "Baukasten" : loc.pathname === "/neu" ? "Neue Applikation" : loc.pathname === "/verwaltung" ? "Verwaltung" : "Seite nicht gefunden";
+    const t = loc.pathname === "/" ? "Applikationen" : loc.pathname.startsWith("/mein") ? "Mein Hub" : loc.pathname.startsWith("/baukasten") ? "Baukasten" : loc.pathname === "/neu" ? "Neue Applikation" : loc.pathname.startsWith("/agenten") ? "Agenten" : loc.pathname === "/verwaltung" ? "Verwaltung" : "Seite nicht gefunden";
     document.title = `${t} – KI-Hub`;
   }, [loc.pathname]);
   const imBaukasten = loc.pathname.startsWith("/baukasten") || loc.pathname === "/neu";
@@ -41,6 +41,7 @@ export function Shell() {
             <Link to="/" viewTransition aria-current={inUebersicht ? "page" : undefined}>Applikationen</Link>
             <NavLink to="/mein" viewTransition>Mein Hub</NavLink>
             {rechte.darf("bauen") && <NavLink to="/baukasten" viewTransition>Baukasten</NavLink>}
+            {rechte.darf("bauen") && <NavLink to="/agenten" viewTransition>Agenten</NavLink>}
             {rechte.istAdmin && rechte.ich && <NavLink to="/verwaltung" viewTransition>Verwaltung</NavLink>}
           </nav>
           <Popover>

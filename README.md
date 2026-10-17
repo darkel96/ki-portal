@@ -110,6 +110,17 @@ Suchdurchläufe je Frage) und antwortet erst dann. Der Schritt läuft nie im Dur
 Belegregel (nur aus Unterlagen, Quelle nennen, Unbelegtes als solches sagen); die Unterlagen trägt man unter
 App-Einstellungen → Wissen ein.
 
+## Agentenbibliothek
+
+Unter **Agenten** (Navigation, für alle mit Baukasten-Recht) werden Agenten einmal global angelegt: Name,
+Kurzbeschreibung, Rolle und eine **Feinjustierung** (Regeln, Tonfall, Grenzen, die immer gelten). Ein Probelauf zeigt,
+wie der Agent mit dem ungespeicherten Stand antwortet. Im Baukasten holt ein Agenten-Team Agenten „Aus der Bibliothek“
+oder nimmt einen eigenen Teamagenten „In die Bibliothek“ auf; verknüpfte Agenten sind im Team schreibgeschützt und
+bekommen beim Lauf (Browser, Mein Hub und Hub-Dienst-Start) Name und Rolle aus der Bibliothek. Eine Feinjustierung
+wirkt damit sofort in allen Apps, ohne sie neu zu speichern. „Verknüpfung lösen“ macht die aktuelle Fassung zur eigenen
+Kopie; wird ein Bibliotheksagent gelöscht, behalten Teams die zuletzt gespeicherte Fassung. Ablage wie die Apps:
+im Browser oder im gemeinsamen SharePoint-Ordner (`agenten/`).
+
 ## Postfach (Microsoft 365)
 
 Der Baustein **Postfach** (Palette, Gruppe „Microsoft 365“) zeigt das Postfach der angemeldeten Person wie in Outlook:

@@ -87,7 +87,7 @@ export function sanitizeApp(raw: unknown, base: App): App {
       const t = isObj(s.team) ? s.team : {};
       const agenten = (Array.isArray(t.agenten) ? t.agenten : []).slice(0, 6).filter(isObj)
         .map((a) => ({ ...objectLenient(AgentSchema.omit({ id: true }), a), id: cleanId(a.id, "g") }));
-      while (agenten.length < 2) agenten.push({ id: rid("g"), name: `Agent ${agenten.length + 1}`, rolle: "" });
+      while (agenten.length < 2) agenten.push({ id: rid("g"), name: `Agent ${agenten.length + 1}`, rolle: "", vorlage: "" });
       step.team = {
         ziel: typeof t.ziel === "string" ? t.ziel.slice(0, 4000) : "",
         maxRunden: field(z.number().int().min(2).max(20), t.maxRunden, 8),

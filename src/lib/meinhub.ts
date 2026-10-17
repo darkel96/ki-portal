@@ -13,6 +13,7 @@ import { z } from "zod";
 import type { App } from "./schema";
 import type { FileInfo } from "./request";
 import { ablaufStarten, fehlendePflichtfelder, type OutState, type Werte } from "./runner";
+import { mitBibliotheksAgenten } from "./agenten";
 import { fieldsOf, rid, stepsFor } from "./model";
 
 /* ---------- Schema ---------- */
@@ -208,7 +209,7 @@ export async function ausfuehren(opts: {
   const melden = () => opts.onUpdate?.({ ...lauf, ergebnisse: kurz(outs, app) });
   try {
     await ablaufStarten({
-      app, aktion: "alle", werte, files, ergebnisse: {}, signal,
+      app: await mitBibliotheksAgenten(app), aktion: "alle", werte, files, ergebnisse: {}, signal,
       setOut: (id, s) => { outs[id] = typeof s === "function" ? s(outs[id]) : s; melden(); },
     });
   } catch (e) {

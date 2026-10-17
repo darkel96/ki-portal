@@ -16,6 +16,7 @@ const AppPage = lazy(nachladen(() => import("@/pages/AppPage").then((m) => ({ de
 const BuilderPage = lazy(nachladen(() => import("@/pages/BuilderPage").then((m) => ({ default: m.BuilderPage }))));
 const MeinHubPage = lazy(nachladen(() => import("@/pages/MeinHubPage").then((m) => ({ default: m.MeinHubPage }))));
 const NeuPage = lazy(nachladen(() => import("@/pages/NeuPage").then((m) => ({ default: m.NeuPage }))));
+const AgentenPage = lazy(nachladen(() => import("@/pages/AgentenPage").then((m) => ({ default: m.AgentenPage }))));
 const VerwaltungPage = lazy(nachladen(() => import("@/pages/VerwaltungPage").then((m) => ({ default: m.VerwaltungPage }))));
 const laden = <p className="hint">Wird geladen …</p>;
 
@@ -40,6 +41,7 @@ const router = (import.meta.env.VITE_ROUTER === "hash" ? createHashRouter : crea
       { path: "/neu", element: <Suspense fallback={laden}><NeuPage /></Suspense> },
       { path: "/baukasten", element: <Suspense fallback={laden}><BuilderPage /></Suspense> },
       { path: "/baukasten/:id", element: <Suspense fallback={laden}><BuilderPage /></Suspense> },
+      { path: "/agenten", element: <Suspense fallback={laden}><AgentenPage /></Suspense> },
       { path: "/verwaltung", element: <Suspense fallback={laden}><VerwaltungPage /></Suspense> },
       { path: "*", element: <NotFoundPage /> },
     ],

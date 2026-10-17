@@ -9,6 +9,7 @@ import { Blatt, Pager, blaetterTaste } from "@/components/layout/Pager";
 import { readFileInfo, UnsupportedFormatError } from "@/lib/files";
 import { ampelPaare, ampelText, ampelWert } from "@/lib/ampel";
 import { STATUS_LABEL, abhaengigkeiten, ablaufStarten, fehlendePflichtfelder, fehlendeVorstufe, type OutState, type Werte } from "@/lib/runner";
+import { mitBibliotheksAgenten } from "@/lib/agenten";
 import { DienstFehler, benachrichtigen, benachrichtigungErlauben, dienstAktiv, gemerkterLauf, laufEntfernen, laufGesehen, laufMerken, laufStand, laufStarten, type DienstLaufStand } from "@/lib/dienst";
 import type { FileInfo } from "@/lib/request";
 import { BlockContent, type RenderList } from "./BlockContent";
@@ -462,7 +463,10 @@ export const RunApp = forwardRef<RunAppHandle, {
     // Alte Ergebnisse der gestarteten Schritte zurücksetzen, sonst steht „Fertig“ mit altem Text neben dem laufenden Schritt
     setOuts((o) => ({ ...o, ...Object.fromEntries(steps.map((s) => [s.id, { status: "wartet" as const }])) }));
     const gelaufen: Record<string, OutState> = {};
+    const appAussen = app;
     try {
+      // Verknüpfte Agenten bekommen die aktuelle Fassung aus der Agentenbibliothek
+      const app = await mitBibliotheksAgenten(appAussen);
       // Mit Hub-Dienst läuft der Ablauf dort weiter, auch wenn der Tab zugeht; ohne (oder wenn er nicht antwortet) im Browser
       let imDienst = false;
       if (!eingebettet && await dienstAktiv()) {
