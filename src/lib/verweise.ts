@@ -3,6 +3,8 @@
  * im Browser und im Hub-Dienst läuft.
  */
 /** Nummerierter Verweis, wie Copilot Quellen setzt: „[1](Adresse)“ (mit Leerraum davor) */
+/** Fertiger Markdown-Link „[Text](Adresse)“, Adresse auch mit paarigen Klammern */
+const LINK = /\[[^\]]*\]\((?:[^\s()]|\([^\s()]*\))+\)/g;
 const VERWEIS = /\s*\[(\d{1,3})\]\(((?:https?:\/\/)(?:[^\s()]|\([^\s()]*\))+)\)/g;
 /** Name eines Dokuments aus seiner Adresse: der Dateiname (bei Office-Links der Parameter „file“), sonst der letzte Pfadteil */
 export function dokumentName(url: string): string {
@@ -29,16 +31,21 @@ export function verweiseAufloesen(text: string): string {
   const erst = zeilen.map((z) => {
     const m = quellenZeile.exec(z);
     if (!m) return z;
-    // Abschnitte der Zeile: Text bis zum Verweis → [Text](Adresse); steht davor schon ein Link, fällt nur der Verweis weg
+    // Abschnitte der Zeile: Text bis zum Verweis → [Text](Adresse). Steht in dem Text schon ein Link (Copilot schreibt
+    // inzwischen beides: Link und Nummer), bleibt der Link, und nur der Text danach wird mit der Adresse der Nummer verlinkt
     let rest = "", pos = 0;
     for (const v of m[2].matchAll(VERWEIS)) {
       const t = m[2].slice(pos, v.index);
       pos = v.index + v[0].length;
       inQuellen.add(v[2]);
-      if (/\]\([^()]*\)\s*$/.test(t)) { rest += t; continue; }
-      const trenner = /^\s*[;,]\s*/.exec(t)?.[0] ?? "";
-      const name = t.slice(trenner.length).trim().replace(/[.;,:]+$/, "");
-      rest += `${trenner}[${name || dokumentName(v[2])}](${v[2]})`;
+      let ende = 0;
+      for (const l of t.matchAll(LINK)) ende = l.index + l[0].length;
+      const vor = t.slice(0, ende), nach = t.slice(ende);
+      const trenner = /^\s*[;,·|]\s*/.exec(nach)?.[0] ?? "";
+      const name = nach.slice(trenner.length).trim().replace(/[.;,:·]+$/, "");
+      if (name) rest += `${vor}${trenner}[${name}](${v[2]})`;
+      else if (vor) rest += vor;   // Nummer hinter einem fertigen Link: der Link reicht
+      else rest += `${rest.trim() ? " · " : ""}[${dokumentName(v[2])}](${v[2]})`;
     }
     rest += m[2].slice(pos);
     return m[1] + rest;
