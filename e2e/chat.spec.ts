@@ -182,6 +182,27 @@ test("Markdown: nackte Adressen bekommen einen lesbaren Namen", async ({ page },
   expect(r.link).toContain('target="_blank"');
 });
 
+test("Markdown: nummerierte Copilot-Verweise werden zu Links mit Quellennamen", async ({ page }, info) => {
+  test.skip(info.project.name !== "desktop", "einmal reicht");
+  await page.goto("/");
+  const r = await page.evaluate(async () => {
+    const m = await import("/src/lib/markdown.ts");
+    const a = "https://x.sharepoint.com/sites/KSC/_layouts/15/Doc.aspx?sourcedoc=%7B2D32%7D&file=CRA_Anforderungen_Vereinfacht.docx&action=default";
+    const b = "https://x.sharepoint.com/sites/KSC/Library/Training/CyRPS%20Training%202026.pptx";
+    const text = `Für die IT gilt:\n\n- Risiken analysieren. [1](${a})\n- SBOM pflegen. [1](${a})\n\nQuelle: CRA_Anforderungen_Vereinfacht.docx, Anforderungen 1–5 [1](${a})\n\nZur Schulung siehe auch [2](${b}).\n\nQuellen: [CRA Q&A, Scope](https://x.sharepoint.com/qa) [3](https://x.sharepoint.com/qa); Fragenkatalog, Abschnitt 2 [4](https://x.sharepoint.com/fk)`;
+    const neu = m.verweiseAufloesen(text);
+    return { neu, html: m.markdown(neu), name: m.dokumentName(a), unveraendert: m.verweiseAufloesen("Kein Verweis [Link](https://x.de/a) hier.") };
+  });
+  expect(r.neu).toContain("- Risiken analysieren.\n- SBOM pflegen.\n");
+  expect(r.neu).toContain("Quelle: [CRA_Anforderungen_Vereinfacht.docx, Anforderungen 1–5](https://x.sharepoint.com/sites/KSC/_layouts/15/Doc.aspx?sourcedoc=%7B2D32%7D&file=CRA_Anforderungen_Vereinfacht.docx&action=default)");
+  expect(r.neu).toContain("siehe auch [CyRPS Training 2026.pptx](https://x.sharepoint.com/sites/KSC/Library/Training/CyRPS%20Training%202026.pptx).");
+  expect(r.neu).toContain("Quellen: [CRA Q&A, Scope](https://x.sharepoint.com/qa); [Fragenkatalog, Abschnitt 2](https://x.sharepoint.com/fk)");
+  expect(r.html).toContain(">CRA_Anforderungen_Vereinfacht.docx, Anforderungen 1–5</a>");
+  expect(r.html).not.toContain(">1</a>");
+  expect(r.name).toBe("CRA Anforderungen Vereinfacht.docx");
+  expect(r.unveraendert).toBe("Kein Verweis [Link](https://x.de/a) hier.");
+});
+
 test("Chat: SharePoint-Links in der Frage werden zur Wissensquelle", async ({ page }, info) => {
   test.skip(info.project.name !== "desktop", "einmal reicht");
   const { prompts } = await kiNachbau(page);

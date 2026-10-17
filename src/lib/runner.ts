@@ -3,6 +3,7 @@ import { fieldsOf, stepsFor, stepsUsing, stepText, varsIn } from "./model";
 import { buildRequest, wissenFuer, type FileInfo, type KiRequest } from "./request";
 import { KiSimulation, kiSenden } from "./ki";
 import { parsePaket, type Paket } from "./paket";
+import { verweiseAufloesen } from "./verweise";
 import { teamAusfuehren, type Beitrag } from "./team";
 
 export type Werte = Record<string, string | boolean>;
@@ -191,6 +192,7 @@ export async function ablaufStarten(opts: {
         const live = s.format === "markdown" || s.format === "text" ? mitlesen((t) => setOut(s.id, (prev) => ({ ...(prev ?? { status: "laeuft" }), text: t }))) : undefined;
         text = await kiSenden(req, signal, live?.teil);
         live?.ende();
+        if (s.format === "markdown" || s.format === "text") text = verweiseAufloesen(text);
       }
       const paket = s.format === "dateien" ? parsePaket(text) : undefined;
       if (paket && req.vorlagenUrl) paket.vorlagenUrl = req.vorlagenUrl;

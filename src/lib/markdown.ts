@@ -27,6 +27,8 @@ export function linkName(url: string): string {
     return esc(letzter || u.hostname);
   } catch { return url; }
 }
+export { dokumentName, verweiseAufloesen } from "./verweise";
+
 const inline = (s: string) => esc(s)
   // [Text](https://…) und nackte Adressen (nicht schon Teil eines Links); Satzzeichen am Ende bleiben draußen
   // Adressen dürfen Klammern enthalten („…/Cyber Resilience Act (CRA) EU …“), solange sie paarig sind

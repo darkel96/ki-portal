@@ -5,7 +5,7 @@ import type { App, Block } from "@/lib/schema";
 import { fill } from "@/lib/model";
 import { GespraechVerfallen, KiSimulation, kiModus, kiSenden } from "@/lib/ki";
 import { OHNE_ADRESSE, anfrageVorbereiten, kontext } from "@/lib/runner";
-import { markdown } from "@/lib/markdown";
+import { markdown, verweiseAufloesen } from "@/lib/markdown";
 import { diagrammeZeichnen } from "@/lib/diagramm";
 import { ohneQuelle, vorschlagAnlegen, type Bewertung } from "@/lib/lernen";
 import { rueckmeldungSpeichern, vorschlagEinreichen } from "@/lib/lernenBrowser";
@@ -206,7 +206,7 @@ export function ChatView({ app, b, mode }: { app: App; b: Extract<Block, { type:
       setzeAntwort({ diagnose: { suche: req.diagnose?.suche ?? "", gelesen: !!req.diagnose?.gelesen, auszuege: req.diagnose?.auszuege ?? [], hausregeln: /Hausregeln und Kontext/.test(req.system), gespraech: !!gespraech.current, system: req.system.length } });
       setStand(req.bilder?.length ? "Bilder werden übergeben\u00a0…" : "");
       // Eine „NACHSCHLAGEN:“-Zeile ist keine Antwort und wird nicht angezeigt
-      return kiSenden(req, c.signal, (t) => { if (!c.signal.aborted && !NACHSCHLAGEN.test(t.trim().slice(0, 40))) { bisherText = t; setzeAntwort({ text: t }); } }, { gespraech: gespraech.current ?? undefined, onGespraech: (id) => { gespraech.current = id; } });
+      return kiSenden(req, c.signal, (t) => { if (!c.signal.aborted && !NACHSCHLAGEN.test(t.trim().slice(0, 40))) { bisherText = t; setzeAntwort({ text: verweiseAufloesen(t) }); } }, { gespraech: gespraech.current ?? undefined, onGespraech: (id) => { gespraech.current = id; } });
     };
     try {
       let text: string;
@@ -226,7 +226,7 @@ export function ChatView({ app, b, mode }: { app: App; b: Extract<Block, { type:
       }
       if (nachschlagenAus(text)) text = "Dazu habe ich in den hinterlegten Unterlagen nichts gefunden.";
       gesendet.current = [...gesendet.current, ...neu];
-      setzeAntwort({ text });
+      setzeAntwort({ text: verweiseAufloesen(text) });
     } catch (e) {
       if (e instanceof KiSimulation) setzeAntwort({ text: "", simulation: "nachricht" in e.req ? e.req.nachricht : "" });
       else if (c.signal.aborted) setzeAntwort({ text: bisherText ? `${bisherText}\n\n(gestoppt)` : "(gestoppt)", gestoppt: true });
