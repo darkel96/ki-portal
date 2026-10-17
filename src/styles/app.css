@@ -790,6 +790,7 @@ a.mh-titel:hover { text-decoration: underline; text-underline-offset: 4px; }
 .o-chat-faq { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: 12px; color: var(--app-muted); }
 .o-chat-link { background: none; border: 0; padding: 0; font: inherit; font-size: 12px; color: var(--app-accent); text-decoration: underline; cursor: pointer; }
 .o-chat-download { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 8px; }
+.o-chat-quellen { margin: 8px 0 0; padding: 6px 10px; border-radius: var(--app-radius); border: 1px dashed var(--app-line); background: var(--app-soft); font-size: 12px; color: var(--app-ink); }
 .o-chat-diagnose { margin-top: 6px; font-size: 12px; color: var(--app-muted); }
 .o-chat-diagnose summary { cursor: pointer; }
 .o-chat-diagnose ul { margin: 4px 0 0; padding-left: 18px; display: grid; gap: 2px; }

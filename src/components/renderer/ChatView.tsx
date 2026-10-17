@@ -4,7 +4,7 @@ import { toast } from "sonner";
 import type { App, Block } from "@/lib/schema";
 import { fill } from "@/lib/model";
 import { GespraechVerfallen, KiSimulation, kiModus, kiSenden } from "@/lib/ki";
-import { anfrageVorbereiten, kontext } from "@/lib/runner";
+import { OHNE_ADRESSE, anfrageVorbereiten, kontext } from "@/lib/runner";
 import { markdown } from "@/lib/markdown";
 import { diagrammeZeichnen } from "@/lib/diagramm";
 import { ohneQuelle, vorschlagAnlegen, type Bewertung } from "@/lib/lernen";
@@ -256,8 +256,10 @@ export function ChatView({ app, b, mode }: { app: App; b: Extract<Block, { type:
     const i = verlauf.length - 1, n = verlauf[i];
     if (!n || n.von !== "experte" || !n.text.trim() || n.fehler || n.simulation !== undefined || n.vermerk !== undefined) return;
     const v = ohneQuelle(n.text);
-    setVerlauf((alt) => alt.map((x, k) => (k === i ? { ...x, vermerk: v } : x)));
-    if (v && app.id && step) void rueckmeldungSpeichern(app.id, { stepId: step.id, bewertung: "ohneQuelle", frage: verlauf[i - 1]?.von === "mensch" ? verlauf[i - 1].text : "", antwort: n.text, kommentar: "" }).catch(() => undefined);
+    // Konnte der Hub gar keine Quelle lesen (keine Adresse, kein Zugriff), fehlt die Einrichtung, nicht die Unterlage: nicht als „ohne Fundstelle“ zählen
+    const einrichtung = kiModus() === "copilot" && !!n.diagnose && !n.diagnose.auszuege.some((a) => a.zeichen > 0) && n.diagnose.auszuege.some((a) => a.fehler);
+    setVerlauf((alt) => alt.map((x, k) => (k === i ? { ...x, vermerk: v && !einrichtung } : x)));
+    if (v && !einrichtung && app.id && step) void rueckmeldungSpeichern(app.id, { stepId: step.id, bewertung: "ohneQuelle", frage: verlauf[i - 1]?.von === "mensch" ? verlauf[i - 1].text : "", antwort: n.text, kommentar: "" }).catch(() => undefined);
   }, [laeuft, verlauf, app.id, step]);
   const rueckmeldung = (i: number, bewertung: "gut" | "schlecht", text: string) => {
     const n = verlauf[i];
@@ -292,13 +294,27 @@ export function ChatView({ app, b, mode }: { app: App; b: Extract<Block, { type:
       <details className="o-chat-diagnose">
         <summary>Was die KI bekommen hat</summary>
         <ul>
-          {!d.gelesen && <li>Keine Wissensquellen gelesen {kiModus() === "copilot" ? "(der Schritt hat keine SharePoint-Quelle)" : "(nur mit Copilot-Anbindung; im Testmodus antwortet die KI ohne Unterlagen)"}.</li>}
+          {!d.gelesen && <li>Keine Wissensquellen gelesen {kiModus() === "copilot" ? (d.auszuege.length ? "(die Quelle hat keine Adresse)" : "(der Schritt hat keine SharePoint-Quelle)") : "(nur mit Copilot-Anbindung; im Testmodus antwortet die KI ohne Unterlagen)"}.</li>}
           {d.auszuege.map((a) => <li key={a.titel}>{a.titel}: {a.fehler ? <span className="o-err">konnte nicht gelesen werden ({a.fehler})</span> : a.zeichen ? `${a.zeichen.toLocaleString("de-DE")} Zeichen Auszüge` : <span className="o-err">keine passenden Inhalte gefunden</span>}</li>)}
           {d.suche && <li>Suchtext: „{d.suche.slice(0, 160)}{d.suche.length > 160 ? " …" : ""}“</li>}
           <li>{d.gespraech ? "Folgefrage im laufenden Copilot-Gespräch (Rolle und Verlauf kennt Copilot schon)" : `Volle Anfrage mit Rolle${d.hausregeln ? " und Hausregeln" : ""} (${d.system.toLocaleString("de-DE")} Zeichen Anweisung)`}</li>
         </ul>
       </details>
     );
+  };
+  /** Sagt die Antwort „nichts gefunden“, steht der Grund sichtbar darunter: Quelle ohne Adresse, nicht lesbar, ohne Treffer oder gelesen, aber ohne Beleg */
+  const quellenHinweis = (n: Nachricht, i: number) => {
+    const d = n.diagnose;
+    if (!d || !n.text.trim() || n.gestoppt || n.fehler || (laeuft && i === verlauf.length - 1) || !ohneQuelle(n.text)) return null;
+    if (kiModus() !== "copilot") return null;
+    const voll = d.auszuege.filter((a) => a.zeichen > 0), kaputt = d.auszuege.filter((a) => a.fehler), leer = d.auszuege.filter((a) => !a.fehler && !a.zeichen);
+    const teile: string[] = [];
+    if (!d.gelesen && !d.auszuege.length) teile.push("Der Schritt hat keine Wissensquelle; die KI hat ohne Unterlagen geantwortet.");
+    kaputt.forEach((a) => teile.push(a.fehler === OHNE_ADRESSE ? `Die Wissensquelle „${a.titel}“ hat keine SharePoint-Adresse; sie wurde nicht gelesen (im Baukasten unter KI-Ablauf → Wissen eintragen).` : `Die Wissensquelle „${a.titel}“ konnte nicht gelesen werden (${a.fehler}).`));
+    leer.forEach((a) => teile.push(`In „${a.titel}“ wurde zur Suche „${d.suche.slice(0, 80)}${d.suche.length > 80 ? " …" : ""}“ nichts Passendes gefunden.`));
+    if (voll.length && !kaputt.length && !leer.length) teile.push(`Gelesen wurden ${voll.map((a) => `„${a.titel}“ (${a.zeichen.toLocaleString("de-DE")} Zeichen)`).join(", ")}; die KI fand darin keinen Beleg zur Frage.`);
+    if (!teile.length) return null;
+    return <p className="o-chat-quellen" role="note">{teile.join(" ")}</p>;
   };
   /** Daumen unter einer fertigen Antwort; nach „nicht hilfreich“ ein kurzer, freiwilliger Kommentar */
   const feedback = (n: Nachricht, i: number) => {
@@ -348,7 +364,7 @@ export function ChatView({ app, b, mode }: { app: App; b: Extract<Block, { type:
             {n.simulation !== undefined
               ? <><p className="o-muted">Simulation: Diese Anfrage würde an die zentrale KI-Anbindung gehen.</p><pre className="code o-sim">{n.simulation}</pre></>
               : n.von === "experte"
-                ? <>{n.text ? <div className="o-body" dangerouslySetInnerHTML={{ __html: markdown(n.text) }} /> : <p className="o-muted">{stand || "Denkt nach …"}</p>}{download(n, i)}{feedback(n, i)}{diagnose(n, i)}</>
+                ? <>{n.text ? <div className="o-body" dangerouslySetInnerHTML={{ __html: markdown(n.text) }} /> : <p className="o-muted">{stand || "Denkt nach …"}</p>}{quellenHinweis(n, i)}{download(n, i)}{feedback(n, i)}{diagnose(n, i)}</>
                 : <>
                     <p>{n.text}</p>
                     {!!n.anhaenge?.length && <ul className="o-chat-anhaenge" aria-label="Anhänge">

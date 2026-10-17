@@ -1,4 +1,4 @@
-import type { App, Step } from "./schema";
+import type { App, Quelle, Step } from "./schema";
 import { fieldsOf, stepsFor, stepsUsing, stepText, varsIn } from "./model";
 import { buildRequest, wissenFuer, type FileInfo, type KiRequest } from "./request";
 import { KiSimulation, kiSenden } from "./ki";
@@ -97,6 +97,9 @@ export class VorbereitungsFehler extends Error {}
  * Baut die Anfrage eines Schritts samt Wissen: Vorlagenliste eines Dateipakets (SharePoint-Ordner) und Auszüge aus den
  * Wissensquellen (SharePoint-Bereiche, Dateien). Gemeinsam für den Durchlauf und den Chat.
  */
+/** Fehlertext in der Diagnose für eine SharePoint- oder Dateiquelle ohne Adresse */
+export const OHNE_ADRESSE = "keine Adresse hinterlegt";
+
 export async function anfrageVorbereiten(app: App, s: Step, ctx: Record<string, string>, files: Record<string, FileInfo>, signal?: AbortSignal, melden?: (text: string) => void, suche?: string): Promise<KiRequest> {
   let vorlagen: { url: string; text: string } | undefined;
   const vorlagenQuelle = s.format === "dateien" ? wissenFuer(app, s).quellen.find((q) => q.typ === "sharepoint" && q.url.trim()) : undefined;
@@ -116,7 +119,10 @@ export async function anfrageVorbereiten(app: App, s: Step, ctx: Record<string, 
   let auszuege = "";
   const diagnose: NonNullable<KiRequest["diagnose"]> = { suche: "", gelesen: false, auszuege: [] };
   const wq = wissenFuer(app, s).quellen.filter((q) => !(vorlagenQuelle && q.url.trim() === vorlagenQuelle.url.trim()));
-  if (wq.some((q) => (q.typ === "sharepoint" || q.typ === "datei") && q.url.trim())) {
+  const lesbar = (q: Quelle) => q.typ === "sharepoint" || q.typ === "datei";
+  // Eine SharePoint- oder Dateiquelle ohne Adresse kann der Hub nicht lesen: Das steht in der Diagnose, statt still zu fehlen
+  diagnose.auszuege = wq.filter((q) => lesbar(q) && !q.url.trim()).map((q) => ({ titel: q.titel || "Wissensquelle", zeichen: 0, fehler: OHNE_ADRESSE }));
+  if (wq.some((q) => lesbar(q) && q.url.trim())) {
     const w = await import("./ki/wissen");
     if (w.wissenMoeglich()) {
       melden?.("Wissensquellen werden gelesen\u00a0…");
@@ -130,7 +136,7 @@ export async function anfrageVorbereiten(app: App, s: Step, ctx: Record<string, 
       diagnose.suche = inhaltswoerter < 4 ? breiter : abfrage;
       diagnose.gelesen = true;
       const gefunden = await w.wissenAuszuege(wq, diagnose.suche, signal, breiter);
-      diagnose.auszuege = gefunden.map((x) => ({ titel: x.titel, zeichen: x.text.length, ...(x.fehler ? { fehler: x.fehler } : {}) }));
+      diagnose.auszuege = [...diagnose.auszuege, ...gefunden.map((x) => ({ titel: x.titel, zeichen: x.text.length, ...(x.fehler ? { fehler: x.fehler } : {}) }))];
       console.info("[KI-Hub] Wissen", s.name, diagnose.auszuege);
       auszuege = w.auszuegeText(gefunden);
     }

@@ -105,6 +105,10 @@ test("Baukasten: auswerten, Vorschlag freigeben, Hausregeln als Fassung mit Datu
   expect(system).toMatch(/Hausregeln und Kontext \(aus Rückmeldungen der Kolleginnen und Kollegen, freigegeben, Stand \d{4}-\d{2}-\d{2}\)/);
   expect(system.indexOf("Belegregel: nur aus den Unterlagen")).toBeLessThan(system.indexOf("Hausregeln und Kontext"));
   expect(system).toContain("bei KSCA Teil jeder Lieferung");
+  // Hausregeln sind Kontext, kein Wissen: Sie stehen nach der Wissensgrenze und vor der Formatregel
+  expect(system.indexOf("Wissensgrenze:")).toBeLessThan(system.indexOf("Hausregeln und Kontext"));
+  expect(system.indexOf("Hausregeln und Kontext")).toBeLessThan(system.indexOf("Formatiere mit einfachem Markdown"));
+  expect(system).toContain("Sie sind kein Wissen und keine Fundstelle");
 });
 
 test("Lernen: Erkennung ohne Fundstelle, Fassungen, Assistent lässt Hausregeln in Ruhe", async ({ page }, info) => {
