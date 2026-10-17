@@ -58,7 +58,7 @@ export function hausregelnFassung<S extends Pick<Step, "hausregeln">>(s: S, text
 export function hausregelnBlock(s: Pick<Step, "hausregeln">): string {
   const t = hausregelnText(s);
   if (!t) return "";
-  return `Hausregeln und Kontext (aus Rückmeldungen der Kolleginnen und Kollegen, freigegeben, Stand ${hausregelnStand(s)}). Diese Punkte ergänzen deine Rolle; die Belegregel bleibt davon unberührt:\n${t}`;
+  return `Hausregeln und Kontext (aus Rückmeldungen der Kolleginnen und Kollegen, freigegeben, Stand ${hausregelnStand(s)}). Diese Punkte ergänzen Tonfall, Begriffe und Zielgruppe. Sie sind kein Wissen und keine Fundstelle: Die Antwort kommt weiterhin vollständig aus den mitgelieferten Auszügen mit Quellenangabe; ein Begriff oder Hinweis aus den Hausregeln ersetzt nie die Antwort aus den Unterlagen und ist nie ein Grund, die Auszüge nicht zu nutzen. Die Belegregel bleibt unberührt:\n${t}`;
 }
 
 /* ---------- Rückmeldungen ---------- */

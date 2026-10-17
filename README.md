@@ -47,6 +47,12 @@ die KI die Rückmeldungen aus und macht Vorschläge (Begriffe, häufige Fragen, 
 oder verwirft. Jede Übernahme ist eine Fassung mit Datum und Grund und lässt sich zurückdrehen. Mit Hub-Dienst liegen
 Rückmeldungen zentral und die Auswertung läuft von selbst, sobald genug neue da sind.
 
+Die Hausregeln sind Kontext, kein Wissen: Sie stehen in der Anfrage nach der Wissensgrenze und sagen der KI
+ausdrücklich, dass die Antwort weiterhin aus den Auszügen der Quellen kommt und ein Begriff aus den Hausregeln die
+Suche in den Unterlagen nie ersetzt. Sagt eine Antwort „nichts gefunden“, steht der Grund sichtbar darunter: Quelle
+ohne Adresse, Quelle nicht lesbar, keine Treffer zur Suche oder gelesen, aber ohne Beleg; „Was die KI bekommen hat“
+zeigt die Einzelheiten. Eine Quelle ohne Adresse zählt nicht als fehlende Unterlage.
+
 **Häufige Fragen:** Freigegebene Frage-Antwort-Paare (aus der Auswertung, aus dem Chat per „Als häufige Frage
 vorschlagen“ oder von Hand) beantwortet der Experte sofort, ohne KI, mit Hinweis „Gespeicherte Antwort“; ein Klick
 fragt trotzdem die KI. Das spart Wartezeit bei wiederkehrenden Fragen.
