@@ -74,12 +74,13 @@ export async function api(req: IncomingMessage, res: ServerResponse, pfad: strin
       return json(201, { id: await d.zeitplan.jetzt(nutzer.id, jetzt[1]) });
     }
     // Lernschicht: Rückmeldungen (anonym), Auswertung, Freigabe-Stand der Vorschläge
-    const lernen = /^\/lernen\/([^/]+)(?:\/(rueckmeldungen|auswerten)|\/vorschlaege\/([^/]+))?$/.exec(pfad);
+    const lernen = /^\/lernen\/([^/]+)(?:\/(rueckmeldungen|auswerten|vorschlaege)|\/vorschlaege\/([^/]+))?$/.exec(pfad);
     if (lernen) {
       const appId = decodeURIComponent(lernen[1]);
       if (!lernen[2] && !lernen[3] && methode === "GET") return json(200, await d.lernen.standVon(appId));
       if (lernen[2] === "rueckmeldungen" && methode === "POST") { await d.lernen.rueckmeldung(appId, body); return json(201, { ok: true }); }
       if (lernen[2] === "auswerten" && methode === "POST") { await uebernehmen(); return json(200, await d.lernen.auswerten(appId, nutzer.id, body)); }
+      if (lernen[2] === "vorschlaege" && methode === "POST") return json(201, await d.lernen.einreichen(appId, body));
       if (lernen[3] && methode === "PUT") return json(200, await d.lernen.vorschlag(appId, decodeURIComponent(lernen[3]), (body as { stand?: unknown })?.stand));
     }
     throw new ApiFehler(404, `Unbekannt: ${methode} /api${pfad}`);

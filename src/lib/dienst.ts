@@ -119,6 +119,7 @@ export const auftragJetzt = (id: string) => ruf<{ id: string }>(`/auftraege/${en
 export const lernStandHolen = (appId: string) => ruf<LernStand>(`/lernen/${encodeURIComponent(appId)}`);
 export const rueckmeldungSenden = (appId: string, r: Rueckmeldung) => ruf<{ ok: true }>(`/lernen/${encodeURIComponent(appId)}/rueckmeldungen`, { method: "POST", body: JSON.stringify(r) });
 export const lernenAuswerten = (appId: string, b: { stepId: string; step: Step; appName: string; intervallTage?: number }) => ruf<LernStand>(`/lernen/${encodeURIComponent(appId)}/auswerten`, { method: "POST", body: JSON.stringify(b) });
+export const vorschlagEinreichenDienst = (appId: string, v: Vorschlag) => ruf<LernStand>(`/lernen/${encodeURIComponent(appId)}/vorschlaege`, { method: "POST", body: JSON.stringify(v) });
 export const vorschlagSetzen = (appId: string, id: string, stand: Vorschlag["stand"]) => ruf<LernStand>(`/lernen/${encodeURIComponent(appId)}/vorschlaege/${encodeURIComponent(id)}`, { method: "PUT", body: JSON.stringify({ stand }) });
 
 /** Gespeicherte Anmeldung im Dienst löschen (danach laufen Aufträge erst nach dem nächsten Speichern wieder) */

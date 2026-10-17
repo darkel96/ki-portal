@@ -118,10 +118,13 @@ export function textAuszug(dateien: TextDatei[], suche: string, max = 24_000): s
 }
 
 /** Treffer der Copilot Retrieval API für einen SharePoint-Bereich (Website, Bibliothek oder Ordner), ergänzt um die Textdateien darin */
-async function sharepointAuszuege(q: Quelle, suche: string, token: string, signal?: AbortSignal): Promise<Auszug> {
+async function sharepointAuszuege(q: Quelle, suche: string, token: string, signal?: AbortSignal, breiter?: string): Promise<Auszug> {
   const url = bereichAdresse(q.url);
   let retrieval = "", fehler = "";
-  try { retrieval = await retrievalText(url, suche, token, signal); } catch (e) { if (signal?.aborted) throw e; fehler = e instanceof Error ? e.message : String(e); }
+  try {
+    retrieval = await retrievalText(url, suche, token, signal);
+    if (!retrieval && breiter && breiter !== suche) retrieval = await retrievalText(url, breiter, token, signal);
+  } catch (e) { if (signal?.aborted) throw e; fehler = e instanceof Error ? e.message : String(e); }
   const extra = textAuszug(await textDateien(url, token, signal).catch(() => []), suche);
   const text = [retrieval, extra].filter(Boolean).join("\n\n").slice(0, MAX_JE_QUELLE);
   if (!text && fehler) throw new Error(fehler);
@@ -206,12 +209,16 @@ async function dateiLaden(q: Quelle, token: string, signal?: AbortSignal): Promi
  * Auszüge für alle lesbaren Quellen (SharePoint-Bereiche und einzelne Dateien). Webseiten kann der Hub nicht selbst
  * laden; sie bleiben ein Hinweis an die KI. Fehler werden je Quelle vermerkt, der Schritt läuft trotzdem.
  */
-export async function wissenAuszuege(quellen: Quelle[], suche: string, signal?: AbortSignal): Promise<Auszug[]> {
+/**
+ * breiter: Suchtext mit dem Thema der App (Name, Schrittname). Liefert die Suche zur eigentlichen Frage nichts (bei sehr
+ * kurzen Fragen wie „was ist der cra“ passiert das), wird einmal damit nachgesucht.
+ */
+export async function wissenAuszuege(quellen: Quelle[], suche: string, signal?: AbortSignal, breiter?: string): Promise<Auszug[]> {
   const lesbar = quellen.filter((q) => (q.typ === "sharepoint" || q.typ === "datei") && q.url.trim());
   if (!lesbar.length || !wissenMoeglich()) return [];
   const token = await graphToken();
   return Promise.all(lesbar.map(async (q) => {
-    try { return q.typ === "datei" ? await dateiAuszug(q, token, signal) : await sharepointAuszuege(q, suche, token, signal); }
+    try { return q.typ === "datei" ? await dateiAuszug(q, token, signal) : await sharepointAuszuege(q, suche, token, signal, breiter); }
     catch (e) { return { titel: q.titel || q.url, url: q.url, text: "", fehler: e instanceof Error ? e.message : String(e) }; }
   }));
 }

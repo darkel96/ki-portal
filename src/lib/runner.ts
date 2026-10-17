@@ -119,9 +119,14 @@ export async function anfrageVorbereiten(app: App, s: Step, ctx: Record<string, 
     const w = await import("./ki/wissen");
     if (w.wissenMoeglich()) {
       melden?.("Wissensquellen werden gelesen\u00a0…");
-      // Suchtext: im Chat die Frage (mit Vorfragen), sonst die Aufgabe mit Eingaben
+      // Suchtext: im Chat die Frage (mit Vorfragen), sonst die Aufgabe mit Eingaben. Sehr kurze Fragen („was ist der cra“)
+      // bekommen das Thema der App dazu; liefert die Suche nichts, wird einmal mit dem Thema nachgesucht.
       const vorab = suche ?? buildRequest(app, s, ctx, files).nachricht;
-      auszuege = w.auszuegeText(await w.wissenAuszuege(wq, `${s.name}: ${vorab.slice(0, 1200)}`, signal));
+      const thema = [app.name, s.name].filter(Boolean).join(" ");
+      const inhaltswoerter = vorab.toLowerCase().replace(/[^a-zäöüß0-9 ]/g, " ").split(/\s+/).filter((x) => x.length >= 4).length;
+      const abfrage = `${s.name}: ${vorab.slice(0, 1200)}`;
+      const breiter = `${abfrage} ${thema}`;
+      auszuege = w.auszuegeText(await w.wissenAuszuege(wq, inhaltswoerter < 4 ? breiter : abfrage, signal, breiter));
     }
   }
   return buildRequest(app, s, ctx, files, vorlagen, auszuege);

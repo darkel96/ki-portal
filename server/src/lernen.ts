@@ -3,7 +3,7 @@
  * und danach von selbst nach Zeitplan, sobald genug neue Rückmeldungen da sind. Freigeben tut immer ein Mensch im Baukasten.
  */
 import { kiFragen } from "@/lib/ki";
-import { AUSWERTUNG_MIN, MAX_RUECKMELDUNGEN, auswertungEinarbeiten, auswertungsPrompt, leererStand, neueSeit, rueckmeldungAnlegen, vorschlaegeAus, type LernStand, type Vorschlag } from "@/lib/lernen";
+import { AUSWERTUNG_MIN, MAX_RUECKMELDUNGEN, auswertungEinarbeiten, auswertungsPrompt, leererStand, neueSeit, rueckmeldungAnlegen, vorschlagAnlegen, vorschlaegeAus, type LernStand, type Vorschlag, type VorschlagArt } from "@/lib/lernen";
 import { StepSchema, type Step } from "@/lib/schema";
 import { tokenKontext } from "./alias/auth";
 import { graphTokenFuer } from "./anmeldung";
@@ -63,6 +63,20 @@ export class Lernen {
     const neu = auswertungEinarbeiten(d, cfg.step.id, vorschlaegeAus(antwort, cfg.step.id));
     Object.assign(d, neu);
     await this.schreiben(appId, d);
+  }
+
+  /** Vorschlag aus dem Chat („Als häufige Frage vorschlagen“) */
+  async einreichen(appId: string, roh: unknown): Promise<LernStand> {
+    const o = (roh ?? {}) as Record<string, unknown>;
+    const art = (["hausregel", "glossar", "faq", "quelle"] as const).find((a) => a === String(o.art ?? "")) as VorschlagArt | undefined;
+    const stepId = String(o.stepId ?? "").slice(0, 60);
+    if (!art || !stepId) throw new Error("Vorschlag unvollständig (stepId, art).");
+    const v = vorschlagAnlegen(stepId, { art, text: String(o.text ?? ""), frage: String(o.frage ?? ""), antwort: String(o.antwort ?? ""), begruendung: String(o.begruendung ?? ""), belege: Number(o.belege) || 1, herkunft: "chat" });
+    if (art === "faq" ? !(v.frage && v.antwort) : !v.text) throw new Error("Vorschlag ohne Inhalt.");
+    const d = await this.lesen(appId);
+    d.vorschlaege = [...d.vorschlaege, v].slice(-150);
+    await this.schreiben(appId, d);
+    return this.stand(d);
   }
 
   async vorschlag(appId: string, id: string, stand: unknown): Promise<LernStand> {

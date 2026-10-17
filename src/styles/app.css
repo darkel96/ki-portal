@@ -787,3 +787,6 @@ a.mh-titel:hover { text-decoration: underline; text-underline-offset: 4px; }
 .o-chat-vermerk { font-size: 12px; color: var(--app-muted); }
 .o-chat-kommentar { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 6px; flex: 1 1 100%; }
 .o-chat-kommentar textarea { flex: 1 1 220px; min-height: 48px; font: inherit; font-size: 13px; padding: 6px 8px; border: 1px solid var(--app-line); border-radius: var(--app-radius); background: var(--app-bg); color: var(--app-ink); }
+.o-chat-faq { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: 12px; color: var(--app-muted); }
+.o-chat-link { background: none; border: 0; padding: 0; font: inherit; font-size: 12px; color: var(--app-accent); text-decoration: underline; cursor: pointer; }
+.o-chat-download { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 8px; }

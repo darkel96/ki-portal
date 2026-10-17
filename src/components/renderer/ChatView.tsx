@@ -7,8 +7,11 @@ import { GespraechVerfallen, KiSimulation, kiSenden } from "@/lib/ki";
 import { anfrageVorbereiten, kontext } from "@/lib/runner";
 import { markdown } from "@/lib/markdown";
 import { diagrammeZeichnen } from "@/lib/diagramm";
-import { ohneQuelle, type Bewertung } from "@/lib/lernen";
-import { rueckmeldungSpeichern } from "@/lib/lernenBrowser";
+import { ohneQuelle, vorschlagAnlegen, type Bewertung } from "@/lib/lernen";
+import { rueckmeldungSpeichern, vorschlagEinreichen } from "@/lib/lernenBrowser";
+import { faqTreffer } from "@/lib/faq";
+import { DateiKnoepfe } from "./OutputView";
+import { slug } from "@/lib/model";
 import { FILE_ACCEPT, UnsupportedFormatError, loadImage, readFileInfo } from "@/lib/files";
 import { diktatKorrigieren, fachbegriffe } from "@/lib/diktat";
 import { linkQuellen } from "@/lib/links";
@@ -21,7 +24,9 @@ import type { Mode } from "./BlockContent";
 type Anhang = { id: string; name: string; art: "dokument" | "bild"; text?: string; daten?: string };
 type Nachricht = { von: "mensch" | "experte"; text: string; simulation?: string; fehler?: boolean; anhaenge?: Anhang[];
   /** Lernschicht: Daumen gegeben („schlecht“ wartet auf den Kommentar), „gesendet“ = abgelegt; vermerk = Antwort ohne Fundstelle */
-  bewertung?: Bewertung | "gesendet"; vermerk?: boolean };
+  bewertung?: Bewertung | "gesendet"; vermerk?: boolean; gut?: boolean;
+  /** Antwort aus den häufigen Fragen (ohne KI); gemerkt = als häufige Frage vorgeschlagen */
+  faq?: { id: string; datum: string }; gemerkt?: boolean };
 
 const MAX_VERLAUF = 12;   // Beiträge, die die KI als Verlauf mitbekommt
 const MAX_ANHANG_TEXT = 30_000;   // Zeichen je Dokument in der Anfrage
@@ -29,6 +34,8 @@ const MAX_BILDER = 4;   // Bilder, die eine volle Anfrage höchstens mitnimmt (d
 const MAX_NACHSCHLAGEN = 2;   // weitere Suchdurchläufe je Frage, wenn die Auszüge auf andere Dokumente verweisen
 
 const CHAT_ACCEPT = `${FILE_ACCEPT},image/*`;
+/** Fragen, bei denen die Antwort als Word-Datei angeboten wird */
+const DOKUMENT_FRAGE = /\b(dokument|word|pdf|datei|checkliste|projektplan|protokoll|bericht|vorlage|konzept|leitfaden)\b/i;
 
 /** Anhänge als Text für die Anfrage: Dokumente mit Inhalt, Bilder als Hinweis (sie liegen der Anfrage bei) */
 function anhangText(a: Anhang[]): string {
@@ -131,12 +138,22 @@ export function ChatView({ app, b, mode }: { app: App; b: Extract<Block, { type:
     r.start();
   };
 
-  const senden = async () => {
+  /** text/basis: beim erneuten Fragen „trotzdem die KI“ nach einer gespeicherten Antwort */
+  const senden = async (opts: { ohneFaq?: boolean; text?: string; basis?: Nachricht[] } = {}) => {
     if (hoert) erkennung.current?.stop();
-    const f = frage.trim() || (anhaenge.length ? "Sieh dir bitte die Anhänge an." : "");
+    const f = (opts.text ?? frage).trim() || (anhaenge.length ? "Sieh dir bitte die Anhänge an." : "");
     if (!f || !step || laeuft || liest || !run) return;
-    const neu = anhaenge;
-    const bisher = verlauf;
+    const neu = opts.text !== undefined ? [] : anhaenge;
+    const bisher = opts.basis ?? verlauf;
+    // Häufige Frage mit freigegebener Antwort: sofort antworten, ohne KI (die Person kann trotzdem die KI fragen)
+    const treffer = !opts.ohneFaq && !neu.length ? faqTreffer(step, f) : null;
+    if (treffer) {
+      setVerlauf([...bisher, { von: "mensch", text: f, anhaenge: [] }, { von: "experte", text: treffer.eintrag.antwort, faq: { id: treffer.eintrag.id, datum: treffer.eintrag.datum } }]);
+      setFrage("");
+      diktiert.current = false;
+      gespraech.current = null;   // Copilot kennt diesen Austausch nicht: die nächste Frage geht mit vollem Verlauf
+      return;
+    }
     // Diktierte Fragen: Die KI soll Erkennungsfehler bei Fachbegriffen sinngemäß verstehen
     const frageText = diktiert.current ? `${f}\n(Die Frage wurde diktiert; Erkennungsfehler bei Namen und Fachbegriffen bitte sinngemäß verstehen.)` : f;
     diktiert.current = false;
@@ -242,16 +259,35 @@ export function ChatView({ app, b, mode }: { app: App; b: Extract<Block, { type:
   const rueckmeldung = (i: number, bewertung: "gut" | "schlecht", text: string) => {
     const n = verlauf[i];
     if (!app.id || !step || !n) return;
-    setVerlauf((alt) => alt.map((x, k) => (k === i ? { ...x, bewertung: "gesendet" } : x)));
+    setVerlauf((alt) => alt.map((x, k) => (k === i ? { ...x, bewertung: "gesendet", gut: bewertung === "gut" } : x)));
     setKommentar("");
     void rueckmeldungSpeichern(app.id, { stepId: step.id, bewertung, frage: verlauf[i - 1]?.von === "mensch" ? verlauf[i - 1].text : "", antwort: n.text, kommentar: text })
       .then(() => toast.success("Danke. Die Rückmeldung hilft, den Experten zu verbessern."), () => toast.error("Die Rückmeldung konnte nicht gespeichert werden."));
+  };
+  /** Hilfreiche Antwort für alle merken: wird im Baukasten freigegeben und dann sofort beantwortet */
+  const merken = (i: number) => {
+    const n = verlauf[i], f = verlauf[i - 1];
+    if (!app.id || !step || !n || f?.von !== "mensch") return;
+    setVerlauf((alt) => alt.map((x, k) => (k === i ? { ...x, gemerkt: true } : x)));
+    void vorschlagEinreichen(app.id, vorschlagAnlegen(step.id, { art: "faq", frage: f.text, antwort: n.text, begruendung: "Im Chat als häufige Frage vorgeschlagen.", belege: 1, herkunft: "chat" }))
+      .then(() => toast.success("Vorgeschlagen. Freigegeben wird es im Baukasten unter „Lernen“."), () => toast.error("Der Vorschlag konnte nicht gespeichert werden."));
+  };
+  /** Antwort als Datei: bei einer Dokument-Anfrage Word als Hauptknopf, sonst bei längeren oder gegliederten Antworten ein Menü */
+  const download = (n: Nachricht, i: number) => {
+    if (!n.text.trim() || n.fehler || n.simulation !== undefined || (laeuft && i === verlauf.length - 1)) return null;
+    const frageText = verlauf[i - 1]?.von === "mensch" ? verlauf[i - 1].text : "";
+    const dokument = DOKUMENT_FRAGE.test(frageText);
+    if (!dokument && n.text.length < 400 && !/^#{1,3} |^\|.*\|/m.test(n.text)) return null;
+    const titel = (/^#{1,3}\s+(.+)$/m.exec(n.text)?.[1] ?? frageText.slice(0, 60) ?? b.props.titel).replace(/[*_`]/g, "").trim() || b.props.titel;
+    return <div className="o-chat-download"><DateiKnoepfe app={app} text={n.text} titel={titel} haupt={dokument ? "docx" : null} roh={{ name: slug(titel) || "antwort", endung: "md" }} kompakt={titel} /></div>;
   };
   /** Daumen unter einer fertigen Antwort; nach „nicht hilfreich“ ein kurzer, freiwilliger Kommentar */
   const feedback = (n: Nachricht, i: number) => {
     if (!app.id || !n.text.trim() || n.fehler || n.simulation !== undefined || (laeuft && i === verlauf.length - 1)) return null;
     return (
       <div className="o-chat-feedback">
+        {n.faq && <span className="o-chat-faq">Gespeicherte Antwort{n.faq.datum ? ` vom ${new Date(n.faq.datum).toLocaleDateString("de-DE")}` : ""}, freigegeben.
+          <button type="button" className="o-chat-link" onClick={() => void senden({ ohneFaq: true, text: verlauf[i - 1]?.text ?? "", basis: verlauf.slice(0, i - 1) })}>Trotzdem die KI fragen</button></span>}
         {n.vermerk && <span className="o-chat-vermerk" title="Diese Frage wird gezählt, damit fehlende Unterlagen ergänzt werden können">Vermerkt: keine Fundstelle</span>}
         {n.bewertung === undefined ? <>
           <button type="button" className="o-chat-daumen" aria-label="Antwort war hilfreich" title="Hilfreich" onClick={() => rueckmeldung(i, "gut", "")}><ThumbsUp size={13} aria-hidden="true" /></button>
@@ -262,6 +298,8 @@ export function ChatView({ app, b, mode }: { app: App; b: Extract<Block, { type:
             <button type="submit" className="o-btn" style={{ "--btn": "var(--app-accent)", "--btn-ink": "var(--app-accent-ink)" } as CSSProperties}>Rückmeldung senden</button>
           </form>
         ) : <span className="o-chat-vermerk">Danke für die Rückmeldung</span>}
+        {n.bewertung === "gesendet" && n.gut && !n.faq && !n.gemerkt && <button type="button" className="o-chat-link" onClick={() => merken(i)}>Als häufige Frage vorschlagen</button>}
+        {n.gemerkt && <span className="o-chat-vermerk">Als häufige Frage vorgeschlagen</span>}
       </div>
     );
   };
@@ -291,7 +329,7 @@ export function ChatView({ app, b, mode }: { app: App; b: Extract<Block, { type:
             {n.simulation !== undefined
               ? <><p className="o-muted">Simulation: Diese Anfrage würde an die zentrale KI-Anbindung gehen.</p><pre className="code o-sim">{n.simulation}</pre></>
               : n.von === "experte"
-                ? <>{n.text ? <div className="o-body" dangerouslySetInnerHTML={{ __html: markdown(n.text) }} /> : <p className="o-muted">{stand || "Denkt nach …"}</p>}{feedback(n, i)}</>
+                ? <>{n.text ? <div className="o-body" dangerouslySetInnerHTML={{ __html: markdown(n.text) }} /> : <p className="o-muted">{stand || "Denkt nach …"}</p>}{download(n, i)}{feedback(n, i)}</>
                 : <>
                     <p>{n.text}</p>
                     {!!n.anhaenge?.length && <ul className="o-chat-anhaenge" aria-label="Anhänge">

@@ -47,6 +47,10 @@ die KI die Rückmeldungen aus und macht Vorschläge (Begriffe, häufige Fragen, 
 oder verwirft. Jede Übernahme ist eine Fassung mit Datum und Grund und lässt sich zurückdrehen. Mit Hub-Dienst liegen
 Rückmeldungen zentral und die Auswertung läuft von selbst, sobald genug neue da sind.
 
+**Häufige Fragen:** Freigegebene Frage-Antwort-Paare (aus der Auswertung, aus dem Chat per „Als häufige Frage
+vorschlagen“ oder von Hand) beantwortet der Experte sofort, ohne KI, mit Hinweis „Gespeicherte Antwort“; ein Klick
+fragt trotzdem die KI. Das spart Wartezeit bei wiederkehrenden Fragen.
+
 ## Anmeldung (Betrieb mit Copilot)
 
 Ist die Copilot-Anbindung eingerichtet (Build-Umgebung), ist der Hub erst nach der Anmeldung mit dem Firmenkonto nutzbar. Der Ablauf ist auf „kein Klick“ ausgelegt:

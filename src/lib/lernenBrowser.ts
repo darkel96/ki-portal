@@ -4,7 +4,7 @@
  */
 import type { App, Step } from "./schema";
 import { kiFragen } from "./ki";
-import { dienstAktiv, lernStandHolen, lernenAuswerten, rueckmeldungSenden, vorschlagSetzen } from "./dienst";
+import { dienstAktiv, lernStandHolen, lernenAuswerten, rueckmeldungSenden, vorschlagEinreichenDienst, vorschlagSetzen } from "./dienst";
 import { auswertungEinarbeiten, auswertungsPrompt, leererStand, rueckmeldungAnlegen, vorschlaegeAus, MAX_RUECKMELDUNGEN, type LernStand, type Rueckmeldung, type Vorschlag } from "./lernen";
 
 const LS = (appId: string) => `kihub-lernen:${appId}`;
@@ -38,6 +38,13 @@ export async function vorschlagStand(appId: string, id: string, stand: Vorschlag
   const neu = { ...st, vorschlaege: st.vorschlaege.map((v) => (v.id === id ? { ...v, stand } : v)) };
   lokalSchreiben(appId, neu);
   return neu;
+}
+
+/** Vorschlag einreichen (aus dem Chat: „Als häufige Frage vorschlagen“); freigegeben wird im Baukasten */
+export async function vorschlagEinreichen(appId: string, v: Vorschlag): Promise<void> {
+  if (await dienstAktiv()) { await vorschlagEinreichenDienst(appId, v); return; }
+  const st = lokalLesen(appId);
+  lokalSchreiben(appId, { ...st, vorschlaege: [...st.vorschlaege, v].slice(-150) });
 }
 
 /** Rückmeldungen auswerten lassen: im Dienst (der merkt sich den Schritt und wertet künftig nach Zeitplan aus), sonst hier */

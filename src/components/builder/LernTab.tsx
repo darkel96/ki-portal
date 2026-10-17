@@ -4,7 +4,7 @@
  * im KI-Schritt; live geht es erst mit dem Speichern der Applikation. Rolle und Belegregel bleiben unberührt.
  */
 import { useEffect, useState } from "react";
-import { Check, History, Loader2, Pencil, RefreshCw, Sparkles, X } from "lucide-react";
+import { Check, History, Loader2, Pencil, Plus, RefreshCw, Sparkles, Trash, X } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -13,6 +13,7 @@ import { chatSteps } from "@/lib/model";
 import type { Step } from "@/lib/schema";
 import { ART_LABEL, hausregelnFassung, hausregelnText, neueSeit, statistik, type LernStand, type Vorschlag } from "@/lib/lernen";
 import { auswerten, lernStand, vorschlagStand } from "@/lib/lernenBrowser";
+import { faqEintrag } from "@/lib/faq";
 import { KiSimulation } from "@/lib/ki";
 import { Fld } from "./controls";
 import type { Builder } from "./useBuilder";
@@ -23,7 +24,7 @@ export function LernTab({ b }: { b: Builder }) {
   if (!steps.length) {
     return <div className="ki-teil"><p className="hint">Die Lernschicht gilt für Fachexperten-Chats. Lege auf der Oberfläche einen Chat-Baustein an und verbinde ihn mit einem KI-Schritt.</p></div>;
   }
-  return <div className="lern-tab">{steps.map((s) => <LernSchritt key={s.id} b={b} step={s} />)}</div>;
+  return <div className="lern-tab"><div className="lern-innen">{steps.map((s) => <LernSchritt key={s.id} b={b} step={s} />)}</div></div>;
 }
 
 function LernSchritt({ b, step }: { b: Builder; step: Step }) {
@@ -32,7 +33,9 @@ function LernSchritt({ b, step }: { b: Builder; step: Step }) {
   const [entwurf, setEntwurf] = useState(hausregelnText(step));
   const [grund, setGrund] = useState("");
   const [laeuft, setLaeuft] = useState(false);
-  const [bearbeitet, setBearbeitet] = useState<Record<string, string>>({});
+  const [bearbeitet, setBearbeitet] = useState<Record<string, { text: string; frage: string; antwort: string }>>({});
+  const [neuFrage, setNeuFrage] = useState("");
+  const [neuAntwort, setNeuAntwort] = useState("");
   const [fassungenAuf, setFassungenAuf] = useState(false);
   const aktuell = hausregelnText(step);
   useEffect(() => { setEntwurf(hausregelnText(step)); }, [step.hausregeln]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -42,11 +45,22 @@ function LernSchritt({ b, step }: { b: Builder; step: Step }) {
     b.change((d) => { const s = d.steps.find((x) => x.id === step.id); if (s) s.hausregeln = hausregelnFassung(s, text, warum).hausregeln; });
     setGrund("");
   };
-  const entscheiden = async (v: Vorschlag, neu: Vorschlag["stand"], text?: string) => {
+  const faqAnlegen = (frage: string, antwort: string, quelle: "lern" | "hand") => {
+    if (!frage.trim() || !antwort.trim()) return;
+    b.change((d) => { const s = d.steps.find((x) => x.id === step.id); if (s) s.faq = { eintraege: [...s.faq.eintraege, faqEintrag(frage, antwort, quelle)].slice(-100) }; });
+  };
+  const faqLoeschen = (id: string) => b.change((d) => { const s = d.steps.find((x) => x.id === step.id); if (s) s.faq = { eintraege: s.faq.eintraege.filter((e) => e.id !== id) }; });
+  const entscheiden = async (v: Vorschlag, neu: Vorschlag["stand"], geaendert?: { text: string; frage: string; antwort: string }) => {
     if (neu === "angenommen") {
-      const t = (text ?? v.text).trim();
-      if (!t) return;
-      fassung([aktuell, `- ${t}`].filter(Boolean).join("\n"), `Vorschlag (${ART_LABEL[v.art]}) aus der Auswertung angenommen`);
+      if (v.art === "faq") {
+        const frage = (geaendert?.frage ?? v.frage ?? "").trim(), antwort = (geaendert?.antwort ?? v.antwort ?? "").trim();
+        if (!frage || !antwort) return;
+        faqAnlegen(frage, antwort, "lern");
+      } else if (v.art !== "quelle") {
+        const t = (geaendert?.text ?? v.text).trim();
+        if (!t) return;
+        fassung([aktuell, `- ${t}`].filter(Boolean).join("\n"), `Vorschlag (${ART_LABEL[v.art]}) aus der Auswertung angenommen`);
+      }
     }
     try { setStand(await vorschlagStand(appId, v.id, neu)); } catch { toast.error("Der Stand des Vorschlags konnte nicht gespeichert werden."); }
     setBearbeitet(({ [v.id]: _, ...rest }) => rest);
@@ -101,14 +115,16 @@ function LernSchritt({ b, step }: { b: Builder; step: Step }) {
           <ul className="lern-vorschlaege">
             {offen.map((v) => (
               <li key={v.id}>
-                <span className="status-pill" data-s="wartet">{ART_LABEL[v.art]}</span>
-                {v.id in bearbeitet
-                  ? <Textarea rows={2} value={bearbeitet[v.id]} aria-label="Vorschlag bearbeiten" onChange={(e) => setBearbeitet((x) => ({ ...x, [v.id]: e.target.value }))} />
-                  : <p className="lern-text">{v.text}</p>}
-                <p className="hint" style={{ margin: 0 }}>{v.begruendung}{v.belege ? ` (${v.belege} ${v.belege === 1 ? "Rückmeldung" : "Rückmeldungen"})` : ""}</p>
+                <span className="status-pill" data-s="wartet">{ART_LABEL[v.art]}{v.herkunft === "chat" ? " · aus dem Chat" : ""}</span>
+                {v.id in bearbeitet ? (v.art === "faq" ? <>
+                    <Input value={bearbeitet[v.id].frage} aria-label="Frage bearbeiten" onChange={(e) => setBearbeitet((x) => ({ ...x, [v.id]: { ...x[v.id], frage: e.target.value } }))} />
+                    <Textarea rows={4} value={bearbeitet[v.id].antwort} aria-label="Antwort bearbeiten" onChange={(e) => setBearbeitet((x) => ({ ...x, [v.id]: { ...x[v.id], antwort: e.target.value } }))} />
+                  </> : <Textarea rows={2} value={bearbeitet[v.id].text} aria-label="Vorschlag bearbeiten" onChange={(e) => setBearbeitet((x) => ({ ...x, [v.id]: { ...x[v.id], text: e.target.value } }))} />)
+                  : v.art === "faq" ? <><p className="lern-text"><b>{v.frage}</b></p><p className="lern-faq-antwort">{v.antwort}</p></> : <p className="lern-text">{v.text}</p>}
+                <p className="hint" style={{ margin: 0 }}>{v.begruendung}{v.belege ? ` (${v.belege} ${v.belege === 1 ? "Rückmeldung" : "Rückmeldungen"})` : ""}{v.art === "quelle" ? " Diese Unterlage im Wissen der App hinterlegen; der Vorschlag ändert nichts an den Hausregeln." : ""}</p>
                 <div className="flex flex-wrap gap-1.5">
-                  <Button size="sm" onClick={() => void entscheiden(v, "angenommen", bearbeitet[v.id])}><Check aria-hidden="true" />Annehmen</Button>
-                  {!(v.id in bearbeitet) && <Button size="sm" variant="outline" onClick={() => setBearbeitet((x) => ({ ...x, [v.id]: v.text }))}><Pencil aria-hidden="true" />Ändern</Button>}
+                  <Button size="sm" onClick={() => void entscheiden(v, "angenommen", bearbeitet[v.id])}><Check aria-hidden="true" />{v.art === "quelle" ? "Erledigt" : "Annehmen"}</Button>
+                  {!(v.id in bearbeitet) && v.art !== "quelle" && <Button size="sm" variant="outline" onClick={() => setBearbeitet((x) => ({ ...x, [v.id]: { text: v.text, frage: v.frage ?? "", antwort: v.antwort ?? "" } }))}><Pencil aria-hidden="true" />Ändern</Button>}
                   <Button size="sm" variant="ghost" onClick={() => void entscheiden(v, "verworfen")}><X aria-hidden="true" />Verwerfen</Button>
                 </div>
               </li>
@@ -116,6 +132,27 @@ function LernSchritt({ b, step }: { b: Builder; step: Step }) {
           </ul>
         </div>
       )}
+
+      <div className="box neutral">
+        <span className="lbl text-[13px] font-semibold">Häufige Fragen: sofortige Antwort ohne KI ({step.faq.eintraege.length})</span>
+        <p className="hint" style={{ margin: 0 }}>Passt eine Frage im Chat zu einem Eintrag (gleiche Wörter, Füllwörter zählen nicht), antwortet der Experte sofort mit der freigegebenen Antwort und sagt das dazu; ein Klick fragt trotzdem die KI. Einträge kommen aus der Auswertung, aus dem Chat („Als häufige Frage vorschlagen“) oder von hier.</p>
+        {step.faq.eintraege.length > 0 && (
+          <ul className="lern-faq" aria-label="Häufige Fragen">
+            {step.faq.eintraege.map((e) => (
+              <li key={e.id}>
+                <div className="flex flex-wrap items-center gap-2"><b className="text-sm">{e.frage}</b><span className="hint" style={{ margin: 0 }}>{e.datum}{e.quelle === "lern" ? " · aus der Lernschicht" : ""}</span><span className="flex-1" />
+                  <Button size="sm" variant="ghost" aria-label={`Häufige Frage „${e.frage}“ löschen`} onClick={() => faqLoeschen(e.id)}><Trash aria-hidden="true" /></Button></div>
+                <details><summary>Antwort anzeigen</summary><p className="lern-faq-antwort">{e.antwort}</p></details>
+              </li>
+            ))}
+          </ul>
+        )}
+        <div className="lern-faq-neu">
+          <Input value={neuFrage} placeholder="Frage, z. B. „Was ist eine SBOM?“" aria-label="Neue häufige Frage" onChange={(e) => setNeuFrage(e.target.value)} />
+          <Textarea rows={3} value={neuAntwort} placeholder="Freigegebene Antwort, gern mit Quellenangabe als Link" aria-label="Antwort auf die neue häufige Frage" onChange={(e) => setNeuAntwort(e.target.value)} />
+          <div><Button size="sm" variant="outline" disabled={!neuFrage.trim() || !neuAntwort.trim()} onClick={() => { faqAnlegen(neuFrage, neuAntwort, "hand"); setNeuFrage(""); setNeuAntwort(""); }}><Plus aria-hidden="true" />Häufige Frage hinzufügen</Button></div>
+        </div>
+      </div>
 
       <div className="box neutral">
         <Fld label="Hausregeln und Kontext (gelernt, freigegeben)" htmlFor={`hr-${step.id}`} hint="Wird in jeder Anfrage an die Rolle angehängt. Du kannst hier auch selbst ergänzen oder kürzen; jede Übernahme ist eine neue Fassung.">

@@ -14,8 +14,11 @@ export const QUELL_TYP: Record<string, string> = {
 /** Globale Regel: Diagramme als Mermaid, die der Hub zeichnet und als SVG, PNG und draw.io anbietet; keine erfundenen Datei-Links */
 export const DIAGRAMM_HINWEIS = "Ist ein Ablauf, Prozess, Organigramm, Entscheidungsweg oder Zeitplan gefragt oder hilfreich, zeichne ihn immer als Mermaid-Codeblock (```mermaid mit flowchart TD), nie als Text- oder Pfeildiagramm. Jeder Kasten: kurzer Titel und optional eine Erläuterungszeile, z. B. B[Risk Classification<br/>CRA-Relevanz bewerten]; Entscheidungen als C{Lokal umsetzbar?} mit beschrifteten Pfeilen -->|Ja|. Keine Farben oder Styles angeben, der Hub gestaltet das Diagramm und bietet es als SVG, PNG und draw.io-Datei zum Herunterladen an. Du kannst keine Dateien bereitstellen: Verweise nie auf Download-Links oder Dateien, die du selbst erstellt hättest.";
 
+/** Globale Regel: Dokumente entstehen im Hub aus der Antwort (Word, PDF), nie als Datei in OneDrive oder Teams */
+export const DOKUMENT_HINWEIS = "Wird ein Dokument, Plan, Protokoll, eine Checkliste oder Vorlage gewünscht, schreibe den vollständigen Inhalt in die Antwort (## Überschriften, Tabellen, Listen); der Hub bietet die Antwort als Word und PDF zum Herunterladen an. Lege keine Dateien in OneDrive, Teams oder anderswo an und verweise nicht auf solche Dateien.";
+
 export const FORMAT_HINT: Record<Step["format"], string> = {
-  markdown: "Formatiere mit einfachem Markdown: ## Überschriften, - Listen, Tabellen nur wenn sie helfen. Beginne direkt mit dem Ergebnis. " + DIAGRAMM_HINWEIS,
+  markdown: "Formatiere mit einfachem Markdown: ## Überschriften, - Listen, Tabellen nur wenn sie helfen. Beginne direkt mit dem Ergebnis. " + DIAGRAMM_HINWEIS + " " + DOKUMENT_HINWEIS,
   text: "Antworte als schlichter Text ohne Markdown. Beginne direkt mit dem Ergebnis.",
   json: "Antworte nur mit gültigem JSON, ohne Erklärung davor oder danach.",
   dateien: 'Antworte nur mit gültigem JSON in dieser Form: {"hinweis": "ein Satz zum Paket", "dateien": [{"pfad": "Ordner/Unterordner/Datei.md", "inhalt": "vollständiger Dateiinhalt als Text oder Markdown"}]}. Pfade mit / trennen, ohne Umlaute, Leerzeichen und Sonderzeichen. Soll eine Datei ein PDF, Word-, Excel- oder PowerPoint-Dokument sein, gib ihr die Endung .pdf, .docx, .xlsx bzw. .pptx und schreibe den Inhalt als Markdown; der Hub wandelt sie automatisch um. Keine Erklärung vor oder nach dem JSON.',

@@ -135,6 +135,7 @@ export function bewahren(next: App, app: App): App {
     if (!alt) return;
     if (alt.vorlage) st.vorlage = st.vorlage ? { ...st.vorlage, docx: alt.vorlage.docx } : alt.vorlage;
     if (alt.hausregeln.fassungen.length) st.hausregeln = alt.hausregeln;
+    if (alt.faq.eintraege.length) st.faq = alt.faq;
   });
   return next;
 }

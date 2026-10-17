@@ -152,18 +152,19 @@ test("Dienst: Rückmeldungen ablegen, auswerten, freigeben, von selbst neu auswe
   for (let i = 0; i < 3; i++) expect((await api("/rueckmeldungen", "anna", { method: "POST", body: JSON.stringify({ stepId: "s1", bewertung: "schlecht", frage: `Was ist SBOM? ${i}`, antwort: "…", kommentar: "unklar" }) })).status).toBe(201);
   expect((await api("/rueckmeldungen", "anna", { method: "POST", body: JSON.stringify({ stepId: "s1", bewertung: "egal" }) })).status).toBe(500);
   const stand = (await (await api("/auswerten", "dario", { method: "POST", body: JSON.stringify({ stepId: "s1", step, appName: "Lern-App", intervallTage: 0 }) })).json()) as { vorschlaege: { id: string; art: string; text: string; stand: string }[]; letzteAuswertung: Record<string, string>; rueckmeldungen: unknown[] };
-  expect(stand.vorschlaege.map((v) => v.art)).toEqual(["glossar", "faq"]);
+  expect(stand.vorschlaege.map((v) => v.art)).toEqual(["glossar", "faq", "quelle"]);
+  expect(stand.vorschlaege[1]).toMatchObject({ frage: "Was ist eine SBOM?", herkunft: "auswertung" });
   expect(stand.vorschlaege[0].text).toContain("SBOM");
   expect(stand.rueckmeldungen).toHaveLength(3);
   const erste = stand.letzteAuswertung.s1;
   expect(erste).toBeTruthy();
   // Freigabe-Stand
   const nach = (await (await api(`/vorschlaege/${stand.vorschlaege[0].id}`, "dario", { method: "PUT", body: JSON.stringify({ stand: "angenommen" }) })).json()) as { vorschlaege: { stand: string }[] };
-  expect(nach.vorschlaege.map((v) => v.stand)).toEqual(["angenommen", "offen"]);
+  expect(nach.vorschlaege.map((v) => v.stand)).toEqual(["angenommen", "offen", "offen"]);
   // Drei neue Rückmeldungen: der Dienst wertet von selbst erneut aus (Intervall 0 im Test), angenommene bleiben, offene werden ersetzt
   for (let i = 0; i < 3; i++) await api("/rueckmeldungen", "bernd", { method: "POST", body: JSON.stringify({ stepId: "s1", bewertung: "ohneQuelle", frage: `Meldefrist ${i}?`, antwort: "nichts gefunden", kommentar: "" }) });
   await expect.poll(async () => ((await (await api("", "dario")).json()) as { letzteAuswertung: Record<string, string> }).letzteAuswertung.s1, { timeout: 20_000 }).not.toBe(erste);
   const zuletzt = (await (await api("", "dario")).json()) as { vorschlaege: { stand: string }[] };
-  expect(zuletzt.vorschlaege.map((v) => v.stand)).toEqual(["angenommen", "offen", "offen"]);
+  expect(zuletzt.vorschlaege.map((v) => v.stand)).toEqual(["angenommen", "offen", "offen", "offen"]);
   expect((await fetch(`${DIENST}/api/lernen/${appId}`)).status).toBe(401);
 });
