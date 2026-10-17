@@ -198,6 +198,15 @@ test("Markdown: nummerierte Copilot-Verweise werden zu Links mit Quellennamen", 
   expect(r.gemischt.split("\n")[0]).toBe("Quelle: [CRA-Verordnung, Art. 13](http://data.europa.eu/eli/reg/2024/2847/oj) · [Cheat Sheet, Abschnitte 3.1 und 3.5](https://x.sharepoint.com/cs.pdf?web=1) · [Cheat Sheet.docx](https://x.sharepoint.com/Doc.aspx?file=Cheat%20Sheet.docx)");
   expect(r.gemischt.split("\n")[2]).toBe("Quelle: [CyRPS Training 2026.pptx](https://x.sharepoint.com/t.pptx), [Folien 5–16](https://x.sharepoint.com/t.pptx?web=1) · [KPSS_CRA_Attest.docx](https://x.sharepoint.com/a.docx), [SD3](https://x.sharepoint.com/a.docx?web=1) · [Verordnung, Art. 28](http://data.europa.eu/eli/reg/2024/2847/oj)");
   expect(r.gemischt).not.toContain("[[");
+  // Quellennamen ohne Link bekommen die Adresse aus den gelesenen Auszügen
+  const q = await page.evaluate(async () => {
+    const m = await import("/src/lib/verweise.ts");
+    const links = m.dokumentLinks("Dokument: 02_Maschinenverordnung & Cyber Resilence Act_Schulungsunterlagen_Th Bothmann (Part 1).pptx\nLink: https://x.sharepoint.com/s.pptx\nStelle 1:\nText\n\nDokument: Cyber Resilience Act (CRA) – Cheat Sheet\nLink: https://x.sharepoint.com/Doc.aspx?file=Cheat.docx\nStelle 1:\nText");
+    return { links, text: m.quellenVerlinken("Antwort.\n\nQuelle: 02_Maschinenverordnung & Cyber Resilence Act_Schulungsunterlagen_Th Bothmann (Part 1), CRA-relevante Komponenten ; Cyber Resilience Act (CRA) – Cheat Sheet, CRA product categories\n\nQuellen: [Schon verlinkt](https://x.de/a) · Unbekanntes Dokument, S. 3", links) };
+  });
+  expect(q.links).toHaveLength(2);
+  expect(q.text).toContain("Quelle: [02_Maschinenverordnung & Cyber Resilence Act_Schulungsunterlagen_Th Bothmann (Part 1), CRA-relevante Komponenten](https://x.sharepoint.com/s.pptx) ; [Cyber Resilience Act (CRA) – Cheat Sheet, CRA product categories](https://x.sharepoint.com/Doc.aspx?file=Cheat.docx)");
+  expect(q.text).toContain("Quellen: [Schon verlinkt](https://x.de/a) · Unbekanntes Dokument, S. 3");
   expect(r.neu).toContain("- Risiken analysieren.\n- SBOM pflegen.\n");
   expect(r.neu).toContain("Quelle: [CRA_Anforderungen_Vereinfacht.docx, Anforderungen 1–5](https://x.sharepoint.com/sites/KSC/_layouts/15/Doc.aspx?sourcedoc=%7B2D32%7D&file=CRA_Anforderungen_Vereinfacht.docx&action=default)");
   expect(r.neu).toContain("siehe auch [CyRPS Training 2026.pptx](https://x.sharepoint.com/sites/KSC/Library/Training/CyRPS%20Training%202026.pptx).");

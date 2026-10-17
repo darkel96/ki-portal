@@ -3,7 +3,7 @@ import { fieldsOf, stepsFor, stepsUsing, stepText, varsIn } from "./model";
 import { buildRequest, wissenFuer, type FileInfo, type KiRequest } from "./request";
 import { KiSimulation, kiSenden } from "./ki";
 import { parsePaket, type Paket } from "./paket";
-import { verweiseAufloesen } from "./verweise";
+import { dokumentLinks, quellenVerlinken, verweiseAufloesen, type DokLink } from "./verweise";
 import { teamAusfuehren, type Beitrag } from "./team";
 
 export type Werte = Record<string, string | boolean>;
@@ -118,7 +118,7 @@ export async function anfrageVorbereiten(app: App, s: Step, ctx: Record<string, 
   }
   // Wissensquellen: passende Auszüge aus SharePoint und einzelne Dateien an die Anfrage hängen (nicht der Vorlagenordner eines Dateipakets)
   let auszuege = "";
-  const diagnose: NonNullable<KiRequest["diagnose"]> = { suche: "", gelesen: false, auszuege: [] };
+  const diagnose: NonNullable<KiRequest["diagnose"]> = { suche: "", gelesen: false, auszuege: [], links: [] };
   const wq = wissenFuer(app, s).quellen.filter((q) => !(vorlagenQuelle && q.url.trim() === vorlagenQuelle.url.trim()));
   const lesbar = (q: Quelle) => q.typ === "sharepoint" || q.typ === "datei";
   // Eine SharePoint- oder Dateiquelle ohne Adresse kann der Hub nicht lesen: Das steht in der Diagnose, statt still zu fehlen
@@ -138,6 +138,7 @@ export async function anfrageVorbereiten(app: App, s: Step, ctx: Record<string, 
       diagnose.gelesen = true;
       const gefunden = await w.wissenAuszuege(wq, diagnose.suche, signal, breiter);
       diagnose.auszuege = [...diagnose.auszuege, ...gefunden.map((x) => ({ titel: x.titel, zeichen: x.text.length, ...(x.fehler ? { fehler: x.fehler } : {}) }))];
+      diagnose.links = gefunden.flatMap((x): DokLink[] => [...dokumentLinks(x.text), ...(x.quelleTyp === "datei" && x.text ? [{ titel: x.titel, link: x.url }] : [])]);
       console.info("[KI-Hub] Wissen", s.name, diagnose.auszuege);
       auszuege = w.auszuegeText(gefunden);
     }
@@ -192,7 +193,7 @@ export async function ablaufStarten(opts: {
         const live = s.format === "markdown" || s.format === "text" ? mitlesen((t) => setOut(s.id, (prev) => ({ ...(prev ?? { status: "laeuft" }), text: t }))) : undefined;
         text = await kiSenden(req, signal, live?.teil);
         live?.ende();
-        if (s.format === "markdown" || s.format === "text") text = verweiseAufloesen(text);
+        if (s.format === "markdown" || s.format === "text") text = quellenVerlinken(verweiseAufloesen(text), req.diagnose?.links ?? []);
       }
       const paket = s.format === "dateien" ? parsePaket(text) : undefined;
       if (paket && req.vorlagenUrl) paket.vorlagenUrl = req.vorlagenUrl;
