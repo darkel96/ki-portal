@@ -109,6 +109,7 @@ export function PostfachView({ b, mode }: Props) {
             {suche && <button type="button" className="o-chat-link" onClick={() => { setSuche(""); setEingabe(""); }}>Suche aufheben</button>}
           </form>
           {laedt === "liste" ? <p className="o-muted">Nachrichten werden geladen …</p>
+            : !gewaehlt ? <p className="o-muted">Kein Ordner gewählt.</p>
             : !liste.length ? <p className="o-muted">{suche ? "Nichts gefunden." : "Keine Nachrichten in diesem Ordner."}</p>
             : <ul className="o-post-nachrichten">
               {liste.map((n) => (

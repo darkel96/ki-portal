@@ -31,27 +31,34 @@ async function graph<T>(pfad: string, signal?: AbortSignal): Promise<T> {
   return (await r.json()) as T;
 }
 
-type GraphOrdner = { id: string; displayName: string; unreadItemCount?: number; totalItemCount?: number; childFolderCount?: number; wellKnownName?: string };
+type GraphOrdner = { id: string; displayName: string; unreadItemCount?: number; totalItemCount?: number; childFolderCount?: number };
 type GraphNachricht = { id: string; subject?: string; from?: { emailAddress?: { name?: string; address?: string } }; toRecipients?: { emailAddress?: { name?: string; address?: string } }[]; ccRecipients?: { emailAddress?: { name?: string; address?: string } }[]; receivedDateTime?: string; isRead?: boolean; hasAttachments?: boolean; bodyPreview?: string; importance?: string; body?: { contentType?: string; content?: string } };
 
-const ordnerAus = (o: GraphOrdner): Ordner => ({ id: o.id, name: (o.wellKnownName && DEUTSCH[o.wellKnownName.toLowerCase()]) || o.displayName, ungelesen: o.unreadItemCount ?? 0, gesamt: o.totalItemCount ?? 0 });
+const ordnerAus = (o: GraphOrdner, bekannt?: string): Ordner => ({ id: o.id, name: (bekannt && DEUTSCH[bekannt]) || o.displayName, ungelesen: o.unreadItemCount ?? 0, gesamt: o.totalItemCount ?? 0 });
 const nachrichtAus = (m: GraphNachricht): Nachricht => ({
   id: m.id, betreff: m.subject?.trim() || "(kein Betreff)", von: m.from?.emailAddress?.name || m.from?.emailAddress?.address || "", vonAdresse: m.from?.emailAddress?.address || "",
   empfangen: m.receivedDateTime ?? "", gelesen: m.isRead ?? true, anhang: !!m.hasAttachments, vorschau: (m.bodyPreview ?? "").replace(/\s+/g, " ").trim().slice(0, 200), wichtig: m.importance === "high",
 });
 const namen = (l?: { emailAddress?: { name?: string; address?: string } }[]) => (l ?? []).map((x) => x.emailAddress?.name || x.emailAddress?.address || "").filter(Boolean);
 
-/** Oberste Ordner (bekannte zuerst, dann alphabetisch), je mit den direkten Unterordnern */
+/**
+ * Oberste Ordner (bekannte zuerst, dann alphabetisch), je mit den direkten Unterordnern. Die stabile Graph-Schnittstelle
+ * kennt kein Feld für den bekannten Ordnernamen; die IDs von Posteingang, Entwürfe usw. werden daher einzeln geholt.
+ */
 export async function ordnerLaden(signal?: AbortSignal): Promise<Ordner[]> {
   if (!postfachEcht()) return beispiel.ordner;
-  const alle = (await graph<{ value: GraphOrdner[] }>("/mailFolders?$top=100&$select=id,displayName,unreadItemCount,totalItemCount,childFolderCount,wellKnownName", signal)).value;
-  const rang = (o: GraphOrdner) => { const i = REIHENFOLGE.indexOf((o.wellKnownName ?? "").toLowerCase()); return i < 0 ? 99 : i; };
+  const [alle, bekannt] = await Promise.all([
+    graph<{ value: GraphOrdner[] }>("/mailFolders?$top=100&$select=id,displayName,unreadItemCount,totalItemCount,childFolderCount", signal).then((j) => j.value),
+    Promise.all(REIHENFOLGE.map(async (w) => { try { return [(await graph<{ id: string }>(`/mailFolders/${w}?$select=id`, signal)).id, w] as const; } catch { return null; } })),
+  ]);
+  const bekannteIds = new Map(bekannt.filter((x): x is readonly [string, string] => !!x));
+  const rang = (o: GraphOrdner) => { const i = REIHENFOLGE.indexOf(bekannteIds.get(o.id) ?? ""); return i < 0 ? 99 : i; };
   const sortiert = [...alle].sort((a, b) => rang(a) - rang(b) || a.displayName.localeCompare(b.displayName, "de"));
   return Promise.all(sortiert.map(async (o) => {
-    const ordner = ordnerAus(o);
+    const ordner = ordnerAus(o, bekannteIds.get(o.id));
     if (o.childFolderCount) {
       const kinder = (await graph<{ value: GraphOrdner[] }>(`/mailFolders/${encodeURIComponent(o.id)}/childFolders?$top=50&$select=id,displayName,unreadItemCount,totalItemCount`, signal).catch(() => ({ value: [] as GraphOrdner[] }))).value;
-      ordner.kinder = kinder.map(ordnerAus).sort((a, b) => a.name.localeCompare(b.name, "de"));
+      ordner.kinder = kinder.map((k) => ordnerAus(k)).sort((a, b) => a.name.localeCompare(b.name, "de"));
     }
     return ordner;
   }));
