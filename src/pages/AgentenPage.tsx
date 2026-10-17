@@ -74,11 +74,10 @@ export function AgentenPage() {
 
   return (
     <>
-      <section className="hero hero-meldung">
+      <section className="hero hero-meldung hero-kompakt">
         <div className="hero-text">
-          <p className="eyebrow">KI-Hub · Agenten</p>
           <h1>Agentenbibliothek</h1>
-          <p className="lede">Agenten einmal anlegen und feinjustieren, in jedem Agenten-Team verwenden. Änderungen hier wirken sofort in allen Apps, die den Agenten verknüpft haben.</p>
+          <p className="lede">Agenten einmal anlegen und feinjustieren, in jedem Agenten-Team verwenden. Änderungen wirken sofort in allen Apps, die den Agenten verknüpft haben.</p>
         </div>
       </section>
       <div className="ag-seite">

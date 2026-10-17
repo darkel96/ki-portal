@@ -843,7 +843,12 @@ a.mh-titel:hover { text-decoration: underline; text-underline-offset: 4px; }
 }
 
 /* ----- Agentenbibliothek ----- */
-.ag-seite { display: grid; grid-template-columns: minmax(240px, 320px) minmax(0, 1fr); gap: 20px; align-items: start; }
+/* Schmaler Kopf für Arbeitsseiten (Agenten): Titel und ein Satz in einer Zeile, der Inhalt darunter bekommt den Platz */
+.hero-kompakt { padding-top: 14px; padding-bottom: 14px; }
+.hero-kompakt .hero-text { flex-direction: row; align-items: baseline; flex-wrap: wrap; gap: 6px 18px; max-width: none; }
+.hero-kompakt h1 { font-size: 22px; }
+.hero-kompakt .lede { font-size: 14px; max-width: none; flex: 1; min-width: 280px; }
+.ag-seite { display: grid; grid-template-columns: minmax(240px, 320px) minmax(0, 1fr); gap: 20px; align-items: start; min-height: 0; overflow: auto; overscroll-behavior: contain; scrollbar-width: thin; margin-inline: -4px; padding: 2px 4px 8px; }
 .ag-liste { display: grid; gap: 10px; border: 1px solid var(--line); border-radius: var(--k-radius-card); background: var(--surface); padding: 12px; }
 .ag-liste-kopf { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .ag-liste ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
