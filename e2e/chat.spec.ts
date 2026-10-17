@@ -180,6 +180,21 @@ test("Markdown: nackte Adressen bekommen einen lesbaren Namen", async ({ page },
   expect(r.seite).toContain('>CRA QA</a>.');
   expect(r.link).toContain('>CRA Q&amp;A, Scope</a>');
   expect(r.link).toContain('target="_blank"');
+  // Adressen mit Leerzeichen im Pfad: als Link mit Leerzeichen in der Adresse und als nackte Dateiadresse
+  const l = await page.evaluate(async () => {
+    const m = await import("/src/lib/markdown.ts");
+    return {
+      eckig: m.markdown("Quelle: [Cheat Sheet, Scope](https://x.sharepoint.com/sites/KSC/KPSS Templates/Archive/Cyber Resilience Act %28CRA%29 – Cheat Sheet.docx)"),
+      nackt: m.markdown("https://x.sharepoint.com/sites/KSC/KPSS Templates/Archive/Cyber Resilience Act %28CRA%29 – Cheat Sheet.docx\n\nSoll ich das erklären?"),
+      satz: m.markdown("Siehe https://x.sharepoint.com/sites/KSC/doc.aspx und dann weiter im Text."),
+    };
+  });
+  expect(l.eckig).toContain('href="https://x.sharepoint.com/sites/KSC/KPSS%20Templates/Archive/Cyber%20Resilience%20Act%20%28CRA%29%20–%20Cheat%20Sheet.docx"');
+  expect(l.eckig).toContain(">Cheat Sheet, Scope</a>");
+  expect(l.nackt).toContain('href="https://x.sharepoint.com/sites/KSC/KPSS%20Templates/Archive/Cyber%20Resilience%20Act%20%28CRA%29%20–%20Cheat%20Sheet.docx"');
+  expect(l.nackt).toContain(">Cyber Resilience Act (CRA) – Cheat Sheet.docx</a>");
+  expect(l.nackt).not.toContain(">KPSS</a>");
+  expect(l.satz).toContain(">doc</a> und dann weiter im Text.");
 });
 
 test("Markdown: nummerierte Copilot-Verweise werden zu Links mit Quellennamen", async ({ page }, info) => {

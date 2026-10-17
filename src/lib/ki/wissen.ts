@@ -20,8 +20,11 @@ export type Auszug = WissenAuszug;
 
 export const wissenMoeglich = () => kiModus() === "copilot";
 
-/** Klammern in Adressen kodieren, sonst endet ein Markdown-Link der KI an der ersten „)“ (z. B. Ordner „… (CRA) …“) */
-export const linkSauber = (u: string) => u.replace(/\(/g, "%28").replace(/\)/g, "%29");
+/**
+ * Leerzeichen und Klammern in Adressen kodieren: Ein Markdown-Link der KI endet sonst am ersten Leerzeichen oder an der
+ * ersten „)“ (Ordner wie „KPSS Templates“ oder „… (CRA) …“ sind in SharePoint üblich).
+ */
+export const linkSauber = (u: string) => u.trim().replace(/ /g, "%20").replace(/\(/g, "%28").replace(/\)/g, "%29");
 
 /**
  * Adresse aus einer Bibliotheksansicht („…/Forms/Ansicht.aspx?id=/sites/…/Ordner“) in die direkte Ordner- bzw.

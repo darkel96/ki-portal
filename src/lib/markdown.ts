@@ -13,9 +13,13 @@ DOMPurify.addHook("afterSanitizeAttributes", (node) => {
 export const istTotLink = (href: string) => {
   try { return /(^|\.)asyncgw\.teams\.microsoft\.com$/i.test(new URL(href.replace(/&amp;/g, "&")).hostname); } catch { return false; }
 };
+/** Leerzeichen in einer Adresse kodieren (SharePoint-Pfade mit Ordnernamen wie „KPSS Templates“) */
+const hrefSauber = (href: string) => href.replace(/ /g, "%20");
 const link = (href: string, text: string, title = "") => istTotLink(href)
   ? `<span class="o-totlink" title="Diese Datei liegt nur in der Copilot-Umgebung und lässt sich hier nicht herunterladen.">${text} <em>(nur in Copilot abrufbar)</em></span>`
-  : `<a href="${href}"${title ? ` title="${title}"` : ""}>${text}</a>`;
+  : `<a href="${hrefSauber(href)}"${title ? ` title="${title}"` : ""}>${text}</a>`;
+/** Dateiendungen, bis zu denen eine nackte Adresse auch über Leerzeichen hinweg als eine Adresse gilt */
+const DATEI_ENDUNG = "docx?|pptx?|xlsx?|pdf|md|txt|csv|aspx";
 /** Lesbarer Name für eine nackte Adresse: der Dateiname bzw. letzte Pfadteil ohne Prozentzeichen, sonst der Host */
 export function linkName(url: string): string {
   try {
@@ -33,7 +37,10 @@ const inline = (s: string) => esc(s)
   // [Text](https://…) und nackte Adressen (nicht schon Teil eines Links); Satzzeichen am Ende bleiben draußen
   // Adressen dürfen Klammern enthalten („…/Cyber Resilience Act (CRA) EU …“), solange sie paarig sind
   .replace(/\[([^\]]+)\]\(((?:sandbox|attachment):[^\s)]+)\)/g, (_, t: string) => `<span class="o-totlink" title="Diese Datei liegt nur in der Copilot-Umgebung und lässt sich hier nicht herunterladen.">${t} <em>(nur in Copilot abrufbar)</em></span>`)
-  .replace(/\[([^\]]+)\]\((https?:\/\/(?:[^\s()]|\([^\s()]*\))+)\)/g, (_, t: string, u: string) => link(u, t))
+  // Linkadressen dürfen Leerzeichen enthalten (werden kodiert), nicht aber unpaarige Klammern
+  .replace(/\[([^\]]+)\]\((https?:\/\/(?:[^()\n]|\([^()\n]*\))+?)\)/g, (_, t: string, u: string) => link(u.trim(), t))
+  // Nackte Dateiadresse mit Leerzeichen im Pfad („…/KPSS Templates/Archive/Cheat Sheet.docx“): bis zur Dateiendung eine Adresse
+  .replace(new RegExp(`(^|[^"&>\\w/])(https?:\\/\\/[^\\s<]+?(?: [^\\s<]+?)*?\\.(?:${DATEI_ENDUNG}))(?=$|[\\s.,;:)!?])`, "gi"), (_, vor: string, u: string) => vor + link(u, linkName(u), u))
   .replace(/(^|[^"&>\w/])(https?:\/\/[^\s<]*[^\s<.,;:)!?])/g, (_, vor: string, u: string) => vor + link(u, linkName(u), u))
   .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>").replace(/`([^`]+)`/g, "<code>$1</code>");
 
