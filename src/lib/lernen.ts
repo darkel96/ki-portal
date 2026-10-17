@@ -61,6 +61,19 @@ export function hausregelnBlock(s: Pick<Step, "hausregeln">): string {
   return `Hausregeln und Kontext (aus Rückmeldungen der Kolleginnen und Kollegen, freigegeben, Stand ${hausregelnStand(s)}). Diese Punkte ergänzen Tonfall, Begriffe und Zielgruppe. Sie sind kein Wissen und keine Fundstelle: Die Antwort kommt weiterhin vollständig aus den mitgelieferten Auszügen mit Quellenangabe; ein Begriff oder Hinweis aus den Hausregeln ersetzt nie die Antwort aus den Unterlagen und ist nie ein Grund, die Auszüge nicht zu nutzen. Die Belegregel bleibt unberührt:\n${t}`;
 }
 
+/** Freigegebene häufige Fragen als Wissen in der Anfrage: Die KI darf sie nutzen und auch über sie Auskunft geben */
+export function faqBlock(s: Pick<Step, "faq">): string {
+  const e = s.faq.eintraege.slice(0, 20);
+  if (!e.length) return "";
+  let text = "";
+  for (const x of e) {
+    const z = `Frage: ${x.frage}\nFreigegebene Antwort: ${x.antwort}\n\n`;
+    if (text.length + z.length > 6000) break;
+    text += z;
+  }
+  return `Freigegebene häufige Fragen (aus der Lernschicht, von Kolleginnen und Kollegen bestätigt; gelten als belegtes Wissen samt ihrer Quellenangaben). Nutze sie für passende Fragen und wenn jemand wissen will, welche Fragen häufig gestellt werden:\n${text.trim()}`;
+}
+
 /* ---------- Rückmeldungen ---------- */
 /** Antwort, die nichts in den Unterlagen gefunden hat: wird als „ohne Fundstelle“ gezählt (Hinweis auf fehlende Quellen) */
 const OHNE_QUELLE = /nichts (dazu |darüber )?gefunden|in den unterlagen (steht |finde ich |gibt es )?(dazu |darüber )?(nichts|keine)|nicht in den (hinterlegten )?unterlagen|dazu (habe|finde) ich [^.]{0,60}(nichts|keine)|keine (passende |belegte )?(fundstelle|quelle|angabe)/i;
