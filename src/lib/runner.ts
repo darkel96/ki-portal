@@ -1,6 +1,6 @@
 import type { App, Quelle, Step } from "./schema";
 import { fieldsOf, stepsFor, stepsUsing, stepText, varsIn } from "./model";
-import { buildRequest, wissenFuer, type FileInfo, type KiRequest } from "./request";
+import { auszuegeZusammen, buildRequest, wissenFuer, type FileInfo, type KiRequest, type WissenAuszug } from "./request";
 import { KiSimulation, kiSenden } from "./ki";
 import { parsePaket, type Paket } from "./paket";
 import { dokumentLinks, quellenVerlinken, verweiseAufloesen, type DokLink } from "./verweise";
@@ -101,7 +101,8 @@ export class VorbereitungsFehler extends Error {}
 /** Fehlertext in der Diagnose für eine SharePoint- oder Dateiquelle ohne Adresse */
 export const OHNE_ADRESSE = "keine Adresse hinterlegt";
 
-export async function anfrageVorbereiten(app: App, s: Step, ctx: Record<string, string>, files: Record<string, FileInfo>, signal?: AbortSignal, melden?: (text: string) => void, suche?: string): Promise<KiRequest> {
+/** vorher: Auszüge eines früheren Durchlaufs derselben Frage (Nachschlagen); sie bleiben erhalten und werden ergänzt */
+export async function anfrageVorbereiten(app: App, s: Step, ctx: Record<string, string>, files: Record<string, FileInfo>, signal?: AbortSignal, melden?: (text: string) => void, suche?: string, vorher: WissenAuszug[] = []): Promise<KiRequest> {
   let vorlagen: { url: string; text: string } | undefined;
   const vorlagenQuelle = s.format === "dateien" ? wissenFuer(app, s).quellen.find((q) => q.typ === "sharepoint" && q.url.trim()) : undefined;
   if (vorlagenQuelle) {
@@ -118,6 +119,7 @@ export async function anfrageVorbereiten(app: App, s: Step, ctx: Record<string, 
   }
   // Wissensquellen: passende Auszüge aus SharePoint und einzelne Dateien an die Anfrage hängen (nicht der Vorlagenordner eines Dateipakets)
   let auszuege = "";
+  let gelesene: WissenAuszug[] = [];
   const diagnose: NonNullable<KiRequest["diagnose"]> = { suche: "", gelesen: false, auszuege: [], links: [] };
   const wq = wissenFuer(app, s).quellen.filter((q) => !(vorlagenQuelle && q.url.trim() === vorlagenQuelle.url.trim()));
   const lesbar = (q: Quelle) => q.typ === "sharepoint" || q.typ === "datei";
@@ -136,14 +138,15 @@ export async function anfrageVorbereiten(app: App, s: Step, ctx: Record<string, 
       const breiter = `${abfrage} ${thema}`;
       diagnose.suche = inhaltswoerter < 4 ? breiter : abfrage;
       diagnose.gelesen = true;
-      const gefunden = await w.wissenAuszuege(wq, diagnose.suche, signal, breiter);
+      const gefunden = auszuegeZusammen(vorher, await w.wissenAuszuege(wq, diagnose.suche, signal, breiter));
+      gelesene = gefunden;
       diagnose.auszuege = [...diagnose.auszuege, ...gefunden.map((x) => ({ titel: x.titel, zeichen: x.text.length, ...(x.fehler ? { fehler: x.fehler } : {}) }))];
       diagnose.links = gefunden.flatMap((x): DokLink[] => [...dokumentLinks(x.text), ...(x.quelleTyp === "datei" && x.text ? [{ titel: x.titel, link: x.url }] : [])]);
       console.info("[KI-Hub] Wissen", s.name, diagnose.auszuege);
       auszuege = w.auszuegeText(gefunden);
     }
   }
-  return { ...buildRequest(app, s, ctx, files, vorlagen, auszuege), diagnose };
+  return { ...buildRequest(app, s, ctx, files, vorlagen, auszuege), diagnose, auszuege: gelesene };
 }
 
 /**

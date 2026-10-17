@@ -7,6 +7,7 @@ import { GespraechVerfallen, KiSimulation, kiModus, kiSenden } from "@/lib/ki";
 import { OHNE_ADRESSE, anfrageVorbereiten, kontext } from "@/lib/runner";
 import { markdown } from "@/lib/markdown";
 import { quellenVerlinken, verweiseAufloesen, type DokLink } from "@/lib/verweise";
+import type { WissenAuszug } from "@/lib/request";
 import { diagrammeZeichnen } from "@/lib/diagramm";
 import { ohneQuelle, vorschlagAnlegen, type Bewertung } from "@/lib/lernen";
 import { rueckmeldungSpeichern, vorschlagEinreichen } from "@/lib/lernenBrowser";
@@ -189,12 +190,13 @@ export function ChatView({ app, b, mode }: { app: App; b: Extract<Block, { type:
       return { ...req, bilder: bilderVon(alle) };
     };
     // Nachschlagen: Auszüge zu den Begriffen holen und die Frage damit noch einmal stellen (im Gespräch kurz, sonst mit Rolle)
-    const nachschlagen = async (begriffe: string, letzter: boolean) => {
+    // Die bisherigen Auszüge bleiben beim Nachschlagen erhalten: Die zweite Suche ergänzt die erste, sie ersetzt sie nicht
+    const nachschlagen = async (begriffe: string, letzter: boolean, vorher: WissenAuszug[]) => {
       setStand(`Schlägt nach: ${begriffe}\u00a0…`);
       const ctx = { ...kontext(app, run.werte, run.files), frage: frageText, verlauf: "" };
-      const prompt = `Nachgeschlagen zu „${begriffe}“, die Auszüge stehen unten. Beantworte damit jetzt die Frage${letzter ? "; es wird nichts mehr nachgeschlagen, antworte endgültig, auch wenn etwas fehlt" : ""}.\n\nFrage: ${frageText}`;
+      const prompt = `Nachgeschlagen zu „${begriffe}“; die Auszüge unten enthalten die bisherigen und die neu gefundenen Stellen. Beantworte damit jetzt die Frage${letzter ? "; es wird nichts mehr nachgeschlagen, antworte endgültig mit dem, was belegt ist" : ""}.\n\nFrage: ${frageText}`;
       const chatStep = { ...step, rolle: mitRegel(step.rolle), prompt, format: "markdown" as const, quellen: [...step.quellen, ...linkQuellen(f)] };
-      const req = await anfrageVorbereiten(app, chatStep, ctx, run.files, c.signal, (m) => setStand(m), begriffe);
+      const req = await anfrageVorbereiten(app, chatStep, ctx, run.files, c.signal, (m) => setStand(m), begriffe, vorher);
       return { ...req, system: gespraech.current ? "" : req.system, bilder: [] as { name: string; daten: string }[] };
     };
     // Folgefrage im weitergeführten Gespräch: nur die Frage, neue Anhänge und passende Auszüge, keine Rolle und kein Verlauf
@@ -204,7 +206,9 @@ export function ChatView({ app, b, mode }: { app: App; b: Extract<Block, { type:
       const req = await anfrageVorbereiten(app, chatStep, ctx, run.files, c.signal, (m) => setStand(m), suche);
       return { ...req, system: "", bilder: bilderVon(neu) };
     };
+    let gelesene: WissenAuszug[] = [];   // Auszüge des letzten Durchlaufs dieser Frage
     const senden = (req: Awaited<ReturnType<typeof voll>>) => {
+      gelesene = req.auszuege ?? [];
       for (const l of req.diagnose?.links ?? []) if (!linkverzeichnis.current.some((x) => x.link === l.link)) linkverzeichnis.current = [...linkverzeichnis.current, l];
       setzeAntwort({ diagnose: { suche: req.diagnose?.suche ?? "", gelesen: !!req.diagnose?.gelesen, auszuege: req.diagnose?.auszuege ?? [], hausregeln: /Hausregeln und Kontext/.test(req.system), gespraech: !!gespraech.current, system: req.system.length } });
       setStand(req.bilder?.length ? "Bilder werden übergeben\u00a0…" : "");
@@ -225,7 +229,7 @@ export function ChatView({ app, b, mode }: { app: App; b: Extract<Block, { type:
       for (let runde = 1; runde <= MAX_NACHSCHLAGEN; runde++) {
         const begriffe = nachschlagenAus(text);
         if (!begriffe) break;
-        text = await abbrechbar(senden(await abbrechbar(nachschlagen(begriffe, runde === MAX_NACHSCHLAGEN), c.signal)), c.signal);
+        text = await abbrechbar(senden(await abbrechbar(nachschlagen(begriffe, runde === MAX_NACHSCHLAGEN, gelesene), c.signal)), c.signal);
       }
       if (nachschlagenAus(text)) text = "Dazu habe ich in den hinterlegten Unterlagen nichts gefunden.";
       gesendet.current = [...gesendet.current, ...neu];
