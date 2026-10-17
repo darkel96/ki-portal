@@ -57,6 +57,11 @@ export const PropsSchemas = {
     begruessung: z.string().max(600).default("Was möchtest du wissen?").describe("erste Nachricht des Experten"),
     platzhalter: z.string().max(120).default("Frage stellen …"),
   }),
+  postfach: z.object({
+    titel: z.string().max(120).default("Postfach"),
+    anzahl: z.union([z.literal(10), z.literal(25), z.literal(50)]).default(25).describe("Nachrichten je Seite"),
+    vorschau: z.boolean().default(true).describe("erste Zeile des Inhalts in der Liste zeigen"),
+  }).describe("Postfach der angemeldeten Person wie in Outlook: Ordner, Nachrichten, geöffnete Nachricht (nur lesen, Microsoft Graph Mail.Read)"),
   output: z.object({ titel: z.string().max(120).default("Ergebnis"), quelle: z.string().max(40).default("").describe("ID eines Schritts"), stil: z.enum(["card", "plain"]).default("card"), pfad: z.string().max(120).default("").describe('bei format json: nur diesen Teil des Ergebnisses zeigen, z. B. "bericht" oder "produkte.wartung"; Text wird als Markdown gezeigt, Listen und Objekte als Liste bzw. Tabelle; "" = ganzes Ergebnis') }),
 } as const;
 

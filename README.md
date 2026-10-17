@@ -110,6 +110,15 @@ Suchdurchläufe je Frage) und antwortet erst dann. Der Schritt läuft nie im Dur
 Belegregel (nur aus Unterlagen, Quelle nennen, Unbelegtes als solches sagen); die Unterlagen trägt man unter
 App-Einstellungen → Wissen ein.
 
+## Postfach (Microsoft 365)
+
+Der Baustein **Postfach** (Palette, Gruppe „Microsoft 365“) zeigt das Postfach der angemeldeten Person wie in Outlook:
+links die Ordner (bekannte zuerst, Unterordner aufklappbar), in der Mitte die Nachrichten des gewählten Ordners mit
+Absender, Datum, Betreff, Anhang und Vorschau, rechts die geöffnete Nachricht (HTML bereinigt). Suche im Ordner und
+„Mehr laden“ für ältere Nachrichten. Erster Schritt, nur lesen: Microsoft Graph `me/mailFolders` und `me/messages`
+mit der delegierten Berechtigung Mail.Read, die die Copilot-Anbindung ohnehin verlangt. Ohne Copilot-Anbindung zeigt
+der Baustein ein Beispielpostfach. Einstellbar: Titel, Nachrichten je Seite, Vorschau.
+
 ## Rechte und Verwaltung
 
 - **Personen:** Wer sich mit dem Firmenkonto anmeldet, erscheint in der Verwaltung (Menüpunkt „Verwaltung“, nur für

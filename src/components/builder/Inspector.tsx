@@ -255,6 +255,11 @@ export function Inspector({ b, onDelete, bereiche, onSeite }: { b: Builder; onDe
       <TextFld label="Begrüßung" multiline rows={2} value={x.props.begruessung} onChange={(v) => set("begruessung", v, true)} />
       <TextFld label="Platzhalter im Eingabefeld" value={x.props.platzhalter} onChange={(v) => set("platzhalter", v, true)} />
       <p className="hint" style={{ margin: 0 }}>Rolle, Wissen, Quellen und Wissensmodus des Experten stehen am KI-Schritt. Sein Prompt darf {"{{frage}}"} und {"{{verlauf}}"} enthalten; fehlen sie, hängt der Chat Verlauf und Frage automatisch an. Der Schritt läuft nie im Durchlauf, nur auf Frage.</p></>; break;
+    case "postfach": f = <>
+      <TextFld id="insp-first" label="Titel" value={x.props.titel} onChange={(v) => set("titel", v, true)} />
+      <Seg label="Nachrichten je Seite" value={x.props.anzahl} options={[[10, "10"], [25, "25"], [50, "50"]]} onChange={(v) => set("anzahl", v)} />
+      <Check label="Vorschau des Inhalts in der Liste" checked={x.props.vorschau} onChange={(v) => set("vorschau", v)} />
+      <p className="hint" style={{ margin: 0 }}>Zeigt das Postfach der angemeldeten Person wie in Outlook: Ordner, Nachrichten, geöffnete Nachricht. Nur lesen, über Microsoft Graph (Mail.Read). Ohne Copilot-Anbindung ein Beispielpostfach.</p></>; break;
     case "output": f = <>
       <TextFld id="insp-first" label="Titel" value={x.props.titel} onChange={(v) => set("titel", v, true)} />
       <Sel label="Zeigt das Ergebnis von" value={x.props.quelle || "__none"} onChange={(v) => set("quelle", v === "__none" ? "" : v)} options={[["__none", "Bitte wählen"], ...steps]} />

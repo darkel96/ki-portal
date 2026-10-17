@@ -794,3 +794,43 @@ a.mh-titel:hover { text-decoration: underline; text-underline-offset: 4px; }
 .o-chat-diagnose { margin-top: 6px; font-size: 12px; color: var(--app-muted); }
 .o-chat-diagnose summary { cursor: pointer; }
 .o-chat-diagnose ul { margin: 4px 0 0; padding-left: 18px; display: grid; gap: 2px; }
+
+/* ----- Postfach (Ordner, Nachrichten, geöffnete Nachricht wie in Outlook) ----- */
+.o-post { display: flex; flex-direction: column; gap: 10px; min-width: 0; border: 1px solid var(--app-line); border-radius: var(--app-radius); padding: 14px 16px; background: var(--app-bg); }
+.o-post-edit { min-height: 0; }
+.o-post-kopf { display: flex; align-items: center; gap: 8px; }
+.o-post-hinweis { font-size: 12px; color: var(--app-muted); padding: 2px 8px; border: 1px dashed var(--app-line); border-radius: 999px; }
+.o-post-raster { display: grid; grid-template-columns: minmax(170px, 220px) minmax(260px, 380px) minmax(0, 1fr); gap: 0; min-height: 420px; border: 1px solid var(--app-line); border-radius: var(--app-radius); overflow: hidden; }
+.o-post-ordnerliste, .o-post-liste { border-right: 1px solid var(--app-line); min-width: 0; overflow: auto; max-height: 70vh; }
+.o-post-ordnerliste ul, .o-post-nachrichten { list-style: none; margin: 0; padding: 0; }
+.o-post-ordnerliste { padding: 8px 0; background: var(--app-soft); }
+.o-post-ordner { display: flex; align-items: center; gap: 4px; width: 100%; padding: 6px 10px; border: 0; background: transparent; color: inherit; font: 500 13.5px/1.3 var(--app-font); text-align: left; cursor: pointer; }
+.o-post-ordner:hover { background: var(--app-bg); }
+.o-post-ordner.ist-aktiv { background: var(--app-bg); color: var(--app-accent); box-shadow: inset 3px 0 0 var(--app-accent); }
+.o-post-klapp { display: inline-flex; width: 16px; justify-content: center; color: var(--app-muted); }
+.o-post-ordnername { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.o-post-zahl { font-size: 11.5px; font-weight: 700; color: var(--app-accent-ink); background: var(--app-accent); border-radius: 999px; padding: 1px 7px; }
+.o-post-suche { display: flex; align-items: center; gap: 6px; padding: 8px 10px; border-bottom: 1px solid var(--app-line); color: var(--app-muted); }
+.o-post-suche input { flex: 1; min-width: 0; border: 0; background: transparent; color: var(--app-ink); font: inherit; font-size: 13.5px; outline: none; }
+.o-post-liste > .o-muted, .o-post-liste > .o-chat-knopf { margin: 10px; }
+.o-post-nachricht { display: flex; gap: 8px; width: 100%; padding: 9px 10px; border: 0; border-bottom: 1px solid var(--app-line); background: transparent; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.o-post-nachricht:hover { background: var(--app-soft); }
+.o-post-nachricht.ist-aktiv { background: var(--app-soft); box-shadow: inset 3px 0 0 var(--app-accent); }
+.o-post-nachricht.ist-neu .o-post-von, .o-post-nachricht.ist-neu .o-post-betreff { font-weight: 700; }
+.o-post-symbol { color: var(--app-muted); padding-top: 2px; }
+.o-post-text { flex: 1; min-width: 0; display: grid; gap: 2px; }
+.o-post-zeile { display: flex; align-items: center; gap: 6px; min-width: 0; font-size: 13.5px; }
+.o-post-von, .o-post-betreff { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.o-post-datum { font-size: 12px; color: var(--app-muted); white-space: nowrap; }
+.o-post-wichtig { color: #b42318; font-weight: 800; margin-right: 4px; }
+.o-post-vorschau { font-size: 12.5px; color: var(--app-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.o-post-inhalt { padding: 14px 18px; min-width: 0; overflow: auto; max-height: 70vh; }
+.o-post-titel { margin: 0 0 6px; font-size: 17px; }
+.o-post-meta { margin: 0 0 12px; font-size: 13px; color: var(--app-muted); line-height: 1.5; }
+.o-post-body { font-size: 14px; }
+.o-post-body img { max-width: 100%; height: auto; }
+.o-post-klartext { white-space: pre-wrap; font: inherit; margin: 0; }
+@media (max-width: 900px) {
+  .o-post-raster { grid-template-columns: 1fr; }
+  .o-post-ordnerliste, .o-post-liste { border-right: 0; border-bottom: 1px solid var(--app-line); max-height: 40vh; }
+}
