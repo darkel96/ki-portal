@@ -90,7 +90,8 @@ export const neueSeit = (st: LernStand, stepId: string) => {
 
 /* ---------- Auswertung ---------- */
 export function auswertungsPrompt(app: Pick<App, "name">, step: Pick<Step, "name" | "rolle" | "hausregeln">, r: Rueckmeldung[]): string {
-  const zeilen = r.slice(-80).map((x, i) => `${i + 1}. [${x.bewertung === "gut" ? "hilfreich" : x.bewertung === "schlecht" ? "nicht hilfreich" : "ohne Fundstelle"}] Frage: ${x.frage.replace(/\s+/g, " ").slice(0, 300)}${x.antwort ? `\n   Antwort: ${x.antwort.replace(/\s+/g, " ").slice(0, 300)}` : ""}${x.kommentar ? `\n   Kommentar: ${x.kommentar.replace(/\s+/g, " ")}` : ""}`).join("\n");
+  // Hilfreiche Antworten gehen weitgehend vollständig mit (samt Quellenangaben), damit daraus häufige Fragen werden können
+  const zeilen = r.slice(-60).map((x, i) => `${i + 1}. [${x.bewertung === "gut" ? "hilfreich" : x.bewertung === "schlecht" ? "nicht hilfreich" : "ohne Fundstelle"}] Frage: ${x.frage.replace(/\s+/g, " ").slice(0, 300)}${x.antwort ? `\n   Antwort: ${x.antwort.replace(/[ \t]+/g, " ").slice(0, x.bewertung === "gut" ? 1800 : 300)}` : ""}${x.kommentar ? `\n   Kommentar: ${x.kommentar.replace(/\s+/g, " ")}` : ""}`).join("\n");
   return `Du wertest Rückmeldungen zu einem Fachexperten-Chat aus und schlägst Ergänzungen für seinen Hausregeln-Block vor. Die Applikation heißt „${app.name}“, der Experte „${step.name}“.
 
 Rolle des Experten (fest, darf nicht geändert werden, nur zur Einordnung):
@@ -103,7 +104,7 @@ Rückmeldungen der Kolleginnen und Kollegen (${r.length}):
 ${zeilen || "(keine)"}
 
 Regeln für deine Vorschläge:
-- Vier Arten: "glossar" = interner Begriff oder Abkürzung als fertiger Satz in "text"; "hausregel" = Hinweis zu Tonfall, Länge oder Zielgruppe als fertiger Satz in "text"; "faq" = eine wiederkehrende Frage, deren Antwort in den Rückmeldungen als hilfreich bewertet wurde: "frage" kurz und allgemein formuliert, "antwort" wörtlich aus der hilfreichen Antwort übernommen, samt Quellenangabe ("text" leer); "quelle" = Unterlage, die fehlt (Fragen ohne Fundstelle), in "text" als „Unterlage ergänzen: …“. Erfinde keine Antworten.
+- Vier Arten: "glossar" = interner Begriff oder Abkürzung als fertiger Satz in "text"; "hausregel" = Hinweis zu Tonfall, Länge oder Zielgruppe als fertiger Satz in "text"; "faq" = eine Frage, deren Antwort als hilfreich bewertet wurde (auch eine einzelne Rückmeldung reicht, wenn die Frage allgemein genug ist): "frage" kurz und allgemein formuliert, "antwort" wörtlich aus der hilfreichen Antwort übernommen, samt Quellenangabe als Markdown-Link ("text" leer); "quelle" = Unterlage, die fehlt (Fragen ohne Fundstelle), in "text" als „Unterlage ergänzen: …“. Erfinde keine Antworten.
 - Nichts, was die Rolle oder die Belegregel ändert. Kurz, konkret, ohne Namen von Personen.
 - Höchstens 6 Vorschläge, die wichtigsten zuerst; nichts vorschlagen, was in den bisherigen Hausregeln schon steht.
 - "belege" = wie viele Rückmeldungen den Vorschlag stützen.
