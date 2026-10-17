@@ -10,7 +10,9 @@ type AppsCtx = {
   fehler: string | null;
   find: (id: string | undefined) => HubApp | undefined;
   save: (app: App) => Promise<App>;
+  /** In den Papierkorb (30 Tage wiederherstellbar) */
   remove: (id: string) => Promise<void>;
+  wiederherstellen: (id: string) => Promise<App | null>;
   reload: () => Promise<void>;
 };
 
@@ -66,9 +68,15 @@ export function AppsProvider({ children }: { children: ReactNode }) {
     setEigene((prev) => prev.filter((a) => a.id !== id));
   }, []);
 
+  const wiederherstellen = useCallback(async (id: string) => {
+    const app = await appStore.wiederherstellen(id);
+    if (app) setEigene((prev) => [...prev.filter((a) => a.id !== app.id), app]);
+    return app;
+  }, []);
+
   const find = useCallback((id: string | undefined) => apps.find((a) => a.id === id), [apps]);
 
-  return <Ctx.Provider value={{ apps, geladen, fehler, find, save, remove, reload }}>{children}</Ctx.Provider>;
+  return <Ctx.Provider value={{ apps, geladen, fehler, find, save, remove, wiederherstellen, reload }}>{children}</Ctx.Provider>;
 }
 
 export function useApps(): AppsCtx {

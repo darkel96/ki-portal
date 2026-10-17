@@ -55,4 +55,26 @@ test("Sperren: nur Bearbeitende sehen die App, Verwaltung listet alle Apps", asy
   await z2.getByRole("button", { name: "Löschen" }).click();
   await z2.getByRole("button", { name: "Wirklich löschen" }).click();
   await expect(page.locator(".rv-apps tr", { hasText: "Sperrtest" })).toHaveCount(0);
+  // Papierkorb: 30 Tage wiederherstellbar
+  const korb = page.getByRole("region", { name: "Papierkorb" });
+  await expect(korb).toContainText("Sperrtest");
+  await korb.getByRole("button", { name: "Wiederherstellen" }).click();
+  await expect(page.locator(".rv-apps tr", { hasText: "Sperrtest" })).toHaveCount(1);
+  await expect(page.getByRole("region", { name: "Papierkorb" })).toHaveCount(0);
+  const apps = await page.evaluate(() => JSON.parse(localStorage.getItem("kihub-apps-v3") || "[]") as { id: string }[]);
+  expect(apps.map((a) => a.id)).toContain("sperr-app");
+});
+
+test("Löschen auf der App-Seite: Rückgängig im Hinweis holt die App zurück", async ({ page }, info) => {
+  test.skip(info.project.name !== "desktop", "einmal reicht");
+  const app = { id: "weg-app", name: "Wegtest", bereich: "Allgemein", status: "freigegeben", version: 1, steps: [], blocks: [{ id: "p1", type: "seite", props: { titel: "Start" }, children: [] }] };
+  await page.addInitScript((a) => { if (!localStorage.getItem("kihub-apps-v3")) localStorage.setItem("kihub-apps-v3", JSON.stringify([a])); }, app);
+  await page.goto("/app/weg-app");
+  await page.getByRole("button", { name: "Löschen" }).click();
+  await page.getByRole("button", { name: "Löschen" }).last().click();
+  await expect(page.getByText("„Wegtest“ gelöscht.")).toBeVisible();
+  await expect(page.getByRole("link", { name: /Wegtest/ })).toHaveCount(0);
+  await page.getByRole("button", { name: "Rückgängig" }).click();
+  await expect(page.getByText("„Wegtest“ ist wieder da.")).toBeVisible();
+  await expect(page.getByRole("link", { name: /Wegtest/ })).toHaveCount(1);
 });

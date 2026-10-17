@@ -34,7 +34,10 @@ test("Chat: Dokument-Anfrage bekommt Word-Download, kurze Antwort nicht; die Reg
   await chat.getByText("Was die KI bekommen hat").first().click();
   await expect(chat.locator(".o-chat-diagnose").first()).toContainText("Keine Wissensquellen gelesen");
   await expect(chat.locator(".o-chat-diagnose").first()).toContainText("Volle Anfrage mit Rolle");
-  await expect(chat.locator(".o-chat-diagnose").first()).toContainText("CRA-Unterlagen (Verordnungstext, Leitfäden, interne Bewertungen): konnte nicht gelesen werden (keine Adresse hinterlegt)");
+  await expect(chat.locator(".o-chat-diagnose").first()).toContainText("nur mit Copilot-Anbindung");
+  // Die Hausregeln der Vorlage gehen mit
+  expect(prompts[0]).toContain("Hausregeln und Kontext");
+  expect(prompts[0]).toContain("Kriterienliste_CRA_Relevanz");
   expect(prompts[0]).toContain("Lege keine Dateien in OneDrive, Teams oder anderswo an");
   // Dokument gewünscht: Inhalt in der Antwort, Word als Hauptknopf
   await chat.getByLabel("Frage", { exact: true }).fill("Erstelle mir ein fertiges Dokument mit Projektplan und Checkliste");

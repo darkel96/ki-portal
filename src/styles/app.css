@@ -110,14 +110,14 @@ body { overflow: hidden; }
 
 /* ===== Startseite ===== */
 /* Warmgrau-Band über die volle Breite, direkt unter der Kopfzeile */
-.hero { margin: -24px calc(50% - 50vw) 0; padding: 36px max(clamp(16px, 2.4vw, 40px), calc(50vw - 1100px)) 30px; background: var(--band); border-bottom: 1px solid var(--line); display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 16px 48px; align-items: end; }
+.hero { margin: -24px calc(50% - 50vw) 0; padding: 22px max(clamp(16px, 2.4vw, 40px), calc(50vw - 1100px)) 18px; background: var(--band); border-bottom: 1px solid var(--line); display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 16px 48px; align-items: end; }
 .hero-text { display: flex; flex-direction: column; gap: 10px; max-width: 760px; }
-.hero h1 { font-size: clamp(26px, 2.6vw, 36px); line-height: 1.15; letter-spacing: var(--k-tracking-display); margin: 0; }
+.hero h1 { font-size: clamp(24px, 2.2vw, 30px); line-height: 1.15; letter-spacing: var(--k-tracking-display); margin: 0; }
 .hero .lede { color: var(--muted-ink); margin: 0; max-width: 62ch; font-size: 15px; }
 .zahlen { display: flex; gap: 40px; margin: 0; }
 .zahlen div { display: flex; flex-direction: column; gap: 4px; }
 .zahlen dt { order: 2; font-size: 13px; color: var(--muted-ink); }
-.zahlen dd { order: 1; margin: 0; font: 700 32px/1 var(--k-font-display); font-variant-numeric: tabular-nums; }
+.zahlen dd { order: 1; margin: 0; font: 700 26px/1 var(--k-font-display); font-variant-numeric: tabular-nums; }
 .zahlen .blau dd { color: var(--brand); }
 @media (max-width: 900px) { .hero { grid-template-columns: 1fr; } .zahlen { gap: 28px; } }
 @media (max-width: 560px) { .hero { margin-top: -14px; padding-block: 18px 16px; } .hero h1 { font-size: 22px; } .hero .lede, .zahlen { display: none; } }
@@ -170,6 +170,7 @@ a.tile:hover .tile-go svg { transform: translateX(5px); }
 /* Verwaltung: Bereich „Applikationen“; die Seite ist eine rollende Spalte, deshalb darf kein Bereich auf Null schrumpfen */
 .rv > * { flex-shrink: 0; }
 .rv-apps { display: grid; gap: 12px; }
+.rv-korb { display: grid; gap: 8px; border: 1px dashed var(--line); border-radius: var(--k-radius-card); padding: 12px 14px; }
 .rv-apps td { vertical-align: middle; }
 .rv-aktionen { display: flex; flex-wrap: wrap; gap: 6px; }
 .rv-apps tr[data-status="gesperrt"] td:first-child a { color: var(--danger); }
@@ -843,11 +844,14 @@ a.mh-titel:hover { text-decoration: underline; text-underline-offset: 4px; }
 }
 
 /* ----- Agentenbibliothek ----- */
-/* Schmaler Kopf für Arbeitsseiten (Agenten): Titel und ein Satz in einer Zeile, der Inhalt darunter bekommt den Platz */
-.hero-kompakt { padding-top: 14px; padding-bottom: 14px; }
-.hero-kompakt .hero-text { flex-direction: row; align-items: baseline; flex-wrap: wrap; gap: 6px 18px; max-width: none; }
-.hero-kompakt h1 { font-size: 22px; }
-.hero-kompakt .lede { font-size: 14px; max-width: none; flex: 1; min-width: 280px; }
+/* Schmaler Kopf für Arbeits- und Meldungsseiten (Verwaltung, Agenten, Hinweise): Titel und ein Satz in einer Zeile,
+   der Inhalt darunter bekommt den Platz; die Rubrikzeile entfällt */
+.hero-meldung, .hero-kompakt { padding-top: 12px; padding-bottom: 12px; }
+.hero-meldung .hero-text, .hero-kompakt .hero-text { flex-direction: row; align-items: baseline; flex-wrap: wrap; gap: 4px 18px; max-width: none; }
+.hero-meldung .eyebrow, .hero-kompakt .eyebrow { display: none; }
+.hero-meldung h1, .hero-kompakt h1 { font-size: 22px; }
+.hero-meldung .lede, .hero-kompakt .lede { font-size: 14px; max-width: none; flex: 1; min-width: 280px; }
+.hero-meldung .hero-links { flex-basis: 100%; margin: 0; }
 .ag-seite { display: grid; grid-template-columns: minmax(240px, 320px) minmax(0, 1fr); gap: 20px; align-items: start; min-height: 0; overflow: auto; overscroll-behavior: contain; scrollbar-width: thin; margin-inline: -4px; padding: 2px 4px 8px; }
 .ag-liste { display: grid; gap: 10px; border: 1px solid var(--line); border-radius: var(--k-radius-card); background: var(--surface); padding: 12px; }
 .ag-liste-kopf { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
