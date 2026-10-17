@@ -1,0 +1,28 @@
+# KI-Hub mit Hub-Dienst auf dem eigenen Linux-Server.
+#   cp server/.env.example server/.env   (ausfüllen)
+#   docker compose -f server/docker-compose.yml up -d --build
+# Davor gehört ein Reverse-Proxy mit HTTPS (z. B. Caddy, siehe SERVER.md).
+services:
+  ki-hub:
+    build:
+      context: ..
+      dockerfile: server/Dockerfile
+      args:
+        VITE_ENTRA_CLIENT_ID: ${VITE_ENTRA_CLIENT_ID:-}
+        VITE_ENTRA_TENANT_ID: ${VITE_ENTRA_TENANT_ID:-}
+        VITE_GRAPH_SCOPES: ${VITE_GRAPH_SCOPES:-}
+        VITE_ADMINS: ${VITE_ADMINS:-dario.keller@koerber.com}
+        VITE_SP_ORDNER_URL: ${VITE_SP_ORDNER_URL:-}
+    env_file: .env
+    environment:
+      HUB_PORT: 8787
+      HUB_DATEN: /daten
+      HUB_STATISCH: /app/dist
+    ports:
+      - "127.0.0.1:8787:8787"
+    volumes:
+      - hub-daten:/daten
+    restart: unless-stopped
+
+volumes:
+  hub-daten:

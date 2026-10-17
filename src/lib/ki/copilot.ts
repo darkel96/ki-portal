@@ -11,7 +11,7 @@
 import { KI_CONFIG } from "./config";
 import { graphToken, graphTokenStill } from "./auth";
 
-const GRAPH = "https://graph.microsoft.com/beta/copilot/conversations";
+const GRAPH = `${KI_CONFIG.graph}/beta/copilot/conversations`;
 /** So lange gilt ein vorab angelegtes Gespräch als frisch. */
 const VORRAT_MS = 5 * 60_000;
 

@@ -214,15 +214,20 @@ export async function ablaufStarten(opts: {
   return ergebnisse;
 }
 
-/** Bündelt Zwischenstände auf höchstens einen pro Bildschirm-Aktualisierung, damit lange Antworten flüssig bleiben. */
+/**
+ * Bündelt Zwischenstände auf höchstens einen pro Bildschirm-Aktualisierung, damit lange Antworten flüssig bleiben.
+ * Ohne Bildschirm (Hub-Dienst) höchstens alle 2 Sekunden.
+ */
 function mitlesen(zeigen: (text: string) => void) {
-  let letzter = "", geplant = 0, aus = false;
+  let letzter = "", geplant: ReturnType<typeof setTimeout> | number = 0, aus = false;
+  const browser = typeof requestAnimationFrame === "function";
   return {
     teil: (t: string) => {
       letzter = t;
-      geplant ||= requestAnimationFrame(() => { geplant = 0; if (!aus) zeigen(letzter); });
+      const los = () => { geplant = 0; if (!aus) zeigen(letzter); };
+      geplant ||= browser ? requestAnimationFrame(los) : setTimeout(los, 2000);
     },
-    ende: () => { aus = true; cancelAnimationFrame(geplant); },
+    ende: () => { aus = true; if (browser) cancelAnimationFrame(geplant as number); else clearTimeout(geplant as ReturnType<typeof setTimeout>); },
   };
 }
 

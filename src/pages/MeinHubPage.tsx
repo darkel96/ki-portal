@@ -256,10 +256,12 @@ export function MeinHubPage() {
         <div className="mh-steuerung">
           {mh.laufend && <span className="status-pill" data-s="laeuft">Läuft: {mh.laufend.titel}</span>}
           {mh.laufend && <Button size="sm" variant="outline" className="rounded-full" onClick={mh.abbrechen}><Square aria-hidden="true" />Stoppen</Button>}
-          <label className="mh-auto">
-            <Switch checked={mh.daten.automatisch} onCheckedChange={mh.setAutomatisch} />
-            Fällige Aufträge automatisch ausführen
-          </label>
+          {mh.dienstAn ? <span className="mh-auto hint" style={{ margin: 0 }}>Aufträge laufen im Hub-Dienst, auch wenn der KI-Hub geschlossen ist.</span> : (
+            <label className="mh-auto">
+              <Switch checked={mh.daten.automatisch} onCheckedChange={mh.setAutomatisch} />
+              Fällige Aufträge automatisch ausführen
+            </label>
+          )}
         </div>
       </header>
       <Tabs className="mh-reiter" value={reiterAkt} onValueChange={(v) => adresse(v as Reiter, null)}>

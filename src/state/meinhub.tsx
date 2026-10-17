@@ -8,6 +8,7 @@ import {
 } from "@/lib/meinhub";
 import type { App } from "@/lib/schema";
 import type { OutState } from "@/lib/runner";
+import { alsLauf, auftraegeSchreiben, auftragJetzt, dienstAktiv, laeufeListe, laufEntfernen } from "@/lib/dienst";
 
 type Ctx = {
   daten: MeinHub;
@@ -39,6 +40,8 @@ type Ctx = {
   /** Gelöschtes Ergebnis wieder in den Verlauf einsortieren („Rückgängig“) */
   laufZurueck: (l: Lauf) => void;
   setAutomatisch: (an: boolean) => void;
+  /** Hub-Dienst erreichbar: Aufträge laufen dort, auch wenn der Hub geschlossen ist */
+  dienstAn: boolean;
 };
 
 const C = createContext<Ctx | null>(null);
@@ -60,6 +63,20 @@ export function MeinHubProvider({ children }: { children: ReactNode }) {
   const ctl = useRef<AbortController | null>(null);
   const nutzerRef = useRef<string | null>(null);
   const speicherTimer = useRef<number | null>(null);
+  const [dienstAn, setDienstAn] = useState(false);
+  const dienstAnRef = useRef(false);
+  /** Erst wenn klar ist, ob es einen Dienst gibt, darf der Browser selbst Aufträge ausführen */
+  const [dienstGeprueft, setDienstGeprueft] = useState(false);
+
+  // Hub-Dienst da? Beim Start, bei Fokus und wenn sich die KI-Anbindung ändert
+  useEffect(() => {
+    let aus = false;
+    const pruefen = () => { void dienstAktiv().then((i) => { if (!aus) { dienstAnRef.current = !!i; setDienstAn(!!i); setDienstGeprueft(true); } }); };
+    pruefen();
+    window.addEventListener("focus", pruefen);
+    window.addEventListener(KI_EREIGNIS, pruefen);
+    return () => { aus = true; window.removeEventListener("focus", pruefen); window.removeEventListener(KI_EREIGNIS, pruefen); };
+  }, []);
 
   // Nutzer: mit Anmeldung aus Entra ID, bis dahin ein lokaler Testnutzer je Browser.
   // Kommt das Konto erst später, auf dessen Speicher umziehen und die lokalen Daten einmal übernehmen.
@@ -174,19 +191,76 @@ export function MeinHubProvider({ children }: { children: ReactNode }) {
     void abarbeiten();
   }, [abarbeiten]);
 
-  // Fällige Aufträge prüfen: beim Öffnen (verpasste Termine laufen einmal nach) und danach regelmäßig.
+  /** Was der Dienst für die Aufträge braucht: die Aufträge, ihre Voreinstellungen und ein Abbild der Applikationen */
+  const abgleichNutzlast = useCallback(() => {
+    const d = datenRef.current;
+    const apps: Record<string, App> = {};
+    for (const id of new Set(d.auftraege.map((a) => a.appId))) { const a = find(id); if (a && a.typ !== "link") apps[id] = a; }
+    const voreinstellungen = d.voreinstellungen.filter((v) => d.auftraege.some((a) => a.voreinstellungId === v.id));
+    return { auftraege: d.auftraege, voreinstellungen, apps };
+  }, [find]);
+  /** Vom Dienst gesetzte Termine übernehmen (er setzt sie weiter, wenn ein Auftrag gelaufen ist) */
+  const termineUebernehmen = useCallback((s: { auftraege: Auftrag[] }) => aendern((d) => {
+    for (const a of d.auftraege) { const x = s.auftraege.find((y) => y.id === a.id); if (x) { a.naechsterLauf = x.naechsterLauf; a.letzterLauf = x.letzterLauf; } }
+  }), [aendern]);
+
+  // Aufträge an den Dienst übergeben, sobald sich etwas daran ändert (gebündelt)
+  const letzterAbgleich = useRef("");
   useEffect(() => {
-    if (!geladen || !appsGeladen) return;
+    if (!dienstAn || !geladen || !appsGeladen) return;
+    const n = abgleichNutzlast();
+    const schluessel = JSON.stringify({ a: n.auftraege.map(({ naechsterLauf: _n, letzterLauf: _l, ...rest }) => rest), v: n.voreinstellungen.map((v) => v.id + v.geaendert), p: Object.values(n.apps).map((a) => `${a.id}:${a.version}`) });
+    if (schluessel === letzterAbgleich.current) return;
+    const t = window.setTimeout(() => {
+      letzterAbgleich.current = schluessel;
+      auftraegeSchreiben(n).then(termineUebernehmen).catch((e) => {
+        letzterAbgleich.current = "";
+        toast.error(`Die Aufträge konnten nicht an den Hub-Dienst übergeben werden: ${e instanceof Error ? e.message : e}`);
+      });
+    }, 1500);
+    return () => window.clearTimeout(t);
+  }, [dienstAn, geladen, appsGeladen, daten.auftraege, daten.voreinstellungen, abgleichNutzlast, termineUebernehmen]);
+
+  // Läufe des Dienstes in den Verlauf holen (regelmäßig, bei Fokus, und öfter, solange einer läuft)
+  const laeuftImDienst = !!laufend && dienstAn;
+  useEffect(() => {
+    if (!dienstAn || !geladen) return;
+    let aus = false;
+    const holen = async () => {
+      try {
+        const liste = await laeufeListe({ auftraege: true, seit: new Date(Date.now() - 14 * 86_400_000).toISOString() });
+        if (aus) return;
+        const neu = liste.map(alsLauf);
+        const aktiv = neu.find((l) => l.status === "laeuft") ?? null;
+        setLaufend((alt) => (JSON.stringify(alt) === JSON.stringify(aktiv) ? alt : aktiv));
+        const alt = datenRef.current.laeufe;
+        if (neu.some((l) => JSON.stringify(alt.find((x) => x.id === l.id)) !== JSON.stringify(l))) {
+          const ids = new Set(neu.map((l) => l.id));
+          aendern((d) => { d.laeufe = [...neu, ...d.laeufe.filter((l) => !ids.has(l.id))].sort((x, y) => y.start.localeCompare(x.start)); });
+        }
+      } catch { /* Dienst gerade nicht erreichbar */ }
+    };
+    void holen();
+    const t = window.setInterval(() => { void holen(); }, laeuftImDienst ? 4000 : 8000);
+    const h = () => { void holen(); };
+    window.addEventListener("focus", h);
+    return () => { aus = true; window.clearInterval(t); window.removeEventListener("focus", h); };
+  }, [dienstAn, geladen, aendern, laeuftImDienst]);
+
+  // Fällige Aufträge prüfen: beim Öffnen (verpasste Termine laufen einmal nach) und danach regelmäßig.
+  // Mit Hub-Dienst übernimmt der das, auch ohne offenen Hub.
+  useEffect(() => {
+    if (!geladen || !appsGeladen || !dienstGeprueft) return;
     const pruefen = () => {
       const d = datenRef.current;
-      if (!d.automatisch) return;
+      if (!d.automatisch || dienstAnRef.current) return;
       const jetzt = Date.now();
       d.auftraege.filter((a) => a.aktiv && a.naechsterLauf && Date.parse(a.naechsterLauf) <= jetzt).forEach((a) => einreihen(a.id));
     };
     pruefen();
     const t = window.setInterval(pruefen, PRUEFEN_MS);
     return () => window.clearInterval(t);
-  }, [geladen, appsGeladen, einreihen]);
+  }, [geladen, appsGeladen, dienstGeprueft, einreihen]);
 
   const wert = useMemo<Ctx>(() => ({
     daten, geladen, nutzerName, laufend,
@@ -245,12 +319,25 @@ export function MeinHubProvider({ children }: { children: ReactNode }) {
       const a = d.auftraege.find((x) => x.id === id);
       if (a) { a.aktiv = aktiv; if (aktiv) a.naechsterLauf = naechsterLauf(a.zeitplan).toISOString(); }
     }),
-    jetztAusfuehren: (id) => einreihen(id),
-    abbrechen: () => { schlange.current = []; ctl.current?.abort(); },
-    laufLoeschen: (id) => aendern((d) => { d.laeufe = d.laeufe.filter((l) => l.id !== id); }),
+    jetztAusfuehren: (id) => {
+      if (!dienstAnRef.current) { einreihen(id); return; }
+      const name = datenRef.current.auftraege.find((x) => x.id === id)?.name ?? "";
+      auftraegeSchreiben(abgleichNutzlast()).then((s) => { termineUebernehmen(s); return auftragJetzt(id); })
+        .then(() => toast.success(`Auftrag „${name}“ läuft im Hub-Dienst. Das Ergebnis erscheint im Verlauf.`))
+        .catch((e) => toast.error(`Auftrag „${name}“ konnte nicht gestartet werden: ${e instanceof Error ? e.message : e}`));
+    },
+    abbrechen: () => {
+      if (dienstAnRef.current) { if (laufend) void laufEntfernen(laufend.id).catch(() => undefined); return; }
+      schlange.current = []; ctl.current?.abort();
+    },
+    laufLoeschen: (id) => {
+      aendern((d) => { d.laeufe = d.laeufe.filter((l) => l.id !== id); });
+      if (dienstAnRef.current && id.startsWith("d")) void laufEntfernen(id).catch(() => undefined);
+    },
     laufZurueck: (l) => aendern((d) => { if (!d.laeufe.some((x) => x.id === l.id)) d.laeufe = [...d.laeufe, l].sort((x, y) => y.start.localeCompare(x.start)); }),
     setAutomatisch: (an) => aendern((d) => { d.automatisch = an; }),
-  }), [daten, geladen, nutzerName, laufend, aendern, einreihen]);
+    dienstAn,
+  }), [daten, geladen, nutzerName, laufend, aendern, einreihen, dienstAn, abgleichNutzlast, termineUebernehmen]);
 
   return <C.Provider value={wert}>{children}</C.Provider>;
 }

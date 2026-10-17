@@ -4,12 +4,13 @@
  * dem, was sie zufällig findet. Braucht die Copilot-Anmeldung (Sites.Read.All); ohne sie bleiben die Quellen ein Hinweis.
  */
 import { graphToken } from "./auth";
+import { KI_CONFIG } from "./config";
 import { kiModus } from "./index";
 import { shareId } from "./vorlagen";
 import { officeLink } from "../links";
 import type { Quelle } from "../schema";
 
-const GRAPH = "https://graph.microsoft.com/v1.0";
+const GRAPH = `${KI_CONFIG.graph}/v1.0`;
 /** Zeichen je Quelle, die höchstens in die Anfrage wandern */
 const MAX_JE_QUELLE = 40_000;
 /** Treffer je SharePoint-Bereich (die Retrieval API erlaubt bis 25) */

@@ -9,6 +9,7 @@ import { Blatt, Pager, blaetterTaste } from "@/components/layout/Pager";
 import { readFileInfo, UnsupportedFormatError } from "@/lib/files";
 import { ampelPaare, ampelText, ampelWert } from "@/lib/ampel";
 import { STATUS_LABEL, abhaengigkeiten, ablaufStarten, fehlendePflichtfelder, fehlendeVorstufe, type OutState, type Werte } from "@/lib/runner";
+import { DienstFehler, benachrichtigen, benachrichtigungErlauben, dienstAktiv, gemerkterLauf, laufEntfernen, laufGesehen, laufMerken, laufStand, laufStarten, type DienstLaufStand } from "@/lib/dienst";
 import type { FileInfo } from "@/lib/request";
 import { BlockContent, type RenderList } from "./BlockContent";
 import { DownloadLeiste, OutputView, SammelDownloads } from "./OutputView";
@@ -230,6 +231,10 @@ export const RunApp = forwardRef<RunAppHandle, {
   const [fehler, setFehler] = useState<Set<string>>(new Set());
   const [outs, setOuts] = useState<Record<string, OutState>>({});
   const [laeuft, setLaeuft] = useState<string | null>(null);
+  /** ID des Laufs im Hub-Dienst, wenn der Ablauf dort läuft (dann geht er auch ohne offenen Tab weiter) */
+  const [hintergrund, setHintergrund] = useState<string | null>(null);
+  const verfolgung = useRef(0);
+  useEffect(() => () => { verfolgung.current = -1; }, []);
   const ergebnisse = useRef<Record<string, string>>({});
   const ctl = useRef<AbortController | null>(null);
   const frame = useRef<HTMLDivElement>(null);
@@ -312,6 +317,8 @@ export const RunApp = forwardRef<RunAppHandle, {
     setDetail(null);
     setSeite(Math.max(0, Math.min(i, anzahl - 1)));
   }, [anzahl, seite]);
+  const wechselnRef = useRef(wechseln);
+  wechselnRef.current = wechseln;
   const oeffnen = useCallback((id: string | null) => { gewechselt.current = true; setDetail(id); }, []);
 
   useEffect(() => {
@@ -369,6 +376,47 @@ export const RunApp = forwardRef<RunAppHandle, {
     return s >= 0 ? eingabeSeiten.indexOf(seiten[s]) : -1;
   }, [app, eingabeSeiten, seiten]);
 
+  /** Stand eines Laufs im Dienst übernehmen: Ergebnisse anzeigen, Prüfseiten-Felder vorbelegen */
+  const standUebernehmen = useCallback((st: Extract<DienstLaufStand, { unveraendert?: false }>, gelaufen: Record<string, OutState>) => {
+    for (const [id, o] of Object.entries(st.outs)) {
+      const vorher = gelaufen[id];
+      gelaufen[id] = o;
+      if (o.status === "fertig" && vorher?.status !== "fertig" && o.text) {
+        const step = app.steps.find((x) => x.id === id);
+        if (step?.format === "json") vorbelegen(step.key, o.text);
+      }
+    }
+    setOuts((o) => ({ ...o, ...st.outs }));
+    ergebnisse.current = { ...ergebnisse.current, ...st.ergebnisse };
+  }, [app.steps, vorbelegen]);
+
+  /** Lauf im Dienst verfolgen, bis er zu Ende ist (oder diese Ansicht geschlossen wird); liefert den letzten Stand */
+  const verfolgen = useCallback(async (id: string, gelaufen: Record<string, OutState>): Promise<DienstLaufStand | null> => {
+    const meine = ++verfolgung.current;
+    let version = 0, letzter: DienstLaufStand | null = null;
+    while (verfolgung.current === meine) {
+      try {
+        const st = await laufStand(id, version);
+        if (!st.unveraendert) { version = st.version; letzter = st; standUebernehmen(st, gelaufen); }
+        if (st.status !== "laeuft") return letzter;
+      } catch (e) {
+        if (e instanceof DienstFehler && e.status === 404) return null;
+        // Netz gerade weg: weiter versuchen, der Dienst arbeitet derweil
+      }
+      await new Promise((r) => setTimeout(r, 1500));
+    }
+    return letzter;
+  }, [standUebernehmen]);
+
+  /** Lauf im Dienst zu Ende gesehen: abhaken und Benachrichtigung, falls der Tab im Hintergrund liegt */
+  const laufAbhaken = useCallback((id: string, st: DienstLaufStand | null) => {
+    if (!st || st.status === "laeuft") return;
+    void laufGesehen(id).catch(() => undefined);
+    laufMerken(app.id ?? "", null);
+    const meldung = !st.unveraendert ? st.meldung : "";
+    benachrichtigen(app.name, st.status === "fertig" ? "Der Lauf ist fertig." : st.status === "fehler" ? `Fehler: ${meldung}` : "Der Lauf wurde abgebrochen.");
+  }, [app.id, app.name]);
+
   const starten = useCallback(async (buttonId: string, aktion: string, bleiben = false) => {
     if (ctl.current) { ctl.current.abort(); return; }
     const steps = stepsFor(app, aktion);
@@ -415,7 +463,23 @@ export const RunApp = forwardRef<RunAppHandle, {
     setOuts((o) => ({ ...o, ...Object.fromEntries(steps.map((s) => [s.id, { status: "wartet" as const }])) }));
     const gelaufen: Record<string, OutState> = {};
     try {
-      ergebnisse.current = await ablaufStarten({
+      // Mit Hub-Dienst läuft der Ablauf dort weiter, auch wenn der Tab zugeht; ohne (oder wenn er nicht antwortet) im Browser
+      let imDienst = false;
+      if (!eingebettet && await dienstAktiv()) {
+        try {
+          const { id } = await laufStarten({ app, aktion, werte, files, ergebnisse: ergebnisse.current, titel: app.name });
+          imDienst = true;
+          setHintergrund(id);
+          laufMerken(app.id ?? "", id);
+          benachrichtigungErlauben();
+          c.signal.addEventListener("abort", () => { void laufEntfernen(id).catch(() => undefined); });
+          laufAbhaken(id, await verfolgen(id, gelaufen));
+        } catch (e) {
+          if (imDienst) throw e;
+          toast.warning(`Der Hub-Dienst ist nicht erreichbar${e instanceof Error && e.message ? ` (${e.message})` : ""}. Der Ablauf läuft in diesem Tab.`);
+        }
+      }
+      if (!imDienst) ergebnisse.current = await ablaufStarten({
         app, aktion, werte, files, ergebnisse: ergebnisse.current, signal: c.signal,
         setOut: (id, s) => {
           const vorher = gelaufen[id];
@@ -432,9 +496,54 @@ export const RunApp = forwardRef<RunAppHandle, {
     } finally {
       ctl.current = null;
       setLaeuft(null);
+      setHintergrund(null);
       if (Object.keys(gelaufen).length) onLaufFertig?.(gelaufen);
     }
-  }, [onLaufFertig, app, werte, files, liest, akt, detail, imUeberblick, mitUebersicht, uebersichtIdx, wechseln, eingabeIdxMit, vorbelegen]);
+  }, [onLaufFertig, app, werte, files, liest, akt, detail, imUeberblick, mitUebersicht, uebersichtIdx, wechseln, eingabeIdxMit, vorbelegen, eingebettet, verfolgen, laufAbhaken]);
+
+  // Lauf aus dem Hintergrund übernehmen: Wurde der Tab geschlossen, lief der Ablauf im Dienst weiter. Beim nächsten
+  // Öffnen zeigt die App Eingaben und Stand wieder an und verfolgt ihn bis zum Ende.
+  useEffect(() => {
+    const id = eingebettet ? "" : gemerkterLauf(app.id ?? "");
+    if (!id) return;
+    let aus = false;
+    void (async () => {
+      if (!(await dienstAktiv())) return;
+      let st: DienstLaufStand;
+      try { st = await laufStand(id, 0, true); } catch (e) { if (e instanceof DienstFehler && e.status === 404) laufMerken(app.id ?? "", null); return; }
+      if (aus || st.unveraendert) return;
+      if (st.status !== "laeuft" && st.gesehen) { laufMerken(app.id ?? "", null); return; }
+      setWerte(st.werte);
+      setFiles(st.files);
+      setDateiInfo(Object.fromEntries(Object.entries(st.files).map(([k, f]) => [k, `${f.name} (${f.text.length.toLocaleString("de-DE")} Zeichen)`])));
+      setStand(JSON.stringify(st.werte) + Object.keys(st.files).join("|"));
+      const gelaufen: Record<string, OutState> = {};
+      standUebernehmen(st, gelaufen);
+      // Zur Ergebnisübersicht, sobald die übernommenen Werte gerendert sind (vorher sperrt das Pflichtfeld den Wechsel)
+      if (mitUebersicht) window.setTimeout(() => wechselnRef.current(uebersichtIdx), 150);
+      if (st.status === "laeuft") {
+        const c = new AbortController();
+        ctl.current = c;
+        setLaeuft("dienst");
+        setHintergrund(id);
+        c.signal.addEventListener("abort", () => { void laufEntfernen(id).catch(() => undefined); });
+        toast.info("Der Ablauf läuft im Hintergrund weiter. Hier siehst du den aktuellen Stand.");
+        try {
+          const ende = await verfolgen(id, gelaufen);
+          if (!aus && ende && ende.status !== "laeuft") { laufAbhaken(id, ende); onLaufFertig?.(gelaufen); }
+        } finally {
+          if (ctl.current === c) { ctl.current = null; setLaeuft(null); setHintergrund(null); }
+        }
+      } else {
+        toast.success(st.status === "fertig" ? "Der Lauf ist im Hintergrund fertig geworden. Hier sind die Ergebnisse." : `Der Lauf im Hintergrund endete mit: ${st.meldung || st.status}.`);
+        laufAbhaken(id, st);
+        onLaufFertig?.(gelaufen);
+      }
+    })();
+    return () => { aus = true; };
+    // Nur beim Öffnen dieser Applikation
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [app.id]);
 
   const nochNichtGelaufen = stepsFor(app, uebersichtAktion).every((s) => !outs[s.id]);
   /** Schritte, aus deren JSON-Ergebnis Felder dieser Seite vorbelegt werden */
@@ -621,7 +730,7 @@ export const RunApp = forwardRef<RunAppHandle, {
 
   // Ungesicherte Eingaben bzw. laufender Ablauf: vor dem Verlassen fragen
   const hatEingaben = Object.values(werte).some((v) => v !== "" && v !== false) || Object.keys(files).length > 0;
-  const ungesichert = !!laeuft || (hatEingaben && (!stand || stand !== JSON.stringify(werte) + Object.keys(files).join("|")));
+  const ungesichert = (!!laeuft && !hintergrund) || (hatEingaben && (!stand || stand !== JSON.stringify(werte) + Object.keys(files).join("|")));
   useEffect(() => () => ctl.current?.abort(), []);
 
   const linearTitel = (i: number) => (i === uebersichtIdx && mitUebersicht ? "Ergebnisse" : seitenTitel(eingabeSeiten[i], seiten.indexOf(eingabeSeiten[i])));
@@ -645,6 +754,7 @@ export const RunApp = forwardRef<RunAppHandle, {
         }}>
         <Blatt id={ansicht} innerRef={blatt} className="app-inner innen-scroll" aria-label={offen ? offen.titel : imUeberblick ? "Ergebnisse" : linearTitel(akt)}>
           <SammelDownloads.Provider value={sammeln}>
+          {hintergrund && laeuft && <p className="o-hintergrund" role="status">Läuft im Hub-Dienst weiter, auch wenn du diesen Tab schließt. Beim nächsten Öffnen der Applikation siehst du das Ergebnis.</p>}
           {offen ? (
             <>
               <div className="e-zurueck"><button type="button" className="pg-btn" onClick={() => oeffnen(null)}><ChevronLeft aria-hidden="true" size={16} />Alle Ergebnisse</button></div>

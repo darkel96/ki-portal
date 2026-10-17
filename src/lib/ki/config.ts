@@ -16,6 +16,8 @@ export const COPILOT_SCOPES = [
 ].map((s) => `https://graph.microsoft.com/${s}`);
 
 export const KI_CONFIG = {
+  /** Microsoft Graph; der Hub-Dienst kann im Testmodus eine Attrappe davorsetzen */
+  graph: "https://graph.microsoft.com",
   clientId: String(env.VITE_ENTRA_CLIENT_ID ?? "").trim(),
   tenantId: String(env.VITE_ENTRA_TENANT_ID ?? "").trim(),
   /** Delegierte Graph-Berechtigungen, durch Leerzeichen getrennt; ohne Angabe die der Copilot-Chat-API. */

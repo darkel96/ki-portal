@@ -10,7 +10,10 @@
     "typecheck": "tsc -b --noEmit",
     "test:e2e": "playwright test",
     "build:artifact": "vite build --mode artifact --outDir dist-artifact --emptyOutDir && node scripts/artifact-nachbereiten.mjs",
-    "build:pages": "tsc -b && vite build --mode pages"
+    "build:pages": "tsc -b && vite build --mode pages",
+    "build:server": "tsc -p server/tsconfig.json && vite build --config server/vite.config.ts",
+    "dienst": "node server/dist/index.mjs",
+    "dienst:test": "HUB_TESTMODUS=1 node server/dist/index.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.132.1",

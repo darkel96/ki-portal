@@ -776,3 +776,6 @@ a.mh-titel:hover { text-decoration: underline; text-underline-offset: 4px; }
 .o-diagramm[data-stand="fehler"] { background: var(--app-soft); color: inherit; }
 .o-totlink { border-bottom: 1px dashed currentColor; cursor: help; }
 .o-totlink em { font-style: normal; font-size: .9em; color: var(--app-muted); }
+
+/* ----- Lauf im Hub-Dienst (geht ohne offenen Tab weiter) ----- */
+.o-hintergrund { margin: 0; padding: 8px 12px; border-radius: var(--app-radius); border: 1px dashed var(--app-line); background: var(--app-soft); color: var(--app-muted); font-size: 13px; }

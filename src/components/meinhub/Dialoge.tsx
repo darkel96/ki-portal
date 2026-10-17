@@ -100,7 +100,7 @@ export function AuftragDialog({ offen, onOffen, appId, appName, auftrag, stand, 
   stand?: Stand;
   vorlageVorschlag?: string | null;
 }) {
-  const { vorlagenFuer, vorlageSpeichern, auftragSpeichern } = useMeinHub();
+  const { vorlagenFuer, vorlageSpeichern, auftragSpeichern, dienstAn } = useMeinHub();
   const fokusZurueck = useAusloeser(offen);
   const vorlagen = vorlagenFuer(appId);
   const [name, setName] = useState("");
@@ -159,9 +159,9 @@ export function AuftragDialog({ offen, onOffen, appId, appName, auftrag, stand, 
           </Fld>
         </div>
         <SelMitSperre label="Ergebnis" value={ziel} onChange={setZiel}
-          options={(Object.keys(ZIEL_LABEL) as Ziel["art"][]).map((k) => (ZIEL_SPAETER.has(k) ? [k, `${ZIEL_LABEL[k]} (folgt mit der Azure-Anbindung)`, true] : [k, ZIEL_LABEL[k]]) as [Ziel["art"], string, boolean?])} />
+          options={(Object.keys(ZIEL_LABEL) as Ziel["art"][]).map((k) => (ZIEL_SPAETER.has(k) && !(k === "email" && dienstAn) ? [k, `${ZIEL_LABEL[k]} (${k === "email" ? "braucht den Hub-Dienst" : "folgt"})`, true] : [k, ZIEL_LABEL[k]]) as [Ziel["art"], string, boolean?])} />
         <Check label="Auftrag ist aktiv" checked={aktiv} onChange={setAktiv} />
-        <p className="hint" style={{ margin: 0 }}>Läuft {zeitplanText(zeitplan)}, zuerst am {datumZeit(naechsterLauf(zeitplan).toISOString())}. In dieser Testfassung laufen Aufträge, solange der KI-Hub in einem Browserfenster geöffnet ist; verpasste Termine werden beim nächsten Öffnen einmal nachgeholt.</p>
+        <p className="hint" style={{ margin: 0 }}>Läuft {zeitplanText(zeitplan)}, zuerst am {datumZeit(naechsterLauf(zeitplan).toISOString())}. {dienstAn ? "Der Hub-Dienst führt den Auftrag aus, auch wenn der KI-Hub geschlossen ist." : "Ohne Hub-Dienst laufen Aufträge, solange der KI-Hub in einem Browserfenster geöffnet ist; verpasste Termine werden beim nächsten Öffnen einmal nachgeholt."}</p>
         <DialogFooter>
           <Button type="button" variant="ghost" onClick={() => onOffen(false)}>Abbrechen</Button>
           <Button type="submit" disabled={!optionen.length}>Speichern</Button>
