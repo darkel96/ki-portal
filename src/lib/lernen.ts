@@ -15,8 +15,17 @@ import { jsonAus } from "./ki";
 export type Fassung = Step["hausregeln"]["fassungen"][number];
 export type Bewertung = "gut" | "schlecht" | "ohneQuelle";
 export type Rueckmeldung = { id: string; stepId: string; zeit: string; bewertung: Bewertung; frage: string; antwort: string; kommentar: string };
-export type VorschlagArt = "hausregel" | "glossar" | "faq";
-export type Vorschlag = { id: string; stepId: string; art: VorschlagArt; text: string; begruendung: string; belege: number; stand: "offen" | "angenommen" | "verworfen"; zeit: string };
+export type VorschlagArt = "hausregel" | "glossar" | "faq" | "quelle";
+export type Vorschlag = {
+  id: string; stepId: string; art: VorschlagArt;
+  /** Hausregel, Begriff oder fehlende Unterlage: der fertige Satz; bei faq: die Frage (Anzeige) */
+  text: string;
+  /** Häufige Frage: Frage und freigegebene Antwort (die der Chat dann sofort gibt) */
+  frage?: string; antwort?: string;
+  begruendung: string; belege: number; stand: "offen" | "angenommen" | "verworfen"; zeit: string;
+  /** aus der Auswertung (wird bei der nächsten ersetzt) oder von einer Person im Chat vorgeschlagen */
+  herkunft?: "auswertung" | "chat";
+};
 export type LernStand = {
   rueckmeldungen: Rueckmeldung[];
   vorschlaege: Vorschlag[];
@@ -26,7 +35,7 @@ export type LernStand = {
   zusammenfassung: Record<string, string>;
 };
 
-export const ART_LABEL: Record<VorschlagArt, string> = { hausregel: "Hausregel", glossar: "Begriff", faq: "Häufige Frage" };
+export const ART_LABEL: Record<VorschlagArt, string> = { hausregel: "Hausregel", glossar: "Begriff", faq: "Häufige Frage", quelle: "Fehlende Unterlage" };
 /** Höchstens so viele Rückmeldungen je App aufbewahren */
 export const MAX_RUECKMELDUNGEN = 400;
 /** Mindestens so viele neue Rückmeldungen, bevor der Dienst von selbst auswertet */
@@ -58,7 +67,13 @@ const OHNE_QUELLE = /nichts (dazu |darüber )?gefunden|in den unterlagen (steht 
 export const ohneQuelle = (antwort: string) => OHNE_QUELLE.test(antwort.slice(0, 700));
 
 export function rueckmeldungAnlegen(r: Omit<Rueckmeldung, "id" | "zeit">): Rueckmeldung {
-  return { id: neueLernId("r"), zeit: new Date().toISOString(), stepId: r.stepId, bewertung: r.bewertung, frage: r.frage.slice(0, 1000), antwort: r.antwort.slice(0, 1500), kommentar: r.kommentar.slice(0, 500) };
+  return { id: neueLernId("r"), zeit: new Date().toISOString(), stepId: r.stepId, bewertung: r.bewertung, frage: r.frage.slice(0, 1000), antwort: r.antwort.slice(0, 4000), kommentar: r.kommentar.slice(0, 500) };
+}
+
+/** Vorschlag von Hand bzw. aus dem Chat („Als häufige Frage vorschlagen“) */
+export function vorschlagAnlegen(stepId: string, v: { art: VorschlagArt; text?: string; frage?: string; antwort?: string; begruendung?: string; belege?: number; herkunft?: Vorschlag["herkunft"] }): Vorschlag {
+  const frage = (v.frage ?? "").trim().slice(0, 300), antwort = (v.antwort ?? "").trim().slice(0, 4000);
+  return { id: neueLernId("v"), stepId, art: v.art, text: (v.text || (v.art === "faq" ? frage : "")).trim().slice(0, 600), ...(v.art === "faq" ? { frage, antwort } : {}), begruendung: (v.begruendung ?? "").slice(0, 400), belege: v.belege ?? 1, stand: "offen", zeit: new Date().toISOString(), herkunft: v.herkunft ?? "auswertung" };
 }
 
 export function statistik(st: LernStand, stepId: string, tage = 90) {
@@ -88,13 +103,12 @@ Rückmeldungen der Kolleginnen und Kollegen (${r.length}):
 ${zeilen || "(keine)"}
 
 Regeln für deine Vorschläge:
-- Nur Ergänzungen für den Hausregeln-Block: interne Begriffe und Abkürzungen (glossar), wiederkehrende Fragen mit der richtigen, belegbaren Antwort (faq), Hinweise zu Tonfall, Länge oder Zielgruppe (hausregel). Nichts, was die Rolle oder die Belegregel ändert.
-- Jeder Vorschlag ist ein kurzer, fertiger Satz für den Block, konkret und ohne Namen von Personen.
-- Fragen ohne Fundstelle: schlage vor, welche Unterlage ergänzt werden sollte (art "faq", text beginnt mit „Unterlage ergänzen:“), statt die Antwort zu erfinden.
+- Vier Arten: "glossar" = interner Begriff oder Abkürzung als fertiger Satz in "text"; "hausregel" = Hinweis zu Tonfall, Länge oder Zielgruppe als fertiger Satz in "text"; "faq" = eine wiederkehrende Frage, deren Antwort in den Rückmeldungen als hilfreich bewertet wurde: "frage" kurz und allgemein formuliert, "antwort" wörtlich aus der hilfreichen Antwort übernommen, samt Quellenangabe ("text" leer); "quelle" = Unterlage, die fehlt (Fragen ohne Fundstelle), in "text" als „Unterlage ergänzen: …“. Erfinde keine Antworten.
+- Nichts, was die Rolle oder die Belegregel ändert. Kurz, konkret, ohne Namen von Personen.
 - Höchstens 6 Vorschläge, die wichtigsten zuerst; nichts vorschlagen, was in den bisherigen Hausregeln schon steht.
 - "belege" = wie viele Rückmeldungen den Vorschlag stützen.
 
-Antworte nur mit JSON: {"zusammenfassung": "zwei Sätze, was auffällt", "vorschlaege": [{"art": "hausregel"|"glossar"|"faq", "text": "", "begruendung": "ein Satz", "belege": 1}]}`;
+Antworte nur mit JSON: {"zusammenfassung": "zwei Sätze, was auffällt", "vorschlaege": [{"art": "hausregel"|"glossar"|"faq"|"quelle", "text": "", "frage": "", "antwort": "", "begruendung": "ein Satz", "belege": 1}]}`;
 }
 
 /** Vorschläge aus der KI-Antwort lesen (tolerant gegenüber Text vor und nach dem JSON) */
@@ -104,16 +118,16 @@ export function vorschlaegeAus(antwort: string, stepId: string): { zusammenfassu
   const vorschlaege = liste.flatMap((v): Vorschlag[] => {
     if (!v || typeof v !== "object") return [];
     const o = v as Record<string, unknown>;
-    const text = String(o.text ?? "").trim();
-    if (!text) return [];
-    const art = (["hausregel", "glossar", "faq"] as const).find((a) => a === String(o.art ?? "").toLowerCase()) ?? "hausregel";
-    return [{ id: neueLernId("v"), stepId, art, text: text.slice(0, 600), begruendung: String(o.begruendung ?? "").slice(0, 400), belege: Math.max(0, Math.min(999, Number(o.belege) || 0)), stand: "offen", zeit: new Date().toISOString() }];
+    const art = (["hausregel", "glossar", "faq", "quelle"] as const).find((a) => a === String(o.art ?? "").toLowerCase()) ?? "hausregel";
+    const text = String(o.text ?? "").trim(), frage = String(o.frage ?? "").trim(), antwort = String(o.antwort ?? "").trim();
+    if (art === "faq" ? !(frage && antwort) : !text) return [];
+    return [vorschlagAnlegen(stepId, { art, text, frage, antwort, begruendung: String(o.begruendung ?? ""), belege: Math.max(0, Math.min(999, Number(o.belege) || 0)), herkunft: "auswertung" })];
   }).slice(0, 6);
   return { zusammenfassung: String(j.zusammenfassung ?? "").slice(0, 600), vorschlaege };
 }
 
-/** Neue Vorschläge in den Stand einarbeiten: offene des Schritts werden ersetzt, entschiedene bleiben (begrenzt) */
+/** Neue Vorschläge in den Stand einarbeiten: offene aus der vorigen Auswertung werden ersetzt, entschiedene und im Chat vorgeschlagene bleiben (begrenzt) */
 export function auswertungEinarbeiten(st: LernStand, stepId: string, erg: { zusammenfassung: string; vorschlaege: Vorschlag[] }): LernStand {
-  const alte = st.vorschlaege.filter((v) => !(v.stepId === stepId && v.stand === "offen")).slice(-100);
+  const alte = st.vorschlaege.filter((v) => !(v.stepId === stepId && v.stand === "offen" && (v.herkunft ?? "auswertung") === "auswertung")).slice(-100);
   return { ...st, vorschlaege: [...alte, ...erg.vorschlaege], letzteAuswertung: { ...st.letzteAuswertung, [stepId]: new Date().toISOString() }, zusammenfassung: { ...st.zusammenfassung, [stepId]: erg.zusammenfassung } };
 }

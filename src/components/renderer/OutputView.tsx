@@ -43,7 +43,7 @@ const AV = ["var(--a0)", "var(--a2)", "var(--a1)", "var(--a6)", "var(--a4)", "va
 const AVI = ["var(--a0i)", "var(--a2i)", "var(--a1i)", "var(--a6i)", "var(--a4i)", "var(--a5i)"];
 
 /** Ergebnis als fertige Datei herunterladen: die eingestellte bzw. gewünschte Datei als Hauptknopf, alle anderen im Menü. */
-function DateiKnoepfe({ app, text, titel, haupt, roh, vorlage, kompakt }: { app: App; text: string; titel: string; haupt: DateiArt | null; roh: { name: string; endung: string }; vorlage?: string; /** Sammelleiste: kurze Beschriftung, Ergebnisname für Screenreader */ kompakt?: string }) {
+export function DateiKnoepfe({ app, text, titel, haupt, roh, vorlage, kompakt }: { app: App; text: string; titel: string; haupt: DateiArt | null; roh: { name: string; endung: string }; vorlage?: string; /** Sammelleiste: kurze Beschriftung, Ergebnisname für Screenreader */ kompakt?: string }) {
   const [baut, setBaut] = useState<DateiArt | null>(null);
   const laden = async (art: DateiArt) => {
     setBaut(art);

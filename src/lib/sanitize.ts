@@ -81,6 +81,7 @@ export function sanitizeApp(raw: unknown, base: App): App {
       bedingung: isObj(s.bedingung) && s.bedingung.feld ? field(BedingungSchema.nullable(), { op: "gleich", wert: "", ...s.bedingung, feld: slug(String(s.bedingung.feld)) }, null) : null,
       // Lernschicht: freigegebene Hausregeln (Fassungen) bleiben erhalten
       hausregeln: field(shape.hausregeln, s.hausregeln, { fassungen: [] }),
+      faq: field(shape.faq, s.faq, { eintraege: [] }),
     };
     if (step.art === "team") {
       const t = isObj(s.team) ? s.team : {};

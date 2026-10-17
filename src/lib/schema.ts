@@ -148,6 +148,10 @@ export const StepSchema = z.object({
   hausregeln: z.object({
     fassungen: z.array(z.object({ nr: z.number().int().min(1), datum: z.string().max(40).default(""), text: z.string().max(6000).default(""), grund: z.string().max(300).default("") })).max(60).default([]),
   }).default({ fassungen: [] }),
+  /** Häufige Fragen: freigegebene Antworten, die der Chat sofort gibt (ohne KI), wenn eine Frage dazu passt */
+  faq: z.object({
+    eintraege: z.array(z.object({ id: z.string().max(40), frage: z.string().max(300), varianten: z.array(z.string().max(300)).max(10).default([]), antwort: z.string().max(4000), datum: z.string().max(40).default(""), quelle: z.enum(["lern", "hand"]).default("hand") })).max(100).default([]),
+  }).default({ eintraege: [] }),
   team: TeamSchema.optional(),
 });
 
