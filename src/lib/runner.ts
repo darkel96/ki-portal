@@ -114,6 +114,7 @@ export async function anfrageVorbereiten(app: App, s: Step, ctx: Record<string, 
   }
   // Wissensquellen: passende Auszüge aus SharePoint und einzelne Dateien an die Anfrage hängen (nicht der Vorlagenordner eines Dateipakets)
   let auszuege = "";
+  const diagnose: NonNullable<KiRequest["diagnose"]> = { suche: "", gelesen: false, auszuege: [] };
   const wq = wissenFuer(app, s).quellen.filter((q) => !(vorlagenQuelle && q.url.trim() === vorlagenQuelle.url.trim()));
   if (wq.some((q) => (q.typ === "sharepoint" || q.typ === "datei") && q.url.trim())) {
     const w = await import("./ki/wissen");
@@ -126,10 +127,15 @@ export async function anfrageVorbereiten(app: App, s: Step, ctx: Record<string, 
       const inhaltswoerter = vorab.toLowerCase().replace(/[^a-zäöüß0-9 ]/g, " ").split(/\s+/).filter((x) => x.length >= 4).length;
       const abfrage = `${s.name}: ${vorab.slice(0, 1200)}`;
       const breiter = `${abfrage} ${thema}`;
-      auszuege = w.auszuegeText(await w.wissenAuszuege(wq, inhaltswoerter < 4 ? breiter : abfrage, signal, breiter));
+      diagnose.suche = inhaltswoerter < 4 ? breiter : abfrage;
+      diagnose.gelesen = true;
+      const gefunden = await w.wissenAuszuege(wq, diagnose.suche, signal, breiter);
+      diagnose.auszuege = gefunden.map((x) => ({ titel: x.titel, zeichen: x.text.length, ...(x.fehler ? { fehler: x.fehler } : {}) }));
+      console.info("[KI-Hub] Wissen", s.name, diagnose.auszuege);
+      auszuege = w.auszuegeText(gefunden);
     }
   }
-  return buildRequest(app, s, ctx, files, vorlagen, auszuege);
+  return { ...buildRequest(app, s, ctx, files, vorlagen, auszuege), diagnose };
 }
 
 /**

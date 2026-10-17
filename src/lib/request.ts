@@ -45,6 +45,8 @@ export type KiRequest = {
   system: string;
   nachricht: string;
   variablen: Record<string, string | null>;
+  /** Was an Wissen mitging (zur Nachvollziehbarkeit im Chat): Suchtext, je Quelle Zeichen bzw. Fehler; gelesen = Quellen wurden überhaupt gelesen */
+  diagnose?: { suche: string; gelesen: boolean; auszuege: { titel: string; zeichen: number; fehler?: string }[] };
 };
 
 type AppWissen = Pick<App, "name" | "wissen">;
