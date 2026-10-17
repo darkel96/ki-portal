@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { useRechte } from "@/state/rechte";
 import { RECHTE, RECHT_LABEL, istFesterAdmin, lokalerRechteStore, rechteStore, type Nutzer, type Recht } from "@/lib/rechte";
 import { browserOrdner, browserOrdnerSetzen, ordnerPruefen, speicherKonfig, type SpeicherKonfig } from "@/lib/speicher";
-import { appStore, lokalerAppStore } from "@/lib/store";
+import { appStore, lokalerAppStore, PAPIERKORB_TAGE, type Geloescht } from "@/lib/store";
 import { useApps } from "@/state/apps";
 import { SEED_APPS } from "@/lib/seeds";
 import type { HubApp } from "@/lib/schema";
@@ -125,9 +125,12 @@ const STATUS_TEXT: Record<HubApp["status"], string> = { entwurf: "Entwurf", prue
 /** Alle Applikationen an einem Ort: öffnen, bearbeiten, sperren, löschen; mitgelieferte Vorlagen übernehmen, ausblenden und wieder einblenden */
 function AppsBereich() {
   const r = useRechte();
-  const { apps, save, remove } = useApps();
+  const { apps, save, remove, wiederherstellen } = useApps();
   const [bestaetigen, setBestaetigen] = useState<string | null>(null);
   const [laeuft, setLaeuft] = useState("");
+  const [korb, setKorb] = useState<Geloescht[]>([]);
+  const korbLaden = () => appStore.papierkorb().then(setKorb, () => setKorb([]));
+  useEffect(() => { void korbLaden(); }, []);
   const tun = async (id: string, was: () => Promise<unknown>, meldung: string) => {
     setLaeuft(id);
     try { await was(); toast.success(meldung); }
@@ -135,7 +138,9 @@ function AppsBereich() {
     finally { setLaeuft(""); setBestaetigen(null); }
   };
   const sperren = (a: HubApp, zu: boolean) => tun(a.id!, () => save({ ...a, status: zu ? "gesperrt" : "freigegeben" }), zu ? `„${a.name}“ gesperrt.` : `„${a.name}“ freigegeben.`);
-  const loeschen = (a: HubApp) => tun(a.id!, () => remove(a.id!), `„${a.name}“ gelöscht.`);
+  const loeschen = (a: HubApp) => tun(a.id!, async () => { await remove(a.id!); await korbLaden(); }, `„${a.name}“ in den Papierkorb verschoben.`);
+  const zurueck = (g: Geloescht) => tun(g.app.id!, async () => { await wiederherstellen(g.app.id!); await korbLaden(); }, `„${g.app.name}“ wiederhergestellt.`);
+  const entsorgen = (g: Geloescht) => tun(g.app.id!, async () => { await appStore.entsorgen(g.app.id!); await korbLaden(); }, `„${g.app.name}“ endgültig gelöscht.`);
   const ausblenden = (a: HubApp) => tun(a.id!, () => r.speichern({ ...r.stand, ausgeblendet: [...new Set([...r.stand.ausgeblendet, a.id!])] }), `„${a.name}“ aus dem Hub genommen.`);
   const einblenden = (id: string, name: string) => tun(id, () => r.speichern({ ...r.stand, ausgeblendet: r.stand.ausgeblendet.filter((x) => x !== id) }), `„${name}“ ist wieder im Hub.`);
   const versteckt = SEED_APPS.filter((a) => r.stand.ausgeblendet.includes(a.id ?? "") && !apps.some((x) => x.id === a.id && x._src === "eigene"));
@@ -167,6 +172,19 @@ function AppsBereich() {
           })}
         </tbody>
       </table></div>
+      {korb.length > 0 && (
+        <div className="rv-korb" role="region" aria-label="Papierkorb">
+          <span className="lbl">Papierkorb</span>
+          <p className="hint" style={{ margin: 0 }}>Gelöschte Applikationen bleiben {PAPIERKORB_TAGE} Tage hier und lassen sich wiederherstellen.</p>
+          {korb.map((g) => (
+            <div key={g.app.id} className="rv-speicher-zeile">
+              <span><b>{g.app.name}</b> <span className="hint">gelöscht am {g.geloescht ? new Date(g.geloescht).toLocaleString("de-DE", { dateStyle: "medium", timeStyle: "short" }) : "unbekannt"}</span></span>
+              <Button variant="outline" size="sm" className="rounded-full" disabled={laeuft === g.app.id} onClick={() => void zurueck(g)}>Wiederherstellen</Button>
+              <Button variant="ghost" size="sm" className="rounded-full" disabled={laeuft === g.app.id} onClick={() => void entsorgen(g)}>Endgültig löschen</Button>
+            </div>
+          ))}
+        </div>
+      )}
       {versteckt.length > 0 && (
         <div className="rv-speicher-zeile">
           <span className="hint">Aus dem Hub genommene Vorlagen:</span>

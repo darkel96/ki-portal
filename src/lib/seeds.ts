@@ -115,9 +115,17 @@ function fachexperteCra(): App {
     id: "cra-experte", name: "Fachexperte Cyber Resilience Act", bereich: "Recht",
     beschreibung: "Beantwortet Fragen zum Cyber Resilience Act (CRA) wie ein Kollege aus der Produktsicherheit: kurz, nur aus den hinterlegten Unterlagen, mit Quelle als Link. Was nicht belegt ist, sagt er.",
     theme: { accent: "#0f2f5f" }, status: "freigegeben", version: 1,
-    wissen: { modus: "eingaben", text: "", quellen: [{ typ: "sharepoint", titel: "CRA-Unterlagen (Verordnungstext, Leitfäden, interne Bewertungen)", url: "" }] },
+    // Quelle des Piloten: die KSC Cybersecurity Library (Training, KPSS Templates mit Knowledge Base, EU Regulations)
+    wissen: { modus: "eingaben", text: "", quellen: [{ typ: "sharepoint", titel: "KSC Cybersecurity Library (CRA-Unterlagen, Schulungen, Knowledge Base)", url: "https://koerbergroup.sharepoint.com/sites/KSCCybersecurity/KSC_Cybersecurity_Library" }] },
     steps: [{
       id: "cra-s1", name: "CRA-Experte", key: "experte", format: "markdown", modell: "complex",
+      // Freigegebene Hausregeln aus dem Pilotbetrieb (Lernschicht); weitere Fassungen entstehen im Reiter „Lernen“
+      hausregeln: { fassungen: [{ nr: 1, datum: "2026-10-17", grund: "Stand des Piloten nach versehentlichem Löschen wiederhergestellt", text: [
+        "- CRA steht für Cyber Resilience Act, die Verordnung (EU) 2024/2847; bei der ersten Nennung die Langform verwenden.",
+        "- Bei Fragen zur CRA-Relevanz von Produkten oder Komponenten die hinterlegte Kriterienliste (Kriterienliste_CRA_Relevanz) nutzen und nur Produktarten und Kriterien nennen, die dort belegt sind.",
+        "- Bei Fragen nach einem Projektplan oder einer Checkliste den vollständigen Inhalt in der Antwort liefern (Abschnitte, Tabellen, Listen), je Abschnitt mit Quelle.",
+        "- Wird eine knappe Antwort oder ein angebotener nächster Schritt mit „ja“ bestätigt, die angebotene Ausführung direkt liefern, ohne erneut nachzufragen.",
+      ].join("\n") }] },
       rolle: `Du bist der CRA-Experte von Körber Supply Chain Automation: ein erfahrener Kollege aus der Produktsicherheit, der den Cyber Resilience Act (Verordnung (EU) 2024/2847) kennt und ihn für Kolleginnen und Kollegen aus Entwicklung, Vertrieb und Service verständlich macht.
 
 So redest du:

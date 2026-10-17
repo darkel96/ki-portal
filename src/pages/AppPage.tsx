@@ -62,7 +62,7 @@ function LetzterLaufDialog({ lauf, app, offen, onOffen }: { lauf: Lauf; app: App
 
 export function AppPage() {
   const { id } = useParams();
-  const { find, remove, save, geladen } = useApps();
+  const { find, remove, save, wiederherstellen, geladen } = useApps();
   const nav = useNavigate();
   const runRef = useRef<RunAppHandle>(null);
   const [loeschen, setLoeschen] = useState(false);
@@ -201,12 +201,17 @@ export function AppPage() {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>„{a.name}“ löschen?</AlertDialogTitle>
-            <AlertDialogDescription>Die Applikation verschwindet für alle aus dem KI-Hub. Das lässt sich nicht rückgängig machen.</AlertDialogDescription>
+            <AlertDialogDescription>Die Applikation verschwindet für alle aus dem KI-Hub. Sie liegt danach 30 Tage im Papierkorb (Verwaltung) und lässt sich von dort wiederherstellen.</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Abbrechen</AlertDialogCancel>
             <AlertDialogAction className="bg-destructive text-white hover:bg-destructive/90" onClick={async () => {
-              try { await remove(a.id!); toast.success(`„${a.name}“ gelöscht.`); nav("/", { viewTransition: true }); }
+              try {
+                const id = a.id!, name = a.name;
+                await remove(id);
+                toast.success(`„${name}“ gelöscht.`, { duration: 12_000, action: { label: "Rückgängig", onClick: () => { void wiederherstellen(id).then((w) => toast.success(w ? `„${name}“ ist wieder da.` : "Nicht mehr im Papierkorb.")); } } });
+                nav("/", { viewTransition: true });
+              }
               catch (e) { toast.error(e instanceof Error ? e.message : "Löschen fehlgeschlagen."); }
             }}>Löschen</AlertDialogAction>
           </AlertDialogFooter>

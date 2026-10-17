@@ -137,7 +137,9 @@ löschen; mitgelieferte Vorlagen übernehmen (die bearbeitete Fassung ersetzt un
 Mein Hub bleiben gültig) oder aus dem Hub nehmen (und jederzeit wieder einblenden). Dieselben Aktionen bietet die
 App-Seite: „Im Baukasten bearbeiten“ bzw. für die Verwaltung „Vorlage übernehmen und bearbeiten“, „Sperren“ und
 „Löschen“. Eine gesperrte Applikation (Status „Gesperrt“) können nur noch Personen mit Bearbeiten-Recht öffnen; alle
-anderen sehen einen Hinweis. „Entsperren“ setzt sie auf „Freigegeben“.
+anderen sehen einen Hinweis. „Entsperren“ setzt sie auf „Freigegeben“. Gelöschte Applikationen landen im
+**Papierkorb** (Browser bzw. SharePoint-Ordner `papierkorb/`), bleiben dort 30 Tage und lassen sich in der Verwaltung
+wiederherstellen; direkt nach dem Löschen bietet der Hinweis „Rückgängig“ an.
 
 - **Personen:** Wer sich mit dem Firmenkonto anmeldet, erscheint in der Verwaltung (Menüpunkt „Verwaltung“, nur für
   die Verwaltung sichtbar). Feste Verwaltung ist die Pilotleitung (`VITE_ADMINS`, Standard `dario.keller@koerber.com`);
