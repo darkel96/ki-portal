@@ -191,8 +191,13 @@ test("Markdown: nummerierte Copilot-Verweise werden zu Links mit Quellennamen", 
     const b = "https://x.sharepoint.com/sites/KSC/Library/Training/CyRPS%20Training%202026.pptx";
     const text = `Für die IT gilt:\n\n- Risiken analysieren. [1](${a})\n- SBOM pflegen. [1](${a})\n\nQuelle: CRA_Anforderungen_Vereinfacht.docx, Anforderungen 1–5 [1](${a})\n\nZur Schulung siehe auch [2](${b}).\n\nQuellen: [CRA Q&A, Scope](https://x.sharepoint.com/qa) [3](https://x.sharepoint.com/qa); Fragenkatalog, Abschnitt 2 [4](https://x.sharepoint.com/fk)`;
     const neu = m.verweiseAufloesen(text);
-    return { neu, html: m.markdown(neu), name: m.dokumentName(a), unveraendert: m.verweiseAufloesen("Kein Verweis [Link](https://x.de/a) hier.") };
+    // Copilot schreibt inzwischen Link und Nummer: der Link bleibt, nur der Zusatz dahinter wird verlinkt
+    const gemischt = m.verweiseAufloesen(`Quelle: [CRA-Verordnung, Art. 13](http://data.europa.eu/eli/reg/2024/2847/oj) · Cheat Sheet, Abschnitte 3.1 und 3.5 [1](https://x.sharepoint.com/cs.pdf?web=1)[2](https://x.sharepoint.com/Doc.aspx?file=Cheat%20Sheet.docx)\n\nQuelle: [CyRPS Training 2026.pptx](https://x.sharepoint.com/t.pptx), Folien 5–16 [1](https://x.sharepoint.com/t.pptx?web=1) · [KPSS_CRA_Attest.docx](https://x.sharepoint.com/a.docx), SD3 [2](https://x.sharepoint.com/a.docx?web=1) · [Verordnung, Art. 28](http://data.europa.eu/eli/reg/2024/2847/oj)`);
+    return { neu, gemischt, html: m.markdown(neu), name: m.dokumentName(a), unveraendert: m.verweiseAufloesen("Kein Verweis [Link](https://x.de/a) hier.") };
   });
+  expect(r.gemischt.split("\n")[0]).toBe("Quelle: [CRA-Verordnung, Art. 13](http://data.europa.eu/eli/reg/2024/2847/oj) · [Cheat Sheet, Abschnitte 3.1 und 3.5](https://x.sharepoint.com/cs.pdf?web=1) · [Cheat Sheet.docx](https://x.sharepoint.com/Doc.aspx?file=Cheat%20Sheet.docx)");
+  expect(r.gemischt.split("\n")[2]).toBe("Quelle: [CyRPS Training 2026.pptx](https://x.sharepoint.com/t.pptx), [Folien 5–16](https://x.sharepoint.com/t.pptx?web=1) · [KPSS_CRA_Attest.docx](https://x.sharepoint.com/a.docx), [SD3](https://x.sharepoint.com/a.docx?web=1) · [Verordnung, Art. 28](http://data.europa.eu/eli/reg/2024/2847/oj)");
+  expect(r.gemischt).not.toContain("[[");
   expect(r.neu).toContain("- Risiken analysieren.\n- SBOM pflegen.\n");
   expect(r.neu).toContain("Quelle: [CRA_Anforderungen_Vereinfacht.docx, Anforderungen 1–5](https://x.sharepoint.com/sites/KSC/_layouts/15/Doc.aspx?sourcedoc=%7B2D32%7D&file=CRA_Anforderungen_Vereinfacht.docx&action=default)");
   expect(r.neu).toContain("siehe auch [CyRPS Training 2026.pptx](https://x.sharepoint.com/sites/KSC/Library/Training/CyRPS%20Training%202026.pptx).");
