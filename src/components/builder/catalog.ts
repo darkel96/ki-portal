@@ -1,10 +1,10 @@
 import {
   Square, Columns2, FileText, MoveVertical, Minus, Heading, Pilcrow, Info, Image, Type, TextAlignStart, ChevronDown, CircleDot,
-  SquareCheck, Hash, Calendar, Upload, Play, Sparkles, MessageSquare, type LucideIcon,
+  SquareCheck, Hash, Calendar, Upload, Play, Sparkles, MessageSquare, Mail, type LucideIcon,
 } from "lucide-react";
 import type { BlockType } from "@/lib/schema";
 
-export const BT: Record<BlockType, { label: string; icon: LucideIcon; group: "Layout" | "Inhalt" | "Eingaben" | "KI" | "Seite" }> = {
+export const BT: Record<BlockType, { label: string; icon: LucideIcon; group: "Layout" | "Inhalt" | "Eingaben" | "KI" | "Microsoft 365" | "Seite" }> = {
   seite: { label: "Seite", icon: FileText, group: "Seite" },
   section: { label: "Abschnitt", icon: Square, group: "Layout" },
   columns: { label: "Spalten", icon: Columns2, group: "Layout" },
@@ -25,5 +25,6 @@ export const BT: Record<BlockType, { label: string; icon: LucideIcon; group: "La
   button: { label: "KI-Button", icon: Play, group: "KI" },
   output: { label: "Ergebnis", icon: Sparkles, group: "KI" },
   chat: { label: "Chat", icon: MessageSquare, group: "KI" },
+  postfach: { label: "Postfach", icon: Mail, group: "Microsoft 365" },
 };
-export const GROUPS = ["Layout", "Inhalt", "Eingaben", "KI"] as const;
+export const GROUPS = ["Layout", "Inhalt", "Eingaben", "KI", "Microsoft 365"] as const;

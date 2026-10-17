@@ -150,7 +150,7 @@
 
 /* ----- Reiter „Lernen“ (Lernschicht der Fachexperten-Chats) ----- */
 .lern-tab { flex: 1; min-height: 0; overflow: auto; overscroll-behavior: contain; scrollbar-width: thin; padding: 16px; }
-.lern-innen { display: grid; gap: 16px; max-width: 980px; margin-inline: auto; }
+.lern-innen { display: grid; gap: 16px; }
 .lern-schritt { display: grid; gap: 12px; }
 .lern-zahlen { display: flex; flex-wrap: wrap; gap: 10px 24px; margin: 0; }
 .lern-zahlen div { display: grid; gap: 2px; }
