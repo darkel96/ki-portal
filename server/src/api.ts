@@ -5,10 +5,11 @@ import type { Laeufe } from "./laeufe";
 import type { DateiSpeicher } from "./speicher";
 import { UMGEBUNG } from "./umgebung";
 import type { Zeitplan } from "./zeitplan";
+import type { Lernen } from "./lernen";
 
 export class ApiFehler extends Error { constructor(public status: number, msg: string) { super(msg); } }
 
-export type Dienste = { speicher: DateiSpeicher; laeufe: Laeufe; zeitplan: Zeitplan };
+export type Dienste = { speicher: DateiSpeicher; laeufe: Laeufe; zeitplan: Zeitplan; lernen: Lernen };
 
 export async function api(req: IncomingMessage, res: ServerResponse, pfad: string, query: URLSearchParams, body: unknown, d: Dienste): Promise<void> {
   const json = (status: number, wert: unknown) => { res.writeHead(status, { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store" }); res.end(JSON.stringify(wert)); };
@@ -71,6 +72,15 @@ export async function api(req: IncomingMessage, res: ServerResponse, pfad: strin
     if (jetzt && methode === "POST") {
       await uebernehmen();
       return json(201, { id: await d.zeitplan.jetzt(nutzer.id, jetzt[1]) });
+    }
+    // Lernschicht: Rückmeldungen (anonym), Auswertung, Freigabe-Stand der Vorschläge
+    const lernen = /^\/lernen\/([^/]+)(?:\/(rueckmeldungen|auswerten)|\/vorschlaege\/([^/]+))?$/.exec(pfad);
+    if (lernen) {
+      const appId = decodeURIComponent(lernen[1]);
+      if (!lernen[2] && !lernen[3] && methode === "GET") return json(200, await d.lernen.standVon(appId));
+      if (lernen[2] === "rueckmeldungen" && methode === "POST") { await d.lernen.rueckmeldung(appId, body); return json(201, { ok: true }); }
+      if (lernen[2] === "auswerten" && methode === "POST") { await uebernehmen(); return json(200, await d.lernen.auswerten(appId, nutzer.id, body)); }
+      if (lernen[3] && methode === "PUT") return json(200, await d.lernen.vorschlag(appId, decodeURIComponent(lernen[3]), (body as { stand?: unknown })?.stand));
     }
     throw new ApiFehler(404, `Unbekannt: ${methode} /api${pfad}`);
   } catch (e) {

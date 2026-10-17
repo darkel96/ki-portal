@@ -38,6 +38,15 @@ Mit dem Hub-Dienst (`server/`) laufen Läufe und Aufträge auf dem eigenen Linux
 geschlossen oder der PC aus ist; Aufträge laufen nach Zeitplan und gehen auf Wunsch per E-Mail raus. Einrichtung,
 Azure-Schritte und Betrieb: [SERVER.md](SERVER.md). Ohne Dienst läuft alles wie bisher im Browser.
 
+## Lernschicht für Fachexperten-Chats
+
+Ein Chat-Experte lernt nicht im Modell, sondern über das System drumherum: Die Rolle (Tonfall, Belegregel) bleibt
+fest; dazu kommt je KI-Schritt ein Block **Hausregeln**, der nur durch Freigabe wächst. Unter jeder Antwort gibt es
+Daumen hoch/runter mit Kommentar, Antworten ohne Fundstelle werden vermerkt. Im Baukasten (Reiter „Lernen“) wertet
+die KI die Rückmeldungen aus und macht Vorschläge (Begriffe, häufige Fragen, Hausregeln); eine Person nimmt an, ändert
+oder verwirft. Jede Übernahme ist eine Fassung mit Datum und Grund und lässt sich zurückdrehen. Mit Hub-Dienst liegen
+Rückmeldungen zentral und die Auswertung läuft von selbst, sobald genug neue da sind.
+
 ## Anmeldung (Betrieb mit Copilot)
 
 Ist die Copilot-Anbindung eingerichtet (Build-Umgebung), ist der Hub erst nach der Anmeldung mit dem Firmenkonto nutzbar. Der Ablauf ist auf „kein Klick“ ausgelegt:

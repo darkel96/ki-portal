@@ -104,6 +104,8 @@ Soll der Hub weiter von GitHub Pages kommen, liefert der Dienst nur die API:
 | `HUB_URSPRUNG` | Erlaubte Ursprünge (CORS), wenn der Hub woanders liegt |
 | `HUB_PARALLEL` | Gleichzeitige Läufe (Standard 3) |
 | `HUB_AUFBEWAHRUNG_TAGE` | Fertige Läufe so lange behalten (Standard 30) |
+| `HUB_FEEDBACK_TAGE` | Rückmeldungen der Lernschicht so lange behalten (Standard 90) |
+| `HUB_LERNEN_MS` | Abstand, in dem der Dienst fällige Auswertungen prüft (Standard 10 Minuten) |
 | `HUB_TESTMODUS` | `1` = Copilot-Attrappe, keine Microsoft-Anmeldung (nur lokal und in Tests) |
 
 ## Sicherheit und Datenschutz
@@ -116,6 +118,10 @@ Soll der Hub weiter von GitHub Pages kommen, liefert der Dienst nur die API:
   Person sichtbar, die sie gestartet hat, und werden nach der Aufbewahrungsfrist gelöscht.
 - Der Dienst arbeitet ausschließlich im Namen der Person (delegierte Berechtigungen); er hat keine eigenen
   Rechte auf Daten im Tenant.
+- Lernschicht: Rückmeldungen aus Fachexperten-Chats liegen **ohne Namen und ohne Nutzer-ID** unter `HUB_DATEN/lernen/<app>.json`
+  (Frage, Antwort, Daumen, Kommentar) und werden nach `HUB_FEEDBACK_TAGE` gelöscht. Weil Fragen personenbezogene
+  Angaben enthalten können, vor dem Einschalten mit dem Datenschutz abstimmen. Die automatische Auswertung läuft im
+  Namen der Person, die sie im Baukasten zuletzt angestoßen hat.
 - Backup: das Verzeichnis `HUB_DATEN` (bzw. Volume `hub-daten`) plus `server/.env`.
 
 ## Schnittstelle (für die IT)
@@ -133,6 +139,10 @@ Alle Aufrufe außer `/api/dienst` brauchen `Authorization: Bearer <Token>`.
 | `POST /api/laeufe/{id}/gesehen` | Ergebnis als gesehen markieren |
 | `GET /api/auftraege`, `PUT /api/auftraege` | Aufträge der Person lesen/übergeben |
 | `POST /api/auftraege/{id}/jetzt` | Auftrag sofort ausführen |
+| `GET /api/lernen/{appId}` | Lernschicht: Rückmeldungen (anonym), Vorschläge, Stand der Auswertung |
+| `POST /api/lernen/{appId}/rueckmeldungen` | Rückmeldung aus dem Chat ablegen (Daumen, Kommentar, „ohne Fundstelle“) |
+| `POST /api/lernen/{appId}/auswerten` | Auswertung anstoßen; der Dienst merkt sich Schritt und Person und wertet danach von selbst aus |
+| `PUT /api/lernen/{appId}/vorschlaege/{id}` | Vorschlag angenommen/verworfen (die Freigabe selbst passiert im Baukasten) |
 
 ## Lokal ausprobieren (ohne Microsoft-Konto)
 

@@ -2,6 +2,7 @@ import type { App, Quelle, Step, WissenModus } from "./schema";
 import { fieldsOf, fill, varsIn, vorbelegtVon } from "./model";
 import { DATEI_ART, DATEI_HINWEIS, dateiWunsch, type DateiArt } from "./dokument";
 import { PRUEF_HINWEIS, istStatusFeld } from "./ampel";
+import { hausregelnBlock } from "./lernen";
 
 export const FORMAT_LABEL: Record<Step["format"], string> = {
   markdown: "Formatierter Text", text: "Schlichter Text", json: "JSON-Daten", dateien: "Dateipaket (ZIP)",
@@ -73,6 +74,7 @@ export function systemText(app: AppWissen, step: Step, wissenText: string): stri
   return [
     `Du arbeitest in der Applikation „${app.name}“ eines internen KI-Hubs. Antworte auf Deutsch.`,
     step.rolle,
+    hausregelnBlock(step),
     wissenText ? `Hintergrundwissen:\n${wissenText}` : "",
     w.quellen.length ? "Hinterlegte Wissensquellen:\n" + w.quellen.map((x) => `- ${x.titel || x.url} (${QUELL_TYP[x.typ] ?? "Quelle"})${x.url ? ": " + x.url.replace(/\(/g, "%28").replace(/\)/g, "%29") : ""}`).join("\n")
       + "\nQuellenangaben schreibst du als Markdown-Link [Dokument, Abschnitt](Adresse), sobald du die Adresse des Dokuments kennst (aus den Auszügen oder dieser Liste); so öffnet sich die Quelle direkt. Nie die nackte Adresse ausgeben, der Linktext ist der Name des Dokuments mit der Stelle." : "",

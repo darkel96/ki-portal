@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type ChangeEvent, type ClipboardEvent, type CSSProperties, type DragEvent, type KeyboardEvent } from "react";
-import { Copy, FileText, Mic, Paperclip, Send, Square, Trash2, X } from "lucide-react";
+import { Copy, FileText, Mic, Paperclip, Send, Square, ThumbsDown, ThumbsUp, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 import type { App, Block } from "@/lib/schema";
 import { fill } from "@/lib/model";
@@ -7,6 +7,8 @@ import { GespraechVerfallen, KiSimulation, kiSenden } from "@/lib/ki";
 import { anfrageVorbereiten, kontext } from "@/lib/runner";
 import { markdown } from "@/lib/markdown";
 import { diagrammeZeichnen } from "@/lib/diagramm";
+import { ohneQuelle, type Bewertung } from "@/lib/lernen";
+import { rueckmeldungSpeichern } from "@/lib/lernenBrowser";
 import { FILE_ACCEPT, UnsupportedFormatError, loadImage, readFileInfo } from "@/lib/files";
 import { diktatKorrigieren, fachbegriffe } from "@/lib/diktat";
 import { linkQuellen } from "@/lib/links";
@@ -17,7 +19,9 @@ import type { Mode } from "./BlockContent";
 
 /** Anhang zu einer Frage: Dokument (als Text gelesen) oder Bild (Daten-URL) */
 type Anhang = { id: string; name: string; art: "dokument" | "bild"; text?: string; daten?: string };
-type Nachricht = { von: "mensch" | "experte"; text: string; simulation?: string; fehler?: boolean; anhaenge?: Anhang[] };
+type Nachricht = { von: "mensch" | "experte"; text: string; simulation?: string; fehler?: boolean; anhaenge?: Anhang[];
+  /** Lernschicht: Daumen gegeben („schlecht“ wartet auf den Kommentar), „gesendet“ = abgelegt; vermerk = Antwort ohne Fundstelle */
+  bewertung?: Bewertung | "gesendet"; vermerk?: boolean };
 
 const MAX_VERLAUF = 12;   // Beiträge, die die KI als Verlauf mitbekommt
 const MAX_ANHANG_TEXT = 30_000;   // Zeichen je Dokument in der Anfrage
@@ -225,6 +229,43 @@ export function ChatView({ app, b, mode }: { app: App; b: Extract<Block, { type:
   // Diagramme (Mermaid, SVG, draw.io) in fertigen Antworten zeichnen und zum Herunterladen anbieten
   useEffect(() => { if (!laeuft) void diagrammeZeichnen(liste.current, b.props.titel); }, [verlauf, laeuft, b.props.titel]);
 
+  // Lernschicht: Eine fertige Antwort ohne Fundstelle wird vermerkt (Hinweis, welche Unterlagen fehlen)
+  const [kommentar, setKommentar] = useState("");
+  useEffect(() => {
+    if (laeuft) return;
+    const i = verlauf.length - 1, n = verlauf[i];
+    if (!n || n.von !== "experte" || !n.text.trim() || n.fehler || n.simulation !== undefined || n.vermerk !== undefined) return;
+    const v = ohneQuelle(n.text);
+    setVerlauf((alt) => alt.map((x, k) => (k === i ? { ...x, vermerk: v } : x)));
+    if (v && app.id && step) void rueckmeldungSpeichern(app.id, { stepId: step.id, bewertung: "ohneQuelle", frage: verlauf[i - 1]?.von === "mensch" ? verlauf[i - 1].text : "", antwort: n.text, kommentar: "" }).catch(() => undefined);
+  }, [laeuft, verlauf, app.id, step]);
+  const rueckmeldung = (i: number, bewertung: "gut" | "schlecht", text: string) => {
+    const n = verlauf[i];
+    if (!app.id || !step || !n) return;
+    setVerlauf((alt) => alt.map((x, k) => (k === i ? { ...x, bewertung: "gesendet" } : x)));
+    setKommentar("");
+    void rueckmeldungSpeichern(app.id, { stepId: step.id, bewertung, frage: verlauf[i - 1]?.von === "mensch" ? verlauf[i - 1].text : "", antwort: n.text, kommentar: text })
+      .then(() => toast.success("Danke. Die Rückmeldung hilft, den Experten zu verbessern."), () => toast.error("Die Rückmeldung konnte nicht gespeichert werden."));
+  };
+  /** Daumen unter einer fertigen Antwort; nach „nicht hilfreich“ ein kurzer, freiwilliger Kommentar */
+  const feedback = (n: Nachricht, i: number) => {
+    if (!app.id || !n.text.trim() || n.fehler || n.simulation !== undefined || (laeuft && i === verlauf.length - 1)) return null;
+    return (
+      <div className="o-chat-feedback">
+        {n.vermerk && <span className="o-chat-vermerk" title="Diese Frage wird gezählt, damit fehlende Unterlagen ergänzt werden können">Vermerkt: keine Fundstelle</span>}
+        {n.bewertung === undefined ? <>
+          <button type="button" className="o-chat-daumen" aria-label="Antwort war hilfreich" title="Hilfreich" onClick={() => rueckmeldung(i, "gut", "")}><ThumbsUp size={13} aria-hidden="true" /></button>
+          <button type="button" className="o-chat-daumen" aria-label="Antwort war nicht hilfreich" title="Nicht hilfreich" onClick={() => setVerlauf((alt) => alt.map((x, k) => (k === i ? { ...x, bewertung: "schlecht" } : x)))}><ThumbsDown size={13} aria-hidden="true" /></button>
+        </> : n.bewertung === "schlecht" ? (
+          <form className="o-chat-kommentar" onSubmit={(e) => { e.preventDefault(); rueckmeldung(i, "schlecht", kommentar.trim()); }}>
+            <textarea rows={2} value={kommentar} aria-label="Was war falsch oder hat gefehlt?" placeholder="Was war falsch oder hat gefehlt? (optional)" onChange={(e) => setKommentar(e.target.value)} />
+            <button type="submit" className="o-btn" style={{ "--btn": "var(--app-accent)", "--btn-ink": "var(--app-accent-ink)" } as CSSProperties}>Rückmeldung senden</button>
+          </form>
+        ) : <span className="o-chat-vermerk">Danke für die Rückmeldung</span>}
+      </div>
+    );
+  };
+
   if (mode === "edit") {
     return (
       <div className="o-chat o-chat-edit" aria-label={b.props.titel}>
@@ -250,7 +291,7 @@ export function ChatView({ app, b, mode }: { app: App; b: Extract<Block, { type:
             {n.simulation !== undefined
               ? <><p className="o-muted">Simulation: Diese Anfrage würde an die zentrale KI-Anbindung gehen.</p><pre className="code o-sim">{n.simulation}</pre></>
               : n.von === "experte"
-                ? (n.text ? <div className="o-body" dangerouslySetInnerHTML={{ __html: markdown(n.text) }} /> : <p className="o-muted">{stand || "Denkt nach …"}</p>)
+                ? <>{n.text ? <div className="o-body" dangerouslySetInnerHTML={{ __html: markdown(n.text) }} /> : <p className="o-muted">{stand || "Denkt nach …"}</p>}{feedback(n, i)}</>
                 : <>
                     <p>{n.text}</p>
                     {!!n.anhaenge?.length && <ul className="o-chat-anhaenge" aria-label="Anhänge">
