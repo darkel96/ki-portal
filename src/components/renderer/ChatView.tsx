@@ -3,7 +3,7 @@ import { Copy, FileText, Mic, Paperclip, Send, Square, ThumbsDown, ThumbsUp, Tra
 import { toast } from "sonner";
 import type { App, Block } from "@/lib/schema";
 import { fill } from "@/lib/model";
-import { GespraechVerfallen, KiSimulation, kiSenden } from "@/lib/ki";
+import { GespraechVerfallen, KiSimulation, kiModus, kiSenden } from "@/lib/ki";
 import { anfrageVorbereiten, kontext } from "@/lib/runner";
 import { markdown } from "@/lib/markdown";
 import { diagrammeZeichnen } from "@/lib/diagramm";
@@ -26,7 +26,9 @@ type Nachricht = { von: "mensch" | "experte"; text: string; simulation?: string;
   /** Lernschicht: Daumen gegeben („schlecht“ wartet auf den Kommentar), „gesendet“ = abgelegt; vermerk = Antwort ohne Fundstelle */
   bewertung?: Bewertung | "gesendet"; vermerk?: boolean; gut?: boolean;
   /** Antwort aus den häufigen Fragen (ohne KI); gemerkt = als häufige Frage vorgeschlagen */
-  faq?: { id: string; datum: string }; gemerkt?: boolean };
+  faq?: { id: string; datum: string }; gemerkt?: boolean; gestoppt?: boolean;
+  /** Was die KI bekommen hat (zum Nachvollziehen, wenn eine Antwort „nichts gefunden“ sagt) */
+  diagnose?: { suche: string; gelesen: boolean; auszuege: { titel: string; zeichen: number; fehler?: string }[]; hausregeln: boolean; gespraech: boolean; system: number } };
 
 const MAX_VERLAUF = 12;   // Beiträge, die die KI als Verlauf mitbekommt
 const MAX_ANHANG_TEXT = 30_000;   // Zeichen je Dokument in der Anfrage
@@ -201,6 +203,7 @@ export function ChatView({ app, b, mode }: { app: App; b: Extract<Block, { type:
       return { ...req, system: "", bilder: bilderVon(neu) };
     };
     const senden = (req: Awaited<ReturnType<typeof voll>>) => {
+      setzeAntwort({ diagnose: { suche: req.diagnose?.suche ?? "", gelesen: !!req.diagnose?.gelesen, auszuege: req.diagnose?.auszuege ?? [], hausregeln: /Hausregeln und Kontext/.test(req.system), gespraech: !!gespraech.current, system: req.system.length } });
       setStand(req.bilder?.length ? "Bilder werden übergeben\u00a0…" : "");
       // Eine „NACHSCHLAGEN:“-Zeile ist keine Antwort und wird nicht angezeigt
       return kiSenden(req, c.signal, (t) => { if (!c.signal.aborted && !NACHSCHLAGEN.test(t.trim().slice(0, 40))) { bisherText = t; setzeAntwort({ text: t }); } }, { gespraech: gespraech.current ?? undefined, onGespraech: (id) => { gespraech.current = id; } });
@@ -226,7 +229,7 @@ export function ChatView({ app, b, mode }: { app: App; b: Extract<Block, { type:
       setzeAntwort({ text });
     } catch (e) {
       if (e instanceof KiSimulation) setzeAntwort({ text: "", simulation: "nachricht" in e.req ? e.req.nachricht : "" });
-      else if (c.signal.aborted) setzeAntwort({ text: bisherText ? `${bisherText}\n\n(gestoppt)` : "(gestoppt)" });
+      else if (c.signal.aborted) setzeAntwort({ text: bisherText ? `${bisherText}\n\n(gestoppt)` : "(gestoppt)", gestoppt: true });
       else setzeAntwort({ text: e instanceof Error ? e.message : String(e), fehler: true });
     } finally {
       setStand("");
@@ -274,16 +277,32 @@ export function ChatView({ app, b, mode }: { app: App; b: Extract<Block, { type:
   };
   /** Antwort als Datei: bei einer Dokument-Anfrage Word als Hauptknopf, sonst bei längeren oder gegliederten Antworten ein Menü */
   const download = (n: Nachricht, i: number) => {
-    if (!n.text.trim() || n.fehler || n.simulation !== undefined || (laeuft && i === verlauf.length - 1)) return null;
+    if (!n.text.trim() || n.fehler || n.gestoppt || n.simulation !== undefined || (laeuft && i === verlauf.length - 1)) return null;
     const frageText = verlauf[i - 1]?.von === "mensch" ? verlauf[i - 1].text : "";
     const dokument = DOKUMENT_FRAGE.test(frageText);
     if (!dokument && n.text.length < 400 && !/^#{1,3} |^\|.*\|/m.test(n.text)) return null;
     const titel = (/^#{1,3}\s+(.+)$/m.exec(n.text)?.[1] ?? frageText.slice(0, 60) ?? b.props.titel).replace(/[*_`]/g, "").trim() || b.props.titel;
     return <div className="o-chat-download"><DateiKnoepfe app={app} text={n.text} titel={titel} haupt={dokument ? "docx" : null} roh={{ name: slug(titel) || "antwort", endung: "md" }} kompakt={titel} /></div>;
   };
+  /** Aufklappbar unter der Antwort: welche Quellen gelesen wurden und was mitging */
+  const diagnose = (n: Nachricht, i: number) => {
+    if (!n.diagnose || !n.text.trim() || n.gestoppt || (laeuft && i === verlauf.length - 1)) return null;
+    const d = n.diagnose;
+    return (
+      <details className="o-chat-diagnose">
+        <summary>Was die KI bekommen hat</summary>
+        <ul>
+          {!d.gelesen && <li>Keine Wissensquellen gelesen {kiModus() === "copilot" ? "(der Schritt hat keine SharePoint-Quelle)" : "(nur mit Copilot-Anbindung; im Testmodus antwortet die KI ohne Unterlagen)"}.</li>}
+          {d.auszuege.map((a) => <li key={a.titel}>{a.titel}: {a.fehler ? <span className="o-err">konnte nicht gelesen werden ({a.fehler})</span> : a.zeichen ? `${a.zeichen.toLocaleString("de-DE")} Zeichen Auszüge` : <span className="o-err">keine passenden Inhalte gefunden</span>}</li>)}
+          {d.suche && <li>Suchtext: „{d.suche.slice(0, 160)}{d.suche.length > 160 ? " …" : ""}“</li>}
+          <li>{d.gespraech ? "Folgefrage im laufenden Copilot-Gespräch (Rolle und Verlauf kennt Copilot schon)" : `Volle Anfrage mit Rolle${d.hausregeln ? " und Hausregeln" : ""} (${d.system.toLocaleString("de-DE")} Zeichen Anweisung)`}</li>
+        </ul>
+      </details>
+    );
+  };
   /** Daumen unter einer fertigen Antwort; nach „nicht hilfreich“ ein kurzer, freiwilliger Kommentar */
   const feedback = (n: Nachricht, i: number) => {
-    if (!app.id || !n.text.trim() || n.fehler || n.simulation !== undefined || (laeuft && i === verlauf.length - 1)) return null;
+    if (!app.id || !n.text.trim() || n.fehler || n.gestoppt || n.simulation !== undefined || (laeuft && i === verlauf.length - 1)) return null;
     return (
       <div className="o-chat-feedback">
         {n.faq && <span className="o-chat-faq">Gespeicherte Antwort{n.faq.datum ? ` vom ${new Date(n.faq.datum).toLocaleDateString("de-DE")}` : ""}, freigegeben.
@@ -329,7 +348,7 @@ export function ChatView({ app, b, mode }: { app: App; b: Extract<Block, { type:
             {n.simulation !== undefined
               ? <><p className="o-muted">Simulation: Diese Anfrage würde an die zentrale KI-Anbindung gehen.</p><pre className="code o-sim">{n.simulation}</pre></>
               : n.von === "experte"
-                ? <>{n.text ? <div className="o-body" dangerouslySetInnerHTML={{ __html: markdown(n.text) }} /> : <p className="o-muted">{stand || "Denkt nach …"}</p>}{download(n, i)}{feedback(n, i)}</>
+                ? <>{n.text ? <div className="o-body" dangerouslySetInnerHTML={{ __html: markdown(n.text) }} /> : <p className="o-muted">{stand || "Denkt nach …"}</p>}{download(n, i)}{feedback(n, i)}{diagnose(n, i)}</>
                 : <>
                     <p>{n.text}</p>
                     {!!n.anhaenge?.length && <ul className="o-chat-anhaenge" aria-label="Anhänge">

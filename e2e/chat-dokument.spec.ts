@@ -30,6 +30,10 @@ test("Chat: Dokument-Anfrage bekommt Word-Download, kurze Antwort nicht; die Reg
   await chat.getByRole("button", { name: "Senden" }).click();
   await expect(chat.getByText("EU-Verordnung 2024/2847")).toBeVisible();
   await expect(chat.locator(".o-chat-download")).toHaveCount(0);
+  // Nachvollziehbar, was mitging
+  await chat.getByText("Was die KI bekommen hat").first().click();
+  await expect(chat.locator(".o-chat-diagnose").first()).toContainText("Keine Wissensquellen gelesen");
+  await expect(chat.locator(".o-chat-diagnose").first()).toContainText("Volle Anfrage mit Rolle");
   expect(prompts[0]).toContain("Lege keine Dateien in OneDrive, Teams oder anderswo an");
   // Dokument gewünscht: Inhalt in der Antwort, Word als Hauptknopf
   await chat.getByLabel("Frage", { exact: true }).fill("Erstelle mir ein fertiges Dokument mit Projektplan und Checkliste");
