@@ -5,7 +5,8 @@ import type { App, Block } from "@/lib/schema";
 import { fill } from "@/lib/model";
 import { GespraechVerfallen, KiSimulation, kiModus, kiSenden } from "@/lib/ki";
 import { OHNE_ADRESSE, anfrageVorbereiten, kontext } from "@/lib/runner";
-import { markdown, verweiseAufloesen } from "@/lib/markdown";
+import { markdown } from "@/lib/markdown";
+import { quellenVerlinken, verweiseAufloesen, type DokLink } from "@/lib/verweise";
 import { diagrammeZeichnen } from "@/lib/diagramm";
 import { ohneQuelle, vorschlagAnlegen, type Bewertung } from "@/lib/lernen";
 import { rueckmeldungSpeichern, vorschlagEinreichen } from "@/lib/lernenBrowser";
@@ -84,6 +85,7 @@ export function ChatView({ app, b, mode }: { app: App; b: Extract<Block, { type:
   const [hoert, setHoert] = useState(false);
   const ctl = useRef<AbortController | null>(null);
   const gespraech = useRef<string | null>(null);   // weitergeführtes Copilot-Gespräch
+  const linkverzeichnis = useRef<DokLink[]>([]);   // Dokumente mit Adresse aus allen Auszügen des Gesprächs (Quellennamen ohne Link verlinken)
   const gesendet = useRef<Anhang[]>([]);   // alle Anhänge des Gesprächs (für eine volle Anfrage ohne Gespräch)
   const erkennung = useRef<Erkennung | null>(null);
   const diktiert = useRef(false);   // die nächste Frage kam (auch) aus dem Diktat
@@ -203,6 +205,7 @@ export function ChatView({ app, b, mode }: { app: App; b: Extract<Block, { type:
       return { ...req, system: "", bilder: bilderVon(neu) };
     };
     const senden = (req: Awaited<ReturnType<typeof voll>>) => {
+      for (const l of req.diagnose?.links ?? []) if (!linkverzeichnis.current.some((x) => x.link === l.link)) linkverzeichnis.current = [...linkverzeichnis.current, l];
       setzeAntwort({ diagnose: { suche: req.diagnose?.suche ?? "", gelesen: !!req.diagnose?.gelesen, auszuege: req.diagnose?.auszuege ?? [], hausregeln: /Hausregeln und Kontext/.test(req.system), gespraech: !!gespraech.current, system: req.system.length } });
       setStand(req.bilder?.length ? "Bilder werden übergeben\u00a0…" : "");
       // Eine „NACHSCHLAGEN:“-Zeile ist keine Antwort und wird nicht angezeigt
@@ -226,7 +229,7 @@ export function ChatView({ app, b, mode }: { app: App; b: Extract<Block, { type:
       }
       if (nachschlagenAus(text)) text = "Dazu habe ich in den hinterlegten Unterlagen nichts gefunden.";
       gesendet.current = [...gesendet.current, ...neu];
-      setzeAntwort({ text: verweiseAufloesen(text) });
+      setzeAntwort({ text: quellenVerlinken(verweiseAufloesen(text), linkverzeichnis.current) });
     } catch (e) {
       if (e instanceof KiSimulation) setzeAntwort({ text: "", simulation: "nachricht" in e.req ? e.req.nachricht : "" });
       else if (c.signal.aborted) setzeAntwort({ text: bisherText ? `${bisherText}\n\n(gestoppt)` : "(gestoppt)", gestoppt: true });
@@ -353,7 +356,7 @@ export function ChatView({ app, b, mode }: { app: App; b: Extract<Block, { type:
         <span className="o-out-t">{b.props.titel}</span>
         <span className="flex-1" />
         {verlauf.length > 0 && <button type="button" className="o-chat-knopf" onClick={kopieren} title="Ganzen Verlauf kopieren"><Copy size={14} aria-hidden="true" />Alles kopieren</button>}
-        {verlauf.length > 0 && !laeuft && <button type="button" className="o-chat-knopf" onClick={() => { setVerlauf([]); gespraech.current = null; gesendet.current = []; }} title="Neu beginnen"><Trash2 size={14} aria-hidden="true" />Neu beginnen</button>}
+        {verlauf.length > 0 && !laeuft && <button type="button" className="o-chat-knopf" onClick={() => { setVerlauf([]); gespraech.current = null; gesendet.current = []; linkverzeichnis.current = []; }} title="Neu beginnen"><Trash2 size={14} aria-hidden="true" />Neu beginnen</button>}
       </div>
       <div className="o-chat-verlauf" ref={liste} role="log" aria-live="polite" aria-label="Gesprächsverlauf">
         <div className="o-chat-n von-experte"><div className="o-body" dangerouslySetInnerHTML={{ __html: markdown(b.props.begruessung) }} /></div>

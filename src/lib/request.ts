@@ -46,7 +46,9 @@ export type KiRequest = {
   nachricht: string;
   variablen: Record<string, string | null>;
   /** Was an Wissen mitging (zur Nachvollziehbarkeit im Chat): Suchtext, je Quelle Zeichen bzw. Fehler; gelesen = Quellen wurden überhaupt gelesen */
-  diagnose?: { suche: string; gelesen: boolean; auszuege: { titel: string; zeichen: number; fehler?: string }[] };
+  diagnose?: { suche: string; gelesen: boolean; auszuege: { titel: string; zeichen: number; fehler?: string }[];
+    /** Dokumente mit Adresse aus den Auszügen: damit der Hub Quellennamen ohne Link selbst verlinken kann */
+    links?: { titel: string; link: string }[] };
 };
 
 type AppWissen = Pick<App, "name" | "wissen">;

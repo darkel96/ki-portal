@@ -52,3 +52,47 @@ export function verweiseAufloesen(text: string): string {
   });
   return erst.map((z) => (quellenZeile.test(z) ? z : z.replace(VERWEIS, (_, __, u: string) => (inQuellen.has(u) ? "" : ` [${dokumentName(u)}](${u})`)))).join("\n");
 }
+
+/* ---------- Quellennamen ohne Link ---------- */
+export type DokLink = { titel: string; link: string };
+
+/** Dokumente mit Adresse aus dem Auszugstext des Hubs („Dokument: …“ gefolgt von „Link: …“) */
+export function dokumentLinks(auszug: string): DokLink[] {
+  const out: DokLink[] = [];
+  const zeilen = auszug.split("\n");
+  for (let i = 0; i + 1 < zeilen.length; i++) {
+    const d = /^Dokument:\s*(.+)$/.exec(zeilen[i]), l = /^Link:\s*(\S+)$/.exec(zeilen[i + 1]);
+    if (d && l) out.push({ titel: d[1].trim(), link: l[1] });
+  }
+  return out;
+}
+
+/** Vergleichsform eines Dokumentnamens: klein, ohne Endung, Unterstriche und Satzzeichen */
+const normName = (s: string) => s.toLowerCase().replace(/\.(docx?|pptx?|xlsx?|pdf|md|txt|csv|aspx)$/i, "").replace(/[_\s]+/g, " ").replace(/[^\p{L}\p{N} ]/gu, "").replace(/\s+/g, " ").trim();
+
+/**
+ * Schreibt die KI in einer Quellenzeile nur den Namen eines Dokuments („Quelle: Cheat Sheet, Abschnitt 3; Schulung, S. 24“),
+ * verlinkt der Hub ihn mit der Adresse aus den gelesenen Auszügen; die ganze Angabe (Name und Stelle) wird Linktext.
+ * Nur Abschnitte ohne Link werden angefasst, der längste passende Dokumentname gewinnt.
+ */
+export function quellenVerlinken(text: string, links: DokLink[]): string {
+  const bekannt = links.map((l) => ({ ...l, norm: normName(l.titel) })).filter((l) => l.norm.length >= 6 && /^https?:/.test(l.link)).sort((a, b) => b.norm.length - a.norm.length);
+  if (!bekannt.length || !/^\s*(?:[-*]\s+)?(?:\*\*)?Quellen?(?:\*\*)?\s*:/im.test(text)) return text;
+  const quellenZeile = /^(\s*(?:[-*]\s+)?(?:\*\*)?Quellen?(?:\*\*)?\s*:\s*)(.*)$/i;
+  return text.split("\n").map((z) => {
+    const m = quellenZeile.exec(z);
+    if (!m) return z;
+    // Abschnitte an „;“ oder „·“ trennen; „,“ bleibt, weil es Name und Stelle trennt
+    const teile = m[2].split(/(\s*[;·]\s*)/);
+    const neu = teile.map((t, i) => {
+      if (i % 2 === 1 || !t.trim() || /\]\(/.test(t) || /https?:\/\//.test(t)) return t;
+      const name = t.trim().replace(/[.;,:]+$/, "");
+      const norm = normName(name);
+      const l = bekannt.find((x) => norm.startsWith(x.norm) || norm.includes(" " + x.norm) || norm === x.norm);
+      if (!l) return t;
+      const vor = /^\s*/.exec(t)?.[0] ?? "", nach = t.slice(vor.length + t.trim().length);
+      return `${vor}[${name}](${l.link})${nach}`;
+    }).join("");
+    return m[1] + neu;
+  }).join("\n");
+}
