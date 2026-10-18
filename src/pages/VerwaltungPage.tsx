@@ -287,7 +287,7 @@ function SpeicherBereich() {
           <Input type="password" value={token} onChange={(e) => { setToken(e.target.value); setGitPr(null); }} placeholder="GitHub-Token (github_pat_… oder ghp_…), optional zum Schreiben" aria-label="GitHub-Token" autoComplete="off" />
           <Button variant="outline" className="rounded-full" disabled={!git.repo.trim() || !!laeuft} onClick={() => void gitPruefenJetzt()}>{laeuft === "gitpruefen" ? "Prüft …" : "Git prüfen"}</Button>
           {gh?.quelle === "datei"
-            ? <Button className="rounded-full" disabled={!!laeuft || token === gitToken()} onClick={() => void tokenSpeichern()}>{token.trim() ? "Token in diesem Browser hinterlegen" : "Token entfernen"}</Button>
+            ? <Button className="rounded-full" disabled={!!laeuft || token === gitToken()} onClick={() => void tokenSpeichern()}>{token.trim() || !gitToken() ? "Token in diesem Browser hinterlegen" : "Token entfernen"}</Button>
             : <Button className="rounded-full" disabled={!gitPr?.lesen || !!laeuft} onClick={() => void gitVerwenden(true)}>Git-Speicher hier nutzen</Button>}
           {gh?.quelle === "browser" && <Button variant="ghost" className="rounded-full" onClick={() => void gitVerwenden(false)}>Zurück auf diesen Browser</Button>}
         </div>
