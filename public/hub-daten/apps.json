@@ -1,0 +1,184 @@
+{
+  "cra-experte": {
+    "id": "cra-experte",
+    "v": 2,
+    "typ": "baukasten",
+    "url": "",
+    "name": "Fachexperte Cyber Resilience Act",
+    "bereich": "CRA",
+    "beschreibung": "Beantwortet Fragen zum Cyber Resilience Act (CRA) wie ein Kollege aus der Produktsicherheit: kurz, nur aus den hinterlegten Unterlagen, mit Quelle als Link. Was nicht belegt ist, sagt er.",
+    "theme": {
+      "accent": "#0f2f5f",
+      "bg": "",
+      "font": "sans",
+      "radius": "m",
+      "width": "m"
+    },
+    "wissen": {
+      "modus": "eingaben",
+      "text": "",
+      "quellen": [
+        {
+          "typ": "sharepoint",
+          "titel": "KSC Cybersecurity Library (CRA-Unterlagen, Schulungen, Knowledge Base)",
+          "url": "https://koerbergroup.sharepoint.com/sites/KSCCybersecurity/KSC_Cybersecurity_Library"
+        }
+      ]
+    },
+    "blocks": [
+      {
+        "id": "cra-experte-b1",
+        "type": "seite",
+        "props": {
+          "titel": "Chat"
+        },
+        "children": [
+          {
+            "id": "cra-experte-b2",
+            "type": "heading",
+            "props": {
+              "text": "Fachexperte Cyber Resilience Act",
+              "level": 1,
+              "align": "left",
+              "color": ""
+            }
+          },
+          {
+            "id": "cra-experte-b3",
+            "type": "chat",
+            "props": {
+              "titel": "CRA-Experte",
+              "quelle": "cra-experte-s1",
+              "begruessung": "Ich beantworte Fragen zum Cyber Resilience Act ausschließlich aus den hinterlegten Unterlagen und nenne die Quelle. Was dort nicht steht, sage ich. Was möchtest du wissen?",
+              "platzhalter": "z. B. Welche Pflichten gelten für Hersteller ab wann?"
+            }
+          }
+        ]
+      }
+    ],
+    "steps": [
+      {
+        "id": "cra-experte-s1",
+        "name": "CRA-Experte",
+        "key": "experte",
+        "art": "prompt",
+        "rolle": "Du bist der CRA-Experte von Körber Supply Chain Automation: ein erfahrener Kollege aus der Produktsicherheit, der den Cyber Resilience Act (Verordnung (EU) 2024/2847) kennt und ihn für Kolleginnen und Kollegen aus Entwicklung, Vertrieb und Service verständlich macht.\n\nSo redest du:\n- Wie ein Kollege im Gespräch, nicht wie ein Gutachten. Du bist per Du, direkt und freundlich.\n- Die Länge folgt der Frage: Eine Begriffsfrage bekommt zwei bis vier Sätze, eine Detailfrage so viel wie nötig. Nie mehr als etwa 150 Wörter, außer die Person bittet um Ausführlichkeit.\n- Erst die Antwort, dann die Quelle. Eine Quellenangabe pro Dokument am Ende, als Link: [CRA Q&A, Abschnitt Scope](Adresse des Dokuments). Keine Quellenzeile unter jedem Punkt.\n- Aufzählungen nur, wenn es wirklich eine Liste ist. Keine Überschriften bei kurzen Antworten.\n- Biete am Ende einen passenden nächsten Schritt an, wenn er sich anbietet („Soll ich die Pflichten für Hersteller genauer durchgehen?“).\n- Beantworte nur, was gefragt wurde. Was du nicht gefunden hast, erwähnst du nur, wenn es die Frage betrifft.\n\nBelegregel, ohne Ausnahme:\n- Antworte nur aus den hinterlegten Unterlagen und den mitgelieferten Auszügen.\n- Steht etwas nicht darin, sage es in einem Satz („Dazu habe ich in den Unterlagen nichts gefunden.“) und nenne, welches Dokument das klären würde. Ergänze nichts aus eigenem Wissen.\n- Wörtliche Zitate in Anführungszeichen, deine Einordnung klar davon getrennt.\n- Fristen, Pflichten und Zuständigkeiten nur mit Beleg und mit dem Stand des Dokuments.\n- Keine Rechtsberatung: Nur wenn jemand eine Entscheidung treffen will, weise auf Rechtsabteilung oder Produktsicherheit hin, in einem Satz, nicht als Fußnote unter jeder Antwort.\n\nAntworte auf Deutsch. Bei Rückfragen beziehst du dich auf den Verlauf.",
+        "wissen": "",
+        "prompt": "Bisheriger Verlauf:\n{{verlauf}}\n\nFrage: {{frage}}",
+        "modell": "complex",
+        "format": "markdown",
+        "datei": "",
+        "autoAll": false,
+        "vorlage": null,
+        "wissenModus": "app",
+        "quellen": [],
+        "bedingung": null,
+        "hausregeln": {
+          "fassungen": [
+            {
+              "nr": 1,
+              "datum": "2026-10-17",
+              "text": "- CRA steht für Cyber Resilience Act, die Verordnung (EU) 2024/2847; bei der ersten Nennung die Langform verwenden.\n- Bei Fragen zur CRA-Relevanz von Produkten oder Komponenten die hinterlegte Kriterienliste (Kriterienliste_CRA_Relevanz) nutzen und nur Produktarten und Kriterien nennen, die dort belegt sind.\n- Bei Fragen nach einem Projektplan oder einer Checkliste den vollständigen Inhalt in der Antwort liefern (Abschnitte, Tabellen, Listen), je Abschnitt mit Quelle.\n- Wird eine knappe Antwort oder ein angebotener nächster Schritt mit „ja“ bestätigt, die angebotene Ausführung direkt liefern, ohne erneut nachzufragen.",
+              "grund": "Stand des Piloten nach versehentlichem Löschen wiederhergestellt"
+            }
+          ]
+        },
+        "faq": {
+          "eintraege": [
+            {
+              "id": "fmvcyfndpelugg",
+              "frage": "Was ist der CRA?",
+              "varianten": [],
+              "antwort": "Der **Cyber Resilience Act (CRA)** ist die EU-Verordnung 2024/2847. Er legt verbindliche Cybersecurity-Anforderungen für **Produkte mit digitalen Elementen** fest, also insbesondere Hardware und Software, deren vorgesehene oder absehbare Nutzung eine direkte oder indirekte Verbindung zu einem Gerät",
+              "datum": "2026-10-17",
+              "quelle": "lern"
+            },
+            {
+              "id": "fmvcyfoct71h4y",
+              "frage": "Unterscheidet der CRA zwischen IT und OT?",
+              "varianten": [],
+              "antwort": "Beim **Cyber Resilience Act (CRA)** gibt es grundsätzlich **keine getrennte Logik für IT und OT**. Entscheidend ist, ob es sich um ein Produkt mit digitalen Elementen handelt, das direkt oder indirekt Daten mit einem Gerät oder Netz austauschen kann. Deshalb können klassische IT-Produkte wie **PCs,",
+              "datum": "2026-10-17",
+              "quelle": "lern"
+            },
+            {
+              "id": "fmvcyfpfpo5btm",
+              "frage": "Wie werden externe Dienstleister und Lieferanten beim CRA berücksichtigt?",
+              "varianten": [],
+              "antwort": "Bei **externen Dienstleistern oder Lieferanten** kommt es darauf an, **was sie tatsächlich liefern oder verändern**. - Eine **reine Dienstleistung ohne bereitgestellte Hardware oder Software** ist grundsätzlich nicht unmittelbar vom CRA erfasst. - Entwickelt oder übergibt ein Externer **Software**,",
+              "datum": "2026-10-17",
+              "quelle": "lern"
+            },
+            {
+              "id": "fmvcyfryzptc3i",
+              "frage": "Gilt der CRA auch außerhalb Europas?",
+              "varianten": [],
+              "antwort": "Nein. Der **Cyber Resilience Act (CRA)** gilt laut den Unterlagen nicht allgemein in Amerika, sondern für Produkte, die im Europäischen Wirtschaftsraum auf den Markt gebracht werden. Wird ein Produkt in der EU hergestellt, aber **gezielt für einen Markt außerhalb der EU**, zum Beispiel die USA, gilt",
+              "datum": "2026-10-17",
+              "quelle": "lern"
+            },
+            {
+              "id": "fmvcyl14duyldx",
+              "frage": "Was ist der CRA?",
+              "varianten": [],
+              "antwort": "Der **Cyber Resilience Act (CRA)** ist die EU-Verordnung 2024/2847. Er legt verbindliche Cybersecurity-Anforderungen für **Produkte mit digitalen Elementen** fest, also insbesondere Hardware und Software, deren vorgesehene oder absehbare Nutzung eine direkte oder indirekte Verbindung zu einem Gerät",
+              "datum": "2026-10-17",
+              "quelle": "lern"
+            },
+            {
+              "id": "fmvcyl1wrwgeeo",
+              "frage": "Welche Produkte betrifft der CRA?",
+              "varianten": [],
+              "antwort": "Der CRA betrifft grundsätzlich **Produkte mit digitalen Elementen**, deren vorgesehene oder vernünftigerweise vorhersehbare Nutzung eine direkte oder indirekte Datenverbindung zu einem Gerät oder Netzwerk umfasst. Dazu zählen laut Cyber Resilience Act (CRA) – Cheat Sheet beispielsweise Hardware und",
+              "datum": "2026-10-17",
+              "quelle": "lern"
+            },
+            {
+              "id": "fmvcyl2znqlirl",
+              "frage": "Gibt es beim CRA Unterschiede zwischen IT und OT?",
+              "varianten": [],
+              "antwort": "Beim **Cyber Resilience Act (CRA)** gibt es grundsätzlich **keine getrennte Logik für IT und OT**. Entscheidend ist, ob es sich um ein Produkt mit digitalen Elementen handelt, das direkt oder indirekt Daten mit einem Gerät oder Netz austauschen kann. Deshalb können klassische IT-Produkte wie **PCs,",
+              "datum": "2026-10-17",
+              "quelle": "lern"
+            },
+            {
+              "id": "fmvcyl3xhpwpd8",
+              "frage": "Wie behandelt der CRA externe Dienstleister und Lieferanten?",
+              "varianten": [],
+              "antwort": "Bei **externen Dienstleistern oder Lieferanten** kommt es darauf an, **was sie tatsächlich liefern oder verändern**. - Eine **reine Dienstleistung ohne bereitgestellte Hardware oder Software** ist grundsätzlich nicht unmittelbar vom CRA erfasst. - Entwickelt oder übergibt ein Externer **Software**,",
+              "datum": "2026-10-17",
+              "quelle": "lern"
+            },
+            {
+              "id": "fmvcyl4q3ntvg4",
+              "frage": "Gilt der CRA auch in den USA?",
+              "varianten": [],
+              "antwort": "Nein. Der **Cyber Resilience Act (CRA)** gilt laut den Unterlagen nicht allgemein in Amerika, sondern für Produkte, die im Europäischen Wirtschaftsraum auf den Markt gebracht werden. Wird ein Produkt in der EU hergestellt, aber **gezielt für einen Markt außerhalb der EU**, zum Beispiel die USA, gilt",
+              "datum": "2026-10-17",
+              "quelle": "lern"
+            },
+            {
+              "id": "fmvcyl5an82usb",
+              "frage": "Was droht bei Nichteinhaltung des CRA?",
+              "varianten": [],
+              "antwort": "Bei Nichteinhaltung des Cyber Resilience Act (CRA) **drohen Sanktionen bzw. Bußgelder**. Wie hoch diese gesetzlichen Bußgelder sind oder welche weiteren behördlichen Maßnahmen möglich sind, ist in den vorliegenden Auszügen allerdings **nicht angegeben**. Die Unterlagen zeigen zusätzlich, dass Verstö",
+              "datum": "2026-10-17",
+              "quelle": "lern"
+            }
+          ]
+        }
+      }
+    ],
+    "status": "freigegeben",
+    "pflichtSperre": true,
+    "owner": "",
+    "erstelltVon": "dario.keller@koerber.com",
+    "rechte": {
+      "bearbeiten": [],
+      "nutzen": []
+    },
+    "schutz": "oeffentlich",
+    "version": 7,
+    "geaendert": "2026-10-18T15:33:20.926Z"
+  }
+}
