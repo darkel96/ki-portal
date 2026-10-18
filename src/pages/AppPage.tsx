@@ -162,9 +162,19 @@ export function AppPage() {
         <span className="nur-breit app-aktionen">
           {hatBeispiele && <Button variant="outline" className="rounded-full" onClick={beispiele}>Beispieldaten einsetzen</Button>}
           {darfBearbeiten && <Button variant="outline" className="rounded-full" onClick={bearbeiten}>{bearbeitenText}</Button>}
-          {sperrbar && <Button variant="ghost" className="rounded-full" onClick={() => void sperren(!gesperrt)}>{gesperrt ? "Entsperren" : "Sperren"}</Button>}
-          {eigene && darfBearbeiten && <Button variant="ghost" className="rounded-full" onClick={() => setLoeschen(true)}>Löschen</Button>}
-          {!eigene && admin && <Button variant="ghost" className="rounded-full" onClick={() => setAusblenden(true)}>Aus dem Hub nehmen</Button>}
+          {(sperrbar || (eigene && darfBearbeiten) || (!eigene && admin)) && (
+            // Seltene Pflegeaktionen in einem Menü, damit die Leiste die Arbeit mit der App zeigt
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" className="rounded-full">Verwalten<ChevronDown aria-hidden="true" /></Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-64">
+                {sperrbar && <DropdownMenuItem onSelect={() => void sperren(!gesperrt)}>{gesperrt ? "Entsperren" : "Sperren"}</DropdownMenuItem>}
+                {eigene && darfBearbeiten && <DropdownMenuItem variant="destructive" onSelect={() => setLoeschen(true)}>Löschen …</DropdownMenuItem>}
+                {!eigene && admin && <DropdownMenuItem variant="destructive" onSelect={() => setAusblenden(true)}>Aus dem Hub nehmen …</DropdownMenuItem>}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
         </span>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>

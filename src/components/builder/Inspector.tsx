@@ -23,7 +23,7 @@ function AppSettings({ b, alleBereiche }: { b: Builder; alleBereiche: string[] }
   const setTheme = <K extends keyof App["theme"]>(k: K, v: App["theme"][K]) => b.change((d) => { d.theme[k] = v; });
   return (
     <>
-      <div className="insp-head"><h3>Applikation</h3></div>
+      <div className="insp-head"><h2>Applikation</h2></div>
       <Tabs defaultValue="allgemein" className="ki-teile">
         <TabsList variant="line" aria-label="Einstellungen der Applikation">
           <TabsTrigger value="allgemein">App</TabsTrigger>
@@ -306,7 +306,7 @@ export function Inspector({ b, onDelete, bereiche, onSeite }: { b: Builder; onDe
   }
   return (
     <aside className="panel insp" aria-label="Eigenschaften">
-      <div className="insp-head"><span className="g" aria-hidden="true"><Icon size={15} /></span><h3>{label}</h3></div>
+      <div className="insp-head"><span className="g" aria-hidden="true"><Icon size={15} /></span><h2>{label}</h2></div>
       <div className="flex flex-wrap gap-1.5">
         <Button variant="outline" size="sm" onClick={() => b.setSel(null)}>App-Einstellungen</Button>
         <Button variant="outline" size="sm" onClick={() => b.change((d) => { const l = locate(d.blocks, id); if (l) { const c = cloneBlock(l.b, d); l.list.splice(l.i + 1, 0, c); } })}><Copy size={14} aria-hidden="true" />Duplizieren</Button>

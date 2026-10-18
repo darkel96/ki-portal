@@ -13,7 +13,7 @@ test("Postfach: Ordner, Nachrichten, Suche und geöffnete Nachricht", async ({ p
   await page.addInitScript((app) => localStorage.setItem("kihub-apps-v3", JSON.stringify([app])), APP);
   await page.goto("/app/post-app");
   const post = page.locator(".o-post");
-  await expect(post.getByText("Beispielpostfach (ohne Copilot-Anbindung)")).toBeVisible();
+  await expect(post.getByText("Beispielpostfach")).toBeVisible();
   const ordner = post.getByRole("navigation", { name: "Ordner" });
   await expect(ordner.getByRole("button", { name: /Posteingang/ })).toHaveAttribute("aria-current", "true");
   await expect(ordner.getByRole("button", { name: /Gesendete Elemente/ })).toBeVisible();

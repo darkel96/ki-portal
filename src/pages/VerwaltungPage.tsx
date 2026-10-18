@@ -47,12 +47,15 @@ export function VerwaltungPage() {
       <section className="hero hero-meldung rv-hero">
         <div className="hero-text">
           <p className="eyebrow">KI-Hub · Verwaltung</p>
-          <h1>Personen und Rechte</h1>
-          <p className="lede">Wer sich einmal anmeldet, erscheint hier. Hier legst du fest, wer Applikationen bauen, den KI-Assistenten nutzen und freigeben darf. Rechte an einzelnen Applikationen stehen im Baukasten unter „Freigabe“.</p>
+          <h1>Verwaltung</h1>
+          <p className="lede">Personen und Rechte, Applikationen und der gemeinsame Speicher an einem Ort. Rechte an einzelnen Applikationen stehen im Baukasten unter „Freigabe“.</p>
         </div>
       </section>
       <div className="rv">
-      <div className="rv-tabelle" role="region" aria-label="Personen und Rechte">
+      <section className="rv-personen" aria-labelledby="personen-titel">
+      <h2 id="personen-titel">Personen und Rechte</h2>
+      <p className="hint" style={{ margin: 0 }}>Wer sich einmal anmeldet, erscheint hier. Hier legst du fest, wer Applikationen bauen, den KI-Assistenten nutzen und freigeben darf.</p>
+      <div className="rv-tabelle" role="region" aria-label="Tabelle der Personen">
         <table>
           <thead>
             <tr>
@@ -99,6 +102,7 @@ export function VerwaltungPage() {
         <span className="hint">Gespeichert in: {r.speicherName}</span>
         <Button className="rounded-full" disabled={!geaendert || laeuft} onClick={() => void speichern()}>{laeuft ? "Speichert …" : "Rechte speichern"}</Button>
       </div>
+      </section>
       <AppsBereich />
       <SpeicherBereich />
       </div>
@@ -150,7 +154,7 @@ function AppsBereich() {
     <section className="rv-apps" aria-labelledby="apps-titel">
       <h2 id="apps-titel">Applikationen</h2>
       <p className="hint" style={{ margin: 0 }}>Eigene Applikationen lassen sich hier bearbeiten, sperren und löschen. Mitgelieferte Vorlagen übernimmst du unter ihrem Namen (die bearbeitete Fassung ersetzt dann das Original) oder nimmst sie aus dem Hub.</p>
-      <div className="rv-tabelle" role="region" aria-label="Applikationen"><table>
+      <div className="rv-tabelle" role="region" aria-label="Tabelle der Applikationen"><table>
         <thead><tr><th>Applikation</th><th>Bereich</th><th>Herkunft</th><th>Status</th><th>Aktionen</th></tr></thead>
         <tbody>
           {liste.map((a) => {
@@ -160,7 +164,7 @@ function AppsBereich() {
                 <td><Link to={`/app/${id}`}>{a.name}</Link></td>
                 <td>{a.bereich}</td>
                 <td>{eigene ? "Eigene" : "Vorlage"}</td>
-                <td><span className="status" data-s={eigene ? a.status : "freigegeben"}>{eigene ? STATUS_TEXT[a.status] : "Vorlage"}</span></td>
+                <td><span className="status" data-s={eigene ? a.status : "freigegeben"}>{eigene ? STATUS_TEXT[a.status] : STATUS_TEXT.freigegeben}</span></td>
                 <td className="rv-aktionen">
                   <Button asChild variant="outline" size="sm" className="rounded-full"><Link to={`/baukasten/${id}`}>{eigene ? "Bearbeiten" : "Übernehmen und bearbeiten"}</Link></Button>
                   {eigene && <Button variant="outline" size="sm" className="rounded-full" disabled={laeuft === id} onClick={() => void sperren(a, !gesperrt)}>{gesperrt ? "Entsperren" : "Sperren"}</Button>}

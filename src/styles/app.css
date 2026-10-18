@@ -57,6 +57,9 @@ body { overflow: hidden; }
 .nav a:hover { color: var(--ink); background: var(--surface-2); }
 .nav a[aria-current="page"] { color: var(--ink); font-weight: 600; }
 .nav a[aria-current="page"]::after { content: ""; position: absolute; left: 12px; right: 12px; bottom: -13px; height: 2px; background: var(--brand); }
+.nav-mehr { display: none; align-items: center; gap: 2px; padding: 6px 8px; border: 0; background: none; color: var(--muted-ink); font-size: 13px; white-space: nowrap; border-radius: 6px; }
+.nav-mehr[data-aktiv] { color: var(--ink); font-weight: 600; }
+@media (max-width: 560px) { .nav .nav-weit { display: none; } .nav-mehr { display: inline-flex; min-height: 40px; } }
 .ki-pill { margin-left: auto; display: inline-flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted-ink); padding: 7px 12px; border: 1px solid transparent; border-radius: 999px; background: transparent; }
 .ki-pill:hover { border-color: var(--line); color: var(--ink); }
 .ki-pill i { width: 8px; height: 8px; border-radius: 50%; background: var(--k-neutral-light); }
@@ -128,7 +131,7 @@ body { overflow: hidden; }
 .pill small { font-size: 12px; color: var(--muted-ink); }
 .pill:hover { border-color: var(--line-strong); }
 .pill[aria-pressed="true"] { background: var(--brand); border-color: var(--brand); color: var(--brand-ink); font-weight: 600; }
-.pill[aria-pressed="true"] small { color: inherit; opacity: .75; }
+.pill[aria-pressed="true"] small { color: inherit; }
 .filter .search { margin-left: auto; display: flex; align-items: center; gap: 12px; }
 .filter .search input { width: min(320px, 60vw); height: 38px; border-radius: 999px; padding-inline: 16px; font-size: 14px; background: var(--surface); }
 .filter .search { position: relative; }
@@ -162,13 +165,17 @@ a.tile:hover .tile-go svg { transform: translateX(5px); }
 .tile .eyebrow { font-size: 11px; }
 .tile-desc { font-size: 14px; line-height: 1.55; color: var(--muted-ink); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .tile-foot { margin-top: auto; display: flex; align-items: center; justify-content: space-between; gap: 8px; padding-top: 12px; border-top: 1px solid var(--line); font-size: 13px; }
-.status { display: inline-flex; align-items: center; gap: 8px; font-weight: 600; color: var(--ok); white-space: nowrap; }
-.status::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+.status { display: inline-flex; align-items: center; gap: 8px; font-weight: 600; color: var(--ok-text); white-space: nowrap; }
+.status::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--ok); }
+.status[data-s="entwurf"]::before, .status[data-s="pruefung"]::before, .status[data-s="gesperrt"]::before { background: currentColor; }
 .status[data-s="entwurf"] { color: var(--muted-ink); }
 .status[data-s="pruefung"] { color: var(--tool-text); }
 .status[data-s="gesperrt"] { color: var(--danger); }
 /* Verwaltung: Bereich „Applikationen“; die Seite ist eine rollende Spalte, deshalb darf kein Bereich auf Null schrumpfen */
-.rv > * { flex-shrink: 0; }
+.rv > * { flex-shrink: 0; min-width: 0; }
+.rv-personen { display: grid; gap: 12px; }
+.rv-tabelle { position: relative; overflow-x: auto; max-width: 100%; min-width: 0; -webkit-overflow-scrolling: touch; } /* position: relative hält versteckte Beschriftungen (sr-only) im Rollbereich, sonst verbreitern sie die Seite */
+.rv-personen > *, .rv-apps > * { min-width: 0; }
 .rv-apps { display: grid; gap: 12px; }
 .rv-korb { display: grid; gap: 8px; border: 1px dashed var(--line); border-radius: var(--k-radius-card); padding: 12px 14px; }
 .rv-apps td { vertical-align: middle; }
@@ -176,7 +183,7 @@ a.tile:hover .tile-go svg { transform: translateX(5px); }
 .rv-apps tr[data-status="gesperrt"] td:first-child a { color: var(--danger); }
 .tile-go { display: inline-flex; align-items: center; gap: 8px; color: var(--muted-ink); white-space: nowrap; overflow: hidden; }
 .tile-go svg { color: var(--brand); flex: none; transition: transform .18s ease; }
-@media (max-width: 560px) { .tile { padding: 12px 14px; gap: 8px; } .tile-desc { display: none; } .mono { width: 36px; height: 36px; font-size: 13px; } .tile-foot { padding-top: 8px; } }
+@media (max-width: 560px) { .tile { padding: 12px 14px; gap: 8px; } .tile-desc { font-size: 13px; line-height: 1.45; } .mono { width: 36px; height: 36px; font-size: 13px; } .tile-foot { padding-top: 8px; } }
 .tile-new { border-style: dashed; border-color: var(--line-strong); box-shadow: none; justify-content: center; gap: 8px; }
 .tile-new .tile-name { white-space: normal; }
 .plus { color: var(--brand); font: 400 26px/1 var(--k-font-display); }
@@ -252,7 +259,7 @@ a.tile:hover .tile-go svg { transform: translateX(5px); }
 .o-img-ph { border: 1.5px dashed var(--app-line); padding: 22px; text-align: center; color: var(--app-muted); font-size: 13px; }
 /* Chat mit einem Fachexperten */
 .o-chat { flex: 1; display: flex; flex-direction: column; gap: 10px; min-width: 0; min-height: 320px; border: 1px solid var(--app-line); border-radius: var(--app-radius); padding: 14px 16px; background: var(--app-bg); }
-.o-chat-kopf { display: flex; align-items: center; gap: 8px; }
+.o-chat-kopf { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .o-chat-knopf { display: inline-flex; align-items: center; gap: 5px; border: 1px solid var(--app-line); background: transparent; color: inherit; border-radius: 999px; padding: 4px 10px; font: 500 12.5px/1 var(--app-font); cursor: pointer; }
 .o-chat-knopf:hover { border-color: currentColor; }
 .o-chat-verlauf { flex: 1; min-height: 200px; overflow: auto; display: flex; flex-direction: column; gap: 10px; padding: 4px 2px; }
@@ -419,7 +426,7 @@ pre.code { margin: 0; white-space: pre-wrap; font: 12.5px/1.5 var(--k-font-mono)
 .drag-ghost { padding: 8px 12px; background: var(--tool); color: var(--tool-ink); font: 500 13px/1 var(--k-font-mono); box-shadow: 0 6px 20px rgb(0 0 0 / 0.18); }
 .insp { display: flex; flex-direction: column; gap: 16px; overflow: auto; overscroll-behavior: contain; scrollbar-width: thin; }
 .insp-head { display: flex; align-items: center; gap: 10px; }
-.insp-head h3 { font-size: 18px; flex: 1; margin: 0; }
+.insp-head h2 { font-size: 18px; flex: 1; margin: 0; }
 .insp-head .g { display: inline-grid; place-items: center; width: 28px; height: 28px; background: var(--tool-soft); color: var(--tool-text); }
 .fld { display: flex; flex-direction: column; gap: 6px; }
 .fld > label, .fld > .lbl { font-size: 13px; font-weight: 600; color: var(--ink); }
@@ -556,7 +563,7 @@ pre.code { margin: 0; white-space: pre-wrap; font: 12.5px/1.5 var(--k-font-mono)
   .neu-umschalter button { flex: 1; border: 0; background: none; border-radius: 999px; padding: 8px 6px; font-size: 14px; color: var(--muted-ink); }
   .neu-umschalter button[aria-pressed="true"] { background: var(--brand); color: var(--brand-ink); }
   .neu-test > [data-sichtbar="false"] { display: none; }
-  .neu-kopf h1 { display: none; }
+  .neu-kopf h1 { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 }
 
 /* ===== Schmal/Breit-Helfer und kompakte Leisten auf dem Handy ===== */
@@ -584,7 +591,7 @@ pre.code { margin: 0; white-space: pre-wrap; font: 12.5px/1.5 var(--k-font-mono)
 .tile > * { flex-shrink: 0; }
 .tile > .tile-desc { flex-shrink: 0; }
 /* Niedrige Kachel (zwei Zeilen passen nicht): Beschreibung auf eine Zeile mit Auslassung, statt sie mitten im Satz abzuschneiden */
-@container (max-height: 190px) { .tile-desc { -webkit-line-clamp: 1; } }
+@container (max-height: 150px) { .tile-desc { -webkit-line-clamp: 1; } }
 .neu-aktion { position: sticky; bottom: -20px; margin: 0 -20px -20px; padding: 12px 20px; background: var(--surface); border-top: 1px solid var(--line); }
 @media (max-width: 640px) {
   .neu-erklaerung, .neu-beispiele { display: none !important; }
@@ -806,8 +813,8 @@ a.mh-titel:hover { text-decoration: underline; text-underline-offset: 4px; }
 /* ----- Postfach (Ordner, Nachrichten, geöffnete Nachricht wie in Outlook) ----- */
 .o-post { display: flex; flex-direction: column; gap: 10px; min-width: 0; border: 1px solid var(--app-line); border-radius: var(--app-radius); padding: 14px 16px; background: var(--app-bg); }
 .o-post-edit { min-height: 0; }
-.o-post-kopf { display: flex; align-items: center; gap: 8px; }
-.o-post-hinweis { font-size: 12px; color: var(--app-muted); padding: 2px 8px; border: 1px dashed var(--app-line); border-radius: 999px; }
+.o-post-kopf { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.o-post-hinweis { font-size: 12px; color: var(--app-muted); padding: 2px 8px; border: 1px dashed var(--app-line); border-radius: 999px; white-space: nowrap; }
 .o-post-raster { display: grid; grid-template-columns: minmax(170px, 220px) minmax(260px, 380px) minmax(0, 1fr); gap: 0; min-height: 420px; border: 1px solid var(--app-line); border-radius: var(--app-radius); overflow: hidden; }
 .o-post-ordnerliste, .o-post-liste { border-right: 1px solid var(--app-line); min-width: 0; overflow: auto; max-height: 70vh; }
 .o-post-ordnerliste ul, .o-post-nachrichten { list-style: none; margin: 0; padding: 0; }

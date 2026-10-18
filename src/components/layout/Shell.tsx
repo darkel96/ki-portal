@@ -7,6 +7,8 @@ import { useRechte } from "@/state/rechte";
 import { aktuellesKonto } from "@/lib/ki/auth";
 import { Anmeldung } from "./Anmeldung";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { ChevronDown } from "lucide-react";
 
 /** Initialen aus dem Anzeigenamen („Dario Keller“ → „DK“) */
 const initialen = (name: string) => name.split(/\s+/).filter(Boolean).slice(0, 2).map((t) => t[0]!.toUpperCase()).join("");
@@ -27,22 +29,37 @@ export function Shell() {
   const imBaukasten = loc.pathname.startsWith("/baukasten") || loc.pathname === "/neu";
   // Eine geöffnete Applikation gehört zur Übersicht: der Menüpunkt bleibt dort markiert
   const inUebersicht = loc.pathname === "/" || loc.pathname.startsWith("/app/");
+  const weitere = [
+    ...(rechte.darf("bauen") ? [{ to: "/baukasten", text: "Baukasten" }, { to: "/agenten", text: "Agenten" }] : []),
+    ...(rechte.istAdmin && rechte.ich ? [{ to: "/verwaltung", text: "Verwaltung" }] : []),
+  ];
 
   return (
     <div className="shell">
       <a href="#inhalt" className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:bg-background focus:px-3 focus:py-2">Zum Inhalt springen</a>
       <header className="top">
         <div className={`wrap top-in ${imBaukasten ? "wide" : ""}`}>
-          <Link to="/" className="brand" viewTransition aria-label="KI-Hub, zur Übersicht">
+          <Link to="/" className="brand" viewTransition aria-label="KSCA KI-Hub, zur Übersicht">
             <KoerberLogo className="brand-logo" />
             <span className="brand-org" translate="no">KSCA</span>
           </Link>
           <nav className="nav" aria-label="Hauptnavigation">
             <Link to="/" viewTransition aria-current={inUebersicht ? "page" : undefined}>Applikationen</Link>
             <NavLink to="/mein" viewTransition>Mein Hub</NavLink>
-            {rechte.darf("bauen") && <NavLink to="/baukasten" viewTransition>Baukasten</NavLink>}
-            {rechte.darf("bauen") && <NavLink to="/agenten" viewTransition>Agenten</NavLink>}
-            {rechte.istAdmin && rechte.ich && <NavLink to="/verwaltung" viewTransition>Verwaltung</NavLink>}
+            {weitere.map((w) => <NavLink key={w.to} to={w.to} viewTransition className="nav-weit">{w.text}</NavLink>)}
+            {weitere.length > 0 && (
+              // Auf dem Handy passen nicht alle Bereiche in die Leiste: die weiteren stehen in einem Menü statt unsichtbar rechts außerhalb
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button type="button" className="nav-mehr" title="Weitere Bereiche" data-aktiv={weitere.some((w) => loc.pathname.startsWith(w.to)) || undefined}>
+                    {weitere.find((w) => loc.pathname.startsWith(w.to))?.text ?? "Mehr"}<ChevronDown size={14} aria-hidden="true" />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start" className="w-48">
+                  {weitere.map((w) => <DropdownMenuItem key={w.to} asChild><NavLink to={w.to} viewTransition>{w.text}</NavLink></DropdownMenuItem>)}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
           </nav>
           <Popover>
             <PopoverTrigger asChild>

@@ -10,7 +10,9 @@ test("Vorlage übernehmen: bearbeitete Fassung ersetzt das Original unter dersel
   await expect(page.getByText(/gespeichert/i).first()).toBeVisible();
   await page.goto("/app/cra-experte");
   await expect(page.getByRole("button", { name: "Im Baukasten bearbeiten" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Sperren" })).toBeVisible();
+  await page.getByRole("button", { name: "Verwalten" }).click();
+  await expect(page.getByRole("menuitem", { name: "Sperren" })).toBeVisible();
+  await page.keyboard.press("Escape");
   const apps = await page.evaluate(() => JSON.parse(localStorage.getItem("kihub-apps-v3") || "[]") as { id: string }[]);
   expect(apps.map((a) => a.id)).toContain("cra-experte");
   // Übersicht und Verwaltung zeigen die App nur einmal (die übernommene Fassung ersetzt die Vorlage)
@@ -37,9 +39,12 @@ test("Sperren: nur Bearbeitende sehen die App, Verwaltung listet alle Apps", asy
   // Nur beim ersten Laden setzen: Nach dem Sperren soll der gespeicherte Stand das erneute Laden überleben
   await page.addInitScript((a) => { if (!localStorage.getItem("kihub-apps-v3")) localStorage.setItem("kihub-apps-v3", JSON.stringify([a])); }, app);
   await page.goto("/app/sperr-app");
-  await page.getByRole("button", { name: "Sperren" }).click();
+  await page.getByRole("button", { name: "Verwalten" }).click();
+  await page.getByRole("menuitem", { name: "Sperren" }).click();
   await expect(page.getByText("Diese Applikation ist gesperrt.")).toBeVisible();
-  await expect(page.getByRole("button", { name: "Entsperren" })).toBeVisible();
+  await page.getByRole("button", { name: "Verwalten" }).click();
+  await expect(page.getByRole("menuitem", { name: "Entsperren" })).toBeVisible();
+  await page.keyboard.press("Escape");
   await expect(page.getByText("Inhalt der App")).toBeVisible();   // Bearbeitende sehen sie weiter
   // Eine Person ohne Rechte sieht nur den Hinweis
   await page.evaluate(() => localStorage.setItem("kihub-testnutzer", JSON.stringify({ id: "u1", name: "Max Muster", email: "max.muster@firma.de" })));
@@ -82,7 +87,8 @@ test("Löschen auf der App-Seite: Rückgängig im Hinweis holt die App zurück",
   const app = { id: "weg-app", name: "Wegtest", bereich: "Allgemein", status: "freigegeben", version: 1, steps: [], blocks: [{ id: "p1", type: "seite", props: { titel: "Start" }, children: [] }] };
   await page.addInitScript((a) => { if (!localStorage.getItem("kihub-apps-v3")) localStorage.setItem("kihub-apps-v3", JSON.stringify([a])); }, app);
   await page.goto("/app/weg-app");
-  await page.getByRole("button", { name: "Löschen" }).click();
+  await page.getByRole("button", { name: "Verwalten" }).click();
+  await page.getByRole("menuitem", { name: "Löschen" }).click();
   await page.getByRole("button", { name: "Löschen" }).last().click();
   await expect(page.getByText("„Wegtest“ gelöscht.")).toBeVisible();
   await expect(page.getByRole("link", { name: /Wegtest/ })).toHaveCount(0);

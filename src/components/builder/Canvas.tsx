@@ -91,7 +91,7 @@ function SortBlock({ x, listId, ctx, renderList }: { x: Block; listId: string; c
   return (
     <div ref={setNodeRef} className="b" data-sel={sel} data-dragging={isDragging} data-bid={x.id} data-drop={drop?.id === x.id ? drop.pos : undefined}
       style={{ transform: CSS.Translate.toString(transform), transition }}
-      {...attributes} {...listeners} aria-label={blockLabel(x, kiText)}
+      {...attributes} {...listeners} role="group" aria-label={blockLabel(x, kiText)}
       aria-description="Eingabetaste: Eigenschaften bearbeiten, dort auch Duplizieren. Leertaste: verschieben. Entf: löschen."
       onKeyDown={(e) => {
         if (e.key === "Enter" && e.target === e.currentTarget) { e.preventDefault(); ctx.onFocusProp(x.id); return; }

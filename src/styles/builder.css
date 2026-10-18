@@ -144,7 +144,7 @@
   .fuehrung-titel { display: none; }
   .fuehrung li + li::before { width: 8px; margin-inline: 0 4px; }
   /* Schmal: nur der nächste Schritt mit Text, die anderen als Nummer bzw. Haken */
-  .fuehrung li:not([aria-current="step"]) .fuehrung-text { display: none; }
+  .fuehrung li:not([aria-current="step"]) .fuehrung-text { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
   .fuehrung li:not([aria-current="step"]) button { padding-right: 5px; }
 }
 
@@ -173,3 +173,11 @@
 
 
 .insp-proz { display: grid; gap: 8px; padding: 10px; border: 1px solid var(--line); border-radius: 10px; }
+
+/* Schmal: drei Reiter (mit „Lernen“) passen nur, wenn die Reiter enger sitzen und „Wiederholen“ weicht; die Reiter eines KI-Schritts sitzen enger, damit alle vier sichtbar sind */
+@media (max-width: 640px) {
+  .bld-bar [data-slot="tabs-trigger"] { padding-inline: 10px; }
+  .bld-bar .bar-redo { display: none; }
+  .ki-teile [data-slot="tabs-trigger"] { padding-inline: 4px; font-size: 12.5px; letter-spacing: -0.01em; }
+  .ki-teile [data-slot="tabs-list"] { max-width: 100%; overflow-x: auto; scrollbar-width: none; }
+}
