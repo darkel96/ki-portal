@@ -121,8 +121,15 @@ function gitZiel(pfad: string): { datei: string; schluessel: string | null } {
 }
 const utf8Base64 = (s: string) => btoa(unescape(encodeURIComponent(s)));
 const base64Utf8 = (b: string) => decodeURIComponent(escape(atob(b.replace(/\n/g, ""))));
-function gitFehler(status: number, was: string): Error {
-  return new Error(status === 401 ? `${was}: Der GitHub-Token wird nicht akzeptiert (abgelaufen oder falsch).` : status === 403 ? `${was}: kein Zugriff auf das Repository (Token ohne Schreibrecht „Contents“ oder Limit erreicht).` : status === 404 ? `${was}: Repository, Branch oder Pfad nicht gefunden.` : `${was}: GitHub antwortet mit Fehler ${status}.`);
+async function gitFehler(r: Response, was: string): Promise<Error> {
+  let text = "";
+  try { text = String(((await r.json()) as { message?: string }).message ?? ""); } catch { /* keine Meldung */ }
+  const hinweis = r.status === 401 ? "Der GitHub-Token wird nicht akzeptiert (abgelaufen oder falsch)."
+    : r.status === 403 ? "GitHub lehnt den Zugriff ab. Meist fehlt dem Token die Berechtigung „Contents: Read and write“ für dieses Repository (Token auf GitHub bearbeiten → Repository permissions → Contents → Read and write → Update token)."
+    : r.status === 404 ? "Repository, Branch oder Pfad nicht gefunden (bei einem privaten Repository auch: Token ohne Zugriff darauf)."
+    : r.status === 409 || r.status === 422 ? "Die Datei wurde zwischenzeitlich geändert oder der Branch ist geschützt."
+    : `GitHub antwortet mit Fehler ${r.status}.`;
+  return new Error(`${was}: ${hinweis}${text ? ` Meldung von GitHub: ${text}` : ""}`);
 }
 /** Datei im Repository lesen: mit Token über die API (aktuell), sonst von der veröffentlichten Seite (nach dem Deploy) */
 async function gitDateiLesen(datei: string): Promise<{ inhalt: unknown; sha: string | null }> {
@@ -131,14 +138,14 @@ async function gitDateiLesen(datei: string): Promise<{ inhalt: unknown; sha: str
   if (token) {
     const r = await fetch(`${API}/repos/${g.repo}/contents/${g.pfad}/${datei}?ref=${encodeURIComponent(g.branch)}`, { headers: { Authorization: `Bearer ${token}`, Accept: "application/vnd.github+json" }, cache: "no-store" });
     if (r.status === 404) return { inhalt: null, sha: null };
-    if (!r.ok) throw gitFehler(r.status, "Lesen");
+    if (!r.ok) throw await gitFehler(r, "Lesen");
     const j = (await r.json()) as { content?: string; sha?: string };
     try { return { inhalt: j.content ? JSON.parse(base64Utf8(j.content)) : null, sha: j.sha ?? null }; } catch { return { inhalt: null, sha: j.sha ?? null }; }
   }
   const oeffentlich = g.pfad.replace(/^public\/?/, "");
   const r = await fetch(`${import.meta.env.BASE_URL}${oeffentlich ? `${oeffentlich}/` : ""}${datei}`, { cache: "no-store" });
   if (r.status === 404) return { inhalt: null, sha: null };
-  if (!r.ok) throw gitFehler(r.status, "Lesen");
+  if (!r.ok) throw await gitFehler(r, "Lesen");
   try { return { inhalt: await r.json(), sha: null }; } catch { return { inhalt: null, sha: null }; }
 }
 async function gitDateiSchreiben(datei: string, inhalt: unknown, sha: string | null, nachricht: string): Promise<void> {
@@ -149,7 +156,7 @@ async function gitDateiSchreiben(datei: string, inhalt: unknown, sha: string | n
     method: "PUT", headers: { Authorization: `Bearer ${token}`, Accept: "application/vnd.github+json", "Content-Type": "application/json" },
     body: JSON.stringify({ message: nachricht, content: utf8Base64(JSON.stringify(inhalt, null, 2) + "\n"), branch: g.branch, ...(sha ? { sha } : {}) }),
   });
-  if (!r.ok) throw gitFehler(r.status, "Speichern");
+  if (!r.ok) throw await gitFehler(r, "Speichern");
 }
 /** Eine Sammlung ändern (lesen, ändern, schreiben; bei zwischenzeitlicher Änderung einmal neu versuchen) */
 async function gitSammlungAendern(datei: string, aendern: (alt: Record<string, unknown>) => Record<string, unknown> | null, nachricht: string): Promise<void> {
@@ -183,17 +190,21 @@ async function gitAlleLesen(unter: string): Promise<unknown[]> {
   const { inhalt } = await gitDateiLesen(`${unter}.json`);
   return inhalt && typeof inhalt === "object" && !Array.isArray(inhalt) ? Object.values(inhalt as Record<string, unknown>) : [];
 }
-/** Prüft Repository und Token: Lesen über API oder Seite, Schreibrecht laut Repository-Berechtigung (ohne Probe-Commit) */
+/**
+ * Prüft Repository und Token: Lesen über API oder Seite; Schreiben mit einer echten Probedatei (verbindungstest.json,
+ * ein Commit), denn ob ein Token schreiben darf, zeigt nur ein Schreibversuch.
+ */
 export async function gitPruefen(g: GitKonfig, token: string): Promise<{ lesen: boolean; schreiben: boolean; meldung: string }> {
   const vorher = browserGit(), vorherToken = gitToken();
   browserGitSetzen(g); gitTokenSetzen(token || null);
   try {
     try { await gitAlleLesen("apps"); } catch (e) { return { lesen: false, schreiben: false, meldung: e instanceof Error ? e.message : String(e) }; }
     if (!token) return { lesen: true, schreiben: false, meldung: "Lesen funktioniert (von der veröffentlichten Seite). Zum Schreiben einen GitHub-Token eintragen." };
-    const r = await fetch(`${API}/repos/${gitNorm(g).repo}`, { headers: { Authorization: `Bearer ${token}`, Accept: "application/vnd.github+json" } });
-    if (!r.ok) return { lesen: true, schreiben: false, meldung: gitFehler(r.status, "Schreiben").message };
-    const j = (await r.json()) as { permissions?: { push?: boolean } };
-    return j.permissions?.push ? { lesen: true, schreiben: true, meldung: "Lesen und Schreiben funktionieren. Jedes Speichern ist ein Commit; die Seite wird danach neu veröffentlicht (etwa eine Minute)." } : { lesen: true, schreiben: false, meldung: "Der Token darf in diesem Repository nicht schreiben (Berechtigung „Contents: Read and write“ fehlt)." };
+    try {
+      const { sha } = await gitDateiLesen("verbindungstest.json");
+      await gitDateiSchreiben("verbindungstest.json", { geprueft: new Date().toISOString() }, sha, "Hub-Daten: Verbindungstest");
+      return { lesen: true, schreiben: true, meldung: "Lesen und Schreiben funktionieren (Probedatei geschrieben). Jedes Speichern ist ein Commit; die Seite wird danach neu veröffentlicht (etwa eine Minute)." };
+    } catch (e) { return { lesen: true, schreiben: false, meldung: e instanceof Error ? e.message : String(e) }; }
   } finally { browserGitSetzen(vorher); gitTokenSetzen(vorherToken || null); }
 }
 

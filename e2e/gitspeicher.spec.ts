@@ -12,9 +12,10 @@ async function githubNachbau(page: Page, dateien: Record<string, unknown> = {}) 
   await page.route("https://api.github.com/**", async (route) => {
     const url = new URL(route.request().url());
     const m = new RegExp(`^/repos/${REPO}/contents/${PFAD}/([^?]+)`).exec(url.pathname);
-    if (url.pathname === `/repos/${REPO}`) { await route.fulfill({ json: { permissions: { push: route.request().headers()["authorization"]?.includes("ghp_gut") } } }); return; }
     if (!m) { await route.fulfill({ status: 404, json: { message: "Not Found" } }); return; }
     const datei = m[1];
+    // Token ohne Schreibrecht: GitHub lehnt jeden Schreibversuch ab
+    if (route.request().method() === "PUT" && !route.request().headers()["authorization"]?.includes("ghp_gut")) { await route.fulfill({ status: 403, json: { message: "Resource not accessible by personal access token" } }); return; }
     if (route.request().method() === "GET") {
       const d = ablage.get(datei);
       if (!d) { await route.fulfill({ status: 404, json: { message: "Not Found" } }); return; }
@@ -52,6 +53,12 @@ test("Git-Speicher: mit Token schreibt Speichern ins Repository, Agenten und Pap
   await expect(page.getByText(/Dieser Browser nutzt den Git-Speicher/)).toBeVisible();
   await page.getByRole("button", { name: "Git prüfen" }).click();
   await expect(page.getByText(/Lesen ✓ · Schreiben ✓/)).toBeVisible();
+  expect(commits.some((c) => c.datei === "verbindungstest.json")).toBe(true);
+  // Token ohne Schreibrecht: Prüfung meldet die Ursache mit dem Text von GitHub
+  await page.getByLabel("GitHub-Token").fill("ghp_nur_lesen");
+  await page.getByRole("button", { name: "Git prüfen" }).click();
+  await expect(page.getByText(/Lesen ✓ · Schreiben ✗ .*Contents: Read and write.*Resource not accessible by personal access token/)).toBeVisible();
+  await page.getByLabel("GitHub-Token").fill("ghp_gut");
   // App speichern → Commit in apps.json
   await page.goto("/baukasten?kopie=protokoll");
   await page.locator(".bar-speichern").click();
