@@ -26,6 +26,16 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run build:pages
+      # Veröffentlichte Seite: Git-Speicher im eigenen Repository (lesen für alle, schreiben mit Token in der Verwaltung)
+      - name: Git-Speicher in hub-config.json eintragen
+        run: |
+          node -e '
+            const fs = require("fs");
+            const p = "dist/hub-config.json";
+            const k = fs.existsSync(p) ? JSON.parse(fs.readFileSync(p, "utf8")) : {};
+            k.speicher = { ...(k.speicher || {}), git: { repo: process.env.GITHUB_REPOSITORY, branch: process.env.GITHUB_REF_NAME || "main", pfad: "public/hub-daten" } };
+            fs.writeFileSync(p, JSON.stringify(k, null, 2) + "\n");
+          '
       - uses: actions/configure-pages@v6
       - uses: actions/upload-pages-artifact@v5
         with:

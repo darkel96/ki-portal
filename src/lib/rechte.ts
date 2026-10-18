@@ -113,27 +113,49 @@ class LokalerRechteStore implements RechteStore {
   }
 }
 
-class SharePointRechteStore implements RechteStore {
-  async laden() { const { spLesen } = await import("./speicher"); return RechteStandSchema.parse((await spLesen("rechte.json")) ?? {}); }
-  async speichern(s: RechteStand) { const { spSchreiben } = await import("./speicher"); await spSchreiben("rechte.json", s); }
+/** Gemeinsamer Speicher (SharePoint oder Git) über die Dateischicht */
+class GemeinsamerRechteStore implements RechteStore {
+  async laden() { const { dateiLesen } = await import("./speicher"); return RechteStandSchema.parse((await dateiLesen("rechte.json")) ?? {}); }
+  async speichern(s: RechteStand) { const { dateiSchreiben } = await import("./speicher"); await dateiSchreiben("rechte.json", s); }
   async anmeldungen(): Promise<Anmeldung[]> {
-    const { spAlleLesen } = await import("./speicher");
-    return (await spAlleLesen("anmeldungen")).filter((x): x is Anmeldung => !!x && typeof (x as Anmeldung).email === "string");
+    const { dateienLesen, speicherKonfig } = await import("./speicher");
+    // Im Git-Speicher bleiben Anmeldungen im Browser (jede Anmeldung wäre sonst ein Commit)
+    if ((await speicherKonfig()).art === "github") return lokalerRechteStore.anmeldungen();
+    return (await dateienLesen("anmeldungen")).filter((x): x is Anmeldung => !!x && typeof (x as Anmeldung).email === "string");
   }
   /** Höchstens einmal am Tag und nur still: ohne Schreibrecht bleibt die Anmeldung unvermerkt, es öffnet sich kein Fenster */
   async vermerken(ich: Identitaet) {
+    const { speicherKonfig, dateiSchreiben } = await import("./speicher");
+    if ((await speicherKonfig()).art === "github") return lokalerRechteStore.vermerken(ich);
     const marke = `kihub-vermerkt-${ich.email.toLowerCase()}`;
     try { if (localStorage.getItem(marke) === heute()) return; } catch { /* egal */ }
-    const { spSchreiben } = await import("./speicher");
-    await spSchreiben(`anmeldungen/${ich.email.toLowerCase().replace(/[^a-z0-9._-]/g, "_")}.json`, { ...ich, zuletzt: new Date().toISOString() }, true);
+    await dateiSchreiben(`anmeldungen/${ich.email.toLowerCase().replace(/[^a-z0-9._-]/g, "_")}.json`, { ...ich, zuletzt: new Date().toISOString() }, true);
     try { localStorage.setItem(marke, heute()); } catch { /* egal */ }
   }
 }
 export const lokalerRechteStore = new LokalerRechteStore();
-const spRechteStore = new SharePointRechteStore();
+const gemeinsamerRechteStore = new GemeinsamerRechteStore();
+/** Git-Speicher ohne Token: gemeinsame Rechte gelten (gelesen), eigene Änderungen bleiben im Browser */
+class GemischterRechteStore implements RechteStore {
+  async laden() {
+    const [gem, lok] = await Promise.all([gemeinsamerRechteStore.laden().catch(() => ({ nutzer: [], ausgeblendet: [] } as RechteStand)), lokalerRechteStore.laden()]);
+    const nutzer = [...gem.nutzer];
+    for (const n of lok.nutzer) {
+      const i = nutzer.findIndex((x) => gleich(x.email, n.email));
+      if (i < 0) nutzer.push(n); else nutzer[i] = { ...nutzer[i], rechte: [...new Set([...nutzer[i].rechte, ...n.rechte])] };
+    }
+    return { nutzer, ausgeblendet: [...new Set([...gem.ausgeblendet, ...lok.ausgeblendet])] };
+  }
+  speichern(s: RechteStand) { return lokalerRechteStore.speichern(s); }
+  anmeldungen() { return lokalerRechteStore.anmeldungen(); }
+  vermerken(ich: Identitaet) { return lokalerRechteStore.vermerken(ich); }
+}
+const gemischterRechteStore = new GemischterRechteStore();
 const aktiv = async (): Promise<RechteStore> => {
-  const { speicherKonfig } = await import("./speicher");
-  return (await speicherKonfig()).art === "sharepoint" ? spRechteStore : lokalerRechteStore;
+  const { speicherKonfig, speicherSchreibbar } = await import("./speicher");
+  const k = await speicherKonfig();
+  if (k.art === "lokal") return lokalerRechteStore;
+  return (await speicherSchreibbar()) ? gemeinsamerRechteStore : gemischterRechteStore;
 };
 export const rechteStore: RechteStore = {
   laden: async () => (await aktiv()).laden(),
