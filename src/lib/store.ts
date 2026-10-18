@@ -4,7 +4,7 @@
  */
 import type { App } from "./schema";
 import { loadApp } from "./sanitize";
-import { spAlleLesen, spLoeschen, spSchreiben, speicherKonfig } from "./speicher";
+import { dateiLoeschen, dateiSchreiben, dateienLesen, speicherKonfig, speicherSchreibbar } from "./speicher";
 
 /** Gelöschte App im Papierkorb: bleibt 30 Tage, lässt sich wiederherstellen */
 export type Geloescht = { app: App; geloescht: string };
@@ -77,29 +77,54 @@ const datei = (id: string) => `apps/${id.replace(/[^a-zA-Z0-9_-]/g, "_")}.json`;
 
 const korbDatei = (id: string) => `papierkorb/${id.replace(/[^a-zA-Z0-9_-]/g, "_")}.json`;
 
-class SharePointStore implements AppStore {
-  async list() { return (await spAlleLesen("apps")).map((r) => loadApp(r)).filter((a): a is App => !!a && !!a.id); }
-  async save(app: App) { await spSchreiben(datei(app.id!), app); }
+/** Gemeinsamer Speicher (SharePoint-Ordner oder Git-Speicher) über die Dateischicht */
+class GemeinsamerStore implements AppStore {
+  async list() { return (await dateienLesen("apps")).map((r) => loadApp(r)).filter((a): a is App => !!a && !!a.id); }
+  async save(app: App) { await dateiSchreiben(datei(app.id!), app); }
   async remove(id: string) {
     const app = (await this.list()).find((a) => a.id === id);
-    if (app) await spSchreiben(korbDatei(id), { app, geloescht: new Date().toISOString() } satisfies Geloescht);
-    await spLoeschen(datei(id));
+    if (app) await dateiSchreiben(korbDatei(id), { app, geloescht: new Date().toISOString() } satisfies Geloescht);
+    await dateiLoeschen(datei(id));
   }
-  async papierkorb() { return (await spAlleLesen("papierkorb")).map(geloeschtLesen).filter((g): g is Geloescht => !!g && frisch(g)); }
+  async papierkorb() { return (await dateienLesen("papierkorb")).map(geloeschtLesen).filter((g): g is Geloescht => !!g && frisch(g)); }
   async wiederherstellen(id: string) {
     const g = (await this.papierkorb()).find((x) => x.app.id === id);
     if (!g) return null;
     await this.save(g.app);
-    await spLoeschen(korbDatei(id));
+    await dateiLoeschen(korbDatei(id));
     return g.app;
   }
-  async entsorgen(id: string) { await spLoeschen(korbDatei(id)); }
+  async entsorgen(id: string) { await dateiLoeschen(korbDatei(id)); }
 }
 
 /** Apps im Browser; für die Übernahme in den gemeinsamen Speicher */
 export const lokalerAppStore = new LocalStore();
-const spStore = new SharePointStore();
-const aktiv = async (): Promise<AppStore> => ((await speicherKonfig()).art === "sharepoint" ? spStore : lokalerAppStore);
+const gemeinsam = new GemeinsamerStore();
+/**
+ * Git-Speicher ohne Token: gemeinsame Apps lesen, eigene Änderungen bleiben im Browser (Lesen gemeinsam, Schreiben
+ * lokal); mit Token oder in SharePoint läuft alles über den gemeinsamen Speicher.
+ */
+class GemischterStore implements AppStore {
+  async list() {
+    const [gem, lok] = await Promise.all([gemeinsam.list().catch(() => [] as App[]), lokalerAppStore.list()]);
+    const lokIds = new Set(lok.map((a) => a.id));
+    return [...gem.filter((a) => !lokIds.has(a.id)), ...lok];
+  }
+  save(app: App) { return lokalerAppStore.save(app); }
+  async remove(id: string) {
+    if ((await lokalerAppStore.list()).some((a) => a.id === id)) return lokalerAppStore.remove(id);
+    throw new Error("Diese Applikation liegt im gemeinsamen Git-Speicher; zum Löschen braucht dieser Browser einen GitHub-Token (Verwaltung).");
+  }
+  async papierkorb() { const [gem, lok] = await Promise.all([gemeinsam.papierkorb().catch(() => [] as Geloescht[]), lokalerAppStore.papierkorb()]); return [...gem, ...lok]; }
+  async wiederherstellen(id: string) { return (await lokalerAppStore.wiederherstellen(id)) ?? null; }
+  entsorgen(id: string) { return lokalerAppStore.entsorgen(id); }
+}
+const gemischt = new GemischterStore();
+const aktiv = async (): Promise<AppStore> => {
+  const k = await speicherKonfig();
+  if (k.art === "lokal") return lokalerAppStore;
+  return (await speicherSchreibbar()) ? gemeinsam : gemischt;
+};
 
 export const appStore: AppStore = {
   list: async () => (await aktiv()).list(),

@@ -166,6 +166,19 @@ wiederherstellen; direkt nach dem Löschen bietet der Hinweis „Rückgängig“
   (Simulation, eigener Schlüssel) gelten keine Einschränkungen; zum Testen setzt
   `localStorage.kihub-testnutzer = {"id","name","email"}` eine Testperson.
 
+## Git-Speicher (Repository des Hubs)
+
+Neben Browser und SharePoint gibt es einen dritten gemeinsamen Speicher: JSON-Dateien im Repository unter
+`public/hub-daten/` (`apps.json`, `agenten.json`, `papierkorb.json`, `rechte.json`, je Sammlung eine Datei mit
+id → Inhalt). Sie werden mit der Seite veröffentlicht; **lesen** kann sie damit jedes Gerät ohne Anmeldung.
+**Schreiben** geht über die GitHub-Contents-API mit einem persönlichen Token (fein abgestuft, nur dieses Repository,
+„Contents: Read and write“), den eine Person in der Verwaltung hinterlegt; er bleibt in ihrem Browser. Jedes Speichern
+ist ein Commit auf den Branch, danach veröffentlicht GitHub Pages die Seite neu (etwa eine Minute); andere Geräte sehen
+den Stand nach dem nächsten Laden. Ohne Token bleiben eigene Änderungen im Browser, gemeinsame Daten werden gelesen;
+„In den Git-Speicher übernehmen“ bringt Apps, Agenten und Rechte aus dem Browser ins Repository. Konfiguration für
+alle in `public/hub-config.json` unter `speicher.git` (`repo`, `branch`, `pfad`), zum Testen je Browser in der
+Verwaltung. Anmeldungen bleiben im Git-Speicher im Browser (jede Anmeldung wäre sonst ein Commit).
+
 ## Gemeinsamer Speicher (SharePoint)
 
 Ohne Einrichtung liegen Applikationen und Rechte nur im Browser. Für den gemeinsamen Betrieb:

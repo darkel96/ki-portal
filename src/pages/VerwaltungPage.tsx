@@ -5,7 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useRechte } from "@/state/rechte";
 import { RECHTE, RECHT_LABEL, istFesterAdmin, lokalerRechteStore, rechteStore, type Nutzer, type Recht } from "@/lib/rechte";
-import { browserOrdner, browserOrdnerSetzen, ordnerPruefen, speicherKonfig, type SpeicherKonfig } from "@/lib/speicher";
+import { browserGit, browserGitSetzen, browserOrdner, browserOrdnerSetzen, gitPruefen, gitToken, gitTokenSetzen, ordnerPruefen, speicherKonfig, speicherSchreibbar, type GitKonfig, type SpeicherKonfig } from "@/lib/speicher";
+import { agentSpeichern, agentenLaden } from "@/lib/agenten";
 import { appStore, lokalerAppStore, PAPIERKORB_TAGE, type Geloescht } from "@/lib/store";
 import { useApps } from "@/state/apps";
 import { SEED_APPS } from "@/lib/seeds";
@@ -203,8 +204,16 @@ function SpeicherBereich() {
   const [pruefung, setPruefung] = useState<{ lesen: boolean; schreiben: boolean; meldung: string } | null>(null);
   const [laeuft, setLaeuft] = useState("");
   const [lokal, setLokal] = useState({ apps: 0, personen: 0 });
+  const [schreibbar, setSchreibbar] = useState(false);
+  // Git-Speicher (GitHub-Repository)
+  const [git, setGit] = useState<GitKonfig>(browserGit() ?? { repo: "", branch: "main", pfad: "public/hub-daten" });
+  const [token, setToken] = useState(gitToken());
+  const [gitPr, setGitPr] = useState<{ lesen: boolean; schreiben: boolean; meldung: string } | null>(null);
   const aktualisieren = async () => {
-    setK(await speicherKonfig());
+    const kk = await speicherKonfig();
+    setK(kk);
+    if (kk.art === "github" && !browserGit()) setGit({ repo: kk.repo, branch: kk.branch, pfad: kk.pfad });
+    setSchreibbar(await speicherSchreibbar());
     setLokal({ apps: (await lokalerAppStore.list()).length, personen: (await lokalerRechteStore.laden()).nutzer.length });
   };
   useEffect(() => { void aktualisieren(); }, []);
@@ -219,11 +228,27 @@ function SpeicherBereich() {
     await neuLaden();
     toast.success(o ? "Dieser Browser nutzt jetzt den SharePoint-Ordner." : "Dieser Browser speichert wieder lokal.");
   };
+  const gitPruefenJetzt = async () => {
+    setLaeuft("gitpruefen"); setGitPr(null);
+    try { setGitPr(await gitPruefen(git, token)); } finally { setLaeuft(""); }
+  };
+  const gitVerwenden = async (an: boolean) => {
+    browserGitSetzen(an ? git : null); gitTokenSetzen(an ? token : null); setGitPr(null);
+    await neuLaden();
+    toast.success(an ? "Dieser Browser nutzt jetzt den Git-Speicher." : "Dieser Browser speichert wieder lokal.");
+  };
+  const tokenSpeichern = async () => {
+    gitTokenSetzen(token || null);
+    await neuLaden();
+    toast.success(token.trim() ? "GitHub-Token in diesem Browser hinterlegt. Speichern geht jetzt in das Repository." : "GitHub-Token entfernt. Der Git-Speicher ist in diesem Browser nur lesbar.");
+  };
   const uebernehmen = async () => {
     setLaeuft("uebernehmen");
     try {
       const liste = await lokalerAppStore.list();
       for (const a of liste) await appStore.save(a);
+      // Agenten aus dem Browser mitnehmen
+      for (const ag of await agentenLaden(true)) await agentSpeichern(ag);
       // Rechte zusammenführen: Rechte aus beiden Ständen vereinigen
       const lok = await lokalerRechteStore.laden();
       const sp = await rechteStore.laden();
@@ -240,14 +265,35 @@ function SpeicherBereich() {
   };
 
   const sp = k?.art === "sharepoint" ? k : null;
+  const gh = k?.art === "github" ? k : null;
   return (
     <section className="rv-speicher" aria-labelledby="speicher-titel">
       <h2 id="speicher-titel">Gemeinsamer Speicher</h2>
       <p className="hint" style={{ margin: 0 }}>
-        {!k ? "Wird geprüft …" : !sp ? "Applikationen und Rechte liegen nur in diesem Browser. Damit alle dasselbe sehen, braucht der Hub einen SharePoint-Ordner."
+        {!k ? "Wird geprüft …" : gh ? <>{gh.quelle === "browser" ? "Dieser Browser nutzt" : "Alle nutzen"} den Git-Speicher <b>{gh.repo}</b> (Branch {gh.branch}, Ordner {gh.pfad}). Lesen geht für alle von der veröffentlichten Seite; {schreibbar ? "dieser Browser schreibt mit seinem GitHub-Token direkt ins Repository." : "zum Schreiben braucht dieser Browser einen GitHub-Token, bis dahin bleiben eigene Änderungen hier im Browser."}</>
+          : !sp ? "Applikationen und Rechte liegen nur in diesem Browser. Damit alle dasselbe sehen, braucht der Hub einen gemeinsamen Speicher: ein SharePoint-Ordner oder der Git-Speicher (Repository des Hubs)."
           : sp.quelle === "browser" ? <>Dieser Browser nutzt zum Testen den SharePoint-Ordner <b>{sp.ordner}</b>. Für alle gilt er erst, wenn er in der Konfiguration des Hubs (hub-config.json) steht.</>
           : <>Alle nutzen den SharePoint-Ordner <b>{sp.ordner}</b>.</>}
       </p>
+      <div className="rv-git" role="group" aria-label="Git-Speicher">
+        <span className="lbl">Git-Speicher (GitHub-Repository)</span>
+        <p className="hint" style={{ margin: 0 }}>Apps, Agenten, Rechte und Papierkorb liegen als JSON-Dateien im Repository und werden mit der Seite veröffentlicht. Schreiben kann, wer hier einen persönlichen GitHub-Token mit „Contents: Read and write“ für das Repository hinterlegt (bleibt nur in diesem Browser). Jedes Speichern ist ein Commit; andere Geräte sehen den Stand nach der Veröffentlichung, etwa eine Minute später.</p>
+        <div className="rv-speicher-zeile">
+          <Input value={git.repo} onChange={(e) => { setGit({ ...git, repo: e.target.value }); setGitPr(null); }} placeholder="owner/repository, z. B. darkel96/ki-portal" aria-label="Repository" />
+          <Input value={git.branch} onChange={(e) => { setGit({ ...git, branch: e.target.value }); setGitPr(null); }} placeholder="main" aria-label="Branch" className="w-32" />
+          <Input value={git.pfad} onChange={(e) => { setGit({ ...git, pfad: e.target.value }); setGitPr(null); }} placeholder="public/hub-daten" aria-label="Ordner im Repository" className="w-48" />
+        </div>
+        <div className="rv-speicher-zeile">
+          <Input type="password" value={token} onChange={(e) => { setToken(e.target.value); setGitPr(null); }} placeholder="GitHub-Token (github_pat_… oder ghp_…), optional zum Schreiben" aria-label="GitHub-Token" autoComplete="off" />
+          <Button variant="outline" className="rounded-full" disabled={!git.repo.trim() || !!laeuft} onClick={() => void gitPruefenJetzt()}>{laeuft === "gitpruefen" ? "Prüft …" : "Git prüfen"}</Button>
+          {gh?.quelle === "datei"
+            ? <Button className="rounded-full" disabled={!!laeuft || token === gitToken()} onClick={() => void tokenSpeichern()}>{token.trim() ? "Token in diesem Browser hinterlegen" : "Token entfernen"}</Button>
+            : <Button className="rounded-full" disabled={!gitPr?.lesen || !!laeuft} onClick={() => void gitVerwenden(true)}>Git-Speicher hier nutzen</Button>}
+          {gh?.quelle === "browser" && <Button variant="ghost" className="rounded-full" onClick={() => void gitVerwenden(false)}>Zurück auf diesen Browser</Button>}
+        </div>
+        {gitPr && <p className="hint" role="status" style={{ margin: 0, color: gitPr.schreiben ? "var(--ok)" : gitPr.lesen ? "var(--tool-text)" : "var(--danger)" }}>{gitPr.lesen ? "Lesen ✓" : "Lesen ✗"} · {gitPr.schreiben ? "Schreiben ✓" : "Schreiben ✗"} · {gitPr.meldung}</p>}
+      </div>
+      <span className="lbl">SharePoint-Ordner</span>
       <div className="rv-speicher-zeile">
         <Input value={ordner} onChange={(e) => { setOrdner(e.target.value); setPruefung(null); }} placeholder="https://koerbergroup.sharepoint.com/sites/…/Freigegebene Dokumente/KI-Hub" aria-label="Adresse des SharePoint-Ordners" />
         <Button variant="outline" className="rounded-full" disabled={!ordner.trim() || !!laeuft} onClick={() => void pruefen()}>{laeuft === "pruefen" ? "Prüft …" : "Verbindung prüfen"}</Button>
@@ -255,10 +301,10 @@ function SpeicherBereich() {
         {sp?.quelle === "browser" && <Button variant="ghost" className="rounded-full" onClick={() => void verwenden(null)}>Zurück auf diesen Browser</Button>}
       </div>
       {pruefung && <p className="hint" role="status" style={{ margin: 0, color: pruefung.schreiben ? "var(--ok)" : "var(--danger)" }}>{pruefung.lesen ? "Lesen ✓" : "Lesen ✗"} · {pruefung.schreiben ? "Schreiben ✓" : "Schreiben ✗"} · {pruefung.meldung}</p>}
-      {sp && (lokal.apps > 0 || lokal.personen > 0) && (
+      {(sp || (gh && schreibbar)) && (lokal.apps > 0 || lokal.personen > 0) && (
         <div className="rv-speicher-zeile">
           <span className="hint">In diesem Browser liegen noch {lokal.apps} Applikation{lokal.apps === 1 ? "" : "en"} und {lokal.personen} Rechte-Einträge.</span>
-          <Button variant="outline" className="rounded-full" disabled={!!laeuft} onClick={() => void uebernehmen()}>{laeuft === "uebernehmen" ? "Übernimmt …" : "In den SharePoint-Ordner übernehmen"}</Button>
+          <Button variant="outline" className="rounded-full" disabled={!!laeuft} onClick={() => void uebernehmen()}>{laeuft === "uebernehmen" ? "Übernimmt …" : gh ? "In den Git-Speicher übernehmen" : "In den SharePoint-Ordner übernehmen"}</Button>
         </div>
       )}
       <p className="hint" style={{ margin: 0 }}>Im Ordner legt der Hub „apps/“, „rechte.json“ und „anmeldungen/“ an. Rechte in SharePoint: alle lesen; Schreiben in „apps/“ nur, wer bauen darf; „rechte.json“ nur die Verwaltung; in „anmeldungen/“ alle. Der Hub braucht dafür zusätzlich die Berechtigung Sites.ReadWrite.All mit Administratorzustimmung.</p>
