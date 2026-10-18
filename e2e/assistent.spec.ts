@@ -47,7 +47,7 @@ test("KI-Assistent: nur Geändertes zurück, Rest bleibt erhalten, Fortschritt s
   expect(prompt).toContain('Neue Blöcke schreibst du ohne "id"');
   await expect(page.getByRole("tab", { name: /Checkliste hochladen/ }).or(page.getByRole("button", { name: /Checkliste hochladen/ })).first()).toBeVisible();
   // Alles andere blieb erhalten: Seitenzahl, Schritte mit vollständigen Aufgaben
-  await page.getByRole("button", { name: /Exportieren/ }).click();
+  await page.getByRole("button", { name: /Export/ }).click();
   const json = JSON.parse(await page.locator("#json-text").inputValue());
   expect(json.blocks.length).toBe(vorher.blocks.length);
   expect(json.steps.map((s: { prompt: string }) => s.prompt)).toEqual(vorher.steps.map((s) => s.prompt));

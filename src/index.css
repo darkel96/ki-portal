@@ -61,6 +61,7 @@
   --signal: var(--k-blue);              /* KI-Aktionen: wie Charlestown in Körber-Blau */
   --signal-ink: var(--k-white);
   --ok: #1f8a4c;                        /* Status „bereit“ (grüner Punkt) */
+  --ok-text: #176b3b;                   /* Status als Text: dunkler, 4,5:1 auf Weiß und Warmgrau */
   --danger: var(--k-error);
   --danger-soft: #fbe6e3;
   --grid-dot: #dcd7cf;

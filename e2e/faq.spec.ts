@@ -131,7 +131,7 @@ test("Baukasten: häufige Frage aus dem Chat freigeben, von Hand anlegen, lösch
   await expect(page.getByText("Häufige Fragen: sofortige Antwort ohne KI (3)")).toBeVisible();
   await page.getByRole("button", { name: "Häufige Frage „Welche Pflichten haben Hersteller?“ löschen" }).click();
   await expect(page.getByText("Häufige Fragen: sofortige Antwort ohne KI (2)")).toBeVisible();
-  await page.getByRole("button", { name: /Exportieren/ }).click();
+  await page.getByRole("button", { name: /Export/ }).click();
   const json = JSON.parse(await page.locator("#json-text").inputValue()) as { steps: { faq: { eintraege: { frage: string; quelle: string; datum: string }[] } }[] };
   expect(json.steps[0].faq.eintraege.map((e) => [e.frage, e.quelle])).toEqual([["Gilt der CRA für Software-Updates?", "lern"], ["Was ist eine SBOM?", "hand"]]);
   expect(json.steps[0].faq.eintraege[0].datum).toBe(new Date().toISOString().slice(0, 10));

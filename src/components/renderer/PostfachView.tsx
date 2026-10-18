@@ -181,7 +181,7 @@ export function PostfachView({ b, mode }: Props) {
     <div className="o-post" aria-label={b.props.titel}>
       <div className="o-post-kopf">
         <Mail size={16} aria-hidden="true" /><b>{b.props.titel}</b>
-        {!echt && <span className="o-post-hinweis">Beispielpostfach (ohne Copilot-Anbindung)</span>}
+        {!echt && <span className="o-post-hinweis" title="Ohne Copilot-Anbindung zeigt der Baustein ein Beispielpostfach">Beispielpostfach</span>}
         <span className="flex-1" />
         <button type="button" className={`o-chat-knopf${prozOffen ? " ist-aktiv" : ""}`} onClick={() => setProzOffen((o) => !o)} aria-expanded={prozOffen}><FolderInput size={13} aria-hidden="true" />Prozeduren</button>
         <button type="button" className="o-chat-knopf" onClick={() => { void ordnerHolen(); setSuche(eingabe); }} disabled={laedt !== null} title="Neu laden"><RefreshCw size={13} aria-hidden="true" />Aktualisieren</button>

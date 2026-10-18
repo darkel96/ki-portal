@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 export function importEntwurf(text: string): Record<string, unknown> {
   let raw: unknown;
   try { raw = JSON.parse(text); } catch { throw new Error("Die Datei ist beschädigt oder keine exportierte Applikation."); }
-  if (!raw || typeof raw !== "object" || Array.isArray(raw) || !("blocks" in raw || "steps" in raw)) throw new Error("Das ist keine exportierte Applikation. Erwartet wird eine Datei aus „Exportieren / Importieren …“ im Baukasten.");
+  if (!raw || typeof raw !== "object" || Array.isArray(raw) || !("blocks" in raw || "steps" in raw)) throw new Error("Das ist keine exportierte Applikation. Erwartet wird eine Datei aus „Export / Import …“ im Baukasten.");
   // Neue App: eigene ID beim Speichern, wer importiert, wird Besitzer
   return { ...(raw as Record<string, unknown>), id: null, status: "entwurf", version: 0, geaendert: "", erstelltVon: "" };
 }

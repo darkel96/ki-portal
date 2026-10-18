@@ -91,7 +91,7 @@ test("Baukasten: auswerten, Vorschlag freigeben, Hausregeln als Fassung mit Datu
   // Vorschlag ist erledigt
   await expect(page.getByRole("button", { name: "Annehmen" })).toHaveCount(0);
   // Die Rolle blieb unverändert, der Block hängt in der Anfrage an der Rolle
-  await page.getByRole("button", { name: /Exportieren/ }).click();
+  await page.getByRole("button", { name: /Export/ }).click();
   const json = JSON.parse(await page.locator("#json-text").inputValue()) as { steps: { rolle: string; hausregeln: { fassungen: { nr: number; text: string; grund: string }[] } }[] };
   expect(json.steps[0].rolle).toBe("Du bist der CRA-Experte. Belegregel: nur aus den Unterlagen.");
   expect(json.steps[0].hausregeln.fassungen).toHaveLength(1);

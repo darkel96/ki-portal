@@ -265,7 +265,7 @@ npm run test:e2e
 ```
 
 Die Playwright-Tests prüfen Startseite, App-Ansicht und Baukasten (inklusive Ziehen und Ablegen) in 1440 px und 390 px Breite und legen Screenshots in `screenshots/` ab.
-Für eine Sichtprüfung aller Seiten und Zustände (Hub, Apps, Ergebnisse, Mein Hub, Baukasten mit Panels und Dialogen, 404) in beiden Breiten gibt es ein Screenshot-Audit: `AUDIT=1 npx playwright test e2e/audit.spec.ts` legt rund 70 Bilder in `screenshots/audit/` ab.
+Für eine Sichtprüfung aller Seiten und Zustände (Hub, Apps, Ergebnisse, Mein Hub, Baukasten mit Panels und Dialogen, 404) in beiden Breiten gibt es ein Screenshot-Audit: `AUDIT=1 npx playwright test e2e/audit.spec.ts` legt rund 100 Bilder in `screenshots/audit/` ab (auch Chat, Agenten, Verwaltung, Postfach, Lernen). `AUDIT=1 npx playwright test e2e/axe.spec.ts` prüft die Kernseiten mit axe-core nach WCAG 2.1 A/AA und schreibt die Verstöße nach `screenshots/audit/axe-<projekt>.json`. Ergebnisse der letzten Oberflächenprüfung: `pruefung/oberflaeche-2026-10-18.md`.
 
 ### Prüf-Skills für Claude Code
 

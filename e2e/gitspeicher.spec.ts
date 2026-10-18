@@ -76,7 +76,8 @@ test("Git-Speicher: mit Token schreibt Speichern ins Repository, Agenten und Pap
   // Löschen → Papierkorb im Repository, App aus apps.json raus
   const id = Object.keys(apps)[0];
   await page.goto(`/app/${id}`);
-  await page.getByRole("button", { name: "Löschen" }).click();
+  await page.getByRole("button", { name: "Verwalten" }).click();
+  await page.getByRole("menuitem", { name: "Löschen" }).click();
   await page.getByRole("button", { name: "Löschen" }).last().click();
   await expect(page.getByText(/gelöscht\./)).toBeVisible();
   expect(Object.keys(JSON.parse(ablage.get("apps.json")!.inhalt) as object)).not.toContain(id);

@@ -4,7 +4,7 @@ import { toast } from "sonner";
 import { Eye, EyeOff, Loader2, Redo2, Save, Undo2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { useApps } from "@/state/apps";
 import type { App, BlockType } from "@/lib/schema";
@@ -189,10 +189,12 @@ function Editor({ start, ungespeichert }: { start: App; ungespeichert: boolean }
             <TabsTrigger value="ki" className="rounded-full px-4">KI-Ablauf{harte.length > 0 && <><span className="ml-1.5 rounded-full bg-destructive/15 px-1.5 text-[11px] text-destructive" aria-hidden="true">{harte.length}</span><span className="sr-only">, {harte.length} offene Punkte</span></>}</TabsTrigger>
             {chatSteps(b.app).size > 0 && <TabsTrigger value="lernen" className="rounded-full px-4">Lernen</TabsTrigger>}
           </TabsList>
+          {/* Der Inhalt der Reiter steht außerhalb der Leiste; ein leeres Ziel hält die Verknüpfung (aria-controls) gültig */}
+          <TabsContent value={tab} className="hidden" />
         </Tabs>
         <span className="flex-1" />
         <Button variant="outline" size="icon" aria-label="Rückgängig (Strg+Z)" title="Rückgängig (Strg+Z)" disabled={!b.canUndo} onClick={b.undo}><Undo2 /></Button>
-        <Button variant="outline" size="icon" aria-label="Wiederholen (Strg+Y)" title="Wiederholen (Strg+Y)" disabled={!b.canRedo} onClick={b.redo}><Redo2 /></Button>
+        <Button variant="outline" size="icon" className="bar-redo" aria-label="Wiederholen (Strg+Y)" title="Wiederholen (Strg+Y)" disabled={!b.canRedo} onClick={b.redo}><Redo2 /></Button>
         <span className="nur-breit"><JsonDialog b={b} /></span>
         <Button className="bar-vorschau" variant={vorschau ? "secondary" : "outline"} aria-pressed={vorschau} onClick={() => setVorschau((v) => !v)}>{vorschau ? <EyeOff /> : <Eye />}<span className="bar-txt">{vorschau ? "Vorschau beenden" : "Vorschau testen"}</span><span className="bar-kurz" aria-hidden="true">{vorschau ? "Zurück" : "Vorschau"}</span></Button>
         <Button className="bar-speichern" onClick={() => void speichern()} disabled={speichert} title="Speichern (Strg+S)" aria-keyshortcuts="Control+S">{speichert ? <><Loader2 className="animate-spin motion-reduce:animate-none" aria-hidden="true" />Speichert …</> : <><Save />Speichern{b.dirty && <><span className="dirty-punkt" aria-hidden="true" /><span className="sr-only"> (ungespeicherte Änderungen)</span></>}</>}</Button>

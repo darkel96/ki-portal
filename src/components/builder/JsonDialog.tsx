@@ -15,7 +15,7 @@ export function JsonDialog({ b }: { b: Builder }) {
   const datei = useRef<HTMLInputElement>(null);
   return (
     <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (o) { setText(JSON.stringify(b.app, null, 2)); setFehler(""); } }}>
-      <DialogTrigger asChild><Button variant="ghost">Exportieren / Importieren …</Button></DialogTrigger>
+      <DialogTrigger asChild><Button variant="ghost">Export / Import …</Button></DialogTrigger>
       <DialogContent className="sm:max-w-3xl">
         <DialogHeader>
           <DialogTitle>Applikation exportieren oder einfügen (für Fachleute)</DialogTitle>
