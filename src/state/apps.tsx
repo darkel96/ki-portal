@@ -18,15 +18,30 @@ type AppsCtx = {
 
 const Ctx = createContext<AppsCtx | null>(null);
 
+/** Zuletzt geladene eigene Apps: Beim gemeinsamen Speicher (SharePoint, Git) dauert das Laden spürbar; der
+ *  Hub zeigt deshalb sofort den letzten Stand aus diesem Browser und ersetzt ihn, sobald der frische da ist. */
+const CACHE = "kihub-apps-zuletzt";
+function zuletzt(): App[] | null {
+  try {
+    const roh = localStorage.getItem(CACHE);
+    if (!roh) return null;
+    const liste = (JSON.parse(roh) as unknown[]).map((a) => AppSchema.safeParse(a)).filter((r) => r.success).map((r) => r.data);
+    return liste.length ? liste : null;
+  } catch { return null; }
+}
+function merken(liste: App[]) { try { localStorage.setItem(CACHE, JSON.stringify(liste)); } catch { /* voll oder gesperrt: dann eben ohne */ } }
+
 export function AppsProvider({ children }: { children: ReactNode }) {
-  const [eigene, setEigene] = useState<App[]>([]);
-  const [geladen, setGeladen] = useState(false);
+  const [eigene, setEigene] = useState<App[]>(() => zuletzt() ?? []);
+  const [geladen, setGeladen] = useState(() => zuletzt() !== null);
   const [fehler, setFehler] = useState<string | null>(null);
   const { ich, stand } = useRechte();
 
   const reload = useCallback(async () => {
     try {
-      setEigene(await appStore.list());
+      const liste = await appStore.list();
+      setEigene(liste);
+      merken(liste);
       setFehler(null);
     } catch (e) {
       setFehler(e instanceof Error ? e.message : "Die Applikationen konnten nicht geladen werden.");

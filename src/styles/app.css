@@ -183,7 +183,7 @@ a.tile:hover .tile-go svg { transform: translateX(5px); }
 .rv-apps tr[data-status="gesperrt"] td:first-child a { color: var(--danger); }
 .tile-go { display: inline-flex; align-items: center; gap: 8px; color: var(--muted-ink); white-space: nowrap; overflow: hidden; }
 .tile-go svg { color: var(--brand); flex: none; transition: transform .18s ease; }
-@media (max-width: 560px) { .tile { padding: 12px 14px; gap: 8px; } .tile-desc { font-size: 13px; line-height: 1.45; } .mono { width: 36px; height: 36px; font-size: 13px; } .tile-foot { padding-top: 8px; } }
+@media (max-width: 560px) { .tile { padding: 12px 14px; gap: 8px; } .tile-desc { display: none; } .mono { width: 36px; height: 36px; font-size: 13px; } .tile-foot { padding-top: 8px; } }
 .tile-new { border-style: dashed; border-color: var(--line-strong); box-shadow: none; justify-content: center; gap: 8px; }
 .tile-new .tile-name { white-space: normal; }
 .plus { color: var(--brand); font: 400 26px/1 var(--k-font-display); }

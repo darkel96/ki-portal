@@ -190,7 +190,7 @@ export function HubPage() {
             <kbd className="kbd nur-breit" aria-hidden="true" title="Taste / springt in die Suche">/</kbd>
           </div>
         </div>
-        {!geladen && <p className="empty">Applikationen werden geladen\u00a0…</p>}
+        {!geladen && <p className="empty">{"Applikationen werden geladen\u00a0…"}</p>}
         {geladen && !liste.length && (
           <p className="empty">Keine Applikation passt zu „{eingabe.trim() || aktiv}“.{" "}
             <button type="button" className="link-back" onClick={() => { window.clearTimeout(tippTimer.current); geschrieben.current = ""; setEingabe(""); setSp(new URLSearchParams()); suche.current?.focus(); }}>Suche und Filter zurücksetzen</button>

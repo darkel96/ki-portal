@@ -16,7 +16,7 @@ Schwere: 🔴 hoch (blockiert eine Aufgabe oder verbirgt Funktionen), 🟡 mitte
 |---|--------|---------|-------|
 | 1 | Navigation: „Agenten“ und „Verwaltung“ lagen rechts außerhalb der Leiste und waren nur durch unsichtbares Wischen erreichbar; eine Verwaltungsperson fand ihre Seite auf dem Handy nicht. | 🔴 | Behoben: ab 560 px stehen Baukasten, Agenten und Verwaltung in einem Menü „Mehr“ (zeigt den aktiven Bereich als Namen). |
 | 2 | Verwaltung: Personen- und Applikationstabelle sprengten die Seitenbreite (Seite 782 px breit bei 390 px Bildschirm), Statusspalte und Aktionen abgeschnitten. | 🔴 | Behoben: Tabellen rollen innerhalb ihres Bereichs; versteckte Beschriftungen bleiben im Rollbereich. |
-| 3 | Kacheln auf der Startseite zeigten keine Beschreibung, nur Name und „3 Felder“. | 🟡 | Behoben: zwei Zeilen Beschreibung in 13 px. |
+| 3 | Kacheln auf der Startseite zeigen keine Beschreibung, nur Name und „3 Felder“. | 🟢 | Bleibt so: Die Kacheln haben auf dem Handy eine feste Höhe (96 px), damit drei bis vier je Seite ohne Rollen passen; mit Beschreibung ragte der Inhalt über die Kachel hinaus (erster Versuch zurückgenommen). |
 | 4 | Postfach-Kopf: Hinweis „Beispielpostfach (ohne Copilot-Anbindung)“ brach dreizeilig um, „Prozeduren“ war abgeschnitten. | 🟡 | Behoben: Hinweis heißt „Beispielpostfach“ (Erklärung als Tooltip), Kopf darf umbrechen. |
 | 5 | Baukasten mit Reiter „Lernen“: Leiste brach in zwei Zeilen, Rückgängig/Wiederholen/Vorschau rutschten unter die Reiter. | 🟡 | Behoben: engere Reiter, „Wiederholen“ nur ab 640 px; Reiter eines KI-Schritts (Aufgabe, Agenten, Feineinstellungen, Wissen) brechen um statt abgeschnitten zu werden. |
 | 6 | Chat-Kopf: Titel brach neben den Knöpfen um. | 🟢 | Behoben: Kopf darf umbrechen. |
@@ -33,6 +33,7 @@ Schwere: 🔴 hoch (blockiert eine Aufgabe oder verbirgt Funktionen), 🟡 mitte
 | 12 | Kachelbeschreibungen auf dem PC auf eine Zeile mit „…“ gekürzt, obwohl Platz für zwei Zeilen war. | 🟢 | Behoben: Schwelle der Höhenregel korrigiert. |
 | 13 | Baukasten: Knopf „Exportieren / Importieren …“ wurde mit „…“ abgeschnitten. | 🟢 | Behoben: „Export / Import …“. |
 | 14 | Verwaltung: „Löschen“ und „Aus dem Hub nehmen“ sind Geist-Knöpfe (nur Text). | 🟢 | Offen (Entscheidung): bewusst zurückhaltend für zerstörende Aktionen; Alternative Umrandung in Rot. |
+| 14a | Startseite mit Git-Speicher: Beim Öffnen stand erst „Applikationen werden geladen“ (mit sichtbarem Steuerzeichen), die Zähler zeigten „–“, die Kacheln kamen erst nach der Antwort von GitHub. | 🟡 | Behoben: Der Hub merkt sich die zuletzt geladenen eigenen Apps im Browser und zeigt sie sofort; der frische Stand aus dem Git-Speicher ersetzt sie im Hintergrund. Steuerzeichen entfernt. |
 
 ### Barrierefreiheit (axe-core, WCAG 2.1 AA)
 
