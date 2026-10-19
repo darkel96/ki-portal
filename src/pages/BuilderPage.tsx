@@ -26,7 +26,7 @@ import { KeineRechte } from "@/pages/VerwaltungPage";
 
 function Editor({ start, ungespeichert }: { start: App; ungespeichert: boolean }) {
   const b = useBuilder(start, ungespeichert);
-  const { save, apps } = useApps();
+  const { save, apps, pfad } = useApps();
   const nav = useNavigate();
   const [tab, setTab] = useState<"ui" | "ki" | "lernen">("ui");
   const [vorschau, setVorschau] = useState(false);
@@ -161,7 +161,7 @@ function Editor({ start, ungespeichert }: { start: App; ungespeichert: boolean }
       const def = await save(b.aktuell());
       b.setDirty(false);
       toast.success(`„${def.name}“ gespeichert, Version ${def.version}.`);
-      if (!bleiben) nav(`/app/${def.id}`, { viewTransition: true });
+      if (!bleiben) nav(pfad(def), { viewTransition: true });
       return true;
     } catch (e) {
       setSpeichert(false);

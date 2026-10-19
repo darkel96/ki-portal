@@ -43,6 +43,29 @@ test("Startseite: Kacheln blättern, Bereichsfilter und Suche", async ({ page },
   await expect(kacheln.first()).toContainText("Meeting-Protokoll");
 });
 
+test("Adresse je App: aus dem Namen, alte Links führen weiter", async ({ page }, info) => {
+  test.skip(info.project.name !== "desktop", "einmal reicht");
+  // Kachel führt auf die Adresse aus dem Namen („Meeting-Protokoll“), nicht auf die ID („protokoll“)
+  await page.goto("/");
+  await page.getByRole("searchbox", { name: "Applikationen durchsuchen" }).fill("Meeting");
+  await page.locator(".tiles-raster a.tile:not(.tile-new)").first().click();
+  await expect(page).toHaveURL(/\/meeting-protokoll$/);
+  await expect(page.getByRole("heading", { name: "Meeting-Protokoll", level: 1 })).toBeVisible();
+  // Direkt aufgerufen, auch mit Umlaut-Ersatz und Bindestrich
+  await page.goto("/e-mail-antwort");
+  await expect(page.getByRole("heading", { name: "E-Mail-Antwort", level: 1 })).toBeVisible();
+  // Alte Links: /app/<id> und die bloße ID landen auf der neuen Adresse
+  await page.goto("/app/protokoll");
+  await expect(page).toHaveURL(/\/meeting-protokoll$/);
+  await page.goto("/protokoll");
+  await expect(page).toHaveURL(/\/meeting-protokoll$/);
+  // Feste Seiten bleiben, Unbekanntes meldet „nicht gefunden“
+  await page.goto("/mein");
+  await expect(page).toHaveURL(/\/mein$/);
+  await page.goto("/gibt-es-nicht");
+  await expect(page.getByText(/nicht gefunden/i).first()).toBeVisible();
+});
+
 test("App-Ansicht: Agenten-Team blättert zum Ergebnis", async ({ page }, info) => {
   await page.goto("/app/agenten-team");
   await expect(page.getByRole("heading", { name: "Agenten-Team", level: 1 })).toBeVisible();

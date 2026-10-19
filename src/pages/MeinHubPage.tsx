@@ -72,6 +72,7 @@ function KartenRaster<T>({ items, render, leer, hoehe = 200, hoeheSchmal = Math.
 
 function AppKarte({ a, onLauf }: { a: HubApp; onLauf: (id: string) => void }) {
   const mh = useMeinHub();
+  const ziel = useApps().pfad(a);
   const [verwalten, setVerwalten] = useState(false);
   const titel = useRef<HTMLAnchorElement>(null);
   const letzter = mh.letzterLauf(a.id!);
@@ -91,14 +92,14 @@ function AppKarte({ a, onLauf }: { a: HubApp; onLauf: (id: string) => void }) {
       <div className="mh-karte-kopf">
         <span className="mono" aria-hidden="true">{initials(a.name)}</span>
         <div className="min-w-0 flex-1">
-          <Link ref={titel} to={`/app/${a.id}`} viewTransition className="mh-titel">{a.name}</Link>
+          <Link ref={titel} to={ziel} viewTransition className="mh-titel">{a.name}</Link>
           <span className="mh-meta">{a.bereich}{auftraege.length ? `, ${auftraege.length} ${auftraege.length === 1 ? "Auftrag" : "Aufträge"}` : ""}</span>
         </div>
         <button type="button" className="mh-x" aria-label={`${a.name} aus Mein Hub entfernen`} title="Aus Mein Hub entfernen" onClick={entfernen}><X size={16} aria-hidden="true" /></button>
       </div>
       <div className="mh-vorlagen">
         {vorlagen.length ? vorlagen.slice(0, 4).map((v) => (
-          <Link key={v.id} to={`/app/${a.id}?vorlage=${v.id}`} viewTransition className="var" title="Mit dieser Voreinstellung öffnen">{v.name}</Link>
+          <Link key={v.id} to={`${ziel}?vorlage=${v.id}`} viewTransition className="var" title="Mit dieser Voreinstellung öffnen">{v.name}</Link>
         )) : <span className="hint">Noch keine Voreinstellung. Öffne die Applikation, füll sie aus und speichere die Eingaben.</span>}
         {vorlagen.length > 4 && <span className="hint">+{vorlagen.length - 4} weitere</span>}
       </div>
@@ -107,7 +108,7 @@ function AppKarte({ a, onLauf }: { a: HubApp; onLauf: (id: string) => void }) {
           : <span>Noch kein Ergebnis</span>}
       </div>
       <div className="mh-fuss">
-        <Button asChild size="sm" className="rounded-full"><Link to={`/app/${a.id}`} viewTransition>Öffnen</Link></Button>
+        <Button asChild size="sm" className="rounded-full"><Link to={ziel} viewTransition>Öffnen</Link></Button>
         {vorlagen.length > 0 && <Button size="sm" variant="ghost" className="rounded-full" onClick={() => setVerwalten(true)}>Voreinstellungen verwalten</Button>}
       </div>
       <VorlagenVerwalten offen={verwalten} onOffen={setVerwalten} appId={a.id!} appName={a.name} ersatz={() => titel.current} />

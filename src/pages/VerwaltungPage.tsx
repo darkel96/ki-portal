@@ -130,7 +130,7 @@ const STATUS_TEXT: Record<HubApp["status"], string> = { entwurf: "Entwurf", prue
 /** Alle Applikationen an einem Ort: öffnen, bearbeiten, sperren, löschen; mitgelieferte Vorlagen übernehmen, ausblenden und wieder einblenden */
 function AppsBereich() {
   const r = useRechte();
-  const { apps, save, remove, wiederherstellen } = useApps();
+  const { apps, save, remove, wiederherstellen, pfad } = useApps();
   const [bestaetigen, setBestaetigen] = useState<string | null>(null);
   const [laeuft, setLaeuft] = useState("");
   const [korb, setKorb] = useState<Geloescht[]>([]);
@@ -161,7 +161,7 @@ function AppsBereich() {
             const eigene = a._src === "eigene", gesperrt = a.status === "gesperrt", id = a.id ?? "";
             return (
               <tr key={id} data-status={a.status}>
-                <td><Link to={`/app/${id}`}>{a.name}</Link></td>
+                <td><Link to={pfad(a)}>{a.name}</Link></td>
                 <td>{a.bereich}</td>
                 <td>{eigene ? "Eigene" : "Vorlage"}</td>
                 <td><span className="status" data-s={eigene ? a.status : "freigegeben"}>{eigene ? STATUS_TEXT[a.status] : STATUS_TEXT.freigegeben}</span></td>

@@ -113,7 +113,8 @@ test("Applikation aus Datei importieren: wird ein neuer, ungespeicherter Entwurf
   // Ungespeichert: Punkt am Speichern-Knopf
   await expect(page.getByRole("button", { name: /Speichern \(ungespeicherte Änderungen\)/ })).toBeVisible();
   await page.getByRole("button", { name: /^Speichern/ }).first().click();
-  await expect(page).toHaveURL(/\/app\//);
+  // Neue Adresse aus dem Namen, nicht die ID aus der Datei
+  await expect(page).toHaveURL(/\/reisekosten-pruefen$/);
   expect(page.url()).not.toContain("fremd-1");
   // Kaputte Datei: verständliche Meldung, kein Wechsel
   await page.goto("/neu");

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Link, useNavigate, useParams, useSearchParams } from "react-router";
+import { Link, useLocation, useNavigate, useParams, useSearchParams } from "react-router";
 import { toast } from "sonner";
 import { Check as Haken, ChevronDown, MoreHorizontal, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -62,7 +62,7 @@ function LetzterLaufDialog({ lauf, app, offen, onOffen }: { lauf: Lauf; app: App
 
 export function AppPage() {
   const { id } = useParams();
-  const { find, remove, save, wiederherstellen, geladen } = useApps();
+  const { find, pfad, remove, save, wiederherstellen, geladen } = useApps();
   const nav = useNavigate();
   const runRef = useRef<RunAppHandle>(null);
   const [loeschen, setLoeschen] = useState(false);
@@ -75,6 +75,13 @@ export function AppPage() {
   const [verwaltenDlg, setVerwaltenDlg] = useState(false);
   const [laufDlg, setLaufDlg] = useState(false);
   const a = find(id);
+  // „/app/<id>“ und ältere Adressen führen auf die sprechende Adresse, ohne neuen Eintrag im Verlauf.
+  // Erst wenn „?vorlage=…“ verarbeitet ist (Effekt unten), sonst gingen sich beide Weiterleitungen in die Quere.
+  const loc = useLocation();
+  const soll = a ? pfad(a) : "";
+  useEffect(() => {
+    if (soll && loc.pathname !== soll && !sp.get("vorlage")) nav(`${soll}${loc.search}`, { replace: true });
+  }, [soll, loc.pathname, sp]); // eslint-disable-line react-hooks/exhaustive-deps
   const vorlagen = a?.id ? mh.vorlagenFuer(a.id) : [];
   const letzter = a?.id ? mh.letzterLauf(a.id) : undefined;
   /** Eingaben ersetzen, mit „Rückgängig“ für den vorherigen Stand */
@@ -86,7 +93,7 @@ export function AppPage() {
   const laden = (v: Voreinstellung) => ersetzen(() => { runRef.current?.setzen(v.werte, v.dateien); setVorlage(v); }, `Voreinstellung „${v.name}“ geladen.`, vorlage);
   const beispiele = () => ersetzen(() => runRef.current?.beispieleEinsetzen(), "Beispieldaten eingesetzt.", vorlage);
   const pinUmschalten = (id: string) => { const war = mh.istGepinnt(id); mh.pinUmschalten(id); toast.success(war ? "Aus Mein Hub entfernt." : "Zu Mein Hub hinzugefügt."); };
-  // Aus Mein Hub: /app/:id?vorlage=… öffnet die App mit dieser Voreinstellung.
+  // Aus Mein Hub: /<adresse>?vorlage=… öffnet die App mit dieser Voreinstellung.
   const vorlageParam = sp.get("vorlage");
   useEffect(() => {
     if (!vorlageParam || !mh.geladen || !a) return;

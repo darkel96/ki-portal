@@ -37,8 +37,9 @@ export function Tile({ a, mono }: { a: HubApp; mono: string }) {
   const nf = fieldsOf(a).length;
   const team = a.steps.some((s) => s.art === "team");
   const status = a._src === "vorlage" ? "freigegeben" : a.status;
+  const { pfad } = useApps();
   return (
-    <Link to={`/app/${a.id}`} viewTransition className="tile">
+    <Link to={pfad(a)} viewTransition className="tile">
       <span className="tile-kopf">
         <span className="mono" aria-hidden="true">{mono}</span>
         <span>

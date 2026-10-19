@@ -3,12 +3,16 @@ import { AppSchema, type App, type HubApp } from "@/lib/schema";
 import { appStore } from "@/lib/store";
 import { SEED_APPS } from "@/lib/seeds";
 import { useRechte } from "@/state/rechte";
+import { appZuPfad, pfadTeil } from "@/lib/adresse";
 
 type AppsCtx = {
   apps: HubApp[];
   geladen: boolean;
   fehler: string | null;
+  /** App zu einer ID oder zu ihrer Adresse aus dem Namen (siehe lib/adresse) */
   find: (id: string | undefined) => HubApp | undefined;
+  /** Sprechende Adresse der App, z. B. „/cra-experte“ */
+  pfad: (app: { id: string | null; name: string }) => string;
   save: (app: App) => Promise<App>;
   /** In den Papierkorb (30 Tage wiederherstellbar) */
   remove: (id: string) => Promise<void>;
@@ -91,9 +95,11 @@ export function AppsProvider({ children }: { children: ReactNode }) {
     return app;
   }, []);
 
-  const find = useCallback((id: string | undefined) => apps.find((a) => a.id === id), [apps]);
+  const find = useCallback((id: string | undefined) => appZuPfad(id, apps), [apps]);
+  // Eine gerade gespeicherte App fehlt in „apps“ noch: pfadTeil vergleicht nur mit den anderen, das reicht
+  const pfad = useCallback((app: { id: string | null; name: string }) => `/${pfadTeil(app, apps)}`, [apps]);
 
-  return <Ctx.Provider value={{ apps, geladen, fehler, find, save, remove, wiederherstellen, reload }}>{children}</Ctx.Provider>;
+  return <Ctx.Provider value={{ apps, geladen, fehler, find, pfad, save, remove, wiederherstellen, reload }}>{children}</Ctx.Provider>;
 }
 
 export function useApps(): AppsCtx {
