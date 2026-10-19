@@ -13,6 +13,16 @@ ARG VITE_ADMINS=dario.keller@koerber.com
 ARG VITE_SP_ORDNER_URL=
 ENV VITE_ENTRA_CLIENT_ID=$VITE_ENTRA_CLIENT_ID VITE_ENTRA_TENANT_ID=$VITE_ENTRA_TENANT_ID VITE_GRAPH_SCOPES=$VITE_GRAPH_SCOPES VITE_ADMINS=$VITE_ADMINS VITE_SP_ORDNER_URL=$VITE_SP_ORDNER_URL
 RUN npm run build:pages && npm run build:server
+# Git-Speicher wie in .github/workflows/pages.yml: Hub-Daten aus dem Repository (lesen für alle, schreiben mit Token)
+ARG HUB_GIT_REPO=
+ARG HUB_GIT_BRANCH=main
+RUN if [ -n "$HUB_GIT_REPO" ]; then node -e ' \
+      const fs = require("fs"); \
+      const p = "dist/hub-config.json"; \
+      const k = fs.existsSync(p) ? JSON.parse(fs.readFileSync(p, "utf8")) : {}; \
+      k.speicher = { ...(k.speicher || {}), git: { repo: process.env.HUB_GIT_REPO, branch: process.env.HUB_GIT_BRANCH || "main", pfad: "public/hub-daten" } }; \
+      fs.writeFileSync(p, JSON.stringify(k, null, 2) + "\n"); \
+    '; fi
 
 FROM node:24-alpine
 WORKDIR /app
