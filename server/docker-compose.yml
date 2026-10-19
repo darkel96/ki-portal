@@ -13,6 +13,8 @@ services:
         VITE_GRAPH_SCOPES: ${VITE_GRAPH_SCOPES:-}
         VITE_ADMINS: ${VITE_ADMINS:-dario.keller@koerber.com}
         VITE_SP_ORDNER_URL: ${VITE_SP_ORDNER_URL:-}
+        HUB_GIT_REPO: ${HUB_GIT_REPO:-}
+        HUB_GIT_BRANCH: ${HUB_GIT_BRANCH:-main}
     env_file: .env
     environment:
       HUB_PORT: 8787
