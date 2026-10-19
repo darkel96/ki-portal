@@ -43,6 +43,8 @@ const router = (import.meta.env.VITE_ROUTER === "hash" ? createHashRouter : crea
       { path: "/baukasten/:id", element: <Suspense fallback={laden}><BuilderPage /></Suspense> },
       { path: "/agenten", element: <Suspense fallback={laden}><AgentenPage /></Suspense> },
       { path: "/verwaltung", element: <Suspense fallback={laden}><VerwaltungPage /></Suspense> },
+      // Sprechende Adresse je App („/cra-experte“, lib/adresse); feste Seiten oben gehen vor
+      { path: "/:id", element: <Suspense fallback={laden}><AppPage /></Suspense> },
       { path: "*", element: <NotFoundPage /> },
     ],
   },

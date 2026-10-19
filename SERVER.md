@@ -53,6 +53,11 @@ ki-hub.firma.de {
 Der Hub ist dann unter `https://ki-hub.firma.de/` erreichbar, der Dienst unter `/api`. GitHub Pages wird nicht mehr
 gebraucht; die bisherige Adresse kann bleiben (siehe „Hub bleibt auf GitHub Pages“).
 
+Jede Applikation hat eine eigene Adresse aus ihrem Namen, ohne „#“: „CRA-Experte“ unter
+`https://ki-hub.firma.de/cra-experte`. Das Dockerfile baut dafür mit `npm run build`, nicht mit `build:pages`. Wie die
+Adresse entsteht und welche Namen der Hub selbst belegt, steht in `src/lib/adresse.ts`. Wer eine App umbenennt, ändert
+ihre Adresse; `/app/<id>` führt immer zur App. Auf GitHub Pages bleibt es bei `…/#/cra-experte`.
+
 Aktualisieren: `git pull && docker compose -f server/docker-compose.yml up -d --build`. Die Daten liegen im
 Volume `hub-daten` und bleiben erhalten. Protokoll: `docker compose -f server/docker-compose.yml logs -f`.
 

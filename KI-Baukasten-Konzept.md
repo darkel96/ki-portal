@@ -855,7 +855,7 @@ MeinHub {
 
 ### 24.2 Bedienung
 
-- **App-Ansicht**: „Zu Mein Hub“ (bzw. „In Mein Hub“), Menü „Voreinstellungen“: gespeicherte laden, „Eingaben als Voreinstellung speichern …“ (neu oder die geladene überschreiben), „Regelmäßig ausführen …“. `/app/:id?vorlage=<id>` öffnet die App mit einer Voreinstellung. Auf dem Handy stehen diese Punkte im Menü „Weitere Aktionen“. Eine Voreinstellung oder ein Auftrag nimmt die App automatisch in Mein Hub auf.
+- **App-Ansicht**: „Zu Mein Hub“ (bzw. „In Mein Hub“), Menü „Voreinstellungen“: gespeicherte laden, „Eingaben als Voreinstellung speichern …“ (neu oder die geladene überschreiben), „Regelmäßig ausführen …“. `/<adresse>?vorlage=<id>` öffnet die App mit einer Voreinstellung. Die Adresse entsteht aus dem Namen („Meeting-Protokoll“ → `/meeting-protokoll`, `src/lib/adresse.ts`), `/app/:id` führt weiter. Auf dem Handy stehen diese Punkte im Menü „Weitere Aktionen“. Eine Voreinstellung oder ein Auftrag nimmt die App automatisch in Mein Hub auf.
 - **Mein Hub**, Reiter „Meine Apps“ (Karten mit Voreinstellungen als Schnellstart), „Aufträge“ (Zeitplan, nächster und letzter Lauf, aktiv/pausiert, Jetzt ausführen, Bearbeiten, Löschen), „Verlauf“ (je Lauf eine Kachel; geöffnet je Ergebnis eine Seite mit den üblichen Download-Knöpfen). Alles blättert ohne Scrollen.
 - Auftrag anlegen: Name, Eingaben (aktuelle Eingaben als neue Voreinstellung oder eine gespeicherte), täglich/werktags/wöchentlich/monatlich mit Uhrzeit, Ergebnis-Ziel. Ziele außer „Im Verlauf ablegen“ sind sichtbar, aber bis zur Azure-Anbindung gesperrt.
 

@@ -38,7 +38,7 @@ export function NeuPage() {
 
 function NeuSeite() {
   const rechte = useRechte();
-  const { apps, save } = useApps();
+  const { apps, save, pfad } = useApps();
   const nav = useNavigate();
   const bereiche = useMemo(() => areaList(apps), [apps]);
   const [schritt, setSchritt] = useState(0);
@@ -131,7 +131,7 @@ function NeuSeite() {
       const def = await save(entwurf);
       toast.success(`„${def.name}“ gespeichert.`);
       frei.current = true;
-      nav(`/app/${def.id}`, { viewTransition: true });
+      nav(pfad(def), { viewTransition: true });
     } catch (e) {
       frei.current = false;
       setSpeichert(false);

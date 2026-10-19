@@ -65,7 +65,7 @@ async function statisch(pfad: string, res: ServerResponse): Promise<boolean> {
     return true;
   } catch {
     if (extname(rel)) return false;
-    // Unbekannter Pfad ohne Endung: die App selbst (der Hub arbeitet mit #-Adressen)
+    // Unbekannter Pfad ohne Endung: die App selbst, sie löst Adressen wie /cra-experte im Browser auf
     try { res.writeHead(200, { "Content-Type": MIME[".html"], "Cache-Control": "no-cache" }); res.end(await readFile(join(UMGEBUNG.statisch, "index.html"))); return true; } catch { return false; }
   }
 }

@@ -5,6 +5,7 @@ import { KiSchluessel, useKiModus } from "./KiSchluessel";
 import { KiCopilotEinrichten, KiCopilotStatus } from "./KiCopilot";
 import { useRechte } from "@/state/rechte";
 import { aktuellesKonto } from "@/lib/ki/auth";
+import { istAppPfad } from "@/lib/adresse";
 import { Anmeldung } from "./Anmeldung";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -22,13 +23,13 @@ export function Shell() {
   useEffect(kontoLaden, [loc.pathname, modus]);
   // Fenstertitel je Bereich; App-Seiten setzen ihren eigenen
   useEffect(() => {
-    if (loc.pathname.startsWith("/app/")) return;
+    if (istAppPfad(loc.pathname)) return;
     const t = loc.pathname === "/" ? "Applikationen" : loc.pathname.startsWith("/mein") ? "Mein Hub" : loc.pathname.startsWith("/baukasten") ? "Baukasten" : loc.pathname === "/neu" ? "Neue Applikation" : loc.pathname.startsWith("/agenten") ? "Agenten" : loc.pathname === "/verwaltung" ? "Verwaltung" : "Seite nicht gefunden";
     document.title = `${t} – KI-Hub`;
   }, [loc.pathname]);
   const imBaukasten = loc.pathname.startsWith("/baukasten") || loc.pathname === "/neu";
   // Eine geöffnete Applikation gehört zur Übersicht: der Menüpunkt bleibt dort markiert
-  const inUebersicht = loc.pathname === "/" || loc.pathname.startsWith("/app/");
+  const inUebersicht = loc.pathname === "/" || istAppPfad(loc.pathname);
   const weitere = [
     ...(rechte.darf("bauen") ? [{ to: "/baukasten", text: "Baukasten" }, { to: "/agenten", text: "Agenten" }] : []),
     ...(rechte.istAdmin && rechte.ich ? [{ to: "/verwaltung", text: "Verwaltung" }] : []),

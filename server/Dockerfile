@@ -12,7 +12,9 @@ ARG VITE_GRAPH_SCOPES=
 ARG VITE_ADMINS=dario.keller@koerber.com
 ARG VITE_SP_ORDNER_URL=
 ENV VITE_ENTRA_CLIENT_ID=$VITE_ENTRA_CLIENT_ID VITE_ENTRA_TENANT_ID=$VITE_ENTRA_TENANT_ID VITE_GRAPH_SCOPES=$VITE_GRAPH_SCOPES VITE_ADMINS=$VITE_ADMINS VITE_SP_ORDNER_URL=$VITE_SP_ORDNER_URL
-RUN npm run build:pages && npm run build:server
+# Normaler Build, nicht build:pages: Der Dienst liefert jeden Pfad ohne Endung als App aus, deshalb gehen saubere
+# Adressen ohne „#“ (z. B. /cra-experte) und feste Pfade ab „/“
+RUN npm run build && npm run build:server
 # Git-Speicher wie in .github/workflows/pages.yml: Hub-Daten aus dem Repository (lesen für alle, schreiben mit Token)
 ARG HUB_GIT_REPO=
 ARG HUB_GIT_BRANCH=main
