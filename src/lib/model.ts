@@ -311,7 +311,11 @@ export function appWarnings(app: App): Warnung[] {
   const fieldKeys = fieldsOf(app).map((b) => b.props.key);
   const chat = chatSteps(app);
   if (!app.name.trim()) hard("Gib der Applikation einen Namen.");
-  if (!app.steps.length) hard("Leg im KI-Ablauf mindestens einen KI-Schritt an.");
+  // Ein Postfach bringt seine KI selbst mit (Zusammenfassung, Prozeduren): dann braucht die App keinen KI-Schritt und
+  // ohne Schritt auch keine Seite „Ergebnisse“ mit „Ergebnisse erstellen“
+  let eigeneKi = false;
+  walk(app.blocks, (b) => { if (b.type === "postfach") eigeneKi = true; });
+  if (!app.steps.length && !eigeneKi) hard("Leg im KI-Ablauf mindestens einen KI-Schritt an.");
   app.steps.forEach((s, i) => {
     const nm = stepName(s, i);
     if (!s.name.trim()) hard(`„${nm}“ braucht einen Namen.`);

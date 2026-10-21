@@ -167,3 +167,17 @@ test("Kreisbezug: Lese-Schritt verlangt nie die Felder, die er selbst vorbelegt"
   expect(r.fehlt).toEqual([]);
   expect(r.warnung.some((t: string) => t.includes("nutzt {{umfang}}, das erst aus dem Ergebnis von „Lesen“ vorbelegt wird"))).toBe(true);
 });
+
+test("App nur mit Postfach: kein KI-Schritt nötig, keine Seite „Ergebnisse“", async ({ page }, info) => {
+  test.skip(info.project.name !== "desktop", "einmal reicht");
+  await page.goto("/");
+  const r = await page.evaluate(async () => {
+    const m = await import("/src/lib/model.ts");
+    const s = await import("/src/lib/sanitize.ts");
+    const blocks = [{ id: "p1", type: "seite", props: { titel: "Eingaben" }, children: [{ id: "pf", type: "postfach", props: { titel: "Postfach" } }] }];
+    const harte = (a: unknown) => m.appWarnings(s.loadApp(a)!).filter((w) => !w.weich).map((w) => w.text);
+    return { mitPostfach: harte({ id: "p", name: "Post", steps: [], blocks }), ohne: harte({ id: "l", name: "Leer", steps: [], blocks: [{ id: "p1", type: "seite", props: { titel: "Eingaben" }, children: [] }] }) };
+  });
+  expect(r.mitPostfach).not.toContain("Leg im KI-Ablauf mindestens einen KI-Schritt an.");
+  expect(r.ohne).toContain("Leg im KI-Ablauf mindestens einen KI-Schritt an.");
+});
