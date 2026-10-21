@@ -1,14 +1,15 @@
 import { Toaster as Sonner, type ToasterProps } from "sonner";
 import { CircleCheckIcon, InfoIcon, TriangleAlertIcon, OctagonXIcon, Loader2Icon } from "lucide-react";
 
-/** Meldungen unten rechts, bündig mit dem Seitenrand (.wrap) und über der Aktionsleiste der App-Seiten („Ergebnisse erstellen“, Blätterleiste), damit sie keinen Knopf verdecken und auf jeder Seite an derselben Stelle stehen; nur heller Modus. Aussehen (Streifen je Art, ✕ rechts) in styles/app.css. */
+/** Meldungen als Statuszeile auf der Fußzeile: volle Breite, unten bündig, verdecken keinen Inhalt; auf dem Handy (ohne Fußzeile) über der Blätterleiste. Nur heller Modus. Aussehen in styles/app.css. */
 const Toaster = ({ ...props }: ToasterProps) => {
   return (
     <Sonner
       theme="light"
-      position="bottom-right"
-      offset={{ bottom: 136, right: "clamp(16px, 2.4vw, 40px)" }}
-      mobileOffset={{ bottom: 104, left: 16, right: 16 }}
+      position="bottom-center"
+      offset={{ bottom: 0, left: 0, right: 0 }}
+      mobileOffset={{ bottom: 72, left: 0, right: 0 }}
+      gap={0}
       closeButton
       className="toaster group"
       icons={{
@@ -18,7 +19,7 @@ const Toaster = ({ ...props }: ToasterProps) => {
         error: <OctagonXIcon className="size-4" />,
         loading: <Loader2Icon className="size-4 animate-spin" />,
       }}
-      style={{ "--normal-bg": "var(--popover)", "--normal-text": "var(--popover-foreground)", "--normal-border": "var(--border)", "--border-radius": "var(--k-radius-card)" } as React.CSSProperties}
+      style={{ "--width": "100%", "--normal-bg": "var(--popover)", "--normal-text": "var(--popover-foreground)", "--normal-border": "var(--border)", "--border-radius": "var(--k-radius-card)" } as React.CSSProperties}
       {...props}
     />
   );
