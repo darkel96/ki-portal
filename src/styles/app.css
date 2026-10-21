@@ -898,10 +898,11 @@ a.mh-titel:hover { text-decoration: underline; text-underline-offset: 4px; }
 .rv-git { display: grid; gap: 8px; padding: 12px 14px; border: 1px dashed var(--line); border-radius: var(--k-radius-card); }
 
 /* Meldungen (sonner, components/ui/sonner.tsx): Streifen links je Art, ✕ rechts in der Meldung statt auf der Ecke,
-   Schatten wie eine angehobene Karte, damit sie sich vom Kopfbereich abhebt. Orange nur als Streifen für Warnungen. */
-.toaster [data-sonner-toast] { border-left: 4px solid var(--brand); box-shadow: var(--k-shadow-card-hover); padding-right: 44px; }
-.toaster [data-sonner-toast][data-type="success"] { border-left-color: var(--ok); }
-.toaster [data-sonner-toast][data-type="error"] { border-left-color: var(--danger); }
-.toaster [data-sonner-toast][data-type="warning"] { border-left-color: var(--k-orange); }
-.toaster [data-sonner-toast] [data-close-button] { left: auto; right: 10px; top: 50%; transform: translateY(-50%); width: 24px; height: 24px; background: transparent; border: 0; color: var(--muted-ink); }
-.toaster [data-sonner-toast] [data-close-button]:hover { background: var(--surface-2); color: var(--ink); }
+   Schatten wie eine angehobene Karte. Orange nur als Streifen für Warnungen. Sonner lädt seine Stile zur Laufzeit nach
+   unseren und gewinnt bei gleicher Gewichtung, deshalb !important für Rand und ✕. */
+.toaster [data-sonner-toast] { border-left: 4px solid var(--brand) !important; box-shadow: var(--k-shadow-card-hover) !important; padding-right: 44px !important; }
+.toaster [data-sonner-toast][data-type="success"] { border-left-color: var(--ok) !important; }
+.toaster [data-sonner-toast][data-type="error"] { border-left-color: var(--danger) !important; }
+.toaster [data-sonner-toast][data-type="warning"] { border-left-color: var(--k-orange) !important; }
+.toaster [data-sonner-toast] [data-close-button] { left: auto !important; right: 10px !important; top: 50% !important; transform: translateY(-50%) !important; width: 24px; height: 24px; background: transparent !important; border: 0 !important; color: var(--muted-ink); }
+.toaster [data-sonner-toast] [data-close-button]:hover { background: var(--surface-2) !important; color: var(--ink); }

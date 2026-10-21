@@ -1,14 +1,14 @@
 import { Toaster as Sonner, type ToasterProps } from "sonner";
 import { CircleCheckIcon, InfoIcon, TriangleAlertIcon, OctagonXIcon, Loader2Icon } from "lucide-react";
 
-/** Meldungen oben mittig unter Kopfzeile und Werkzeugleiste der Seite, damit sie weder Knöpfe, Blätterleiste noch Dialog-Knöpfe verdecken; nur heller Modus. Aussehen (Streifen je Art, ✕ rechts) in styles/app.css. */
+/** Meldungen unten rechts, bündig mit dem Seitenrand (.wrap) und über der Aktionsleiste der App-Seiten („Ergebnisse erstellen“, Blätterleiste), damit sie keinen Knopf verdecken und auf jeder Seite an derselben Stelle stehen; nur heller Modus. Aussehen (Streifen je Art, ✕ rechts) in styles/app.css. */
 const Toaster = ({ ...props }: ToasterProps) => {
   return (
     <Sonner
       theme="light"
-      position="top-center"
-      offset={{ top: 128 }}
-      mobileOffset={{ top: 64 }}
+      position="bottom-right"
+      offset={{ bottom: 136, right: "clamp(16px, 2.4vw, 40px)" }}
+      mobileOffset={{ bottom: 104, left: 16, right: 16 }}
       closeButton
       className="toaster group"
       icons={{
