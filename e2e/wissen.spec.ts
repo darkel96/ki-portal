@@ -121,3 +121,38 @@ test("Wissen: Bei mehreren Fragen auf einmal kommen die Tabellenzeilen trotzdem 
   expect(r).toContain("Dokument: Knowledge Base.md");
   expect(r.length).toBeLessThan(13_000);
 });
+
+test("Wissen: Zwischenspeicher sind je Person getrennt, ohne Person wird nichts gespeichert", async ({ page }, info) => {
+  test.skip(info.project.name !== "desktop", "einmal reicht");
+  await page.goto("/");
+  const r = await page.evaluate(async () => {
+    const w = await import("/src/lib/ki/wissen.ts");
+    const url = "https://x.sharepoint.com/sites/a/Bibliothek";
+    // Im Hub-Dienst teilen sich alle Personen einen Prozess: dieselbe Quelle darf nie denselben Schlüssel bekommen
+    return { anna: w.schluesselFuer("anna", url), bernd: w.schluesselFuer("bernd", url), niemand: w.schluesselFuer(null, url), leer: w.schluesselFuer("", url) };
+  });
+  expect(r.anna).not.toBe(r.bernd);
+  expect(r.anna).toContain("anna");
+  expect(r.niemand).toBeNull();
+  expect(r.leer).toBeNull();
+});
+
+test("Wissen: Nummerierte Sammelfragen werden für die Suche zerlegt, die Regel für falsche Annahmen geht mit", async ({ page }, info) => {
+  test.skip(info.project.name !== "desktop", "einmal reicht");
+  await page.goto("/");
+  const r = await page.evaluate(async () => {
+    const w = await import("/src/lib/ki/wissen.ts");
+    const acht = "CRA-Experte: Beantworte bitte die folgenden Fragen:\n\n1. Wie viele Personen sind als PSSA eingetragen?\n2) Warum gilt der CRA erst ab 2029?\n 3. Welche Meldefristen gelten?";
+    return {
+      teile: w.teilfragen(acht),
+      eine: w.teilfragen("Wer ist der CISO? Und wer der PSSO?"),
+      liste: w.teilfragen("Nenne die Fristen:\n1. 24 h"),
+      anfrage: w.auszuegeText([{ titel: "B", url: "https://x/b", text: "Dokument: a" }]),
+    };
+  });
+  expect(r.teile).toEqual(["Wie viele Personen sind als PSSA eingetragen?", "Warum gilt der CRA erst ab 2029?", "Welche Meldefristen gelten?"]);
+  // Eine Frage ohne Nummern bzw. nur eine nummerierte Zeile: keine Zerlegung
+  expect(r.eine).toEqual([]);
+  expect(r.liste).toEqual([]);
+  expect(r.anfrage).toContain("stelle sie zuerst richtig");
+});

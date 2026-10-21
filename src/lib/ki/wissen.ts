@@ -3,7 +3,7 @@
  * und den Inhalt einzelner Dateien und hängt sie der Anfrage an. So arbeitet die KI mit belegten Inhalten statt mit
  * dem, was sie zufällig findet. Braucht die Copilot-Anmeldung (Sites.Read.All); ohne sie bleiben die Quellen ein Hinweis.
  */
-import { graphToken, graphTokenStill } from "./auth";
+import { graphToken, graphTokenStill, nutzerKennung } from "./auth";
 import { KI_CONFIG } from "./config";
 import { kiModus } from "./index";
 import { shareId } from "./vorlagen";
@@ -56,6 +56,8 @@ export const NAME_LESBAR = /\.(docx|pdf)$/i;
 const MAX_INVENTAR = 400, MAX_SELBST = 40, MAX_NAMENSTREFFER = 3, MAX_GROESSE = 5_000_000;
 /** Anteil des Platzes der Wortsuche, der zuerst für passende Tabellenzeilen reserviert ist (siehe textAuszug) */
 const TABELLEN_ANTEIL = 0.4;
+/** Bei mehreren nummerierten Fragen: Anteil des Bereichs für Tabellenzeilen, gemeinsam für alle Fragen (siehe sharepointAuszuege) */
+const SAMMEL_TABELLEN_ANTEIL = 0.3;
 const STOPP = new Set("der die das den dem des ein eine einer eines und oder aber ab an auf aus bei bis für mit nach von vor zu zum zur im in ist sind wird werden wie was wer wo wann gilt gelten welche welcher welches nicht kein keine auch noch nur über unter als dass sich es er sie wir ihr man mal bitte the and for".split(" "));
 const FRAGE: Record<string, string[]> = {
   wann: ["datum", "frist", "zeitplan", "termin", "anwendbar", "inkraft"], gilt: ["anwendbar", "geltung", "inkraft"], gelten: ["anwendbar", "geltung"],
@@ -64,8 +66,21 @@ const FRAGE: Record<string, string[]> = {
 type TextDatei = { name: string; link: string; text: string };
 /** Datei im Inventar eines Bereichs */
 export type InventarEintrag = { name: string; link: string; size: number; drive: string; id: string };
-/** Je Bereich: Inventar und schon gelesene Dateien (null = nicht lesbar), zehn Minuten wie bei einzelnen Dateien */
+/** Je Person und Bereich: Inventar und schon gelesene Dateien (null = nicht lesbar), zehn Minuten wie bei einzelnen Dateien */
 const ordnerCache = new Map<string, { zeit: number; inventar: InventarEintrag[]; gelesen: Map<string, TextDatei | null> }>();
+
+/**
+ * Schlüssel für die Speicher dieser Datei: immer mit der Person. Im Hub-Dienst teilen sich alle Personen einen Prozess;
+ * ein Schlüssel nur aus der Adresse gäbe Dateien, gelesen mit den Rechten einer Person, an eine andere weiter.
+ * null (keine Person bekannt): nicht zwischenspeichern. Abgelaufenes fliegt dabei raus, damit der Dienst nicht wächst.
+ */
+async function speicherSchluessel(adresse: string, ...speicher: Map<string, { zeit: number }>[]): Promise<string | null> {
+  const jetzt = Date.now();
+  for (const m of speicher) for (const [k, v] of m) if (jetzt - v.zeit >= DATEI_CACHE_MS) m.delete(k);
+  return schluesselFuer(await nutzerKennung(), adresse);
+}
+/** Schlüssel aus Person und Adresse; ohne Person null (nicht speichern) */
+export const schluesselFuer = (wer: string | null, adresse: string): string | null => (wer ? `${wer}\n${adresse}` : null);
 
 /** Dateitypen, die der Hub selbst liest, als Suchbedingung: gezielt abgefragt, damit sie nie hinter Word-Dateien zurückfallen */
 const SELBST_SUCHE = "(filetype:xlsx OR filetype:csv OR filetype:md OR filetype:txt OR filetype:json OR filetype:xml OR filetype:vtt)";
@@ -191,11 +206,12 @@ export function namensTreffer<T extends { name: string }>(dateien: T[], suche: s
  */
 async function bereichSelbstLesen(url: string, suche: string, token: string, signal?: AbortSignal): Promise<{ dateien: TextDatei[]; inventar: InventarEintrag[]; zeit: { inventar: number; dateien: number; neu: number; ausSpeicher: boolean } }> {
   const t0 = Date.now();
-  let o = ordnerCache.get(url);
+  const schluessel = await speicherSchluessel(url, ordnerCache);
+  let o = schluessel ? ordnerCache.get(schluessel) : undefined;
   const ausSpeicher = !!o && Date.now() - o.zeit < DATEI_CACHE_MS;
   if (!o || !ausSpeicher) {
     o = { zeit: Date.now(), inventar: await inventarLaden(url, token, signal), gelesen: new Map() };
-    ordnerCache.set(url, o);
+    if (schluessel) ordnerCache.set(schluessel, o);
   }
   const t1 = Date.now();
   const klein = o.inventar.filter((e) => e.size < MAX_GROESSE);
@@ -316,32 +332,77 @@ async function sharepointAuszuege(q: Quelle, suche: string, token: string, signa
   const url = bereichAdresse(q.url);
   const t0 = Date.now();
   let fehler = "", tBedeutung = 0;
-  const bedeutung = (async () => {
+  // Mehrere nummerierte Fragen in einer Nachricht: je Frage getrennt suchen (gleichzeitig), sonst gewinnt das Gesamtbild
+  // und einzelne Themen (z. B. Meldefristen) fallen heraus
+  const teile = teilfragen(suche);
+  const bedeutungFuer = async (s: string, max: number, breiter?: string) => {
     try {
-      const r = await retrievalText(url, suche, token, signal);
-      return !r && breiter && breiter !== suche ? await retrievalText(url, breiter, token, signal) : r;
+      const r = await retrievalText(url, s, token, signal, max);
+      return !r && breiter && breiter !== s ? await retrievalText(url, breiter, token, signal, max) : r;
     } catch (e) { if (signal?.aborted) throw e; fehler = e instanceof Error ? e.message : String(e); return ""; }
-    finally { tBedeutung = Date.now() - t0; }
-  })();
+  };
+  const bedeutung = (teile.length
+    ? Promise.all(teile.map((t) => bedeutungFuer(t, Math.max(4, Math.ceil((MAX_TREFFER * 2) / teile.length)))))
+    : bedeutungFuer(suche, MAX_TREFFER, breiter).then((r) => [r])
+  ).finally(() => { tBedeutung = Date.now() - t0; });
   const selbst = bereichSelbstLesen(url, suche, token, signal)
     .catch((e) => { if (signal?.aborted) throw e; return { dateien: [], inventar: [], zeit: { inventar: 0, dateien: 0, neu: 0, ausSpeicher: false } }; });
-  const [retrieval, eigen] = await Promise.all([bedeutung, selbst]);
-  // Platz für die selbst gelesenen Dateien: was die Retrieval-Stellen übrig lassen, mindestens 12.000 Zeichen (die Hälfte)
-  const extra = textAuszug(eigen.dateien, suche, Math.max(12_000, MAX_BEREICH - retrieval.length - 2_000));
-  const text = [extra, retrieval].filter(Boolean).join("\n\n").slice(0, MAX_BEREICH);
+  const [retrievals, eigen] = await Promise.all([bedeutung, selbst]);
+  let text: string;
+  if (teile.length) {
+    // Tabellen gemeinsam für alle Fragen (Zählfragen brauchen alle passenden Zeilen; kleine Tabellen passen ganz hinein),
+    // danach bekommt jede Frage ihren Anteil: zuerst ihre selbst gelesenen Textstellen, dann ihre Retrieval-Stellen
+    const tabellen = textAuszug(eigen.dateien.filter((d) => TABELLE.test(d.name)), suche, Math.floor(MAX_BEREICH * SAMMEL_TABELLEN_ANTEIL));
+    const texte = eigen.dateien.filter((d) => !TABELLE.test(d.name));
+    const anteil = Math.floor((MAX_BEREICH - tabellen.length) / teile.length);
+    const bloecke = teile.flatMap((t, i) => {
+      const eigene = textAuszug(texte, t, Math.floor(anteil * 0.5));
+      return [eigene, bisGrenze(retrievals[i], anteil - eigene.length)];
+    });
+    text = ohneDoppelte([tabellen, ...bloecke]).slice(0, MAX_BEREICH);
+  } else {
+    const retrieval = retrievals[0];
+    // Platz für die selbst gelesenen Dateien: was die Retrieval-Stellen übrig lassen, mindestens 12.000 Zeichen (die Hälfte)
+    const extra = textAuszug(eigen.dateien, suche, Math.max(12_000, MAX_BEREICH - retrieval.length - 2_000));
+    text = [extra, retrieval].filter(Boolean).join("\n\n").slice(0, MAX_BEREICH);
+  }
   const sek = (ms: number) => `${(ms / 1000).toFixed(1).replace(".", ",")} s`;
-  console.info(`[Wissen] ${q.titel || url}: Inventar ${eigen.zeit.ausSpeicher ? "aus Speicher" : sek(eigen.zeit.inventar)} (${eigen.inventar.length} Dateien) · Dateien ${sek(eigen.zeit.dateien)} (${eigen.zeit.neu} neu gelesen, ${eigen.dateien.length} genutzt) · Bedeutungssuche ${sek(tBedeutung)} · ${text.length} Zeichen · gesamt ${sek(Date.now() - t0)}`);
+  console.info(`[Wissen] ${q.titel || url}: ${teile.length ? `${teile.length} Teilfragen · ` : ""}Inventar ${eigen.zeit.ausSpeicher ? "aus Speicher" : sek(eigen.zeit.inventar)} (${eigen.inventar.length} Dateien) · Dateien ${sek(eigen.zeit.dateien)} (${eigen.zeit.neu} neu gelesen, ${eigen.dateien.length} genutzt) · Bedeutungssuche ${sek(tBedeutung)} · ${text.length} Zeichen · gesamt ${sek(Date.now() - t0)}`);
   if (!text && fehler) throw new Error(fehler);
   const vorn = [...namensTreffer(eigen.inventar, suche), ...eigen.inventar.filter((e) => TEXT_DATEI.test(e.name) || TABELLE.test(e.name)), ...eigen.inventar];
   const namen = [...new Set(vorn.map((e) => e.name))].slice(0, MAX_DATEILISTE);
   return { titel: q.titel || q.url, url: q.url, text, dateien: namen, dateienGesamt: eigen.inventar.length };
 }
 
-async function retrievalText(url: string, suche: string, token: string, signal?: AbortSignal): Promise<string> {
+/**
+ * Nummerierte Fragen einer Nachricht („1. Wer …“ / „2) Ab wann …“), je Zeile eine; weniger als zwei: keine Zerlegung.
+ * Lokal und ohne KI: Eine Zerlegung durch Copilot kostete mehrere Sekunden, bevor überhaupt gesucht wird.
+ */
+export function teilfragen(suche: string): string[] {
+  const t = [...suche.matchAll(/^\s*\d{1,2}[.)]\s+(\S.{3,})$/gm)].map((m) => m[1].trim());
+  return t.length >= 2 ? t.slice(0, 12) : [];
+}
+
+/** Text bis höchstens max Zeichen, an Grenzen zwischen Dokumentblöcken („\n\n“) gekürzt, nie mitten in einer Stelle */
+function bisGrenze(text: string, max: number): string {
+  if (text.length <= max) return text;
+  const out: string[] = [];
+  let n = 0;
+  for (const b of text.split("\n\n")) { if (n + b.length > max) break; out.push(b); n += b.length + 2; }
+  return out.join("\n\n");
+}
+
+/** Blöcke zusammenlegen, ohne dieselbe Stelle zweimal (mehrere Teilfragen finden oft dieselben Dokumente) */
+function ohneDoppelte(teile: string[]): string {
+  const gesehen = new Set<string>();
+  return teile.flatMap((t) => (t ? t.split("\n\n") : [])).filter((b) => b.trim() && !gesehen.has(b) && !!gesehen.add(b)).join("\n\n");
+}
+
+async function retrievalText(url: string, suche: string, token: string, signal?: AbortSignal, max = MAX_TREFFER): Promise<string> {
   const r = await fetch(`${GRAPH}/copilot/retrieval`, {
     method: "POST", signal,
     headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ queryString: suche.slice(0, 1500), dataSource: "sharePoint", filterExpression: `path:"${url}"`, maximumNumberOfResults: MAX_TREFFER, resourceMetadata: ["title"] }),
+    body: JSON.stringify({ queryString: suche.slice(0, 1500), dataSource: "sharePoint", filterExpression: `path:"${url}"`, maximumNumberOfResults: Math.min(25, max), resourceMetadata: ["title"] }),
   });
   if (!r.ok) {
     const t = await r.text().catch(() => "");
@@ -362,16 +423,20 @@ async function retrievalText(url: string, suche: string, token: string, signal?:
   return teile.join("\n\n");
 }
 
-/** Gelesene Dateien bleiben zehn Minuten im Speicher: Ein Chat fragt sie bei jeder Frage, der Inhalt ändert sich dabei nicht */
+/**
+ * Gelesene Dateien bleiben zehn Minuten im Speicher, je Person (speicherSchluessel): Ein Chat fragt sie bei jeder Frage,
+ * der Inhalt ändert sich dabei nicht
+ */
 const dateiCache = new Map<string, { zeit: number; auszug: Auszug }>();
 const DATEI_CACHE_MS = 10 * 60_000;
 
 /** Inhalt einer einzelnen Datei (SharePoint/OneDrive-Adresse), als Text wie bei einem Upload */
 async function dateiAuszug(q: Quelle, token: string, signal?: AbortSignal): Promise<Auszug> {
-  const alt = dateiCache.get(q.url.trim());
+  const schluessel = await speicherSchluessel(q.url.trim(), dateiCache);
+  const alt = schluessel ? dateiCache.get(schluessel) : undefined;
   if (alt && Date.now() - alt.zeit < DATEI_CACHE_MS) return { ...alt.auszug, titel: q.titel || alt.auszug.titel };
   const auszug = await dateiLaden(q, token, signal);
-  dateiCache.set(q.url.trim(), { zeit: Date.now(), auszug });
+  if (schluessel) dateiCache.set(schluessel, { zeit: Date.now(), auszug });
   return auszug;
 }
 
@@ -437,6 +502,8 @@ export async function wissenAuszuege(quellen: Quelle[], suche: string, signal?: 
 const PERSONEN_REGEL = "Fragt jemand nach Personen („wer“, Namen, zuständig, Ansprechpartner), nenne die konkreten Personen aus Tabellen und Listen in den Auszügen, wenn welche passen, zusätzlich zur Beschreibung der Rolle. Nenne alle passenden Zeilen, nicht nur einige, und wie sie eingetragen sind (z. B. Bereich, Position, Rolle). Bei Zuständigkeit für einen Bereich gehören alle Personen dieses Bereichs dazu, auch Leitung und Verantwortliche, nicht nur die mit einer Sonderrolle.";
 /** Mehrdeutige Begriffe („Automation“: Firma oder Abteilung): die gewählte Lesart nennen und die andere anbieten */
 const MEHRDEUTIG_REGEL = "Kann ein Begriff in der Frage zweierlei meinen (z. B. eine Firma oder eine Abteilung gleichen Namens), sag in einem Halbsatz, wie du ihn verstanden hast, und biete die andere Lesart an.";
+/** Falsche Annahmen („Warum gilt der CRA erst ab 2029?“): richtigstellen statt nur „nichts gefunden“ (im Test so geschehen) */
+const ANNAHMEN_REGEL = "Steckt in der Frage eine Annahme, die die Auszüge widerlegen (z. B. ein falsches Datum oder eine falsche Zuständigkeit), stelle sie zuerst richtig und belege das; antworte nicht nur, dazu stehe nichts in den Unterlagen.";
 /** Schreibvarianten: „R&D Software“ und „Software R&D“ sind derselbe Bereich (im Test fehlte sonst ein Eintrag) */
 const VARIANTEN_REGEL = "Bereiche und Begriffe in anderer Schreibweise gehören dazu, z. B. „R&D Software“ und „Software R&D“, „Elektrokonstruktion“ und „E-Konstruktion“, Abkürzung und ausgeschriebene Form; nimm solche Einträge mit auf und nenne die Schreibweise, wie sie eingetragen ist.";
 /** Quellen: auf das Dokument verlinken, nie auf die Bibliothek; jede Quelle einmal */
@@ -445,7 +512,7 @@ const QUELLEN_REGEL = "Quellenangaben schreibst du als Markdown-Link auf den Lin
 /** Text für die Anfrage */
 export function auszuegeText(a: Auszug[]): string {
   if (!a.length) return "";
-  return `Auszüge aus den hinterlegten Wissensquellen (nur diese Inhalte gelten als belegt). Nutze alle passenden Dokumente und Stellen, nicht nur das erste. ${PERSONEN_REGEL} ${VARIANTEN_REGEL} ${MEHRDEUTIG_REGEL} ${QUELLEN_REGEL}:\n\n` + a.map((x) =>
+  return `Auszüge aus den hinterlegten Wissensquellen (nur diese Inhalte gelten als belegt). Nutze alle passenden Dokumente und Stellen, nicht nur das erste. ${PERSONEN_REGEL} ${VARIANTEN_REGEL} ${MEHRDEUTIG_REGEL} ${ANNAHMEN_REGEL} ${QUELLEN_REGEL}:\n\n` + a.map((x) =>
     (x.fehler ? `### ${x.titel}\n(konnte nicht gelesen werden: ${x.fehler})` : `### ${x.titel}\n${x.text ? `${x.quelleTyp === "datei" ? `Link: ${linkSauber(x.url)}\n` : ""}${x.text}` : "(keine passenden Inhalte gefunden)"}`) + dateiListe(x.dateien, x.dateienGesamt)).join("\n\n");
 }
 

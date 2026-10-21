@@ -59,7 +59,7 @@ export class Lernen {
 
   private async durchfuehren(appId: string, d: Datei, cfg: Auswertung): Promise<void> {
     const r = d.rueckmeldungen.filter((x) => x.stepId === cfg.step.id);
-    const erg = await tokenKontext.run({ token: () => graphTokenFuer(this.speicher, cfg.nutzer) }, () => auswertungDurchfuehren(auswertungsPrompt({ name: cfg.appName }, cfg.step, r), cfg.step.id, (t) => kiFragen(t)));
+    const erg = await tokenKontext.run({ token: () => graphTokenFuer(this.speicher, cfg.nutzer), nutzer: cfg.nutzer }, () => auswertungDurchfuehren(auswertungsPrompt({ name: cfg.appName }, cfg.step, r), cfg.step.id, (t) => kiFragen(t)));
     const neu = auswertungEinarbeiten(d, cfg.step.id, erg);
     Object.assign(d, neu);
     await this.schreiben(appId, d);

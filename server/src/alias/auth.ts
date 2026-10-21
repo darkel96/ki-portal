@@ -5,8 +5,18 @@
  */
 import { AsyncLocalStorage } from "node:async_hooks";
 
-export type TokenQuelle = { token: (scopes?: string[]) => Promise<string> };
+/** nutzer: Kennung der Person; trennt Speicher, die im Dienst sonst über Personen hinweg geteilt würden (Wissen, Copilot-Vorrat) */
+export type TokenQuelle = { token: (scopes?: string[]) => Promise<string>; nutzer: string };
 export const tokenKontext = new AsyncLocalStorage<TokenQuelle>();
+
+/**
+ * Kennung der Person des laufenden Aufrufs. null ohne Kontext: Dann darf nichts zwischengespeichert werden.
+ * Der Dienst ist ein Prozess für alle Personen; Speicher nur nach Adresse gäben Inhalte, gelesen mit den Rechten
+ * einer Person, an eine andere weiter.
+ */
+export async function nutzerKennung(): Promise<string | null> {
+  return tokenKontext.getStore()?.nutzer || null;
+}
 
 export async function graphToken(scopes?: string[]): Promise<string> {
   const q = tokenKontext.getStore();
