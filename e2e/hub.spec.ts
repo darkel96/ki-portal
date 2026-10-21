@@ -181,3 +181,21 @@ test("App nur mit Postfach: kein KI-Schritt nötig, keine Seite „Ergebnisse“
   expect(r.mitPostfach).not.toContain("Leg im KI-Ablauf mindestens einen KI-Schritt an.");
   expect(r.ohne).toContain("Leg im KI-Ablauf mindestens einen KI-Schritt an.");
 });
+
+test("Seite mit Postfach: Postfach füllt die Höhe, das Blatt scrollt nicht", async ({ page }, info) => {
+  test.skip(info.project.name !== "desktop", "einmal reicht");
+  const app = {
+    id: "post-app", name: "Mein Postfach", bereich: "Allgemein", status: "freigegeben", version: 1, steps: [],
+    blocks: [{ id: "p1", type: "seite", props: { titel: "Postfach" }, children: [{ id: "pf", type: "postfach", props: { titel: "Postfach", anzahl: 25, vorschau: true } }] }],
+  };
+  await page.addInitScript((a) => localStorage.setItem("kihub-apps-v3", JSON.stringify([a])), app);
+  await page.goto("/app/post-app");
+  await expect(page.locator(".o-post-nachricht").first()).toBeVisible();
+  const r = await page.evaluate(() => {
+    const blatt = document.querySelector<HTMLElement>(".app-inner")!, liste = document.querySelector<HTMLElement>(".o-post-liste")!;
+    return { blattScrollt: blatt.scrollHeight - blatt.clientHeight, fuellen: document.querySelector(".app-frame")!.hasAttribute("data-fuellen"), listeHoch: liste.clientHeight };
+  });
+  expect(r.fuellen).toBe(true);
+  expect(r.blattScrollt).toBeLessThanOrEqual(1);
+  expect(r.listeHoch).toBeGreaterThan(300);
+});

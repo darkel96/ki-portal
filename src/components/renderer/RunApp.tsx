@@ -727,9 +727,11 @@ export const RunApp = forwardRef<RunAppHandle, {
 
   const fuellen = useMemo(() => {
     if (!p) return false;
-    let n = 0;
-    walk(p.children ?? [], (b) => { if (b.type === "textarea") n++; });
-    return n === 1;
+    // Genau ein großes Textfeld, oder ein Postfach ohne Textfeld: das füllt die Höhe bis zur Blätterleiste und scrollt in
+    // seinen Spalten, statt das ganze Blatt scrollen zu lassen
+    let n = 0, post = false;
+    walk(p.children ?? [], (b) => { if (b.type === "textarea") n++; if (b.type === "postfach") post = true; });
+    return n === 1 || (post && n === 0);
   }, [p]);
 
   // Ungesicherte Eingaben bzw. laufender Ablauf: vor dem Verlassen fragen
