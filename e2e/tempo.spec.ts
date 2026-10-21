@@ -50,7 +50,15 @@ test("Copilot-Antworten: entdoppeln, JSON, Streaming", async ({ page }) => {
     ];
     const jsonNicht = new Response(JSON.stringify({ messages: [{ text: "FRAGE" }, { text: "Antwort" }] }), { headers: { "content-type": "application/json" } });
     const ohneStream = await c.streamLesen(jsonNicht, "FRAGE", () => {}, 0, {});
+    // Lernschicht: JSON mit gleich gebauten Einträgen – die Rohnachricht kommt unverändert beim Aufrufer an
+    const eintrag = '{"frage":"Wer ist PSSA?","antwort":"Laut Plan ist das die Rolle aus dem Stakeholder-Plan."}';
+    const jsonText = `{"zusammenfassung":"ok","vorschlaege":[${eintrag},${eintrag}]}`;
+    const ausgabe = { roh: "" };
+    await c.streamLesen(sse([conv(jsonText.slice(0, 50)), conv(jsonText.slice(0, 120)), conv(jsonText)]), "FRAGE", () => {}, 0, {}, () => {}, ausgabe);
+    const jsonRoh = k.jsonAus(c.alleTexte(JSON.parse(ausgabe.roh), "FRAGE"));
+    const jsonZweiTeile = k.jsonAus(c.alleTexte({ messages: [{ text: "FRAGE" }, { text: '{"a":[1,' }, { text: '2]}' }] }, "FRAGE"));
     return {
+      jsonRoh, jsonZweiTeile,
       doppelt: c.entdoppeln(A + A), doppeltLeer: c.entdoppeln(A + "\n\n" + A), einfach: c.entdoppeln(A), kurz: c.entdoppeln("abab"),
       json: k.jsonAus('Hier: {"a":"}{","b":{"c":1}}{"a":"}{","b":{"c":1}}'), jsonFence: k.jsonAus('```json\n{"x":"\\"}"}\n```'),
       // Lernschicht: Eine übernommene Antwort mit Ablaufdiagramm steht als Codeblock in einer Zeichenkette des JSON
@@ -67,6 +75,8 @@ test("Copilot-Antworten: entdoppeln, JSON, Streaming", async ({ page }) => {
   expect(r.jsonFence).toEqual({ x: '"}' });
   expect(r.jsonMitDiagramm).toEqual({ zusammenfassung: "ok", vorschlaege: [{ antwort: "Ablauf:\n```mermaid\nflowchart TD\nC{Security Level 3?} --> D\n```\nQuelle" }] });
   expect(r.jsonFenceNachText).toEqual({ a: 1 });
+  expect(r.jsonRoh).toEqual({ zusammenfassung: "ok", vorschlaege: [JSON.parse('{"frage":"Wer ist PSSA?","antwort":"Laut Plan ist das die Rolle aus dem Stakeholder-Plan."}'), JSON.parse('{"frage":"Wer ist PSSA?","antwort":"Laut Plan ist das die Rolle aus dem Stakeholder-Plan."}')] });
+  expect(r.jsonZweiTeile).toEqual({ a: [1, 2] });
   expect(r.kum).toBe("Hallo Welt");
   expect(r.teile).toEqual(["Hal", "Hallo Wel", "Hallo Welt"]);
   expect(r.person).toBe("[Dario Keller](https://www.office.com/search?q=Dario+Keller) übernimmt ab 2027 die Rolle des PSSA.");
