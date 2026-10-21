@@ -88,6 +88,15 @@ function letzterText(antwort: unknown, frage: string): string {
 }
 
 /**
+ * Alle Texte einer Antwort außer der Frage, unverändert und in ihrer Reihenfolge. Für Antworten, die JSON sein sollen:
+ * Teilt Copilot die Antwort auf mehrere Nachrichten auf, ginge mit nur der letzten der Anfang verloren.
+ */
+export function alleTexte(antwort: unknown, frage: string): string {
+  const msgs = (antwort as { messages?: { text?: string }[] })?.messages ?? [];
+  return msgs.map((m) => m?.text ?? "").filter((t) => t.trim() && t.trim() !== frage.trim()).join("\n\n");
+}
+
+/**
  * Letztes Sicherheitsnetz: direkt hintereinander wiederholte Absätze oder Absatzfolgen (ab 30 Zeichen) einmal
  * behalten. In einer echten Antwort kommt derselbe Absatz nie zweimal unmittelbar nacheinander vor; bei einer
  * Copilot-Panne (Antwort doppelt angehängt, egal in welcher Form) räumt das die Anzeige auf.
@@ -196,11 +205,16 @@ export function gemeinsamerAnfang(a: string, b: string): number {
   return i;
 }
 
-/** Liest die SSE-Antwort von chatOverStream (exportiert für Tests); kommt die Antwort als Ganzes oder in Stücken, wird beides zusammengesetzt. */
-export async function streamLesen(res: Response, frage: string, onTeil: (t: string) => void, start: number, messung: Partial<Messung>, wach: () => void = () => {}): Promise<string> {
+/**
+ * Liest die SSE-Antwort von chatOverStream (exportiert für Tests); kommt die Antwort als Ganzes oder in Stücken, wird beides zusammengesetzt.
+ * ausgabe.roh: die letzte vollständige Rohnachricht, für den Aufrufer selbst (im Hub-Dienst nie über die gemeinsame
+ * Variable letzteRohantwort, die gleichzeitige Aufrufe anderer Personen überschreiben).
+ */
+export async function streamLesen(res: Response, frage: string, onTeil: (t: string) => void, start: number, messung: Partial<Messung>, wach: () => void = () => {}, ausgabe?: { roh: string }): Promise<string> {
   if (!res.body || !/event-stream/i.test(res.headers.get("content-type") ?? "")) {
     const roh = await res.text();
     letzteRohantwort = roh;
+    if (ausgabe) ausgabe.roh = roh;
     return letzterText(roh ? JSON.parse(roh) : {}, frage);
   }
   const leser = res.body.pipeThrough(new TextDecoderStream()).getReader();
@@ -247,6 +261,7 @@ export async function streamLesen(res: Response, frage: string, onTeil: (t: stri
     if (done) break;
   }
   letzteRohantwort = roh;
+  if (ausgabe) ausgabe.roh = roh;
   return text;
 }
 
@@ -261,6 +276,12 @@ export async function copilotFragen(frage: string, opts: {
   gespraech?: string;
   /** Meldet die ID des genutzten Gesprächs, damit ein Chat es weiterführen kann */
   onGespraech?: (id: string) => void;
+  /**
+   * Antwort soll JSON sein (Lernschicht): den unveränderten Text der letzten vollständigen Nachricht liefern, ohne das
+   * Zusammensetzen und Entdoppeln für Fließtext. Das hielt gleich gebaute JSON-Einträge für eine Zweitfassung und
+   * schnitt den Anfang ab („{“ und „[“ fehlten).
+   */
+  json?: boolean;
 } = {}): Promise<string> {
   const t0 = performance.now();
   const messung: Partial<Messung> = { ersteZeichen: null, ausVorrat: false };
@@ -289,13 +310,14 @@ export async function copilotFragen(frage: string, opts: {
   let t2 = performance.now();
   // Bleibt das erste Zeichen aus, hängt Copilot: der Aufruf bricht nach ersteZeichenMs ab (ErstesZeichenAus)
   const ersteFrist = { ms: KI_CONFIG.ersteZeichenMs, da: () => messung.ersteZeichen != null };
+  const ausgabe = { roh: "" };
   const senden = async (gespraech: string): Promise<string> => {
     const url = `${GRAPH}/${encodeURIComponent(gespraech)}`;
     // Immer gestreamt, auch ohne Live-Anzeige: Dann bricht nur Stillstand ab, nie eine Antwort, die noch entsteht
     if (!streamingAus) {
       try {
         messung.gestreamt = true;
-        return await anfrage(`${url}/chatOverStream`, body, token, opts.signal, (res, wach) => streamLesen(res, frage, opts.onTeil ?? (() => {}), t2, messung, wach), "text/event-stream", KI_CONFIG.timeoutMs, ersteFrist);
+        return await anfrage(`${url}/chatOverStream`, body, token, opts.signal, (res, wach) => streamLesen(res, frage, opts.onTeil ?? (() => {}), t2, messung, wach, ausgabe), "text/event-stream", KI_CONFIG.timeoutMs, ersteFrist);
       } catch (e) {
         // Bietet der Tenant kein Streaming an, dauerhaft auf /chat ausweichen
         if (!(e instanceof GraphFehler) || ![400, 404, 405, 501].includes(e.status)) throw e;
@@ -306,6 +328,7 @@ export async function copilotFragen(frage: string, opts: {
     // Ohne Streaming kommt die Antwort am Stück: lange Antworten (Berichte, Prüfseiten) brauchen mehr Zeit
     const antwort = await anfrage(`${url}/chat`, body, token, opts.signal, json, "application/json", KI_CONFIG.timeoutMsAmStueck);
     letzteRohantwort = JSON.stringify(antwort, null, 2);
+    ausgabe.roh = JSON.stringify(antwort);
     return letzterText(antwort, frage);
   };
   let text: string;
@@ -333,7 +356,10 @@ export async function copilotFragen(frage: string, opts: {
   messung.antwort = performance.now() - t2;
   letzteMessung = messung as Messung;
   console.info("[KI-Hub] Copilot", Object.fromEntries(Object.entries(messung).map(([k, v]) => [k, typeof v === "number" ? `${(v / 1000).toFixed(1)} s` : v])));
-  text = wiederholungenEntfernen(entdoppeln(text));
+  if (opts.json) {
+    // JSON: unverändert aus der letzten vollständigen Rohnachricht, alle Teile in ihrer Reihenfolge
+    try { const roh = alleTexte(JSON.parse(ausgabe.roh), frage); if (roh.trim()) text = roh; } catch { /* keine Rohnachricht: Text wie empfangen */ }
+  } else text = wiederholungenEntfernen(entdoppeln(text));
   if (!text) throw new Error("Copilot hat keinen Text geliefert.");
   return text;
 }

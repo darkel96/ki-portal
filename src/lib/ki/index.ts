@@ -38,13 +38,13 @@ export async function kiSenden(req: KiRequest, signal?: AbortSignal, onTeil?: (t
   return copilotFragen(combinedMessage(req), { web: req.websuche, dateien, signal, onTeil, ...gespraech });
 }
 
-/** Freie Anfrage (KI-Assistent, Moderation im Agenten-Team). */
-export async function kiFragen(text: string, signal?: AbortSignal, onTeil?: (text: string) => void): Promise<string> {
+/** Freie Anfrage (KI-Assistent, Moderation im Agenten-Team). json: Antwort soll JSON sein, Copilot liefert sie unverändert. */
+export async function kiFragen(text: string, signal?: AbortSignal, onTeil?: (text: string) => void, opts: { json?: boolean } = {}): Promise<string> {
   const modus = kiModus();
   if (modus === "simulation") throw new KiSimulation({ nachricht: text });
   if (modus === "claude-test") return claudeFragen(text, { signal });
   if (modus === "claude-api") return claudeApiFragen(text, { signal, onTeil });
-  return copilotFragen(text, { signal, onTeil });
+  return copilotFragen(text, { signal, onTeil, json: opts.json });
 }
 
 /**

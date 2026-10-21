@@ -53,7 +53,7 @@ export async function auswerten(app: App, step: Step, signal?: AbortSignal): Pro
   if (await dienstAktiv()) return lernenAuswerten(appId, { stepId: step.id, step, appName: app.name });
   const st = lokalLesen(appId);
   const r = st.rueckmeldungen.filter((x) => x.stepId === step.id);
-  const neu = auswertungEinarbeiten(st, step.id, await auswertungDurchfuehren(auswertungsPrompt(app, step, r), step.id, (t) => kiFragen(t, signal)));
+  const neu = auswertungEinarbeiten(st, step.id, await auswertungDurchfuehren(auswertungsPrompt(app, step, r), step.id, (t) => kiFragen(t, signal, undefined, { json: true })));
   lokalSchreiben(appId, neu);
   return neu;
 }
