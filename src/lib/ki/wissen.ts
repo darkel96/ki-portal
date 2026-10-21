@@ -57,7 +57,7 @@ const MAX_INVENTAR = 400, MAX_SELBST = 40, MAX_NAMENSTREFFER = 3, MAX_GROESSE = 
 const STOPP = new Set("der die das den dem des ein eine einer eines und oder aber ab an auf aus bei bis für mit nach von vor zu zum zur im in ist sind wird werden wie was wer wo wann gilt gelten welche welcher welches nicht kein keine auch noch nur über unter als dass sich es er sie wir ihr man mal bitte the and for".split(" "));
 const FRAGE: Record<string, string[]> = {
   wann: ["datum", "frist", "zeitplan", "termin", "anwendbar", "inkraft"], gilt: ["anwendbar", "geltung", "inkraft"], gelten: ["anwendbar", "geltung"],
-  wer: ["verantwort", "rolle", "zuständig"], welche: [], wie: ["prozess", "schritt", "vorgehen"], warum: ["zweck", "ziel"],
+  wer: ["verantwort", "rolle", "zuständig", "name"], namen: ["kontakt"], personen: ["name", "kontakt"], ansprechpartner: ["name", "kontakt"], welche: [], wie: ["prozess", "schritt", "vorgehen"], warum: ["zweck", "ziel"],
 };
 type TextDatei = { name: string; link: string; text: string };
 /** Datei im Inventar eines Bereichs */
@@ -65,8 +65,42 @@ export type InventarEintrag = { name: string; link: string; size: number; drive:
 /** Je Bereich: Inventar und schon gelesene Dateien (null = nicht lesbar), zehn Minuten wie bei einzelnen Dateien */
 const ordnerCache = new Map<string, { zeit: number; inventar: InventarEintrag[]; gelesen: Map<string, TextDatei | null> }>();
 
-/** Alle Dateien eines Bereichs (drei Ebenen tief, höchstens 400) bzw. die Datei selbst */
+/** Dateitypen, die der Hub selbst liest, als Suchbedingung: gezielt abgefragt, damit sie nie hinter Word-Dateien zurückfallen */
+const SELBST_SUCHE = "(filetype:xlsx OR filetype:csv OR filetype:md OR filetype:txt OR filetype:json OR filetype:xml OR filetype:vtt)";
+
+/**
+ * Inventar eines Bereichs über die SharePoint-Suche (KQL path:): ein bis zwei Abfragen statt eines Laufs durch alle
+ * Ordner, egal wie tief eine Datei liegt; die Suche liefert nur, was die Person sehen darf. Tabellen und Textdateien
+ * werden eigens abgefragt und stehen vorn. null, wenn die Suche nicht geht; dann läuft der Hub durch die Ordner.
+ */
+async function inventarSuchen(url: string, token: string, signal?: AbortSignal): Promise<InventarEintrag[] | null> {
+  type Treffer = { resource?: { id?: string; name?: string; webUrl?: string; size?: number; folder?: object; parentReference?: { driveId?: string } } };
+  const abfrage = async (kql: string, size: number): Promise<InventarEintrag[] | null> => {
+    const r = await fetch(`${GRAPH}/search/query`, {
+      method: "POST", signal, headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ requests: [{ entityTypes: ["driveItem"], query: { queryString: kql }, from: 0, size }] }),
+    });
+    if (!r.ok) return null;
+    const j = (await r.json()) as { value?: { hitsContainers?: { hits?: Treffer[] }[] }[] };
+    return (j.value ?? []).flatMap((v) => v.hitsContainers ?? []).flatMap((c) => c.hits ?? []).map((h) => h.resource)
+      .filter((x): x is NonNullable<Treffer["resource"]> => !!x?.id && !!x.name && !!x.parentReference?.driveId && !x.folder && /\.[a-z0-9]{2,5}$/i.test(x.name))
+      .map((x) => ({ name: x.name!, link: x.webUrl ?? "", size: x.size ?? 0, drive: x.parentReference!.driveId!, id: x.id! }));
+  };
+  const pfad = `path:"${url}"`;
+  const [selbst, alle] = await Promise.all([abfrage(`${pfad} ${SELBST_SUCHE}`, 100), abfrage(pfad, 300)]);
+  if (selbst === null && alle === null) return null;
+  const gesehen = new Set<string>();
+  return [...(selbst ?? []), ...(alle ?? [])].filter((e) => !gesehen.has(e.id) && !!gesehen.add(e.id)).slice(0, MAX_INVENTAR);
+}
+
+/** Inventar eines Bereichs: über die Suche, sonst (Suche geht nicht oder findet nichts, z. B. bei einer einzelnen Datei) durch die Ordner */
 async function inventarLaden(url: string, token: string, signal?: AbortSignal): Promise<InventarEintrag[]> {
+  const gesucht = await inventarSuchen(url, token, signal).catch((e) => { if (signal?.aborted) throw e; return null; });
+  return gesucht?.length ? gesucht : inventarOrdner(url, token, signal);
+}
+
+/** Alle Dateien eines Bereichs durch die Ordner (drei Ebenen tief, höchstens 400) bzw. die Datei selbst */
+async function inventarOrdner(url: string, token: string, signal?: AbortSignal): Promise<InventarEintrag[]> {
   const kopf = { headers: { Authorization: `Bearer ${token}` }, signal };
   type Item = { id: string; name: string; webUrl?: string; size?: number; file?: object; folder?: object; parentReference?: { driveId?: string } };
   const r = await fetch(`${GRAPH}/shares/${shareId(url)}/driveItem?$select=id,name,webUrl,size,file,folder,parentReference`, kopf);
@@ -87,16 +121,23 @@ async function inventarLaden(url: string, token: string, signal?: AbortSignal): 
   return gefunden;
 }
 
-/** Excel als Text: je Tabellenblatt eine Überschrift, jede Zeile als „Spalte: Wert | …“ (Kopfzeile = erste Zeile mit zwei Werten) */
+/**
+ * Excel als Text: je Tabellenblatt eine Überschrift, jede Zeile als „Spalte: Wert | …“. Kopfzeile ist die Zeile mit den
+ * meisten Werten unter den ersten zehn (oft steht darüber eine Titelzeile wie „CRA Contacts KSCA …“); Zeilen über der
+ * Kopfzeile gehen als Titel mit.
+ */
 export function tabelleAlsText(blaetter: { sheet: string; data: unknown[][] }[]): string {
   return blaetter.map((b) => {
     const zeilen = b.data.map((z) => z.map((c) => (c == null ? "" : String(c).replace(/\s+/g, " ").trim())));
-    const k = zeilen.findIndex((z) => z.filter(Boolean).length >= 2);
+    const werte = (z: string[]) => z.filter(Boolean).length;
+    let k = -1;
+    zeilen.slice(0, 10).forEach((z, i) => { if (werte(z) >= 2 && (k < 0 || werte(z) > werte(zeilen[k]))) k = i; });
     if (k < 0) return "";
     const spalten = zeilen[k];
+    const titel = zeilen.slice(0, k).map((z) => z.filter(Boolean).join(" · ")).filter(Boolean);
     const inhalt = zeilen.slice(k + 1).filter((z) => z.some(Boolean))
       .map((z) => z.map((c, i) => (c ? `${spalten[i] || `Spalte ${i + 1}`}: ${c}` : "")).filter(Boolean).join(" | "));
-    return inhalt.length ? `## Tabellenblatt ${b.sheet}\n${inhalt.join("\n")}` : "";
+    return inhalt.length ? [`## Tabellenblatt ${b.sheet}`, ...titel, ...inhalt].join("\n") : "";
   }).filter(Boolean).join("\n\n");
 }
 
@@ -126,8 +167,11 @@ function suchwoerter(suche: string, mitFragewoertern = true): string[] {
   return [...new Set([...roh.filter((w) => w.length >= 3 && !STOPP.has(w)), ...dazu])];
 }
 
+/** Wortstamm für den Vergleich: lange Wörter auf 7 Zeichen, kurze ohne Endung (namen → name, personen → person), mindestens 4 */
+const stamm = (w: string) => w.slice(0, Math.max(4, Math.min(7, w.length - 2)));
+
 /**
- * Dateien, deren Name zur Frage passt (die meisten Treffer zuerst); Wörter werden auf 7 Zeichen gekürzt wie in der
+ * Dateien, deren Name zur Frage passt (die meisten Treffer zuerst); Wörter werden auf ihren Stamm gekürzt wie in der
  * Wortsuche. Nur Wörter aus der Frage zählen, nicht die Ersatzbegriffe der Fragewörter („wer“ → „rolle“ träfe sonst
  * jede Rollenbeschreibung).
  */
@@ -135,7 +179,7 @@ export function namensTreffer<T extends { name: string }>(dateien: T[], suche: s
   const woerter = suchwoerter(suche, false).filter((w) => w.length >= 4);
   return dateien.map((d) => {
     const n = d.name.toLowerCase().replace(/[_+.-]+/g, " ");
-    return { d, punkte: woerter.filter((w) => n.includes(w.slice(0, 7))).length };
+    return { d, punkte: woerter.filter((w) => n.includes(stamm(w))).length };
   }).filter((x) => x.punkte > 0).sort((a, b) => b.punkte - a.punkte).map((x) => x.d);
 }
 
@@ -150,7 +194,10 @@ async function bereichSelbstLesen(url: string, suche: string, token: string, sig
     ordnerCache.set(url, o);
   }
   const klein = o.inventar.filter((e) => e.size < MAX_GROESSE);
-  const immer = klein.filter((e) => TEXT_DATEI.test(e.name) || TABELLE.test(e.name)).slice(0, MAX_SELBST);
+  const selbstLesbar = klein.filter((e) => TEXT_DATEI.test(e.name) || TABELLE.test(e.name));
+  // Dateien mit passendem Namen zuerst, dann in der Reihenfolge der Suche
+  const passend = namensTreffer(selbstLesbar, suche);
+  const immer = [...passend, ...selbstLesbar.filter((e) => !passend.includes(e))].slice(0, MAX_SELBST);
   const perName = namensTreffer(klein.filter((e) => NAME_LESBAR.test(e.name)), suche).slice(0, MAX_NAMENSTREFFER);
   const wahl = [...immer, ...perName];
   const gelesen = o.gelesen;
@@ -175,21 +222,24 @@ function abschnitte(text: string): { titel: string; text: string }[] {
 /**
  * Text aus Textdateien für die Anfrage: kleine Bestände ganz (bis 24.000 Zeichen), große als die Abschnitte, die
  * am besten zur Frage passen. Jede Stelle nennt ihren Abschnitt, damit die KI ihn als Fundstelle angeben kann.
+ * Seltene Wörter zählen mehr als häufige: „Software“ in einer einzigen Tabellenzeile schlägt „PSSA“, das in jeder
+ * Rollenbeschreibung steht. Treffer in der Überschrift zählen doppelt.
  */
 export function textAuszug(dateien: TextDatei[], suche: string, max = 24_000): string {
   if (!dateien.length) return "";
   const gesamt = dateien.reduce((n, d) => n + d.text.length, 0);
   if (gesamt <= max) return dateien.map((d) => [`Dokument: ${d.name}`, d.link ? `Link: ${linkSauber(d.link)}` : "", d.text].filter(Boolean).join("\n")).join("\n\n");
-  const woerter = suchwoerter(suche);
-  const kandidaten = dateien.flatMap((d) => abschnitte(d.text).map((a) => {
-    const t = (a.titel + " " + a.text).toLowerCase();
-    const punkte = woerter.reduce((n, w) => n + (t.includes(w.slice(0, 7)) ? (a.titel.toLowerCase().includes(w.slice(0, 7)) ? 2 : 1) : 0), 0);
-    return { d, a, punkte };
+  const staemme = [...new Set(suchwoerter(suche).map(stamm))];
+  const alle = dateien.flatMap((d) => abschnitte(d.text).map((a) => ({ d, a, t: (a.titel + " " + a.text).toLowerCase(), titel: a.titel.toLowerCase() })));
+  const gewicht = new Map(staemme.map((s) => [s, 1 + Math.log(alle.length / Math.max(1, alle.filter((x) => x.t.includes(s)).length))]));
+  const kandidaten = alle.map(({ d, a, t, titel }) => ({
+    d, a, punkte: staemme.reduce((n, s) => n + (t.includes(s) ? gewicht.get(s)! * (titel.includes(s) ? 2 : 1) : 0), 0),
   })).filter((k) => k.punkte > 0).sort((x, y) => y.punkte - x.punkte);
   const je = new Map<TextDatei, string[]>();
   let laenge = 0;
   for (const k of kandidaten) {
-    if (laenge + k.a.text.length > max) break;
+    // Passt eine Stelle nicht mehr, kann eine kürzere dahinter noch passen (z. B. eine Tabelle)
+    if (laenge + k.a.text.length > max) continue;
     const liste = je.get(k.d) ?? [];
     liste.push(`Stelle ${liste.length + 1}${k.a.titel ? ` (Abschnitt „${k.a.titel}“)` : ""}:\n${k.a.text}`);
     je.set(k.d, liste);

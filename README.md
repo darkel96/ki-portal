@@ -204,13 +204,16 @@ still unvermerkt, es öffnet sich kein Fenster.
   einzelne Datei, Webseite). Einzelne KI-Schritte können im Reiter „Wissen“ davon abweichen und eigene Quellen ergänzen.
 - **Quellen wirken:** Vor jedem Schritt holt der Hub passende Auszüge aus SharePoint-Bereichen (Copilot Retrieval API)
   und den Inhalt einzelner Dateien und hängt sie der Anfrage an (`src/lib/ki/wissen.ts`). Webseiten bleiben ein Hinweis.
-  Damit keine Datei unsichtbar bleibt, gilt für jeden Agenten: Der Hub listet alle Dateien eines Bereichs (Inventar,
-  bis drei Ebenen, höchstens 400) und gibt die Liste der KI mit, damit sie Dateien nennen oder nachschlagen kann.
+  Damit keine Datei unsichtbar bleibt, gilt für jeden Agenten: Der Hub listet die Dateien eines Bereichs (Inventar über
+  die SharePoint-Suche mit `path:`, jede Tiefe, höchstens 400; Text- und Excel-Dateien eigens abgefragt; geht die Suche
+  nicht, durch die Ordner bis drei Ebenen) und gibt die Liste der KI mit, damit sie Dateien nennen oder nachschlagen kann.
   Textdateien (.md, .txt, .csv, .json …) und **Excel** (.xlsx) wertet die Retrieval API nicht aus; der Hub liest sie
-  selbst (höchstens 40, je bis 5 MB), Excel Zeile für Zeile als „Spalte: Wert“. Word und PDF, deren Dateiname zur Frage
+  selbst (höchstens 40, passende Dateinamen zuerst, je bis 5 MB), Excel Zeile für Zeile als „Spalte: Wert“ (Kopfzeile =
+  Zeile mit den meisten Werten, Titelzeilen darüber gehen mit). Word und PDF, deren Dateiname zur Frage
   passt, liest er zusätzlich ganz (höchstens drei). Retrieval-Stellen (Suche nach Bedeutung) und die selbst gelesenen
   Dateien (Wortsuche, findet auch Namen, Kürzel und Tabellenzeilen) werden gleichzeitig geholt und zusammengelegt:
-  kleine Bestände ganz, große als die passenden Abschnitte mit Überschrift als Fundstelle. Alles läuft mit der Anmeldung
+  kleine Bestände ganz, große als die passenden Abschnitte mit Überschrift als Fundstelle; seltene Suchwörter zählen
+  mehr als häufige, Wörter werden auf ihren Stamm gekürzt (namen → name). Alles läuft mit der Anmeldung
   der fragenden Person, SharePoint prüft die Rechte; Inventar und gelesene Dateien bleiben zehn Minuten im Speicher.
   Adressen aus der Bibliotheksansicht (`…/Forms/…aspx?id=/sites/…`)
   werden in die direkte Ordner- bzw. Dateiadresse umgewandelt, auch wenn sie in einer Chat-Frage stehen.
