@@ -230,7 +230,12 @@ export function MeinHubProvider({ children }: { children: ReactNode }) {
       try {
         const liste = await laeufeListe({ auftraege: true, seit: new Date(Date.now() - 14 * 86_400_000).toISOString() });
         if (aus) return;
-        const neu = liste.map(alsLauf);
+        // Nur Läufe übernehmen, die zum Schema passen: ein unpassender würde beim nächsten Laden auffallen (meinHubLesen)
+        const neu = liste.map(alsLauf).flatMap((l) => {
+          const r = LaufSchema.safeParse(l);
+          if (!r.success) console.warn(`[Mein Hub] Lauf ${l.id} aus dem Dienst übersprungen:`, r.error.issues.map((f) => `${f.path.join(".")}: ${f.message}`).join("; "));
+          return r.success ? [r.data] : [];
+        });
         const aktiv = neu.find((l) => l.status === "laeuft") ?? null;
         setLaufend((alt) => (JSON.stringify(alt) === JSON.stringify(aktiv) ? alt : aktiv));
         const alt = datenRef.current.laeufe;

@@ -81,3 +81,29 @@ test("Mein Hub: letztes Ergebnis aus der App, Voreinstellung umbenennen und lös
   await page.getByRole("button", { name: "Fertig" }).click();
   await expect(page.locator(".mh-vorlagen")).not.toContainText("Neu benannt");
 });
+
+test("Mein Hub: ein unpassender Eintrag im Speicher verwirft nicht alles", async ({ page }, info) => {
+  test.skip(info.project.name !== "desktop", "einmal reicht");
+  // Gespeicherter Stand mit gültigem Pin, Auftrag und Lauf – dazu ein Lauf, der nicht zum Schema passt (status unbekannt).
+  // Früher war danach alles weg: Apps, Voreinstellungen und Aufträge.
+  const stand = {
+    v: 1, nutzer: "lokal",
+    pins: [{ appId: "stellenanzeige", seit: "2026-10-19T08:00:00.000Z" }],
+    voreinstellungen: [],
+    auftraege: [{ id: "a-bleibt", name: "Bleibender Auftrag", appId: "stellenanzeige", voreinstellungId: null, aktiv: true, naechsterLauf: "2099-01-05T06:00:00.000Z", letzterLauf: "", erstellt: "2026-10-19T08:00:00.000Z" }],
+    laeufe: [
+      { id: "l-gut", auftragId: null, appId: "stellenanzeige", appName: "Stellenanzeige", titel: "Guter Lauf", start: "2026-10-19T08:00:00.000Z", ende: "2026-10-19T08:01:00.000Z", status: "fertig", meldung: "", ergebnisse: {} },
+      { id: "l-kaputt", appId: "stellenanzeige", start: "2026-10-19T09:00:00.000Z", status: "unbekannt", ergebnisse: null },
+    ],
+  };
+  await page.addInitScript((s) => { localStorage.setItem("kihub-meinhub-v1:lokal", JSON.stringify(s)); }, stand);
+  const warnungen: string[] = [];
+  page.on("console", (m) => { if (m.type() === "warning") warnungen.push(m.text()); });
+  await page.goto("/mein");
+  await expect(page.locator(".mh-karte")).toContainText("Stellenanzeige");
+  await page.getByRole("tab", { name: /Aufträge/ }).click();
+  await expect(page.locator(".mh-karte")).toContainText("Bleibender Auftrag");
+  await page.getByRole("tab", { name: /Verlauf/ }).click();
+  await expect(page.getByText("Guter Lauf")).toBeVisible();
+  expect(warnungen.some((w) => w.includes("laeufe[1] übersprungen"))).toBe(true);
+});
