@@ -44,3 +44,34 @@ test("Wissen: Textdateien (.md) und Bibliotheksansichten werden gelesen", async 
   expect(r.link).toEqual([{ typ: "datei", titel: "KPSS_CRA_Quick_Reference_Guide_DE.md", url: expect.stringContaining("KPSS%20Default.aspx") }]);
   expect(r.md).toBe(true);
 });
+
+test("Wissen: Excel-Tabellen werden zeilenweise gelesen, Namen in Tabellen gefunden, passende Dateinamen erkannt", async ({ page }, info) => {
+  test.skip(info.project.name !== "desktop", "einmal reicht");
+  await page.goto("/");
+  const r = await page.evaluate(async () => {
+    const w = await import("/src/lib/ki/wissen.ts");
+    // Wie der KSCA Stakeholder+Communication Plan: Titelzeile, dann Kopfzeile, dann Kontakte (Namen erfunden)
+    const tabelle = w.tabelleAlsText([
+      { sheet: "Kontakte", data: [["KSCA Stakeholder"], ["Name", "Rolle", "Bereich", "Position", "RACI"], ["Max Muster", "PSSA", "Project IT", "Teamleiter", "Responsible"], ["Erika Beispiel", "Product Owner", "Vertrieb", null, "Accountable"]] },
+      { sheet: "Leer", data: [[null]] },
+    ]);
+    // Ein großer Bestand: Die Zeile mit der Rolle muss als Stelle mitkommen, auch wenn viel anderes Material daneben liegt
+    const fuell = Array.from({ length: 30 }, (_, i) => `## Kapitel ${i}\n${"Allgemeine Rollenbeschreibung ohne Namen. ".repeat(40)}`).join("\n\n");
+    const auszug = w.textAuszug([
+      { name: "PSSA Rollenbeschreibung.md", link: "https://x/rolle.md", text: fuell },
+      { name: "KSCA_Stakeholder+Communication_Plan.xlsx", link: "https://x/plan.xlsx", text: tabelle },
+    ], "Wer ist technischer PSSA?", 6000);
+    const namen = w.namensTreffer([{ name: "Allgemeine Rollenbeschreibung.pdf" }, { name: "KSCA_Stakeholder+Communication_Plan.docx" }, { name: "Schulung.pdf" }], "Wer steht im Stakeholder Plan?").map((d) => d.name);
+    return { tabelle, auszug, namen, xlsx: w.TABELLE.test("Plan.xlsx"), docx: w.NAME_LESBAR.test("a.docx") };
+  });
+  expect(r.tabelle).toContain("## Tabellenblatt Kontakte");
+  expect(r.tabelle).toContain("Name: Max Muster | Rolle: PSSA | Bereich: Project IT | Position: Teamleiter | RACI: Responsible");
+  expect(r.tabelle).toContain("Name: Erika Beispiel | Rolle: Product Owner | Bereich: Vertrieb | RACI: Accountable");
+  expect(r.tabelle).not.toContain("Leer");
+  expect(r.auszug).toContain("Dokument: KSCA_Stakeholder+Communication_Plan.xlsx");
+  expect(r.auszug).toContain("Max Muster | Rolle: PSSA");
+  expect(r.auszug.length).toBeLessThan(7000);
+  expect(r.namen).toEqual(["KSCA_Stakeholder+Communication_Plan.docx"]);
+  expect(r.xlsx).toBe(true);
+  expect(r.docx).toBe(true);
+});
