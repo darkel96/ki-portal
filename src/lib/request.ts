@@ -55,9 +55,10 @@ export type KiRequest = {
 
 /**
  * Gelesener Auszug einer Wissensquelle (SharePoint-Bereich oder Datei). dateien: Namen aller Dateien eines Bereichs
- * (Inventar), damit die KI auch Dateien nennen kann, die keine Stelle geliefert haben.
+ * (Inventar, die relevantesten zuerst, gekürzt), dateienGesamt: wie viele es insgesamt sind. Damit kann die KI auch
+ * Dateien nennen, die keine Stelle geliefert haben.
  */
-export type WissenAuszug = { titel: string; url: string; text: string; fehler?: string; quelleTyp?: Quelle["typ"]; dateien?: string[] };
+export type WissenAuszug = { titel: string; url: string; text: string; fehler?: string; quelleTyp?: Quelle["typ"]; dateien?: string[]; dateienGesamt?: number };
 /** Höchstens so viele Zeichen je Quelle, auch nach dem Zusammenlegen */
 export const MAX_JE_QUELLE = 40_000;
 

@@ -3,7 +3,7 @@
  * und den Inhalt einzelner Dateien und hängt sie der Anfrage an. So arbeitet die KI mit belegten Inhalten statt mit
  * dem, was sie zufällig findet. Braucht die Copilot-Anmeldung (Sites.Read.All); ohne sie bleiben die Quellen ein Hinweis.
  */
-import { graphToken } from "./auth";
+import { graphToken, graphTokenStill } from "./auth";
 import { KI_CONFIG } from "./config";
 import { kiModus } from "./index";
 import { shareId } from "./vorlagen";
@@ -185,14 +185,17 @@ export function namensTreffer<T extends { name: string }>(dateien: T[], suche: s
 
 /**
  * Was der Hub in einem Bereich selbst liest: alle Text- und Tabellendateien, dazu Word/PDF mit passendem Namen.
- * Das Inventar geht mit, damit die KI Dateien nennen kann, die es klären könnten.
+ * Das Inventar geht mit, damit die KI Dateien nennen kann, die es klären könnten. Zeiten in ms für die Konsole.
  */
-async function bereichSelbstLesen(url: string, suche: string, token: string, signal?: AbortSignal): Promise<{ dateien: TextDatei[]; inventar: InventarEintrag[] }> {
+async function bereichSelbstLesen(url: string, suche: string, token: string, signal?: AbortSignal): Promise<{ dateien: TextDatei[]; inventar: InventarEintrag[]; zeit: { inventar: number; dateien: number; neu: number; ausSpeicher: boolean } }> {
+  const t0 = Date.now();
   let o = ordnerCache.get(url);
-  if (!o || Date.now() - o.zeit >= DATEI_CACHE_MS) {
+  const ausSpeicher = !!o && Date.now() - o.zeit < DATEI_CACHE_MS;
+  if (!o || !ausSpeicher) {
     o = { zeit: Date.now(), inventar: await inventarLaden(url, token, signal), gelesen: new Map() };
     ordnerCache.set(url, o);
   }
+  const t1 = Date.now();
   const klein = o.inventar.filter((e) => e.size < MAX_GROESSE);
   const selbstLesbar = klein.filter((e) => TEXT_DATEI.test(e.name) || TABELLE.test(e.name));
   // Dateien mit passendem Namen zuerst, dann in der Reihenfolge der Suche
@@ -201,8 +204,27 @@ async function bereichSelbstLesen(url: string, suche: string, token: string, sig
   const perName = namensTreffer(klein.filter((e) => NAME_LESBAR.test(e.name)), suche).slice(0, MAX_NAMENSTREFFER);
   const wahl = [...immer, ...perName];
   const gelesen = o.gelesen;
-  await Promise.all(wahl.filter((e) => !gelesen.has(e.id)).map(async (e) => { gelesen.set(e.id, await inventarDateiLesen(e, token, signal)); }));
-  return { dateien: wahl.map((e) => gelesen.get(e.id)).filter((x): x is TextDatei => !!x), inventar: o.inventar };
+  const fehlen = wahl.filter((e) => !gelesen.has(e.id));
+  await Promise.all(fehlen.map(async (e) => { gelesen.set(e.id, await inventarDateiLesen(e, token, signal)); }));
+  return {
+    dateien: wahl.map((e) => gelesen.get(e.id)).filter((x): x is TextDatei => !!x), inventar: o.inventar,
+    zeit: { inventar: t1 - t0, dateien: Date.now() - t1, neu: fehlen.length, ausSpeicher },
+  };
+}
+
+/**
+ * Inventar und lesbare Dateien der SharePoint-Quellen schon beim Öffnen einer App holen, solange die Person die erste
+ * Frage tippt; die Frage findet sie dann im Speicher (zehn Minuten). Nur mit stiller Anmeldung: Ein Anmeldefenster beim
+ * bloßen Öffnen einer App wäre irritierend; ohne Anmeldung lädt der Hub nichts vor. Fehler bleiben still.
+ */
+export async function wissenVorladen(quellen: Quelle[]): Promise<void> {
+  const bereiche = quellen.filter((q) => q.typ === "sharepoint" && q.url.trim());
+  if (!bereiche.length || !wissenMoeglich()) return;
+  try {
+    const token = await graphTokenStill();
+    if (!token) return;
+    await Promise.all(bereiche.map((q) => bereichSelbstLesen(bereichAdresse(q.url), "", token).catch(() => undefined)));
+  } catch { /* nicht angemeldet: die erste Frage meldet sich selbst */ }
 }
 
 /** Abschnitte (an Überschriften getrennt, höchstens etwa 1.800 Zeichen) mit ihrer Überschrift */
@@ -219,56 +241,89 @@ function abschnitte(text: string): { titel: string; text: string }[] {
   return out;
 }
 
+/** Tabellenzeilen (aus tabelleAlsText) einzeln, mit dem Tabellenblatt als Überschrift; Titelzeilen ohne „Spalte: Wert“ fallen weg */
+function tabellenZeilen(text: string): { titel: string; text: string }[] {
+  const out: { titel: string; text: string }[] = [];
+  let titel = "";
+  for (const z of text.split(/\r?\n/)) {
+    const m = /^##\s+(.+)$/.exec(z);
+    if (m) titel = m[1].trim();
+    else if (z.includes(": ")) out.push({ titel, text: z });
+  }
+  return out;
+}
+
 /**
  * Text aus Textdateien für die Anfrage: kleine Bestände ganz (bis 24.000 Zeichen), große als die Abschnitte, die
  * am besten zur Frage passen. Jede Stelle nennt ihren Abschnitt, damit die KI ihn als Fundstelle angeben kann.
  * Seltene Wörter zählen mehr als häufige: „Software“ in einer einzigen Tabellenzeile schlägt „PSSA“, das in jeder
- * Rollenbeschreibung steht. Treffer in der Überschrift zählen doppelt.
+ * Rollenbeschreibung steht. Treffer in der Überschrift zählen doppelt. Tabellen zählen Zeile für Zeile, damit alle
+ * passenden Zeilen mitkommen (nicht nur ein Stück der Tabelle); sie stehen je Tabellenblatt als eine Stelle beisammen.
  */
 export function textAuszug(dateien: TextDatei[], suche: string, max = 24_000): string {
   if (!dateien.length) return "";
   const gesamt = dateien.reduce((n, d) => n + d.text.length, 0);
   if (gesamt <= max) return dateien.map((d) => [`Dokument: ${d.name}`, d.link ? `Link: ${linkSauber(d.link)}` : "", d.text].filter(Boolean).join("\n")).join("\n\n");
   const staemme = [...new Set(suchwoerter(suche).map(stamm))];
-  const alle = dateien.flatMap((d) => abschnitte(d.text).map((a) => ({ d, a, t: (a.titel + " " + a.text).toLowerCase(), titel: a.titel.toLowerCase() })));
+  const alle = dateien.flatMap((d) => {
+    const tabelle = TABELLE.test(d.name);
+    return (tabelle ? tabellenZeilen(d.text) : abschnitte(d.text)).map((a) => ({ d, a, tabelle, t: (a.titel + " " + a.text).toLowerCase(), titel: a.titel.toLowerCase() }));
+  });
   const gewicht = new Map(staemme.map((s) => [s, 1 + Math.log(alle.length / Math.max(1, alle.filter((x) => x.t.includes(s)).length))]));
-  const kandidaten = alle.map(({ d, a, t, titel }) => ({
-    d, a, punkte: staemme.reduce((n, s) => n + (t.includes(s) ? gewicht.get(s)! * (titel.includes(s) ? 2 : 1) : 0), 0),
+  // In Tabellen zählt die Überschrift (das Blatt) nicht doppelt, sonst gewönne jede Zeile eines passend benannten Blatts gleich
+  const kandidaten = alle.map((x) => ({
+    ...x, punkte: staemme.reduce((n, s) => n + (x.t.includes(s) ? gewicht.get(s)! * (!x.tabelle && x.titel.includes(s) ? 2 : 1) : 0), 0),
   })).filter((k) => k.punkte > 0).sort((x, y) => y.punkte - x.punkte);
-  const je = new Map<TextDatei, string[]>();
+  const je = new Map<TextDatei, { titel: string; tabelle: boolean; teile: string[] }[]>();
   let laenge = 0;
   for (const k of kandidaten) {
-    // Passt eine Stelle nicht mehr, kann eine kürzere dahinter noch passen (z. B. eine Tabelle)
+    // Passt eine Stelle nicht mehr, kann eine kürzere dahinter noch passen (z. B. eine Tabellenzeile)
     if (laenge + k.a.text.length > max) continue;
     const liste = je.get(k.d) ?? [];
-    liste.push(`Stelle ${liste.length + 1}${k.a.titel ? ` (Abschnitt „${k.a.titel}“)` : ""}:\n${k.a.text}`);
+    const blatt = k.tabelle ? liste.find((x) => x.tabelle && x.titel === k.a.titel) : undefined;
+    if (blatt) blatt.teile.push(k.a.text);
+    else liste.push({ titel: k.a.titel, tabelle: k.tabelle, teile: [k.a.text] });
     je.set(k.d, liste);
-    laenge += k.a.text.length;
+    laenge += k.a.text.length + 1;
   }
-  return [...je.entries()].map(([d, stellen]) => [`Dokument: ${d.name}`, d.link ? `Link: ${linkSauber(d.link)}` : "", ...stellen].filter(Boolean).join("\n")).join("\n\n");
+  return [...je.entries()].map(([d, stellen]) => [
+    `Dokument: ${d.name}`, d.link ? `Link: ${linkSauber(d.link)}` : "",
+    ...stellen.map((s, i) => `Stelle ${i + 1}${s.titel ? ` (Abschnitt „${s.titel}“)` : ""}:\n${s.teile.join("\n")}`),
+  ].filter(Boolean).join("\n")).join("\n\n");
 }
+
+/** Höchstens so viele Dateinamen gehen als Liste an die KI: passende Namen zuerst, dann Tabellen und Textdateien */
+const MAX_DATEILISTE = 40;
 
 /**
  * Auszüge aus einem SharePoint-Bereich (Website, Bibliothek oder Ordner): Stellen der Retrieval API (Suche nach Bedeutung)
  * und, gleichzeitig geholt, die vom Hub selbst gelesenen Dateien (Wortsuche, findet auch Namen, Kürzel und Tabellenzeilen).
- * Dazu die Liste aller Dateien des Bereichs.
+ * Die selbst gelesenen stehen vorn: Wird gekürzt, trifft es die Retrieval-Stellen, nicht die Tabellenzeilen.
+ * Dazu eine Liste von Dateien des Bereichs. Die Zeiten stehen in der Konsole („[Wissen] …“).
  */
 async function sharepointAuszuege(q: Quelle, suche: string, token: string, signal?: AbortSignal, breiter?: string): Promise<Auszug> {
   const url = bereichAdresse(q.url);
-  let fehler = "";
+  const t0 = Date.now();
+  let fehler = "", tBedeutung = 0;
   const bedeutung = (async () => {
     try {
       const r = await retrievalText(url, suche, token, signal);
       return !r && breiter && breiter !== suche ? await retrievalText(url, breiter, token, signal) : r;
     } catch (e) { if (signal?.aborted) throw e; fehler = e instanceof Error ? e.message : String(e); return ""; }
+    finally { tBedeutung = Date.now() - t0; }
   })();
-  const selbst = bereichSelbstLesen(url, suche, token, signal).catch((e) => { if (signal?.aborted) throw e; return { dateien: [], inventar: [] }; });
+  const selbst = bereichSelbstLesen(url, suche, token, signal)
+    .catch((e) => { if (signal?.aborted) throw e; return { dateien: [], inventar: [], zeit: { inventar: 0, dateien: 0, neu: 0, ausSpeicher: false } }; });
   const [retrieval, eigen] = await Promise.all([bedeutung, selbst]);
   // Platz für die selbst gelesenen Dateien: was die Retrieval-Stellen übrig lassen, mindestens 12.000 Zeichen
   const extra = textAuszug(eigen.dateien, suche, Math.max(12_000, MAX_JE_QUELLE - retrieval.length - 4_000));
-  const text = [retrieval, extra].filter(Boolean).join("\n\n").slice(0, MAX_JE_QUELLE);
+  const text = [extra, retrieval].filter(Boolean).join("\n\n").slice(0, MAX_JE_QUELLE);
+  const sek = (ms: number) => `${(ms / 1000).toFixed(1).replace(".", ",")} s`;
+  console.info(`[Wissen] ${q.titel || url}: Inventar ${eigen.zeit.ausSpeicher ? "aus Speicher" : sek(eigen.zeit.inventar)} (${eigen.inventar.length} Dateien) · Dateien ${sek(eigen.zeit.dateien)} (${eigen.zeit.neu} neu gelesen, ${eigen.dateien.length} genutzt) · Bedeutungssuche ${sek(tBedeutung)} · ${text.length} Zeichen · gesamt ${sek(Date.now() - t0)}`);
   if (!text && fehler) throw new Error(fehler);
-  return { titel: q.titel || q.url, url: q.url, text, dateien: eigen.inventar.map((e) => e.name) };
+  const vorn = [...namensTreffer(eigen.inventar, suche), ...eigen.inventar.filter((e) => TEXT_DATEI.test(e.name) || TABELLE.test(e.name)), ...eigen.inventar];
+  const namen = [...new Set(vorn.map((e) => e.name))].slice(0, MAX_DATEILISTE);
+  return { titel: q.titel || q.url, url: q.url, text, dateien: namen, dateienGesamt: eigen.inventar.length };
 }
 
 async function retrievalText(url: string, suche: string, token: string, signal?: AbortSignal): Promise<string> {
@@ -363,16 +418,22 @@ export async function wissenAuszuege(quellen: Quelle[], suche: string, signal?: 
   }));
 }
 
+/**
+ * Regel für jeden Agenten mit Wissensquellen (gilt unabhängig von seiner Rolle): Fragt jemand nach Personen, nennt die
+ * KI die Namen aus Tabellen und Listen vollständig, statt nur die Rolle zu beschreiben.
+ */
+const PERSONEN_REGEL = "Fragt jemand nach Personen („wer“, Namen, zuständig, Ansprechpartner), nenne die konkreten Personen aus Tabellen und Listen in den Auszügen, wenn welche passen, zusätzlich zur Beschreibung der Rolle. Nenne alle passenden Zeilen, nicht nur einige, und wie sie eingetragen sind (z. B. Bereich, Position).";
+
 /** Text für die Anfrage */
 export function auszuegeText(a: Auszug[]): string {
   if (!a.length) return "";
-  return "Auszüge aus den hinterlegten Wissensquellen (nur diese Inhalte gelten als belegt). Nutze alle passenden Dokumente und Stellen, nicht nur das erste. Quellenangaben schreibst du als Markdown-Link auf den Link des Dokuments und nennst die Stelle: die Überschrift oder den Abschnitt, unter dem der Inhalt in der Stelle steht, sonst die Nummer der Stelle, z. B. [CRA Q&A, Abschnitt Scope](https://…) oder [CRA Schulung, Stelle 3](https://…). Gib nie die nackte Adresse aus, immer Linktext in eckigen Klammern und Adresse in runden Klammern:\n\n" + a.map((x) =>
-    (x.fehler ? `### ${x.titel}\n(konnte nicht gelesen werden: ${x.fehler})` : `### ${x.titel}\n${x.text ? `${x.quelleTyp === "datei" ? `Link: ${linkSauber(x.url)}\n` : ""}${x.text}` : "(keine passenden Inhalte gefunden)"}`) + dateiListe(x.dateien)).join("\n\n");
+  return "Auszüge aus den hinterlegten Wissensquellen (nur diese Inhalte gelten als belegt). Nutze alle passenden Dokumente und Stellen, nicht nur das erste. " + PERSONEN_REGEL + " Quellenangaben schreibst du als Markdown-Link auf den Link des Dokuments und nennst die Stelle: die Überschrift oder den Abschnitt, unter dem der Inhalt in der Stelle steht, sonst die Nummer der Stelle, z. B. [CRA Q&A, Abschnitt Scope](https://…) oder [CRA Schulung, Stelle 3](https://…). Gib nie die nackte Adresse aus, immer Linktext in eckigen Klammern und Adresse in runden Klammern:\n\n" + a.map((x) =>
+    (x.fehler ? `### ${x.titel}\n(konnte nicht gelesen werden: ${x.fehler})` : `### ${x.titel}\n${x.text ? `${x.quelleTyp === "datei" ? `Link: ${linkSauber(x.url)}\n` : ""}${x.text}` : "(keine passenden Inhalte gefunden)"}`) + dateiListe(x.dateien, x.dateienGesamt)).join("\n\n");
 }
 
-/** Alle Dateien eines Bereichs als Liste für die KI: So kann sie Dateien nennen oder nachschlagen, die keine Stelle geliefert haben */
-function dateiListe(namen?: string[]): string {
+/** Dateien eines Bereichs als Liste für die KI (die relevantesten zuerst): So kann sie Dateien nennen oder nachschlagen, die keine Stelle geliefert haben */
+function dateiListe(namen?: string[], gesamt?: number): string {
   if (!namen?.length) return "";
-  const zeigen = namen.slice(0, 120);
-  return `\n\nDateien in diesem Bereich (${namen.length}${namen.length > zeigen.length ? `, die ersten ${zeigen.length}` : ""}): ${zeigen.join("; ")}`;
+  const alle = Math.max(gesamt ?? 0, namen.length);
+  return `\n\nDateien in diesem Bereich (${alle}${alle > namen.length ? `, davon die ${namen.length} passendsten` : ""}): ${namen.join("; ")}`;
 }

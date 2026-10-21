@@ -71,7 +71,8 @@ test("Wissen: Excel-Tabellen werden zeilenweise gelesen, Namen in Tabellen gefun
     const software = w.textAuszug(dateien, "Wer ist technisch verantwortlich als PSSA für die Software?", 6000);
     const namen = w.textAuszug(dateien, "Ich brauche Namen der Personen", 6000);
     const datei = w.namensTreffer([{ name: "Allgemeine Rollenbeschreibung.pdf" }, { name: "KSCA_Stakeholder+Communication_Plan.docx" }, { name: "Schulung.pdf" }], "Wer steht im Stakeholder Plan?").map((d) => d.name);
-    return { tabelle, software, namen, datei, xlsx: w.TABELLE.test("Plan.xlsx"), docx: w.NAME_LESBAR.test("a.docx") };
+    const anfrage = w.auszuegeText([{ titel: "CRA-Bibliothek", url: "https://x/bib", text: "Dokument: a", dateien: ["KSCA_Stakeholder+Communication_Plan.xlsx", "Rollen.md"], dateienGesamt: 312 }]);
+    return { tabelle, software, namen, datei, anfrage, xlsx: w.TABELLE.test("Plan.xlsx"), docx: w.NAME_LESBAR.test("a.docx") };
   });
   expect(r.tabelle).toContain("## Tabellenblatt Kontakte\nCRA Contacts KSCA Leingarten · Roll-out · Prozess");
   expect(r.tabelle).toContain("Name: Muster | 1st Name: Max | e-mail: max.muster@example.com | Department: Software Project Processing | Position: PL | RACI: Responsible | RACI2: Responsible | CRA Rolle: PSSA");
@@ -81,8 +82,15 @@ test("Wissen: Excel-Tabellen werden zeilenweise gelesen, Namen in Tabellen gefun
   for (const a of [r.software, r.namen]) {
     expect(a).toContain("Dokument: KSCA_Stakeholder+Communication_Plan.xlsx");
     expect(a).toContain("Department: Software Project Processing | Position: PL");
+    // Tabellen zählen Zeile für Zeile: alle PSSA-Zeilen kommen mit, beisammen als eine Stelle des Tabellenblatts
+    expect(a).toContain("Name: Beispiel | 1st Name: Erika");
+    expect(a).toContain("(Abschnitt „Tabellenblatt Kontakte“):\nName: ");
+    expect(a).not.toContain("CRA Contacts KSCA Leingarten");
     expect(a.length).toBeLessThan(7000);
   }
+  // Regel für Personenfragen gilt für jeden Agenten; die Dateiliste nennt die Gesamtzahl
+  expect(r.anfrage).toContain("nenne die konkreten Personen aus Tabellen und Listen");
+  expect(r.anfrage).toContain("Dateien in diesem Bereich (312, davon die 2 passendsten): KSCA_Stakeholder+Communication_Plan.xlsx; Rollen.md");
   expect(r.datei).toEqual(["KSCA_Stakeholder+Communication_Plan.docx"]);
   expect(r.xlsx).toBe(true);
   expect(r.docx).toBe(true);
