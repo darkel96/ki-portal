@@ -74,11 +74,13 @@ export const LaufSchema = z.object({
   ergebnisse: z.record(z.string(), z.object({ status: z.string(), text: z.string().optional(), meldung: z.string().optional(), key: z.string().optional(), name: z.string().optional() })).default({}),
 });
 
+const PinSchema = z.object({ appId: z.string(), seit: Iso });
+
 export const MeinHubSchema = z.object({
   v: z.literal(1).default(1),
   /** Nutzer-ID; später die Objekt-ID aus Entra ID */
   nutzer: z.string().default("lokal"),
-  pins: z.array(z.object({ appId: z.string(), seit: Iso })).default([]),
+  pins: z.array(PinSchema).default([]),
   voreinstellungen: z.array(VoreinstellungSchema).default([]),
   auftraege: z.array(AuftragSchema).default([]),
   laeufe: z.array(LaufSchema).default([]),
@@ -144,13 +146,36 @@ export interface MeinHubSpeicher {
 const MAX_LAEUFE = 40;
 const lsKey = (nutzer: string) => `kihub-meinhub-v1:${nutzer}`;
 
+/**
+ * Gespeicherten Stand prüfen. Passt ein einzelner Eintrag nicht zum Schema (z. B. ein Lauf aus dem Dienst), fällt nur
+ * dieser weg, nicht der ganze Stand. Früher verwarf ein einziger Fehler alles: Apps, Voreinstellungen und Aufträge
+ * waren weg, nur der Verlauf kam vom Dienst zurück. Was wegfällt, steht in der Konsole.
+ */
+export function meinHubLesen(roh: unknown, nutzer: string): MeinHub {
+  const o = (roh && typeof roh === "object" ? roh : {}) as Record<string, unknown>;
+  const r = MeinHubSchema.safeParse({ ...o, nutzer });
+  if (r.success) return r.data;
+  const liste = <T,>(name: string, werte: unknown, s: z.ZodType<T>): T[] => (Array.isArray(werte) ? werte : []).flatMap((w, i) => {
+    const x = s.safeParse(w);
+    if (!x.success) console.warn(`[Mein Hub] ${name}[${i}] übersprungen:`, x.error.issues.map((f) => `${f.path.join(".") || "Eintrag"}: ${f.message}`).join("; "));
+    return x.success ? [x.data] : [];
+  });
+  return MeinHubSchema.parse({
+    nutzer,
+    automatisch: typeof o.automatisch === "boolean" ? o.automatisch : true,
+    pins: liste("pins", o.pins, PinSchema),
+    voreinstellungen: liste("voreinstellungen", o.voreinstellungen, VoreinstellungSchema),
+    auftraege: liste("auftraege", o.auftraege, AuftragSchema),
+    laeufe: liste("laeufe", o.laeufe, LaufSchema),
+  });
+}
+
 /** Browser-Speicher. Wird es zu voll, fallen die ältesten Läufe weg. */
 export class LokalerMeinHubSpeicher implements MeinHubSpeicher {
   async laden(nutzer: string): Promise<MeinHub> {
     let roh: unknown = {};
     try { roh = JSON.parse(localStorage.getItem(lsKey(nutzer)) || "{}"); } catch { /* leer */ }
-    const r = MeinHubSchema.safeParse({ ...(roh as object), nutzer });
-    const d = r.success ? r.data : MeinHubSchema.parse({ nutzer });
+    const d = meinHubLesen(roh, nutzer);
     // Läufe, die beim Schließen des Fensters noch liefen, gelten als abgebrochen.
     d.laeufe = d.laeufe.map((l) => (l.status === "laeuft" ? { ...l, status: "abgebrochen" as const, meldung: Object.keys(l.ergebnisse).length ? "Abgebrochen, weil der Hub geschlossen wurde. Die bis dahin fertigen Ergebnisse sind gespeichert." : "Abgebrochen, weil der Hub geschlossen wurde." } : l));
     return d;
