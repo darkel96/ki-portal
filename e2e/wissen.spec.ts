@@ -121,3 +121,18 @@ test("Wissen: Bei mehreren Fragen auf einmal kommen die Tabellenzeilen trotzdem 
   expect(r).toContain("Dokument: Knowledge Base.md");
   expect(r.length).toBeLessThan(13_000);
 });
+
+test("Wissen: Zwischenspeicher sind je Person getrennt, ohne Person wird nichts gespeichert", async ({ page }, info) => {
+  test.skip(info.project.name !== "desktop", "einmal reicht");
+  await page.goto("/");
+  const r = await page.evaluate(async () => {
+    const w = await import("/src/lib/ki/wissen.ts");
+    const url = "https://x.sharepoint.com/sites/a/Bibliothek";
+    // Im Hub-Dienst teilen sich alle Personen einen Prozess: dieselbe Quelle darf nie denselben Schlüssel bekommen
+    return { anna: w.schluesselFuer("anna", url), bernd: w.schluesselFuer("bernd", url), niemand: w.schluesselFuer(null, url), leer: w.schluesselFuer("", url) };
+  });
+  expect(r.anna).not.toBe(r.bernd);
+  expect(r.anna).toContain("anna");
+  expect(r.niemand).toBeNull();
+  expect(r.leer).toBeNull();
+});

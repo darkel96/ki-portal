@@ -163,7 +163,7 @@ export class Laeufe {
     };
     try {
       if (!offen.length) { this.beenden(l, "fertig", ""); return; }
-      await tokenKontext.run({ token: () => graphTokenFuer(this.speicher, l.nutzer) }, () =>
+      await tokenKontext.run({ token: () => graphTokenFuer(this.speicher, l.nutzer), nutzer: l.nutzer }, () =>
         ablaufStarten({ app: l.app, aktion, werte: l.werte, files: l.files, ergebnisse: l.ergebnisse, signal: ctl.signal, setOut }));
       const st = Object.values(l.outs).map((o) => o.status);
       if (ctl.signal.aborted || st.includes("gestoppt")) this.beenden(l, "abgebrochen", "Abgebrochen.");

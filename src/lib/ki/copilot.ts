@@ -9,7 +9,7 @@
  * TODO: Endpunkte vor Inbetriebnahme mit der aktuellen Graph-Dokumentation abgleichen (Beta-API).
  */
 import { KI_CONFIG } from "./config";
-import { graphToken, graphTokenStill } from "./auth";
+import { graphToken, graphTokenStill, nutzerKennung } from "./auth";
 
 const GRAPH = `${KI_CONFIG.graph}/beta/copilot/conversations`;
 /** So lange gilt ein vorab angelegtes Gespräch als frisch. */
@@ -173,11 +173,14 @@ export function entdoppeln(text: string): string {
   return t;
 }
 
-// Gesprächs-Vorrat: spart den ersten Graph-Aufruf (ca. 0,3–1 s) bei jeder Anfrage.
-let vorrat: { id: Promise<string | null>; zeit: number } | null = null;
-function vorratAuffuellen(token: string) {
+// Gesprächs-Vorrat: spart den ersten Graph-Aufruf (ca. 0,3–1 s) bei jeder Anfrage. Gehört der Person, mit deren
+// Anmeldung er angelegt wurde (wer): Im Hub-Dienst nutzen alle Personen einen Prozess, ein fremdes Gespräch darf
+// keiner bekommen. Ohne bekannte Person gibt es keinen Vorrat.
+let vorrat: { id: Promise<string | null>; zeit: number; wer: string } | null = null;
+function vorratAuffuellen(token: string, wer: string | null) {
+  if (!wer) { vorrat = null; return; }
   const id = anfrage(GRAPH, {}, token, undefined, json).then((c) => (c as { id?: string }).id ?? null, () => null);
-  vorrat = { id, zeit: Date.now() };
+  vorrat = { id, zeit: Date.now(), wer };
 }
 async function neuesGespraech(token: string, signal?: AbortSignal): Promise<string> {
   const c = (await anfrage(GRAPH, {}, token, signal, json)) as { id?: string };
@@ -262,16 +265,18 @@ export async function copilotFragen(frage: string, opts: {
   const t0 = performance.now();
   const messung: Partial<Messung> = { ersteZeichen: null, ausVorrat: false };
   const token = await graphToken();
+  const wer = await nutzerKennung();
   messung.anmeldung = performance.now() - t0;
 
   const t1 = performance.now();
   let id: string | null = opts.gespraech ?? null;
-  if (!id && vorrat && Date.now() - vorrat.zeit < VORRAT_MS) { id = await vorrat.id; messung.ausVorrat = !!id; }
+  // Nur den eigenen Vorrat nehmen (im Hub-Dienst kann er von einer anderen Person stammen)
+  if (!id && vorrat && wer && vorrat.wer === wer && Date.now() - vorrat.zeit < VORRAT_MS) { id = await vorrat.id; messung.ausVorrat = !!id; }
   if (!opts.gespraech) vorrat = null;
   id ??= await neuesGespraech(token, opts.signal);
   messung.gespraech = performance.now() - t1;
   // Nächstes Gespräch schon anlegen, während Copilot an dieser Antwort arbeitet
-  if (!opts.gespraech) vorratAuffuellen(token);
+  if (!opts.gespraech) vorratAuffuellen(token, wer);
 
   const body = {
     message: { text: frage },
@@ -340,6 +345,7 @@ export async function copilotFragen(frage: string, opts: {
 export async function copilotVorwaermen(): Promise<boolean> {
   const token = await graphTokenStill();
   if (!token) return false;
-  if (!vorrat || Date.now() - vorrat.zeit >= VORRAT_MS) vorratAuffuellen(token);
+  const wer = await nutzerKennung();
+  if (!vorrat || vorrat.wer !== wer || Date.now() - vorrat.zeit >= VORRAT_MS) vorratAuffuellen(token, wer);
   return true;
 }

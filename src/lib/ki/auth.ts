@@ -99,6 +99,19 @@ export async function graphToken(scopes?: string[]): Promise<string> {
 }
 
 /**
+ * Kennung der angemeldeten Person für Speicher, die nicht über Personen hinweg geteilt werden dürfen (Wissen,
+ * Copilot-Vorrat). null ohne Anmeldung: dann wird nichts zwischengespeichert. Im Hub-Dienst liefert die Server-Fassung
+ * die Person des laufenden Aufrufs (server/src/alias/auth.ts).
+ */
+export async function nutzerKennung(): Promise<string | null> {
+  try {
+    const a = await app();
+    const k = a.getActiveAccount() ?? a.getAllAccounts()[0] ?? null;
+    return k?.homeAccountId || k?.localAccountId || null;
+  } catch { return null; }
+}
+
+/**
  * Token ohne jedes Fenster, für das Vorwärmen beim Seitenstart: aus dem Zwischenspeicher bzw. per
  * Refresh-Token, sonst per Single Sign-on über die bestehende Microsoft-Sitzung des Browsers.
  * Gibt null zurück, wenn das nicht reicht; dann meldet sich die Person beim ersten KI-Aufruf an.

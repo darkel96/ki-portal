@@ -3,7 +3,7 @@
  * und den Inhalt einzelner Dateien und hängt sie der Anfrage an. So arbeitet die KI mit belegten Inhalten statt mit
  * dem, was sie zufällig findet. Braucht die Copilot-Anmeldung (Sites.Read.All); ohne sie bleiben die Quellen ein Hinweis.
  */
-import { graphToken, graphTokenStill } from "./auth";
+import { graphToken, graphTokenStill, nutzerKennung } from "./auth";
 import { KI_CONFIG } from "./config";
 import { kiModus } from "./index";
 import { shareId } from "./vorlagen";
@@ -64,8 +64,21 @@ const FRAGE: Record<string, string[]> = {
 type TextDatei = { name: string; link: string; text: string };
 /** Datei im Inventar eines Bereichs */
 export type InventarEintrag = { name: string; link: string; size: number; drive: string; id: string };
-/** Je Bereich: Inventar und schon gelesene Dateien (null = nicht lesbar), zehn Minuten wie bei einzelnen Dateien */
+/** Je Person und Bereich: Inventar und schon gelesene Dateien (null = nicht lesbar), zehn Minuten wie bei einzelnen Dateien */
 const ordnerCache = new Map<string, { zeit: number; inventar: InventarEintrag[]; gelesen: Map<string, TextDatei | null> }>();
+
+/**
+ * Schlüssel für die Speicher dieser Datei: immer mit der Person. Im Hub-Dienst teilen sich alle Personen einen Prozess;
+ * ein Schlüssel nur aus der Adresse gäbe Dateien, gelesen mit den Rechten einer Person, an eine andere weiter.
+ * null (keine Person bekannt): nicht zwischenspeichern. Abgelaufenes fliegt dabei raus, damit der Dienst nicht wächst.
+ */
+async function speicherSchluessel(adresse: string, ...speicher: Map<string, { zeit: number }>[]): Promise<string | null> {
+  const jetzt = Date.now();
+  for (const m of speicher) for (const [k, v] of m) if (jetzt - v.zeit >= DATEI_CACHE_MS) m.delete(k);
+  return schluesselFuer(await nutzerKennung(), adresse);
+}
+/** Schlüssel aus Person und Adresse; ohne Person null (nicht speichern) */
+export const schluesselFuer = (wer: string | null, adresse: string): string | null => (wer ? `${wer}\n${adresse}` : null);
 
 /** Dateitypen, die der Hub selbst liest, als Suchbedingung: gezielt abgefragt, damit sie nie hinter Word-Dateien zurückfallen */
 const SELBST_SUCHE = "(filetype:xlsx OR filetype:csv OR filetype:md OR filetype:txt OR filetype:json OR filetype:xml OR filetype:vtt)";
@@ -191,11 +204,12 @@ export function namensTreffer<T extends { name: string }>(dateien: T[], suche: s
  */
 async function bereichSelbstLesen(url: string, suche: string, token: string, signal?: AbortSignal): Promise<{ dateien: TextDatei[]; inventar: InventarEintrag[]; zeit: { inventar: number; dateien: number; neu: number; ausSpeicher: boolean } }> {
   const t0 = Date.now();
-  let o = ordnerCache.get(url);
+  const schluessel = await speicherSchluessel(url, ordnerCache);
+  let o = schluessel ? ordnerCache.get(schluessel) : undefined;
   const ausSpeicher = !!o && Date.now() - o.zeit < DATEI_CACHE_MS;
   if (!o || !ausSpeicher) {
     o = { zeit: Date.now(), inventar: await inventarLaden(url, token, signal), gelesen: new Map() };
-    ordnerCache.set(url, o);
+    if (schluessel) ordnerCache.set(schluessel, o);
   }
   const t1 = Date.now();
   const klein = o.inventar.filter((e) => e.size < MAX_GROESSE);
@@ -362,16 +376,20 @@ async function retrievalText(url: string, suche: string, token: string, signal?:
   return teile.join("\n\n");
 }
 
-/** Gelesene Dateien bleiben zehn Minuten im Speicher: Ein Chat fragt sie bei jeder Frage, der Inhalt ändert sich dabei nicht */
+/**
+ * Gelesene Dateien bleiben zehn Minuten im Speicher, je Person (speicherSchluessel): Ein Chat fragt sie bei jeder Frage,
+ * der Inhalt ändert sich dabei nicht
+ */
 const dateiCache = new Map<string, { zeit: number; auszug: Auszug }>();
 const DATEI_CACHE_MS = 10 * 60_000;
 
 /** Inhalt einer einzelnen Datei (SharePoint/OneDrive-Adresse), als Text wie bei einem Upload */
 async function dateiAuszug(q: Quelle, token: string, signal?: AbortSignal): Promise<Auszug> {
-  const alt = dateiCache.get(q.url.trim());
+  const schluessel = await speicherSchluessel(q.url.trim(), dateiCache);
+  const alt = schluessel ? dateiCache.get(schluessel) : undefined;
   if (alt && Date.now() - alt.zeit < DATEI_CACHE_MS) return { ...alt.auszug, titel: q.titel || alt.auszug.titel };
   const auszug = await dateiLaden(q, token, signal);
-  dateiCache.set(q.url.trim(), { zeit: Date.now(), auszug });
+  if (schluessel) dateiCache.set(schluessel, { zeit: Date.now(), auszug });
   return auszug;
 }
 
