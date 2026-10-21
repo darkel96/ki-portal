@@ -1,7 +1,7 @@
 import { Toaster as Sonner, type ToasterProps } from "sonner";
 import { CircleCheckIcon, InfoIcon, TriangleAlertIcon, OctagonXIcon, Loader2Icon } from "lucide-react";
 
-/** Meldungen oben mittig unter Kopfzeile und Werkzeugleiste der Seite, damit sie weder Knöpfe, Blätterleiste noch Dialog-Knöpfe verdecken; nur heller Modus. */
+/** Meldungen oben mittig unter Kopfzeile und Werkzeugleiste der Seite, damit sie weder Knöpfe, Blätterleiste noch Dialog-Knöpfe verdecken; nur heller Modus. Aussehen (Streifen je Art, ✕ rechts) in styles/app.css. */
 const Toaster = ({ ...props }: ToasterProps) => {
   return (
     <Sonner
