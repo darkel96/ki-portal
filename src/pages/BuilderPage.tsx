@@ -203,7 +203,7 @@ function Editor({ start, ungespeichert }: { start: App; ungespeichert: boolean }
       {!b.app.id && (
         <Fuehrung schritte={[
           { titel: "Eingaben anlegen", erledigt: fieldsOf(b.app).length > 0, los: () => { setTab("ui"); setVorschau(false); setBereich("pal"); } },
-          { titel: "KI-Aufgabe beschreiben", erledigt: b.app.steps.length > 0 && b.app.steps.every((st) => st.prompt.trim()) && !harte.length, los: () => { setTab("ki"); setVorschau(false); } },
+          { titel: "KI-Aufgabe beschreiben", erledigt: b.app.steps.every((st) => st.prompt.trim()) && !harte.length, los: () => { setTab("ki"); setVorschau(false); } },
           { titel: "Vorschau testen", erledigt: getestet, los: () => setVorschau(true) },
           { titel: "Speichern", erledigt: false, los: () => void speichern() },
         ]} />
