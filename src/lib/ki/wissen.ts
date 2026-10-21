@@ -39,42 +39,123 @@ export function bereichAdresse(url: string): string {
   return url.trim();
 }
 
+/*
+ * Was der Hub in einem SharePoint-Bereich selbst liest, damit keine Datei unsichtbar bleibt (für jeden Agenten gleich):
+ * - Textdateien und Tabellen wertet die Retrieval API nicht aus: der Hub liest sie immer (Tabellen Zeile für Zeile).
+ * - Word und PDF liefert die Retrieval API als Stellen; passt der Dateiname zur Frage, liest der Hub sie zusätzlich ganz,
+ *   weil die Suche nach Bedeutung sie übersehen kann.
+ * Alles mit der Anmeldung der fragenden Person: SharePoint prüft bei jedem Abruf die Rechte, es gibt keinen gemeinsamen Index.
+ */
 /** Textdateien, die die Retrieval API nicht auswertet (Markdown, Text, CSV …): der Hub liest sie selbst */
 export const TEXT_DATEI = /\.(md|markdown|txt|csv|json|xml|html?|vtt)$/i;
+/** Tabellen (Excel): wertet die Retrieval API nicht aus, der Hub liest jede Zeile als „Spalte: Wert“ */
+export const TABELLE = /\.xlsx$/i;
+/** Weitere Dateien, die der Hub lesen kann; ganz gelesen, wenn ihr Name zur Frage passt */
+export const NAME_LESBAR = /\.(docx|pdf)$/i;
+/** Grenzen je Bereich: Dateien im Inventar, immer gelesene Text- und Tabellendateien, zusätzlich per Name gelesene, Größe je Datei */
+const MAX_INVENTAR = 400, MAX_SELBST = 40, MAX_NAMENSTREFFER = 3, MAX_GROESSE = 5_000_000;
 const STOPP = new Set("der die das den dem des ein eine einer eines und oder aber ab an auf aus bei bis für mit nach von vor zu zum zur im in ist sind wird werden wie was wer wo wann gilt gelten welche welcher welches nicht kein keine auch noch nur über unter als dass sich es er sie wir ihr man mal bitte the and for".split(" "));
 const FRAGE: Record<string, string[]> = {
   wann: ["datum", "frist", "zeitplan", "termin", "anwendbar", "inkraft"], gilt: ["anwendbar", "geltung", "inkraft"], gelten: ["anwendbar", "geltung"],
   wer: ["verantwort", "rolle", "zuständig"], welche: [], wie: ["prozess", "schritt", "vorgehen"], warum: ["zweck", "ziel"],
 };
 type TextDatei = { name: string; link: string; text: string };
-const ordnerCache = new Map<string, { zeit: number; dateien: TextDatei[] }>();
+/** Datei im Inventar eines Bereichs */
+export type InventarEintrag = { name: string; link: string; size: number; drive: string; id: string };
+/** Je Bereich: Inventar und schon gelesene Dateien (null = nicht lesbar), zehn Minuten wie bei einzelnen Dateien */
+const ordnerCache = new Map<string, { zeit: number; inventar: InventarEintrag[]; gelesen: Map<string, TextDatei | null> }>();
 
-/** Alle Textdateien eines Ordners (drei Ebenen tief, höchstens 40) bzw. die Datei selbst */
-async function textDateien(url: string, token: string, signal?: AbortSignal): Promise<TextDatei[]> {
-  const alt = ordnerCache.get(url);
-  if (alt && Date.now() - alt.zeit < DATEI_CACHE_MS) return alt.dateien;
+/** Alle Dateien eines Bereichs (drei Ebenen tief, höchstens 400) bzw. die Datei selbst */
+async function inventarLaden(url: string, token: string, signal?: AbortSignal): Promise<InventarEintrag[]> {
   const kopf = { headers: { Authorization: `Bearer ${token}` }, signal };
   type Item = { id: string; name: string; webUrl?: string; size?: number; file?: object; folder?: object; parentReference?: { driveId?: string } };
   const r = await fetch(`${GRAPH}/shares/${shareId(url)}/driveItem?$select=id,name,webUrl,size,file,folder,parentReference`, kopf);
   if (!r.ok) return [];
   const start = (await r.json()) as Item;
   const drive = start.parentReference?.driveId;
-  const gefunden: (Item & { drive: string })[] = [];
-  if (start.file && TEXT_DATEI.test(start.name) && drive) gefunden.push({ ...start, drive });
+  const gefunden: InventarEintrag[] = [];
+  const dazu = (x: Item, d: string) => gefunden.push({ name: x.name, link: x.webUrl ?? "", size: x.size ?? 0, drive: d, id: x.id });
+  if (start.file && drive) dazu(start, drive);
   const lauf = async (driveId: string, id: string, tiefe: number) => {
     const k = await fetch(`${GRAPH}/drives/${driveId}/items/${id}/children?$select=id,name,webUrl,size,file,folder&$top=200`, kopf);
     if (!k.ok) return;
     const liste = ((await k.json()) as { value?: Item[] }).value ?? [];
-    for (const x of liste) if (x.file && TEXT_DATEI.test(x.name) && (x.size ?? 0) < 2_000_000 && gefunden.length < 40) gefunden.push({ ...x, drive: driveId });
-    if (tiefe < 3) for (const x of liste) if (x.folder && gefunden.length < 40) await lauf(driveId, x.id, tiefe + 1);
+    for (const x of liste) if (x.file && gefunden.length < MAX_INVENTAR) dazu(x, driveId);
+    if (tiefe < 3) for (const x of liste) if (x.folder && gefunden.length < MAX_INVENTAR) await lauf(driveId, x.id, tiefe + 1);
   };
   if (start.folder && drive) await lauf(drive, start.id, 0);
-  const dateien = (await Promise.all(gefunden.map(async (x) => {
-    const c = await fetch(`${GRAPH}/drives/${x.drive}/items/${x.id}/content`, kopf).catch(() => null);
-    return c?.ok ? { name: x.name, link: x.webUrl ?? "", text: (await c.text()).trim() } : null;
-  }))).filter((x): x is TextDatei => !!x?.text);
-  ordnerCache.set(url, { zeit: Date.now(), dateien });
-  return dateien;
+  return gefunden;
+}
+
+/** Excel als Text: je Tabellenblatt eine Überschrift, jede Zeile als „Spalte: Wert | …“ (Kopfzeile = erste Zeile mit zwei Werten) */
+export function tabelleAlsText(blaetter: { sheet: string; data: unknown[][] }[]): string {
+  return blaetter.map((b) => {
+    const zeilen = b.data.map((z) => z.map((c) => (c == null ? "" : String(c).replace(/\s+/g, " ").trim())));
+    const k = zeilen.findIndex((z) => z.filter(Boolean).length >= 2);
+    if (k < 0) return "";
+    const spalten = zeilen[k];
+    const inhalt = zeilen.slice(k + 1).filter((z) => z.some(Boolean))
+      .map((z) => z.map((c, i) => (c ? `${spalten[i] || `Spalte ${i + 1}`}: ${c}` : "")).filter(Boolean).join(" | "));
+    return inhalt.length ? `## Tabellenblatt ${b.sheet}\n${inhalt.join("\n")}` : "";
+  }).filter(Boolean).join("\n\n");
+}
+
+/** Inhalt einer Datei aus dem Inventar als Text; null, wenn sie sich nicht lesen lässt */
+async function inventarDateiLesen(e: InventarEintrag, token: string, signal?: AbortSignal): Promise<TextDatei | null> {
+  try {
+    const c = await fetch(`${GRAPH}/drives/${e.drive}/items/${e.id}/content`, { headers: { Authorization: `Bearer ${token}` }, signal });
+    if (!c.ok) return null;
+    let text: string;
+    if (TEXT_DATEI.test(e.name)) text = await c.text();
+    else if (TABELLE.test(e.name)) {
+      const { default: lesen } = await import("read-excel-file/browser");
+      text = tabelleAlsText(await lesen(new File([await c.blob()], e.name)) as unknown as { sheet: string; data: unknown[][] }[]);
+    } else {
+      const blob = await c.blob();
+      text = await (await import("../files")).extractText(new File([blob], e.name, { type: blob.type }));
+    }
+    text = text.trim();
+    return text ? { name: e.name, link: e.link, text } : null;
+  } catch (x) { if (signal?.aborted) throw x; return null; }
+}
+
+/** Wörter einer Frage, nach denen gesucht wird: ohne Füllwörter, Fragewörter auf Suchbegriffe abgebildet („wann“ → Datum, Frist …) */
+function suchwoerter(suche: string, mitFragewoertern = true): string[] {
+  const roh = suche.toLowerCase().replace(/[^a-zäöüß0-9 ]/g, " ").split(/\s+/);
+  const dazu = mitFragewoertern ? roh.flatMap((w) => FRAGE[w] ?? []) : [];
+  return [...new Set([...roh.filter((w) => w.length >= 3 && !STOPP.has(w)), ...dazu])];
+}
+
+/**
+ * Dateien, deren Name zur Frage passt (die meisten Treffer zuerst); Wörter werden auf 7 Zeichen gekürzt wie in der
+ * Wortsuche. Nur Wörter aus der Frage zählen, nicht die Ersatzbegriffe der Fragewörter („wer“ → „rolle“ träfe sonst
+ * jede Rollenbeschreibung).
+ */
+export function namensTreffer<T extends { name: string }>(dateien: T[], suche: string): T[] {
+  const woerter = suchwoerter(suche, false).filter((w) => w.length >= 4);
+  return dateien.map((d) => {
+    const n = d.name.toLowerCase().replace(/[_+.-]+/g, " ");
+    return { d, punkte: woerter.filter((w) => n.includes(w.slice(0, 7))).length };
+  }).filter((x) => x.punkte > 0).sort((a, b) => b.punkte - a.punkte).map((x) => x.d);
+}
+
+/**
+ * Was der Hub in einem Bereich selbst liest: alle Text- und Tabellendateien, dazu Word/PDF mit passendem Namen.
+ * Das Inventar geht mit, damit die KI Dateien nennen kann, die es klären könnten.
+ */
+async function bereichSelbstLesen(url: string, suche: string, token: string, signal?: AbortSignal): Promise<{ dateien: TextDatei[]; inventar: InventarEintrag[] }> {
+  let o = ordnerCache.get(url);
+  if (!o || Date.now() - o.zeit >= DATEI_CACHE_MS) {
+    o = { zeit: Date.now(), inventar: await inventarLaden(url, token, signal), gelesen: new Map() };
+    ordnerCache.set(url, o);
+  }
+  const klein = o.inventar.filter((e) => e.size < MAX_GROESSE);
+  const immer = klein.filter((e) => TEXT_DATEI.test(e.name) || TABELLE.test(e.name)).slice(0, MAX_SELBST);
+  const perName = namensTreffer(klein.filter((e) => NAME_LESBAR.test(e.name)), suche).slice(0, MAX_NAMENSTREFFER);
+  const wahl = [...immer, ...perName];
+  const gelesen = o.gelesen;
+  await Promise.all(wahl.filter((e) => !gelesen.has(e.id)).map(async (e) => { gelesen.set(e.id, await inventarDateiLesen(e, token, signal)); }));
+  return { dateien: wahl.map((e) => gelesen.get(e.id)).filter((x): x is TextDatei => !!x), inventar: o.inventar };
 }
 
 /** Abschnitte (an Überschriften getrennt, höchstens etwa 1.800 Zeichen) mit ihrer Überschrift */
@@ -99,10 +180,7 @@ export function textAuszug(dateien: TextDatei[], suche: string, max = 24_000): s
   if (!dateien.length) return "";
   const gesamt = dateien.reduce((n, d) => n + d.text.length, 0);
   if (gesamt <= max) return dateien.map((d) => [`Dokument: ${d.name}`, d.link ? `Link: ${linkSauber(d.link)}` : "", d.text].filter(Boolean).join("\n")).join("\n\n");
-  const roh = suche.toLowerCase().replace(/[^a-zäöüß0-9 ]/g, " ").split(/\s+/);
-  // Fragewörter auf das abbilden, wonach in Dokumenten gesucht werden muss („Ab wann gilt …?“ → Datum, Frist, anwendbar)
-  const dazu = roh.flatMap((w) => FRAGE[w] ?? []);
-  const woerter = [...new Set([...roh.filter((w) => w.length >= 3 && !STOPP.has(w)), ...dazu])];
+  const woerter = suchwoerter(suche);
   const kandidaten = dateien.flatMap((d) => abschnitte(d.text).map((a) => {
     const t = (a.titel + " " + a.text).toLowerCase();
     const punkte = woerter.reduce((n, w) => n + (t.includes(w.slice(0, 7)) ? (a.titel.toLowerCase().includes(w.slice(0, 7)) ? 2 : 1) : 0), 0);
@@ -120,18 +198,27 @@ export function textAuszug(dateien: TextDatei[], suche: string, max = 24_000): s
   return [...je.entries()].map(([d, stellen]) => [`Dokument: ${d.name}`, d.link ? `Link: ${linkSauber(d.link)}` : "", ...stellen].filter(Boolean).join("\n")).join("\n\n");
 }
 
-/** Treffer der Copilot Retrieval API für einen SharePoint-Bereich (Website, Bibliothek oder Ordner), ergänzt um die Textdateien darin */
+/**
+ * Auszüge aus einem SharePoint-Bereich (Website, Bibliothek oder Ordner): Stellen der Retrieval API (Suche nach Bedeutung)
+ * und, gleichzeitig geholt, die vom Hub selbst gelesenen Dateien (Wortsuche, findet auch Namen, Kürzel und Tabellenzeilen).
+ * Dazu die Liste aller Dateien des Bereichs.
+ */
 async function sharepointAuszuege(q: Quelle, suche: string, token: string, signal?: AbortSignal, breiter?: string): Promise<Auszug> {
   const url = bereichAdresse(q.url);
-  let retrieval = "", fehler = "";
-  try {
-    retrieval = await retrievalText(url, suche, token, signal);
-    if (!retrieval && breiter && breiter !== suche) retrieval = await retrievalText(url, breiter, token, signal);
-  } catch (e) { if (signal?.aborted) throw e; fehler = e instanceof Error ? e.message : String(e); }
-  const extra = textAuszug(await textDateien(url, token, signal).catch(() => []), suche);
+  let fehler = "";
+  const bedeutung = (async () => {
+    try {
+      const r = await retrievalText(url, suche, token, signal);
+      return !r && breiter && breiter !== suche ? await retrievalText(url, breiter, token, signal) : r;
+    } catch (e) { if (signal?.aborted) throw e; fehler = e instanceof Error ? e.message : String(e); return ""; }
+  })();
+  const selbst = bereichSelbstLesen(url, suche, token, signal).catch((e) => { if (signal?.aborted) throw e; return { dateien: [], inventar: [] }; });
+  const [retrieval, eigen] = await Promise.all([bedeutung, selbst]);
+  // Platz für die selbst gelesenen Dateien: was die Retrieval-Stellen übrig lassen, mindestens 12.000 Zeichen
+  const extra = textAuszug(eigen.dateien, suche, Math.max(12_000, MAX_JE_QUELLE - retrieval.length - 4_000));
   const text = [retrieval, extra].filter(Boolean).join("\n\n").slice(0, MAX_JE_QUELLE);
   if (!text && fehler) throw new Error(fehler);
-  return { titel: q.titel || q.url, url: q.url, text };
+  return { titel: q.titel || q.url, url: q.url, text, dateien: eigen.inventar.map((e) => e.name) };
 }
 
 async function retrievalText(url: string, suche: string, token: string, signal?: AbortSignal): Promise<string> {
@@ -230,5 +317,12 @@ export async function wissenAuszuege(quellen: Quelle[], suche: string, signal?: 
 export function auszuegeText(a: Auszug[]): string {
   if (!a.length) return "";
   return "Auszüge aus den hinterlegten Wissensquellen (nur diese Inhalte gelten als belegt). Nutze alle passenden Dokumente und Stellen, nicht nur das erste. Quellenangaben schreibst du als Markdown-Link auf den Link des Dokuments und nennst die Stelle: die Überschrift oder den Abschnitt, unter dem der Inhalt in der Stelle steht, sonst die Nummer der Stelle, z. B. [CRA Q&A, Abschnitt Scope](https://…) oder [CRA Schulung, Stelle 3](https://…). Gib nie die nackte Adresse aus, immer Linktext in eckigen Klammern und Adresse in runden Klammern:\n\n" + a.map((x) =>
-    x.fehler ? `### ${x.titel}\n(konnte nicht gelesen werden: ${x.fehler})` : `### ${x.titel}\n${x.text ? `${x.quelleTyp === "datei" ? `Link: ${linkSauber(x.url)}\n` : ""}${x.text}` : "(keine passenden Inhalte gefunden)"}`).join("\n\n");
+    (x.fehler ? `### ${x.titel}\n(konnte nicht gelesen werden: ${x.fehler})` : `### ${x.titel}\n${x.text ? `${x.quelleTyp === "datei" ? `Link: ${linkSauber(x.url)}\n` : ""}${x.text}` : "(keine passenden Inhalte gefunden)"}`) + dateiListe(x.dateien)).join("\n\n");
+}
+
+/** Alle Dateien eines Bereichs als Liste für die KI: So kann sie Dateien nennen oder nachschlagen, die keine Stelle geliefert haben */
+function dateiListe(namen?: string[]): string {
+  if (!namen?.length) return "";
+  const zeigen = namen.slice(0, 120);
+  return `\n\nDateien in diesem Bereich (${namen.length}${namen.length > zeigen.length ? `, die ersten ${zeigen.length}` : ""}): ${zeigen.join("; ")}`;
 }
