@@ -110,3 +110,23 @@ test("Dienst: ohne Anmeldung nichts, fremde Läufe unsichtbar", async ({ page },
   // Ungültige App wird abgewiesen
   expect((await api("/laeufe", "anna", { method: "POST", body: JSON.stringify({ app: { kaputt: true }, aktion: "alle" }) })).status).toBe(500);
 });
+
+test("Jetzt ausführen im Dienst: Meldung beim Start und wenn der Auftrag fertig ist", async ({ page }, info) => {
+  test.skip(info.project.name !== "desktop", "einmal reicht");
+  const nutzer = `jetzt${Date.now()}`;
+  const jetzt = new Date().toISOString();
+  await hubMitDienst(page, nutzer, {
+    v: 1, nutzer: "lokal", pins: [{ appId: "dienst-app", seit: jetzt }], laeufe: [], automatisch: true,
+    voreinstellungen: [{ id: "v1", appId: "dienst-app", name: "Standard", werte: { thema: "Inventur" }, dateien: {}, erstellt: jetzt, geaendert: jetzt }],
+    // Termin in der Zukunft: läuft nur über „Jetzt ausführen“
+    auftraege: [{ id: "a1", name: "Inventurbericht", appId: "dienst-app", voreinstellungId: "v1", zeitplan: { art: "woechentlich", uhrzeit: "07:00", wochentag: 1, tag: 1 }, ziel: { art: "hub", adresse: "" }, aktiv: true, naechsterLauf: "2099-01-05T06:00:00.000Z", letzterLauf: "", erstellt: jetzt }],
+  });
+  await page.goto("/mein");
+  await page.getByRole("tab", { name: /Aufträge/ }).click();
+  await page.getByRole("button", { name: "Jetzt ausführen" }).click();
+  await expect(page.getByText("Auftrag „Inventurbericht“ läuft im Hub-Dienst.", { exact: false })).toBeVisible();
+  // Früher kam diese Meldung nur, wenn der Browser den Auftrag selbst ausführte
+  await expect(page.getByText("Auftrag „Inventurbericht“ ist fertig.", { exact: false })).toBeVisible({ timeout: 30_000 });
+  // Der Auftrag bleibt in der Liste
+  await expect(page.locator(".mh-karte")).toContainText("Inventurbericht");
+});
