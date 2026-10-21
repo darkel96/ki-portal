@@ -844,6 +844,10 @@ a.mh-titel:hover { text-decoration: underline; text-underline-offset: 4px; }
 .o-post-meta { margin: 0 0 12px; font-size: 13px; color: var(--app-muted); line-height: 1.5; }
 .o-post-body { font-size: 14px; }
 .o-post-body img { max-width: 100%; height: auto; }
+/* Füll-Modus (Seite mit Postfach): Postfach wächst bis zur Blätterleiste, Ordner, Liste und Mail scrollen jeweils in sich */
+.app-frame[data-fuellen] .app-inner :is(.o-stack, .o-sec, .o-cols, .o-reihe):has(.o-post), .app-frame[data-fuellen] .app-inner .o-post:not(.o-post-edit) { flex: 1 1 auto; min-height: 0; }
+.app-frame[data-fuellen] .o-post-raster { flex: 1 1 auto; min-height: 320px; grid-template-rows: minmax(0, 1fr); }
+.app-frame[data-fuellen] :is(.o-post-ordnerliste, .o-post-liste, .o-post-inhalt) { max-height: none; }
 .o-post-klartext { white-space: pre-wrap; font: inherit; margin: 0; }
 @media (max-width: 900px) {
   .o-post-raster { grid-template-columns: 1fr; }
