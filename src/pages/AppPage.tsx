@@ -102,6 +102,12 @@ export function AppPage() {
     setSp((p) => { const n = new URLSearchParams(p); n.delete("vorlage"); return n; }, { replace: true });
   }, [vorlageParam, mh.geladen, a?.id]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { if (a) document.title = `${a.name} – KI-Hub`; }, [a?.name]); // eslint-disable-line react-hooks/exhaustive-deps
+  // Wissensquellen schon beim Öffnen vorladen (Inventar, Tabellen, Textdateien): Bis die erste Frage getippt ist, liegt es im Speicher
+  useEffect(() => {
+    if (!a) return;
+    const quellen = [...a.wissen.quellen, ...a.steps.flatMap((s) => s.quellen)];
+    if (quellen.some((q) => q.typ === "sharepoint")) void import("@/lib/ki/wissen").then((w) => w.wissenVorladen(quellen)).catch(() => undefined);
+  }, [a?.id]); // eslint-disable-line react-hooks/exhaustive-deps
   if (!a) return geladen ? <NotFoundPage /> : <p className="hint">Applikation wird geladen\u00a0…</p>;
   const ci = areaIdx(a.bereich);
   const hatBeispiele = fieldsOf(a).some((f) => f.type !== "file" && f.props.beispiel);

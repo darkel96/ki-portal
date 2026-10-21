@@ -213,7 +213,11 @@ still unvermerkt, es öffnet sich kein Fenster.
   passt, liest er zusätzlich ganz (höchstens drei). Retrieval-Stellen (Suche nach Bedeutung) und die selbst gelesenen
   Dateien (Wortsuche, findet auch Namen, Kürzel und Tabellenzeilen) werden gleichzeitig geholt und zusammengelegt:
   kleine Bestände ganz, große als die passenden Abschnitte mit Überschrift als Fundstelle; seltene Suchwörter zählen
-  mehr als häufige, Wörter werden auf ihren Stamm gekürzt (namen → name). Alles läuft mit der Anmeldung
+  mehr als häufige, Wörter werden auf ihren Stamm gekürzt (namen → name); Tabellen zählen Zeile für Zeile, damit alle
+  passenden Zeilen mitkommen. Die selbst gelesenen Stellen stehen vor den Retrieval-Stellen (gekürzt wird hinten). Bei
+  Fragen nach Personen nennt jeder Agent die Namen aus Tabellen und Listen vollständig (`PERSONEN_REGEL`). Beim Öffnen
+  einer App lädt der Hub Inventar und Dateien vor (nur mit stiller Anmeldung), die Konsole zeigt je Frage die Zeiten
+  (`[Wissen] … Inventar · Dateien · Bedeutungssuche`). Alles läuft mit der Anmeldung
   der fragenden Person, SharePoint prüft die Rechte; Inventar und gelesene Dateien bleiben zehn Minuten im Speicher.
   Adressen aus der Bibliotheksansicht (`…/Forms/…aspx?id=/sites/…`)
   werden in die direkte Ordner- bzw. Dateiadresse umgewandelt, auch wenn sie in einer Chat-Frage stehen.
