@@ -122,28 +122,36 @@ Regeln für deine Vorschläge:
 - Höchstens 6 Vorschläge, die wichtigsten zuerst; nichts vorschlagen, was in den bisherigen Hausregeln schon steht.
 - "belege" = wie viele Rückmeldungen den Vorschlag stützen.
 
-Antworte nur mit JSON: {"zusammenfassung": "zwei Sätze, was auffällt", "vorschlaege": [{"art": "hausregel"|"glossar"|"faq"|"quelle", "text": "", "frage": "", "antwort": "", "begruendung": "ein Satz", "belege": 1}]}`;
+Antworte nur mit JSON, die Vorschläge nummeriert als Objekt (keine Liste mit eckigen Klammern): {"zusammenfassung": "zwei Sätze, was auffällt", "vorschlaege": {"1": {"art": "hausregel"|"glossar"|"faq"|"quelle", "text": "", "frage": "", "antwort": "", "begruendung": "ein Satz", "belege": 1}, "2": {…}}}`;
 }
 
+/*
+ * Warum „vorschlaege“ ein Objekt ist und keine Liste: Copilot schreibt Markdown-Links [Titel](Adresse) in seiner Antwort
+ * zur bloßen Adresse um. Steht vor dem ersten Link die öffnende Klammer der Liste, nimmt Copilot alles ab dort als
+ * Linktext und ersetzt es durch die Adresse – aus "vorschlaege":[{"art":…[Titel](https://…) wird "vorschlaege":https://…
+ * Listen in alten Antworten liest der Hub weiter.
+ */
+
 /**
- * Abgeschnittene Antwort retten: das JSON-Objekt nach dem letzten vollständigen Eintrag der Liste „vorschlaege“
+ * Abgeschnittene Antwort retten: das JSON-Objekt nach dem letzten vollständigen Eintrag von „vorschlaege“
  * schließen. Lange FAQ-Antworten (wörtlich übernommen) lassen Copilot gern mittendrin aufhören; so bleiben die
  * vollständigen Vorschläge erhalten. null, wenn keiner vollständig ist.
  */
 export function vorschlaegeBisAbbruch(text: string): unknown {
   const a = text.indexOf("{");
   if (a < 0) return null;
-  let tiefe = 0, inText = false, esc = false, ende = -1;
+  const stapel: string[] = [];
+  let inText = false, esc = false, ende = -1, schluss = "";
   for (let i = a; i < text.length; i++) {
     const c = text[i];
     if (inText) { if (esc) esc = false; else if (c === "\\") esc = true; else if (c === '"') inText = false; continue; }
     if (c === '"') inText = true;
-    else if (c === "{" || c === "[") tiefe++;
-    // Tiefe 1 = Objekt, 2 = Liste, 3 = Vorschlag: endet ein Vorschlag, merken
-    else if (c === "}" || c === "]") { tiefe--; if (c === "}" && tiefe === 2) ende = i; }
+    else if (c === "{" || c === "[") stapel.push(c);
+    // Tiefe 1 = Antwort, 2 = vorschlaege (Objekt oder Liste), 3 = Vorschlag: endet ein Vorschlag, merken
+    else if (c === "}" || c === "]") { stapel.pop(); if (c === "}" && stapel.length === 2) { ende = i; schluss = stapel[1] === "[" ? "]}" : "}}"; } }
   }
   if (ende < 0) return null;
-  try { return JSON.parse(`${text.slice(a, ende + 1)}]}`); } catch { return null; }
+  try { return JSON.parse(`${text.slice(a, ende + 1)}${schluss}`); } catch { return null; }
 }
 
 /** Aufbau einer nicht lesbaren Antwort für das Protokoll, ohne Inhalt: Länge, Ende, Klammern, Anführungszeichen */
@@ -158,7 +166,7 @@ export function vorschlaegeAus(antwort: string, stepId: string): { zusammenfassu
   try { roh = jsonAus(antwort); }
   catch (e) { roh = vorschlaegeBisAbbruch(antwort); if (!roh) throw e; }
   const j = roh as { zusammenfassung?: unknown; vorschlaege?: unknown };
-  const liste = Array.isArray(j.vorschlaege) ? j.vorschlaege : [];
+  const liste = Array.isArray(j.vorschlaege) ? j.vorschlaege : j.vorschlaege && typeof j.vorschlaege === "object" ? Object.values(j.vorschlaege) : [];
   const vorschlaege = liste.flatMap((v): Vorschlag[] => {
     if (!v || typeof v !== "object") return [];
     const o = v as Record<string, unknown>;
