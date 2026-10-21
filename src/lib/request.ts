@@ -59,8 +59,14 @@ export type KiRequest = {
  * Dateien nennen, die keine Stelle geliefert haben.
  */
 export type WissenAuszug = { titel: string; url: string; text: string; fehler?: string; quelleTyp?: Quelle["typ"]; dateien?: string[]; dateienGesamt?: number };
-/** Höchstens so viele Zeichen je Quelle, auch nach dem Zusammenlegen */
+/** Höchstens so viele Zeichen je Quelle (einzelne Datei), auch nach dem Zusammenlegen */
 export const MAX_JE_QUELLE = 40_000;
+/**
+ * Höchstens so viele Zeichen je SharePoint-Bereich, auch nach dem Nachschlagen: Mehr Text lässt Copilot spürbar später
+ * anfangen (gemessen 6 bis 11 s bis zum ersten Zeichen bei 40.000, einmal 62 s beim Nachschlagen). Die selbst gelesenen
+ * Stellen (Tabellenzeilen, Textdateien) stehen vorn und werden zuletzt gekürzt.
+ */
+export const MAX_BEREICH = 24_000;
 
 /**
  * Nachgeschlagene Auszüge zu den schon vorhandenen dazulegen statt sie zu ersetzen: je Quelle die Dokumentblöcke
@@ -74,7 +80,7 @@ export function auszuegeZusammen(vorher: WissenAuszug[], neu: WissenAuszug[]): W
     if (!z) { out.push({ ...v }); continue; }
     const bloecke = z.text ? z.text.split("\n\n") : [];
     for (const b of v.text.split("\n\n")) if (b.trim() && !bloecke.includes(b)) bloecke.push(b);
-    z.text = bloecke.join("\n\n").slice(0, MAX_JE_QUELLE);
+    z.text = bloecke.join("\n\n").slice(0, z.quelleTyp === "datei" ? MAX_JE_QUELLE : MAX_BEREICH);
     delete z.fehler;
   }
   return out;

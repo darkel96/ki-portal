@@ -26,6 +26,11 @@ export const KI_CONFIG = {
   spOrdnerUrl: String(env.VITE_SP_ORDNER_URL ?? "").trim(),
   /** Ruhe-Limit: so lange darf Copilot nichts liefern (beim Streaming zählt jedes neue Stück als Lebenszeichen). */
   timeoutMs: 180_000,
+  /**
+   * Kommt so lange gar kein erstes Zeichen, hängt Copilot (die Beta-Schnittstelle bleibt gelegentlich stumm): einmal
+   * in einem frischen Gespräch neu fragen. 90 s, weil eine langsame, aber funktionierende Antwort schon 62 s brauchte.
+   */
+  ersteZeichenMs: 90_000,
   /** Antwort ohne Streaming (am Stück): Gesamtzeit für lange Ergebnisse */
   timeoutMsAmStueck: 480_000,
 };
