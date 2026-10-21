@@ -218,14 +218,19 @@ still unvermerkt, es öffnet sich kein Fenster.
   mehrere Fragen auf einmal kommen). Die selbst gelesenen Stellen stehen vor den Retrieval-Stellen (gekürzt wird hinten). Bei
   Fragen nach Personen nennt jeder Agent die Namen aus Tabellen und Listen vollständig, bei Zuständigkeit auch Leitung
   und Verantwortliche (`PERSONEN_REGEL`), auch in anderer Schreibweise wie „Software R&D“ (`VARIANTEN_REGEL`);
-  mehrdeutige Begriffe benennt er mit seiner Lesart (`MEHRDEUTIG_REGEL`); Quellen
+  mehrdeutige Begriffe benennt er mit seiner Lesart (`MEHRDEUTIG_REGEL`); falsche Annahmen in der Frage stellt er mit
+  Beleg richtig (`ANNAHMEN_REGEL`); Quellen
   verlinkt er auf das Dokument, nie auf die Bibliothek, jede einmal (`QUELLEN_REGEL`). Diese Regeln gelten für jeden
   Agenten mit Wissensquellen, unabhängig von seiner Rolle. Je SharePoint-Bereich gehen höchstens 24.000 Zeichen und
   12 Retrieval-Stellen an Copilot (`MAX_BEREICH`, auch nach dem Nachschlagen; einzelne Dateien bis 40.000): mehr Text
   lässt Copilot spürbar später anfangen. Beim Öffnen
   einer App lädt der Hub Inventar und Dateien vor (nur mit stiller Anmeldung), die Konsole zeigt je Frage die Zeiten
-  (`[Wissen] … Inventar · Dateien · Bedeutungssuche`). Alles läuft mit der Anmeldung
-  der fragenden Person, SharePoint prüft die Rechte; Inventar und gelesene Dateien bleiben zehn Minuten im Speicher.
+  (`[Wissen] … Inventar · Dateien · Bedeutungssuche`). **Sammelfragen:** Stehen mehrere nummerierte Fragen in einer
+  Nachricht („1. … 2. …“, `teilfragen`), sucht der Hub je Frage getrennt und gleichzeitig; Tabellenzeilen bekommen einen
+  gemeinsamen Teil (30 %), der Rest wird gleichmäßig auf die Fragen verteilt. Die Zerlegung läuft lokal, ohne KI.
+  Alles läuft mit der Anmeldung der fragenden Person, SharePoint prüft die Rechte. Inventar und gelesene Dateien
+  bleiben zehn Minuten im Speicher, **je Person getrennt** (`nutzerKennung`, im Hub-Dienst die Person des Laufs; ohne
+  bekannte Person wird nichts gespeichert). Ebenso der Vorrat an Copilot-Gesprächen.
   Adressen aus der Bibliotheksansicht (`…/Forms/…aspx?id=/sites/…`)
   werden in die direkte Ordner- bzw. Dateiadresse umgewandelt, auch wenn sie in einer Chat-Frage stehen.
 - **Wissensbibliothek:** Mit dem Lesezeichen an einer Quelle landet sie in der Bibliothek (`src/lib/wissensbibliothek.ts`,
