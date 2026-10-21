@@ -54,6 +54,8 @@ export const TABELLE = /\.xlsx$/i;
 export const NAME_LESBAR = /\.(docx|pdf)$/i;
 /** Grenzen je Bereich: Dateien im Inventar, immer gelesene Text- und Tabellendateien, zusätzlich per Name gelesene, Größe je Datei */
 const MAX_INVENTAR = 400, MAX_SELBST = 40, MAX_NAMENSTREFFER = 3, MAX_GROESSE = 5_000_000;
+/** Anteil des Platzes der Wortsuche, der zuerst für passende Tabellenzeilen reserviert ist (siehe textAuszug) */
+const TABELLEN_ANTEIL = 0.4;
 const STOPP = new Set("der die das den dem des ein eine einer eines und oder aber ab an auf aus bei bis für mit nach von vor zu zum zur im in ist sind wird werden wie was wer wo wann gilt gelten welche welcher welches nicht kein keine auch noch nur über unter als dass sich es er sie wir ihr man mal bitte the and for".split(" "));
 const FRAGE: Record<string, string[]> = {
   wann: ["datum", "frist", "zeitplan", "termin", "anwendbar", "inkraft"], gilt: ["anwendbar", "geltung", "inkraft"], gelten: ["anwendbar", "geltung"],
@@ -259,6 +261,8 @@ function tabellenZeilen(text: string): { titel: string; text: string }[] {
  * Seltene Wörter zählen mehr als häufige: „Software“ in einer einzigen Tabellenzeile schlägt „PSSA“, das in jeder
  * Rollenbeschreibung steht. Treffer in der Überschrift zählen doppelt. Tabellen zählen Zeile für Zeile, damit alle
  * passenden Zeilen mitkommen (nicht nur ein Stück der Tabelle); sie stehen je Tabellenblatt als eine Stelle beisammen.
+ * Für Tabellenzeilen ist ein Anteil des Platzes reserviert (TABELLEN_ANTEIL): Bei mehreren Fragen auf einmal trifft ein
+ * langer Abschnitt viele Suchwörter, eine kurze Zeile („Pashov … CISO“) nur eins; ohne Anteil fiele sie hinten herunter.
  */
 export function textAuszug(dateien: TextDatei[], suche: string, max = 24_000): string {
   if (!dateien.length) return "";
@@ -275,16 +279,23 @@ export function textAuszug(dateien: TextDatei[], suche: string, max = 24_000): s
     ...x, punkte: staemme.reduce((n, s) => n + (x.t.includes(s) ? gewicht.get(s)! * (!x.tabelle && x.titel.includes(s) ? 2 : 1) : 0), 0),
   })).filter((k) => k.punkte > 0).sort((x, y) => y.punkte - x.punkte);
   const je = new Map<TextDatei, { titel: string; tabelle: boolean; teile: string[] }[]>();
+  const genommen = new Set<(typeof kandidaten)[number]>();
   let laenge = 0;
-  for (const k of kandidaten) {
-    // Passt eine Stelle nicht mehr, kann eine kürzere dahinter noch passen (z. B. eine Tabellenzeile)
-    if (laenge + k.a.text.length > max) continue;
+  const nehmen = (k: (typeof kandidaten)[number]) => {
     const liste = je.get(k.d) ?? [];
     const blatt = k.tabelle ? liste.find((x) => x.tabelle && x.titel === k.a.titel) : undefined;
     if (blatt) blatt.teile.push(k.a.text);
     else liste.push({ titel: k.a.titel, tabelle: k.tabelle, teile: [k.a.text] });
     je.set(k.d, liste);
+    genommen.add(k);
     laenge += k.a.text.length + 1;
+  };
+  // Zuerst die passendsten Tabellenzeilen bis zu ihrem Anteil, dann alles nach Punkten bis zur Grenze
+  for (const k of kandidaten) if (k.tabelle && laenge + k.a.text.length <= max * TABELLEN_ANTEIL) nehmen(k);
+  for (const k of kandidaten) {
+    // Passt eine Stelle nicht mehr, kann eine kürzere dahinter noch passen (z. B. eine Tabellenzeile)
+    if (genommen.has(k) || laenge + k.a.text.length > max) continue;
+    nehmen(k);
   }
   return [...je.entries()].map(([d, stellen]) => [
     `Dokument: ${d.name}`, d.link ? `Link: ${linkSauber(d.link)}` : "",

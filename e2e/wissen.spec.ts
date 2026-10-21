@@ -95,3 +95,29 @@ test("Wissen: Excel-Tabellen werden zeilenweise gelesen, Namen in Tabellen gefun
   expect(r.xlsx).toBe(true);
   expect(r.docx).toBe(true);
 });
+
+test("Wissen: Bei mehreren Fragen auf einmal kommen die Tabellenzeilen trotzdem mit", async ({ page }, info) => {
+  test.skip(info.project.name !== "desktop", "einmal reicht");
+  await page.goto("/");
+  const r = await page.evaluate(async () => {
+    const w = await import("/src/lib/ki/wissen.ts");
+    // Kontakttabelle (Namen erfunden) neben langer Knowledge Base, die viele Wörter aller Fragen enthält
+    const tabelle = w.tabelleAlsText([{ sheet: "Kontakte", data: [
+      ["Name", "1st Name", "Department", "Position", "RACI", "CRA Rolle"],
+      ["Eins", "Anna", "Cyber Security Advisor", "CISO", "Responsible", "CISO"],
+      ["Zwei", "Bert", "Product and Solution Security Officer", "Specialist", "Responsible", "PSSO"],
+      ["Drei", "Cora", "R&D Automation", "Specialist", "Responsible", "PSSA"],
+      ["Vier", "Dirk", "Automation Fördertechnik", "Abteilungsleiter", "Responsible", "PSSA"],
+      ["Fünf", "Emil", "Elektrokonstruktion", "Abteilungsleiter", "Responsible", null],
+      ["Sechs", "Fritz", "Elektrokonstruktion", null, null, "PSSA"],
+      ["Sieben", "Gabi", "Einkauf", null, null, null],
+    ] }]);
+    const absatz = "Der CRA gilt vollständig ab 2027. Der PSSA unterstützt das Threat Modeling, bewertet Schwachstellen und Meldepflichten, arbeitet mit CISO und PSSO zusammen und ist für Automation und Elektrokonstruktion Ansprechpartner. ";
+    const kb = Array.from({ length: 20 }, (_, i) => `## Kapitel ${i}\n${absatz.repeat(9)}`).join("\n\n");
+    const frage = "Beantworte bitte die folgenden sieben Fragen:\n1. Wer ist der CISO und wer der PSSO?\n2. Welche PSSA gibt es in Abteilungen mit „Automation“ im Namen?\n3. Ab wann gilt der CRA vollständig?\n4. Was muss ich als PSSA beim Threat Modeling konkret tun?\n5. Welche Meldepflichten gibt es bei Schwachstellen?\n6. Wer ist für Elektrokonstruktion zuständig?\n7. Wie lautet die interne Telefonnummer der CRA-Hotline?";
+    return w.textAuszug([{ name: "Knowledge Base.md", link: "https://x/kb.md", text: kb }, { name: "Plan.xlsx", link: "https://x/plan.xlsx", text: tabelle }], frage, 12_000);
+  });
+  for (const zeile of ["Name: Eins", "Name: Zwei", "Name: Drei", "Name: Vier", "Name: Fünf", "Name: Sechs"]) expect(r).toContain(zeile);
+  expect(r).toContain("Dokument: Knowledge Base.md");
+  expect(r.length).toBeLessThan(13_000);
+});

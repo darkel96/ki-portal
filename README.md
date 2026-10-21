@@ -214,7 +214,8 @@ still unvermerkt, es öffnet sich kein Fenster.
   Dateien (Wortsuche, findet auch Namen, Kürzel und Tabellenzeilen) werden gleichzeitig geholt und zusammengelegt:
   kleine Bestände ganz, große als die passenden Abschnitte mit Überschrift als Fundstelle; seltene Suchwörter zählen
   mehr als häufige, Wörter werden auf ihren Stamm gekürzt (namen → name); Tabellen zählen Zeile für Zeile, damit alle
-  passenden Zeilen mitkommen. Die selbst gelesenen Stellen stehen vor den Retrieval-Stellen (gekürzt wird hinten). Bei
+  passenden Zeilen mitkommen, und 40 % des Platzes sind für sie reserviert (sonst verdrängen lange Abschnitte sie, wenn
+  mehrere Fragen auf einmal kommen). Die selbst gelesenen Stellen stehen vor den Retrieval-Stellen (gekürzt wird hinten). Bei
   Fragen nach Personen nennt jeder Agent die Namen aus Tabellen und Listen vollständig, bei Zuständigkeit auch Leitung
   und Verantwortliche (`PERSONEN_REGEL`); mehrdeutige Begriffe benennt er mit seiner Lesart (`MEHRDEUTIG_REGEL`); Quellen
   verlinkt er auf das Dokument, nie auf die Bibliothek, jede einmal (`QUELLEN_REGEL`). Diese Regeln gelten für jeden
