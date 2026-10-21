@@ -437,13 +437,15 @@ export async function wissenAuszuege(quellen: Quelle[], suche: string, signal?: 
 const PERSONEN_REGEL = "Fragt jemand nach Personen („wer“, Namen, zuständig, Ansprechpartner), nenne die konkreten Personen aus Tabellen und Listen in den Auszügen, wenn welche passen, zusätzlich zur Beschreibung der Rolle. Nenne alle passenden Zeilen, nicht nur einige, und wie sie eingetragen sind (z. B. Bereich, Position, Rolle). Bei Zuständigkeit für einen Bereich gehören alle Personen dieses Bereichs dazu, auch Leitung und Verantwortliche, nicht nur die mit einer Sonderrolle.";
 /** Mehrdeutige Begriffe („Automation“: Firma oder Abteilung): die gewählte Lesart nennen und die andere anbieten */
 const MEHRDEUTIG_REGEL = "Kann ein Begriff in der Frage zweierlei meinen (z. B. eine Firma oder eine Abteilung gleichen Namens), sag in einem Halbsatz, wie du ihn verstanden hast, und biete die andere Lesart an.";
+/** Schreibvarianten: „R&D Software“ und „Software R&D“ sind derselbe Bereich (im Test fehlte sonst ein Eintrag) */
+const VARIANTEN_REGEL = "Bereiche und Begriffe in anderer Schreibweise gehören dazu, z. B. „R&D Software“ und „Software R&D“, „Elektrokonstruktion“ und „E-Konstruktion“, Abkürzung und ausgeschriebene Form; nimm solche Einträge mit auf und nenne die Schreibweise, wie sie eingetragen ist.";
 /** Quellen: auf das Dokument verlinken, nie auf die Bibliothek; jede Quelle einmal */
 const QUELLEN_REGEL = "Quellenangaben schreibst du als Markdown-Link auf den Link des Dokuments (die Adresse hinter „Link:“) und nennst die Stelle: die Überschrift oder den Abschnitt, unter dem der Inhalt in der Stelle steht, sonst die Nummer der Stelle, z. B. [CRA Q&A, Abschnitt Scope](https://…) oder [CRA Schulung, Stelle 3](https://…). Verlinke nie die Bibliothek oder den Bereich selbst, und nenne jede Quelle nur einmal. Gib nie die nackte Adresse aus, immer Linktext in eckigen Klammern und Adresse in runden Klammern";
 
 /** Text für die Anfrage */
 export function auszuegeText(a: Auszug[]): string {
   if (!a.length) return "";
-  return `Auszüge aus den hinterlegten Wissensquellen (nur diese Inhalte gelten als belegt). Nutze alle passenden Dokumente und Stellen, nicht nur das erste. ${PERSONEN_REGEL} ${MEHRDEUTIG_REGEL} ${QUELLEN_REGEL}:\n\n` + a.map((x) =>
+  return `Auszüge aus den hinterlegten Wissensquellen (nur diese Inhalte gelten als belegt). Nutze alle passenden Dokumente und Stellen, nicht nur das erste. ${PERSONEN_REGEL} ${VARIANTEN_REGEL} ${MEHRDEUTIG_REGEL} ${QUELLEN_REGEL}:\n\n` + a.map((x) =>
     (x.fehler ? `### ${x.titel}\n(konnte nicht gelesen werden: ${x.fehler})` : `### ${x.titel}\n${x.text ? `${x.quelleTyp === "datei" ? `Link: ${linkSauber(x.url)}\n` : ""}${x.text}` : "(keine passenden Inhalte gefunden)"}`) + dateiListe(x.dateien, x.dateienGesamt)).join("\n\n");
 }
 
