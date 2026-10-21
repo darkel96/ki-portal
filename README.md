@@ -219,7 +219,8 @@ still unvermerkt, es öffnet sich kein Fenster.
   Fragen nach Personen nennt jeder Agent die Namen aus Tabellen und Listen vollständig, bei Zuständigkeit auch Leitung
   und Verantwortliche (`PERSONEN_REGEL`), auch in anderer Schreibweise wie „Software R&D“ (`VARIANTEN_REGEL`);
   mehrdeutige Begriffe benennt er mit seiner Lesart (`MEHRDEUTIG_REGEL`); falsche Annahmen in der Frage stellt er mit
-  Beleg richtig (`ANNAHMEN_REGEL`); Quellen
+  Beleg richtig (`ANNAHMEN_REGEL`); Empfehlungen und Zusammenfassungen leitet er aus Belegtem ab und kennzeichnet sie
+  (`ABLEITUNG_REGEL`); Quellen
   verlinkt er auf das Dokument, nie auf die Bibliothek, jede einmal (`QUELLEN_REGEL`). Diese Regeln gelten für jeden
   Agenten mit Wissensquellen, unabhängig von seiner Rolle. Je SharePoint-Bereich gehen höchstens 24.000 Zeichen und
   12 Retrieval-Stellen an Copilot (`MAX_BEREICH`, auch nach dem Nachschlagen; einzelne Dateien bis 40.000): mehr Text
