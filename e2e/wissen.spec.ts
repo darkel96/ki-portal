@@ -50,28 +50,40 @@ test("Wissen: Excel-Tabellen werden zeilenweise gelesen, Namen in Tabellen gefun
   await page.goto("/");
   const r = await page.evaluate(async () => {
     const w = await import("/src/lib/ki/wissen.ts");
-    // Wie der KSCA Stakeholder+Communication Plan: Titelzeile, dann Kopfzeile, dann Kontakte (Namen erfunden)
+    // Aufbau wie der KSCA Stakeholder+Communication Plan, Blatt „Kontakte“: Titelzeile mit zwei Werten, darunter die
+    // eigentliche Kopfzeile mit „CRA Rolle“ (Namen erfunden). Früher galt die Titelzeile als Kopfzeile.
     const tabelle = w.tabelleAlsText([
-      { sheet: "Kontakte", data: [["KSCA Stakeholder"], ["Name", "Rolle", "Bereich", "Position", "RACI"], ["Max Muster", "PSSA", "Project IT", "Teamleiter", "Responsible"], ["Erika Beispiel", "Product Owner", "Vertrieb", null, "Accountable"]] },
+      { sheet: "Kontakte", data: [
+        ["CRA Contacts KSCA Leingarten", null, null, null, null, "Roll-out", "Prozess", null],
+        ["Name", "1st Name", "e-mail", "Department", "Position", "RACI", "RACI2", "CRA Rolle"],
+        ["Muster", "Max", "max.muster@example.com", "Software Project Processing", "PL", "Responsible", "Responsible", "PSSA"],
+        ["Beispiel", "Erika", "erika.beispiel@example.com", "R&D Software", "Specialist", "Responsible", "Responsible", "PSSA"],
+        ["Probe", "Paul", "paul.probe@example.com", "Einkauf", null, null, null, null],
+      ] },
       { sheet: "Leer", data: [[null]] },
     ]);
-    // Ein großer Bestand: Die Zeile mit der Rolle muss als Stelle mitkommen, auch wenn viel anderes Material daneben liegt
-    const fuell = Array.from({ length: 30 }, (_, i) => `## Kapitel ${i}\n${"Allgemeine Rollenbeschreibung ohne Namen. ".repeat(40)}`).join("\n\n");
-    const auszug = w.textAuszug([
+    // Großer Bestand: Die Tabellenzeilen müssen als Stelle mitkommen, auch wenn viel Rollenbeschreibung daneben liegt
+    const fuell = Array.from({ length: 30 }, (_, i) => `## Kapitel ${i}\n${"Allgemeine Rollenbeschreibung des technischen PSSA ohne Namen. ".repeat(30)}`).join("\n\n");
+    const dateien = [
       { name: "PSSA Rollenbeschreibung.md", link: "https://x/rolle.md", text: fuell },
       { name: "KSCA_Stakeholder+Communication_Plan.xlsx", link: "https://x/plan.xlsx", text: tabelle },
-    ], "Wer ist technischer PSSA?", 6000);
-    const namen = w.namensTreffer([{ name: "Allgemeine Rollenbeschreibung.pdf" }, { name: "KSCA_Stakeholder+Communication_Plan.docx" }, { name: "Schulung.pdf" }], "Wer steht im Stakeholder Plan?").map((d) => d.name);
-    return { tabelle, auszug, namen, xlsx: w.TABELLE.test("Plan.xlsx"), docx: w.NAME_LESBAR.test("a.docx") };
+    ];
+    const software = w.textAuszug(dateien, "Wer ist technisch verantwortlich als PSSA für die Software?", 6000);
+    const namen = w.textAuszug(dateien, "Ich brauche Namen der Personen", 6000);
+    const datei = w.namensTreffer([{ name: "Allgemeine Rollenbeschreibung.pdf" }, { name: "KSCA_Stakeholder+Communication_Plan.docx" }, { name: "Schulung.pdf" }], "Wer steht im Stakeholder Plan?").map((d) => d.name);
+    return { tabelle, software, namen, datei, xlsx: w.TABELLE.test("Plan.xlsx"), docx: w.NAME_LESBAR.test("a.docx") };
   });
-  expect(r.tabelle).toContain("## Tabellenblatt Kontakte");
-  expect(r.tabelle).toContain("Name: Max Muster | Rolle: PSSA | Bereich: Project IT | Position: Teamleiter | RACI: Responsible");
-  expect(r.tabelle).toContain("Name: Erika Beispiel | Rolle: Product Owner | Bereich: Vertrieb | RACI: Accountable");
+  expect(r.tabelle).toContain("## Tabellenblatt Kontakte\nCRA Contacts KSCA Leingarten · Roll-out · Prozess");
+  expect(r.tabelle).toContain("Name: Muster | 1st Name: Max | e-mail: max.muster@example.com | Department: Software Project Processing | Position: PL | RACI: Responsible | RACI2: Responsible | CRA Rolle: PSSA");
+  expect(r.tabelle).toContain("Name: Probe | 1st Name: Paul | e-mail: paul.probe@example.com | Department: Einkauf");
+  expect(r.tabelle).not.toContain("Roll-out: ");
   expect(r.tabelle).not.toContain("Leer");
-  expect(r.auszug).toContain("Dokument: KSCA_Stakeholder+Communication_Plan.xlsx");
-  expect(r.auszug).toContain("Max Muster | Rolle: PSSA");
-  expect(r.auszug.length).toBeLessThan(7000);
-  expect(r.namen).toEqual(["KSCA_Stakeholder+Communication_Plan.docx"]);
+  for (const a of [r.software, r.namen]) {
+    expect(a).toContain("Dokument: KSCA_Stakeholder+Communication_Plan.xlsx");
+    expect(a).toContain("Department: Software Project Processing | Position: PL");
+    expect(a.length).toBeLessThan(7000);
+  }
+  expect(r.datei).toEqual(["KSCA_Stakeholder+Communication_Plan.docx"]);
   expect(r.xlsx).toBe(true);
   expect(r.docx).toBe(true);
 });
