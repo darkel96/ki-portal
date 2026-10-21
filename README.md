@@ -217,7 +217,8 @@ still unvermerkt, es öffnet sich kein Fenster.
   passenden Zeilen mitkommen, und 40 % des Platzes sind für sie reserviert (sonst verdrängen lange Abschnitte sie, wenn
   mehrere Fragen auf einmal kommen). Die selbst gelesenen Stellen stehen vor den Retrieval-Stellen (gekürzt wird hinten). Bei
   Fragen nach Personen nennt jeder Agent die Namen aus Tabellen und Listen vollständig, bei Zuständigkeit auch Leitung
-  und Verantwortliche (`PERSONEN_REGEL`); mehrdeutige Begriffe benennt er mit seiner Lesart (`MEHRDEUTIG_REGEL`); Quellen
+  und Verantwortliche (`PERSONEN_REGEL`), auch in anderer Schreibweise wie „Software R&D“ (`VARIANTEN_REGEL`);
+  mehrdeutige Begriffe benennt er mit seiner Lesart (`MEHRDEUTIG_REGEL`); Quellen
   verlinkt er auf das Dokument, nie auf die Bibliothek, jede einmal (`QUELLEN_REGEL`). Diese Regeln gelten für jeden
   Agenten mit Wissensquellen, unabhängig von seiner Rolle. Je SharePoint-Bereich gehen höchstens 24.000 Zeichen und
   12 Retrieval-Stellen an Copilot (`MAX_BEREICH`, auch nach dem Nachschlagen; einzelne Dateien bis 40.000): mehr Text

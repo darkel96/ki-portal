@@ -31,7 +31,8 @@ export async function extractText(file: File): Promise<string> {
     const pdfjs = await import("pdfjs-dist");
     const { default: workerUrl } = await import("pdfjs-dist/build/pdf.worker.min.mjs?url");
     pdfjs.GlobalWorkerOptions.workerSrc = workerUrl;
-    const doc = await pdfjs.getDocument({ data: new Uint8Array(await file.arrayBuffer()) }).promise;
+    // verbosity ERRORS: keine Warnungen zu Schriften o. Ä. in der Konsole („TT: undefined function“); der Text kommt trotzdem an
+    const doc = await pdfjs.getDocument({ data: new Uint8Array(await file.arrayBuffer()), verbosity: pdfjs.VerbosityLevel.ERRORS }).promise;
     const out: string[] = [];
     for (let i = 1; i <= Math.min(doc.numPages, 200); i++) {
       const tc = await (await doc.getPage(i)).getTextContent();
