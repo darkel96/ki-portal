@@ -53,6 +53,9 @@ test("Copilot-Antworten: entdoppeln, JSON, Streaming", async ({ page }) => {
     return {
       doppelt: c.entdoppeln(A + A), doppeltLeer: c.entdoppeln(A + "\n\n" + A), einfach: c.entdoppeln(A), kurz: c.entdoppeln("abab"),
       json: k.jsonAus('Hier: {"a":"}{","b":{"c":1}}{"a":"}{","b":{"c":1}}'), jsonFence: k.jsonAus('```json\n{"x":"\\"}"}\n```'),
+      // Lernschicht: Eine übernommene Antwort mit Ablaufdiagramm steht als Codeblock in einer Zeichenkette des JSON
+      jsonMitDiagramm: k.jsonAus('{"zusammenfassung":"ok","vorschlaege":[{"antwort":"Ablauf:\\n```mermaid\\nflowchart TD\\nC{Security Level 3?} --> D\\n```\\nQuelle"}]}'),
+      jsonFenceNachText: k.jsonAus('Hier das Ergebnis:\n```json\n{"a":1}\n```'),
       kum, teile, person, personTeile, geteilt, ohneStream, umgeschrieben, streamDoppelt, doppelTeile, lang, korrigiert, korrigiertTeile, korrigiertEnde, dann, erst, getrennt, getrenntEnde, mitte, mitteTeile, mitteEnde, mitteB, wdh, absatzA, absatzB,
     };
   });
@@ -62,6 +65,8 @@ test("Copilot-Antworten: entdoppeln, JSON, Streaming", async ({ page }) => {
   expect(r.kurz).toBe("abab");
   expect(r.json).toEqual({ a: "}{", b: { c: 1 } });
   expect(r.jsonFence).toEqual({ x: '"}' });
+  expect(r.jsonMitDiagramm).toEqual({ zusammenfassung: "ok", vorschlaege: [{ antwort: "Ablauf:\n```mermaid\nflowchart TD\nC{Security Level 3?} --> D\n```\nQuelle" }] });
+  expect(r.jsonFenceNachText).toEqual({ a: 1 });
   expect(r.kum).toBe("Hallo Welt");
   expect(r.teile).toEqual(["Hal", "Hallo Wel", "Hallo Welt"]);
   expect(r.person).toBe("[Dario Keller](https://www.office.com/search?q=Dario+Keller) übernimmt ab 2027 die Rolle des PSSA.");

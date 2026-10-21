@@ -50,11 +50,14 @@ export async function kiFragen(text: string, signal?: AbortSignal, onTeil?: (tex
 /**
  * Liest das erste vollständige JSON-Objekt aus einer KI-Antwort, auch wenn Text davor oder danach steht
  * oder die KI das Objekt doppelt liefert (Klammern werden gezählt, Zeichenketten übersprungen).
+ * Ein Codeblock zählt nur, wenn er vor dem JSON beginnt, es also umschließt: Steht er erst darin (eine Antwort mit
+ * Ablaufdiagramm ```mermaid in einer Zeichenkette, z. B. in der Lernschicht), wäre sonst das Diagramm als JSON gelesen worden.
  */
 export function jsonAus(text: string): unknown {
   const t = String(text);
   const fence = /```(?:json)?\s*([\s\S]*?)```/.exec(t);
-  const src = fence ? fence[1] : t;
+  const umschliesst = !!fence && (t.indexOf("{") < 0 || fence.index < t.indexOf("{"));
+  const src = fence && umschliesst ? fence[1] : t;
   const a = src.indexOf("{");
   if (a < 0) throw new Error("Die Antwort enthält kein JSON.");
   let tiefe = 0, inText = false, esc = false;
