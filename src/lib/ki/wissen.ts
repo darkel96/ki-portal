@@ -9,12 +9,12 @@ import { kiModus } from "./index";
 import { shareId } from "./vorlagen";
 import { officeLink } from "../links";
 import type { Quelle } from "../schema";
-import { MAX_JE_QUELLE, type WissenAuszug } from "../request";
+import { MAX_BEREICH, MAX_JE_QUELLE, type WissenAuszug } from "../request";
 
 const GRAPH = `${KI_CONFIG.graph}/v1.0`;
 /** Zeichen je Quelle, die höchstens in die Anfrage wandern */
-/** Treffer je SharePoint-Bereich (die Retrieval API erlaubt bis 25) */
-const MAX_TREFFER = 20;
+/** Treffer je SharePoint-Bereich (die Retrieval API erlaubt bis 25; weniger Text lässt Copilot früher anfangen) */
+const MAX_TREFFER = 12;
 
 export type Auszug = WissenAuszug;
 
@@ -315,9 +315,9 @@ async function sharepointAuszuege(q: Quelle, suche: string, token: string, signa
   const selbst = bereichSelbstLesen(url, suche, token, signal)
     .catch((e) => { if (signal?.aborted) throw e; return { dateien: [], inventar: [], zeit: { inventar: 0, dateien: 0, neu: 0, ausSpeicher: false } }; });
   const [retrieval, eigen] = await Promise.all([bedeutung, selbst]);
-  // Platz für die selbst gelesenen Dateien: was die Retrieval-Stellen übrig lassen, mindestens 12.000 Zeichen
-  const extra = textAuszug(eigen.dateien, suche, Math.max(12_000, MAX_JE_QUELLE - retrieval.length - 4_000));
-  const text = [extra, retrieval].filter(Boolean).join("\n\n").slice(0, MAX_JE_QUELLE);
+  // Platz für die selbst gelesenen Dateien: was die Retrieval-Stellen übrig lassen, mindestens 12.000 Zeichen (die Hälfte)
+  const extra = textAuszug(eigen.dateien, suche, Math.max(12_000, MAX_BEREICH - retrieval.length - 2_000));
+  const text = [extra, retrieval].filter(Boolean).join("\n\n").slice(0, MAX_BEREICH);
   const sek = (ms: number) => `${(ms / 1000).toFixed(1).replace(".", ",")} s`;
   console.info(`[Wissen] ${q.titel || url}: Inventar ${eigen.zeit.ausSpeicher ? "aus Speicher" : sek(eigen.zeit.inventar)} (${eigen.inventar.length} Dateien) · Dateien ${sek(eigen.zeit.dateien)} (${eigen.zeit.neu} neu gelesen, ${eigen.dateien.length} genutzt) · Bedeutungssuche ${sek(tBedeutung)} · ${text.length} Zeichen · gesamt ${sek(Date.now() - t0)}`);
   if (!text && fehler) throw new Error(fehler);
@@ -418,16 +418,21 @@ export async function wissenAuszuege(quellen: Quelle[], suche: string, signal?: 
   }));
 }
 
-/**
- * Regel für jeden Agenten mit Wissensquellen (gilt unabhängig von seiner Rolle): Fragt jemand nach Personen, nennt die
- * KI die Namen aus Tabellen und Listen vollständig, statt nur die Rolle zu beschreiben.
+/*
+ * Regeln für jeden Agenten mit Wissensquellen (gelten unabhängig von seiner Rolle, die nur Tonfall, Länge und Belegregel
+ * festlegt). Gefunden in Tests mit dem CRA-Experten.
  */
-const PERSONEN_REGEL = "Fragt jemand nach Personen („wer“, Namen, zuständig, Ansprechpartner), nenne die konkreten Personen aus Tabellen und Listen in den Auszügen, wenn welche passen, zusätzlich zur Beschreibung der Rolle. Nenne alle passenden Zeilen, nicht nur einige, und wie sie eingetragen sind (z. B. Bereich, Position).";
+/** Personen: Namen aus Tabellen und Listen vollständig nennen, bei Zuständigkeit auch Leitung und „Responsible“, nicht nur die mit Sonderrolle */
+const PERSONEN_REGEL = "Fragt jemand nach Personen („wer“, Namen, zuständig, Ansprechpartner), nenne die konkreten Personen aus Tabellen und Listen in den Auszügen, wenn welche passen, zusätzlich zur Beschreibung der Rolle. Nenne alle passenden Zeilen, nicht nur einige, und wie sie eingetragen sind (z. B. Bereich, Position, Rolle). Bei Zuständigkeit für einen Bereich gehören alle Personen dieses Bereichs dazu, auch Leitung und Verantwortliche, nicht nur die mit einer Sonderrolle.";
+/** Mehrdeutige Begriffe („Automation“: Firma oder Abteilung): die gewählte Lesart nennen und die andere anbieten */
+const MEHRDEUTIG_REGEL = "Kann ein Begriff in der Frage zweierlei meinen (z. B. eine Firma oder eine Abteilung gleichen Namens), sag in einem Halbsatz, wie du ihn verstanden hast, und biete die andere Lesart an.";
+/** Quellen: auf das Dokument verlinken, nie auf die Bibliothek; jede Quelle einmal */
+const QUELLEN_REGEL = "Quellenangaben schreibst du als Markdown-Link auf den Link des Dokuments (die Adresse hinter „Link:“) und nennst die Stelle: die Überschrift oder den Abschnitt, unter dem der Inhalt in der Stelle steht, sonst die Nummer der Stelle, z. B. [CRA Q&A, Abschnitt Scope](https://…) oder [CRA Schulung, Stelle 3](https://…). Verlinke nie die Bibliothek oder den Bereich selbst, und nenne jede Quelle nur einmal. Gib nie die nackte Adresse aus, immer Linktext in eckigen Klammern und Adresse in runden Klammern";
 
 /** Text für die Anfrage */
 export function auszuegeText(a: Auszug[]): string {
   if (!a.length) return "";
-  return "Auszüge aus den hinterlegten Wissensquellen (nur diese Inhalte gelten als belegt). Nutze alle passenden Dokumente und Stellen, nicht nur das erste. " + PERSONEN_REGEL + " Quellenangaben schreibst du als Markdown-Link auf den Link des Dokuments und nennst die Stelle: die Überschrift oder den Abschnitt, unter dem der Inhalt in der Stelle steht, sonst die Nummer der Stelle, z. B. [CRA Q&A, Abschnitt Scope](https://…) oder [CRA Schulung, Stelle 3](https://…). Gib nie die nackte Adresse aus, immer Linktext in eckigen Klammern und Adresse in runden Klammern:\n\n" + a.map((x) =>
+  return `Auszüge aus den hinterlegten Wissensquellen (nur diese Inhalte gelten als belegt). Nutze alle passenden Dokumente und Stellen, nicht nur das erste. ${PERSONEN_REGEL} ${MEHRDEUTIG_REGEL} ${QUELLEN_REGEL}:\n\n` + a.map((x) =>
     (x.fehler ? `### ${x.titel}\n(konnte nicht gelesen werden: ${x.fehler})` : `### ${x.titel}\n${x.text ? `${x.quelleTyp === "datei" ? `Link: ${linkSauber(x.url)}\n` : ""}${x.text}` : "(keine passenden Inhalte gefunden)"}`) + dateiListe(x.dateien, x.dateienGesamt)).join("\n\n");
 }
 

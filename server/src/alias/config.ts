@@ -19,6 +19,8 @@ export const KI_CONFIG = {
   scopes: String(env.HUB_GRAPH_SCOPES ?? "").split(/\s+/).filter(Boolean),
   spOrdnerUrl: "",
   timeoutMs: 180_000,
+  /** wie im Browser (src/lib/ki/config.ts): ohne erstes Zeichen nach 90 s einmal in einem frischen Gespräch neu fragen */
+  ersteZeichenMs: 90_000,
   timeoutMsAmStueck: 480_000,
 };
 

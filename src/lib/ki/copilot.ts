@@ -38,13 +38,20 @@ function graphMeldung(status: number, text: string): string {
   return `${hinweis} Meldung von Graph: ${meldung}`;
 }
 
-/** fetch mit Zeitlimit; Netzwerk- und Zeitfehler werden verständlich gemeldet. */
+/** Copilot hat innerhalb der Frist kein erstes Zeichen geliefert (hängt); der Aufrufer fragt einmal in einem frischen Gespräch neu */
+export class ErstesZeichenAus extends Error {
+  constructor() { super(`Copilot hat nach ${Math.round(KI_CONFIG.ersteZeichenMs / 1000)} Sekunden noch nicht angefangen zu antworten, auch nicht beim zweiten Versuch. Versuch es gleich noch einmal.`); }
+}
+
 /**
  * fetch mit Ruhe-Limit: Abgebrochen wird erst, wenn so lange gar nichts mehr kommt (limitMs). Beim Streaming meldet
- * der Leser jedes Stück über wach(); eine lange Antwort, die noch wächst, läuft also durch.
+ * der Leser jedes Stück über wach(); eine lange Antwort, die noch wächst, läuft also durch. Mit ersteFrist bricht der
+ * Aufruf zusätzlich ab, wenn bis dahin kein erstes Zeichen da ist (da() = false): dann ErstesZeichenAus.
  */
-async function anfrage<T>(url: string, body: unknown, token: string, signal: AbortSignal | undefined, lesen: (res: Response, wach: () => void) => Promise<T>, accept = "application/json", limitMs = KI_CONFIG.timeoutMs): Promise<T> {
+async function anfrage<T>(url: string, body: unknown, token: string, signal: AbortSignal | undefined, lesen: (res: Response, wach: () => void) => Promise<T>, accept = "application/json", limitMs = KI_CONFIG.timeoutMs, ersteFrist?: { ms: number; da: () => boolean }): Promise<T> {
   const ctl = new AbortController();
+  let ersteAus = false;
+  const erst = ersteFrist ? setTimeout(() => { if (!ersteFrist.da()) { ersteAus = true; ctl.abort(); } }, ersteFrist.ms) : undefined;
   let timer = setTimeout(() => ctl.abort(), limitMs);
   const wach = () => { clearTimeout(timer); timer = setTimeout(() => ctl.abort(), limitMs); };
   const weiter = () => ctl.abort();
@@ -60,11 +67,13 @@ async function anfrage<T>(url: string, body: unknown, token: string, signal: Abo
     wach();
     return await lesen(res, wach);
   } catch (e) {
+    if (ersteAus && !signal?.aborted) throw new ErstesZeichenAus();
     if (e instanceof DOMException && e.name === "AbortError" && !signal?.aborted) throw new Error(`Copilot hat ${Math.round(limitMs / 60000)} Minuten lang nichts mehr geliefert und wurde abgebrochen. Versuch es noch einmal.`);
     if (e instanceof TypeError) throw new Error("Keine Verbindung zu Microsoft Graph. Netzwerk oder Proxy prüfen.");
     throw e;
   } finally {
     clearTimeout(timer);
+    clearTimeout(erst);
     signal?.removeEventListener("abort", weiter);
   }
 }
@@ -272,14 +281,16 @@ export async function copilotFragen(frage: string, opts: {
       webContext: { isWebEnabled: !!opts.web },
     },
   };
-  const t2 = performance.now();
+  let t2 = performance.now();
+  // Bleibt das erste Zeichen aus, hängt Copilot: der Aufruf bricht nach ersteZeichenMs ab (ErstesZeichenAus)
+  const ersteFrist = { ms: KI_CONFIG.ersteZeichenMs, da: () => messung.ersteZeichen != null };
   const senden = async (gespraech: string): Promise<string> => {
     const url = `${GRAPH}/${encodeURIComponent(gespraech)}`;
     // Immer gestreamt, auch ohne Live-Anzeige: Dann bricht nur Stillstand ab, nie eine Antwort, die noch entsteht
     if (!streamingAus) {
       try {
         messung.gestreamt = true;
-        return await anfrage(`${url}/chatOverStream`, body, token, opts.signal, (res, wach) => streamLesen(res, frage, opts.onTeil ?? (() => {}), t2, messung, wach), "text/event-stream");
+        return await anfrage(`${url}/chatOverStream`, body, token, opts.signal, (res, wach) => streamLesen(res, frage, opts.onTeil ?? (() => {}), t2, messung, wach), "text/event-stream", KI_CONFIG.timeoutMs, ersteFrist);
       } catch (e) {
         // Bietet der Tenant kein Streaming an, dauerhaft auf /chat ausweichen
         if (!(e instanceof GraphFehler) || ![400, 404, 405, 501].includes(e.status)) throw e;
@@ -297,11 +308,20 @@ export async function copilotFragen(frage: string, opts: {
     text = await senden(id);
     opts.onGespraech?.(id);
   } catch (e) {
-    // Ein weitergeführtes Gespräch ist verfallen: Der Chat muss mit vollem Verlauf neu beginnen
-    if (opts.gespraech && e instanceof GraphFehler && e.status === 404) throw new GespraechVerfallen();
-    // Ein vorab angelegtes Gespräch kann verfallen sein: einmal mit einem frischen wiederholen
-    if (!(messung.ausVorrat && e instanceof GraphFehler && e.status === 404)) throw e;
+    // Copilot hängt (kein erstes Zeichen): einmal in einem frischen Gespräch neu fragen. Im weitergeführten Chat-Gespräch
+    // geht das nur mit vollem Verlauf: das übernimmt der Chat (GespraechVerfallen), wie bei einem verfallenen Gespräch.
+    const haengt = e instanceof ErstesZeichenAus;
+    if (haengt) {
+      console.warn(`[KI-Hub] Copilot: nach ${Math.round(KI_CONFIG.ersteZeichenMs / 1000)} s kein erstes Zeichen, neuer Versuch in einem frischen Gespräch`);
+      if (opts.gespraech) throw new GespraechVerfallen();
+    } else {
+      // Ein weitergeführtes Gespräch ist verfallen: Der Chat muss mit vollem Verlauf neu beginnen
+      if (opts.gespraech && e instanceof GraphFehler && e.status === 404) throw new GespraechVerfallen();
+      // Ein vorab angelegtes Gespräch kann verfallen sein: einmal mit einem frischen wiederholen
+      if (!(messung.ausVorrat && e instanceof GraphFehler && e.status === 404)) throw e;
+    }
     const neu = await neuesGespraech(token, opts.signal);
+    if (haengt) { messung.ausVorrat = false; messung.ersteZeichen = null; t2 = performance.now(); }
     text = await senden(neu);
     opts.onGespraech?.(neu);
   }

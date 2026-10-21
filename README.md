@@ -215,7 +215,12 @@ still unvermerkt, es öffnet sich kein Fenster.
   kleine Bestände ganz, große als die passenden Abschnitte mit Überschrift als Fundstelle; seltene Suchwörter zählen
   mehr als häufige, Wörter werden auf ihren Stamm gekürzt (namen → name); Tabellen zählen Zeile für Zeile, damit alle
   passenden Zeilen mitkommen. Die selbst gelesenen Stellen stehen vor den Retrieval-Stellen (gekürzt wird hinten). Bei
-  Fragen nach Personen nennt jeder Agent die Namen aus Tabellen und Listen vollständig (`PERSONEN_REGEL`). Beim Öffnen
+  Fragen nach Personen nennt jeder Agent die Namen aus Tabellen und Listen vollständig, bei Zuständigkeit auch Leitung
+  und Verantwortliche (`PERSONEN_REGEL`); mehrdeutige Begriffe benennt er mit seiner Lesart (`MEHRDEUTIG_REGEL`); Quellen
+  verlinkt er auf das Dokument, nie auf die Bibliothek, jede einmal (`QUELLEN_REGEL`). Diese Regeln gelten für jeden
+  Agenten mit Wissensquellen, unabhängig von seiner Rolle. Je SharePoint-Bereich gehen höchstens 24.000 Zeichen und
+  12 Retrieval-Stellen an Copilot (`MAX_BEREICH`, auch nach dem Nachschlagen; einzelne Dateien bis 40.000): mehr Text
+  lässt Copilot spürbar später anfangen. Beim Öffnen
   einer App lädt der Hub Inventar und Dateien vor (nur mit stiller Anmeldung), die Konsole zeigt je Frage die Zeiten
   (`[Wissen] … Inventar · Dateien · Bedeutungssuche`). Alles läuft mit der Anmeldung
   der fragenden Person, SharePoint prüft die Rechte; Inventar und gelesene Dateien bleiben zehn Minuten im Speicher.
@@ -258,8 +263,9 @@ still unvermerkt, es öffnet sich kein Fenster.
   Baukasten setzt die bisherigen wieder ein (`ergaenzen` in `src/lib/assistant.ts`). Der Kontext lässt Standardwerte weg.
   Während des Umbaus zeigt der Assistent Wartezeit und empfangene Zeichen.
 - **Zeitlimit:** Copilot-Antworten kommen immer als Strom; abgebrochen wird nur, wenn 3 Minuten lang nichts mehr
-  ankommt (`KI_CONFIG.timeoutMs`), nie eine Antwort, die noch entsteht. Ohne Streaming (Tenant ohne `chatOverStream`)
-  gilt für die Antwort am Stück 8 Minuten.
+  ankommt (`KI_CONFIG.timeoutMs`), nie eine Antwort, die noch entsteht. Kommt nach 90 Sekunden noch gar kein erstes
+  Zeichen (`KI_CONFIG.ersteZeichenMs`), hängt Copilot: der Hub fragt einmal in einem frischen Gespräch neu, im Chat mit
+  vollem Verlauf. Ohne Streaming (Tenant ohne `chatOverStream`) gilt für die Antwort am Stück 8 Minuten.
 - Word-Dateien werden mit Kästchen gelesen: angekreuzt ☒, leer ☐ (Inhaltssteuerelemente, alte Formularfelder,
   Wingdings-Symbole und gezeichnete Kästchen, also kleine Textfelder mit „x“ wie in der Service-Checkliste),
   Tabellen zeilenweise mit „|“.
