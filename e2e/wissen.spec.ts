@@ -156,3 +156,21 @@ test("Wissen: Nummerierte Sammelfragen werden für die Suche zerlegt, die Regel 
   expect(r.liste).toEqual([]);
   expect(r.anfrage).toContain("stelle sie zuerst richtig");
 });
+
+test("Wissen: Bei knappem Platz kommt der Anfang eines passenden Abschnitts mit, die Regel für Ableitungen geht mit", async ({ page }, info) => {
+  test.skip(info.project.name !== "desktop", "einmal reicht");
+  await page.goto("/");
+  const r = await page.evaluate(async () => {
+    const w = await import("/src/lib/ki/wissen.ts");
+    // Wie bei acht Fragen auf einmal: je Frage um 1.000 Zeichen, der passende Abschnitt ist länger
+    const zeitplan = "## Regulatorischer Zeitplan\nDer CRA ist am 10.12.2024 in Kraft getreten.\nVollständige Anwendbarkeit ab 11.12.2027.\n" + "Erläuterung zu Übergangsfristen und Konformitätsbewertung. ".repeat(40);
+    const fuell = Array.from({ length: 10 }, (_, i) => `## Kapitel ${i}\n${"Allgemeiner Text ohne Bezug. ".repeat(60)}`).join("\n\n");
+    const knapp = w.textAuszug([{ name: "Leitfaden.md", link: "https://x/l.md", text: fuell + "\n\n" + zeitplan }], "Warum gilt der CRA erst ab 2029?", 1000);
+    return { knapp, anfrage: w.auszuegeText([{ titel: "B", url: "https://x/b", text: "Dokument: a" }]) };
+  });
+  expect(r.knapp).toContain("Vollständige Anwendbarkeit ab 11.12.2027.");
+  expect(r.knapp).toContain(" …");
+  expect(r.knapp.length).toBeLessThan(1200);
+  expect(r.anfrage).toContain("kennzeichne sie als Ableitung");
+  expect(r.anfrage).toContain("nenne den belegten richtigen Wert");
+});

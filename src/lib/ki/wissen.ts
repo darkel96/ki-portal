@@ -308,10 +308,19 @@ export function textAuszug(dateien: TextDatei[], suche: string, max = 24_000): s
   };
   // Zuerst die passendsten Tabellenzeilen bis zu ihrem Anteil, dann alles nach Punkten bis zur Grenze
   for (const k of kandidaten) if (k.tabelle && laenge + k.a.text.length <= max * TABELLEN_ANTEIL) nehmen(k);
+  let gekuerzt = false;
   for (const k of kandidaten) {
+    if (genommen.has(k)) continue;
+    const rest = max - laenge;
     // Passt eine Stelle nicht mehr, kann eine kürzere dahinter noch passen (z. B. eine Tabellenzeile)
-    if (genommen.has(k) || laenge + k.a.text.length > max) continue;
-    nehmen(k);
+    if (k.a.text.length <= rest) { nehmen(k); continue; }
+    // Bei wenig Platz (Sammelfragen: je Frage um 1.000 Zeichen, ein Abschnitt bis 1.800) kommt vom passendsten Abschnitt,
+    // der nicht ganz passt, wenigstens der Anfang mit, bis zur Zeilengrenze; einmal je Aufruf, sonst bliebe er ganz draußen
+    if (!gekuerzt && !k.tabelle && rest >= 500) {
+      const ende = k.a.text.lastIndexOf("\n", rest - 2);
+      nehmen({ ...k, a: { ...k.a, text: `${k.a.text.slice(0, ende > 300 ? ende : rest - 2)} …` } });
+      gekuerzt = true;
+    }
   }
   return [...je.entries()].map(([d, stellen]) => [
     `Dokument: ${d.name}`, d.link ? `Link: ${linkSauber(d.link)}` : "",
@@ -503,7 +512,9 @@ const PERSONEN_REGEL = "Fragt jemand nach Personen („wer“, Namen, zuständig
 /** Mehrdeutige Begriffe („Automation“: Firma oder Abteilung): die gewählte Lesart nennen und die andere anbieten */
 const MEHRDEUTIG_REGEL = "Kann ein Begriff in der Frage zweierlei meinen (z. B. eine Firma oder eine Abteilung gleichen Namens), sag in einem Halbsatz, wie du ihn verstanden hast, und biete die andere Lesart an.";
 /** Falsche Annahmen („Warum gilt der CRA erst ab 2029?“): richtigstellen statt nur „nichts gefunden“ (im Test so geschehen) */
-const ANNAHMEN_REGEL = "Steckt in der Frage eine Annahme, die die Auszüge widerlegen (z. B. ein falsches Datum oder eine falsche Zuständigkeit), stelle sie zuerst richtig und belege das; antworte nicht nur, dazu stehe nichts in den Unterlagen.";
+const ANNAHMEN_REGEL = "Steckt in der Frage eine Annahme, die die Auszüge widerlegen (z. B. ein falsches Datum oder eine falsche Zuständigkeit), stelle sie zuerst richtig, nenne den belegten richtigen Wert und belege das; antworte nicht nur, dazu stehe nichts in den Unterlagen.";
+/** Empfehlungen und Zusammenfassungen („Was sollte ich als neuer PSSA tun?“): aus Belegtem ableiten statt „kein Plan gefunden“ */
+const ABLEITUNG_REGEL = "Fragt jemand nach einer Empfehlung, Zusammenfassung oder nächsten Schritten, die so nicht wörtlich in den Auszügen stehen, leite sie aus den belegten Inhalten ab (z. B. aus Aufgaben einer Rolle), kennzeichne sie als Ableitung und nenne die Quellen; erfinde dabei nichts, was nicht belegt ist.";
 /** Schreibvarianten: „R&D Software“ und „Software R&D“ sind derselbe Bereich (im Test fehlte sonst ein Eintrag) */
 const VARIANTEN_REGEL = "Bereiche und Begriffe in anderer Schreibweise gehören dazu, z. B. „R&D Software“ und „Software R&D“, „Elektrokonstruktion“ und „E-Konstruktion“, Abkürzung und ausgeschriebene Form; nimm solche Einträge mit auf und nenne die Schreibweise, wie sie eingetragen ist.";
 /** Quellen: auf das Dokument verlinken, nie auf die Bibliothek; jede Quelle einmal */
@@ -512,7 +523,7 @@ const QUELLEN_REGEL = "Quellenangaben schreibst du als Markdown-Link auf den Lin
 /** Text für die Anfrage */
 export function auszuegeText(a: Auszug[]): string {
   if (!a.length) return "";
-  return `Auszüge aus den hinterlegten Wissensquellen (nur diese Inhalte gelten als belegt). Nutze alle passenden Dokumente und Stellen, nicht nur das erste. ${PERSONEN_REGEL} ${VARIANTEN_REGEL} ${MEHRDEUTIG_REGEL} ${ANNAHMEN_REGEL} ${QUELLEN_REGEL}:\n\n` + a.map((x) =>
+  return `Auszüge aus den hinterlegten Wissensquellen (nur diese Inhalte gelten als belegt). Nutze alle passenden Dokumente und Stellen, nicht nur das erste. ${PERSONEN_REGEL} ${VARIANTEN_REGEL} ${MEHRDEUTIG_REGEL} ${ANNAHMEN_REGEL} ${ABLEITUNG_REGEL} ${QUELLEN_REGEL}:\n\n` + a.map((x) =>
     (x.fehler ? `### ${x.titel}\n(konnte nicht gelesen werden: ${x.fehler})` : `### ${x.titel}\n${x.text ? `${x.quelleTyp === "datei" ? `Link: ${linkSauber(x.url)}\n` : ""}${x.text}` : "(keine passenden Inhalte gefunden)"}`) + dateiListe(x.dateien, x.dateienGesamt)).join("\n\n");
 }
 
