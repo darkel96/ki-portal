@@ -223,6 +223,9 @@ export function MeinHubProvider({ children }: { children: ReactNode }) {
 
   // Läufe des Dienstes in den Verlauf holen (regelmäßig, bei Fokus, und öfter, solange einer läuft)
   const laeuftImDienst = !!laufend && dienstAn;
+  /** Im Dienst gestartete Läufe, deren Ende gemeldet werden soll, und bereits gemeldete */
+  const erwartet = useRef(new Set<string>());
+  const gemeldet = useRef(new Set<string>());
   useEffect(() => {
     if (!dienstAn || !geladen) return;
     let aus = false;
@@ -239,6 +242,17 @@ export function MeinHubProvider({ children }: { children: ReactNode }) {
         const aktiv = neu.find((l) => l.status === "laeuft") ?? null;
         setLaufend((alt) => (JSON.stringify(alt) === JSON.stringify(aktiv) ? alt : aktiv));
         const alt = datenRef.current.laeufe;
+        // Fertig-Meldung wie bei Aufträgen im Browser: für hier gestartete Läufe („Jetzt ausführen“) und für Läufe, die
+        // in dieser Sitzung noch liefen. Ältere fertige Läufe beim ersten Abholen melden wir nicht.
+        for (const l of neu) {
+          if (!l.auftragId || l.status === "laeuft" || gemeldet.current.has(l.id)) continue;
+          if (!erwartet.current.has(l.id) && alt.find((x) => x.id === l.id)?.status !== "laeuft") continue;
+          gemeldet.current.add(l.id);
+          erwartet.current.delete(l.id);
+          if (l.status === "fertig") toast.success(`Auftrag „${l.titel}“ ist fertig. Das Ergebnis liegt im Verlauf von Mein Hub.`);
+          else if (l.status === "fehler") toast.error(`Auftrag „${l.titel}“: ${l.meldung}`);
+          else toast.info(`Auftrag „${l.titel}“ wurde abgebrochen.`);
+        }
         if (neu.some((l) => JSON.stringify(alt.find((x) => x.id === l.id)) !== JSON.stringify(l))) {
           const ids = new Set(neu.map((l) => l.id));
           aendern((d) => { d.laeufe = [...neu, ...d.laeufe.filter((l) => !ids.has(l.id))].sort((x, y) => y.start.localeCompare(x.start)); });
@@ -328,7 +342,7 @@ export function MeinHubProvider({ children }: { children: ReactNode }) {
       if (!dienstAnRef.current) { einreihen(id); return; }
       const name = datenRef.current.auftraege.find((x) => x.id === id)?.name ?? "";
       auftraegeSchreiben(abgleichNutzlast()).then((s) => { termineUebernehmen(s); return auftragJetzt(id); })
-        .then(() => toast.success(`Auftrag „${name}“ läuft im Hub-Dienst. Das Ergebnis erscheint im Verlauf.`))
+        .then((r) => { erwartet.current.add(r.id); toast.info(`Auftrag „${name}“ läuft im Hub-Dienst. Sobald er fertig ist, kommt hier eine Meldung.`); })
         .catch((e) => toast.error(`Auftrag „${name}“ konnte nicht gestartet werden: ${e instanceof Error ? e.message : e}`));
     },
     abbrechen: () => {
