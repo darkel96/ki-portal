@@ -172,3 +172,20 @@ test("Dienst: Rückmeldungen ablegen, auswerten, freigeben, von selbst neu auswe
   expect(zuletzt.vorschlaege.map((v) => v.stand)).toEqual(["angenommen", "offen", "offen", "offen"]);
   expect((await fetch(`${DIENST}/api/lernen/${appId}`)).status).toBe(401);
 });
+
+test("Lernschicht: abgeschnittene Antwort behält die vollständigen Vorschläge, Diagnose ohne Inhalt", async ({ page }, info) => {
+  test.skip(info.project.name !== "desktop", "einmal reicht");
+  await page.goto("/");
+  const r = await page.evaluate(async () => {
+    const l = await import("/src/lib/lernen.ts");
+    // Copilot hört mitten im dritten Vorschlag auf; der zweite enthält ein Ablaufdiagramm als Codeblock in der Zeichenkette
+    const abgeschnitten = '{"zusammenfassung":"Zwei Fragen kamen mehrfach.","vorschlaege":[{"art":"glossar","text":"PSSA = Product and Solution Security Advisor.","begruendung":"Abkürzung","belege":2},{"art":"faq","frage":"Wie läuft Threat Modeling?","antwort":"Ablauf:\n```mermaid\nflowchart TD\nC{Security Level 3?} --> D\n```\n[Rollenbeschreibung](https://x/r.pdf)","begruendung":"hilfreich","belege":1},{"art":"faq","frage":"Wer ist PSSO?","antwort":"Philipp Hen';
+    const erg = l.vorschlaegeAus(abgeschnitten, "s1");
+    return { arten: erg.vorschlaege.map((v) => v.art), zusammenfassung: erg.zusammenfassung, diagnose: l.jsonDiagnose(abgeschnitten), nichts: l.vorschlaegeBisAbbruch('{"vorschlaege":[{"art":"glossar","text":"abgebr') };
+  });
+  expect(r.arten).toEqual(["glossar", "faq"]);
+  expect(r.zusammenfassung).toBe("Zwei Fragen kamen mehrfach.");
+  expect(r.diagnose).toContain("endet mit „}“: nein");
+  expect(r.diagnose).not.toContain("Philipp");
+  expect(r.nichts).toBeNull();
+});

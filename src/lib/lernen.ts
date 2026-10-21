@@ -125,9 +125,39 @@ Regeln für deine Vorschläge:
 Antworte nur mit JSON: {"zusammenfassung": "zwei Sätze, was auffällt", "vorschlaege": [{"art": "hausregel"|"glossar"|"faq"|"quelle", "text": "", "frage": "", "antwort": "", "begruendung": "ein Satz", "belege": 1}]}`;
 }
 
-/** Vorschläge aus der KI-Antwort lesen (tolerant gegenüber Text vor und nach dem JSON) */
+/**
+ * Abgeschnittene Antwort retten: das JSON-Objekt nach dem letzten vollständigen Eintrag der Liste „vorschlaege“
+ * schließen. Lange FAQ-Antworten (wörtlich übernommen) lassen Copilot gern mittendrin aufhören; so bleiben die
+ * vollständigen Vorschläge erhalten. null, wenn keiner vollständig ist.
+ */
+export function vorschlaegeBisAbbruch(text: string): unknown {
+  const a = text.indexOf("{");
+  if (a < 0) return null;
+  let tiefe = 0, inText = false, esc = false, ende = -1;
+  for (let i = a; i < text.length; i++) {
+    const c = text[i];
+    if (inText) { if (esc) esc = false; else if (c === "\\") esc = true; else if (c === '"') inText = false; continue; }
+    if (c === '"') inText = true;
+    else if (c === "{" || c === "[") tiefe++;
+    // Tiefe 1 = Objekt, 2 = Liste, 3 = Vorschlag: endet ein Vorschlag, merken
+    else if (c === "}" || c === "]") { tiefe--; if (c === "}" && tiefe === 2) ende = i; }
+  }
+  if (ende < 0) return null;
+  try { return JSON.parse(`${text.slice(a, ende + 1)}]}`); } catch { return null; }
+}
+
+/** Aufbau einer nicht lesbaren Antwort für das Protokoll, ohne Inhalt: Länge, Ende, Klammern, Anführungszeichen */
+export function jsonDiagnose(text: string): string {
+  const t = String(text), n = (z: string) => t.split(z).length - 1;
+  return `${t.length} Zeichen, endet mit „}“: ${/\}\s*(```)?\s*$/.test(t) ? "ja" : "nein"}, { ${n("{")} / } ${n("}")}, [ ${n("[")} / ] ${n("]")}, Anführungszeichen ${n('"')} (${n('"') % 2 ? "ungerade" : "gerade"}), Codeblöcke ${n("```")}`;
+}
+
+/** Vorschläge aus der KI-Antwort lesen (tolerant gegenüber Text vor und nach dem JSON und gegenüber einem Abbruch am Ende) */
 export function vorschlaegeAus(antwort: string, stepId: string): { zusammenfassung: string; vorschlaege: Vorschlag[] } {
-  const j = jsonAus(antwort) as { zusammenfassung?: unknown; vorschlaege?: unknown };
+  let roh: unknown;
+  try { roh = jsonAus(antwort); }
+  catch (e) { roh = vorschlaegeBisAbbruch(antwort); if (!roh) throw e; }
+  const j = roh as { zusammenfassung?: unknown; vorschlaege?: unknown };
   const liste = Array.isArray(j.vorschlaege) ? j.vorschlaege : [];
   const vorschlaege = liste.flatMap((v): Vorschlag[] => {
     if (!v || typeof v !== "object") return [];
@@ -145,10 +175,16 @@ export function vorschlaegeAus(antwort: string, stepId: string): { zusammenfassu
  * oder mit Text umrahmt), wird einmal knapper nachgefragt. fragen = KI-Aufruf (Browser oder Dienst).
  */
 export async function auswertungDurchfuehren(prompt: string, stepId: string, fragen: (text: string) => Promise<string>): Promise<ReturnType<typeof vorschlaegeAus>> {
-  try { return vorschlaegeAus(await fragen(prompt), stepId); }
+  // Eine nicht lesbare Antwort hinterlässt eine Zeile zum Aufbau (ohne Inhalt) im Protokoll bzw. in der Konsole
+  const versuch = async (p: string, nr: number) => {
+    const antwort = await fragen(p);
+    try { return vorschlaegeAus(antwort, stepId); }
+    catch (e) { console.warn(`[Lernen] Auswertung, Versuch ${nr}: Antwort nicht lesbar – ${jsonDiagnose(antwort)}`); throw e; }
+  };
+  try { return await versuch(prompt, 1); }
   catch (e) {
-    const nachfrage = `${prompt}\n\nWichtig: Deine Antwort muss ein einziges, vollständiges JSON-Objekt sein, ohne Text davor oder danach und ohne Codeblock. Halte es kurz: höchstens 4 Vorschläge, jede "antwort" höchstens 800 Zeichen (Quellenlink am Ende behalten).`;
-    try { return vorschlaegeAus(await fragen(nachfrage), stepId); } catch { throw e; }
+    const nachfrage = `${prompt}\n\nWichtig: Deine Antwort muss ein einziges, vollständiges JSON-Objekt sein, ohne Text davor oder danach und ohne Codeblock. Anführungszeichen innerhalb von Texten schreibst du als \\" oder als „ “. Halte es kurz: höchstens 4 Vorschläge, jede "antwort" höchstens 800 Zeichen (Quellenlink am Ende behalten).`;
+    try { return await versuch(nachfrage, 2); } catch { throw e; }
   }
 }
 
