@@ -189,3 +189,22 @@ test("Lernschicht: abgeschnittene Antwort behält die vollständigen Vorschläge
   expect(r.diagnose).not.toContain("Philipp");
   expect(r.nichts).toBeNull();
 });
+
+test("Lernschicht: Vorschläge als nummeriertes Objekt, auch abgeschnitten", async ({ page }, info) => {
+  test.skip(info.project.name !== "desktop", "einmal reicht");
+  await page.goto("/");
+  const r = await page.evaluate(async () => {
+    const l = await import("/src/lib/lernen.ts");
+    // Copilot macht aus [Titel](Adresse) die bloße Adresse; im Objekt bleibt das JSON dabei gültig
+    const ganz = '{"zusammenfassung":"Z","vorschlaege":{"1":{"art":"faq","frage":"Was ist der CRA?","antwort":"EU-Verordnung. https://x/cra.pdf","belege":2},"2":{"art":"glossar","text":"PSSA = Product and Solution Security Advisor."}}}';
+    const abgeschnitten = '{"zusammenfassung":"Z","vorschlaege":{"1":{"art":"glossar","text":"T1"},"2":{"art":"faq","frage":"F","antwort":"abgebr';
+    return {
+      ganz: l.vorschlaegeAus(ganz, "s1").vorschlaege.map((v) => [v.art, v.frage || v.text]),
+      abgeschnitten: l.vorschlaegeAus(abgeschnitten, "s1").vorschlaege.map((v) => v.text),
+      prompt: l.auswertungsPrompt({ name: "A" }, { name: "S", rolle: "", hausregeln: { fassungen: [] } }, []),
+    };
+  });
+  expect(r.ganz).toEqual([["faq", "Was ist der CRA?"], ["glossar", "PSSA = Product and Solution Security Advisor."]]);
+  expect(r.abgeschnitten).toEqual(["T1"]);
+  expect(r.prompt).toContain('"vorschlaege": {"1": {');
+});
