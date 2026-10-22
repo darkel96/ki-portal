@@ -114,6 +114,19 @@ einer Kalkulation, und daneben Spalten zum Eintragen, etwa Stunden je Gewerk.
 - Spätere Schritte bekommen die Tabelle über `{{key}}` als Markdown-Tabelle samt Summenzeile. Pflicht heißt:
   mindestens eine Zeile.
 
+### Terminplan für MS Project
+
+Enthält ein Ergebnis eine Vorgangstabelle, bietet das Download-Menü zusätzlich **MS Project (.xml)** an. Die Datei
+erzeugt der Hub selbst im Microsoft-Project-XML-Format (MSPDI), die KI schreibt kein XML. MS Project öffnet sie über
+Datei → Öffnen → Dateityp „XML-Format“.
+
+- Erkannt wird die erste Markdown-Tabelle mit einer Namensspalte (Vorgangsname, Vorgang, Aufgabe, Name) und Dauer,
+  Anfang oder Ende. Dazu optional: Nr, Vorgänger (`2`, `2;3`, `2EA+1`, `3AA`, auch FS/SS/FF/SF) und Gewerk bzw. Phase.
+- Je Gewerk entsteht ein Sammelvorgang. Ein Anfang wird zur Einschränkung „Anfang nicht früher als“, Dauer 0 zum
+  Meilenstein, Summenzeilen fallen weg. Daten als `2027-03-15` oder `15.03.2027`, Dauer in Arbeitstagen.
+- Die Vorgänge sind automatisch geplant: MS Project rechnet die Termine mit seinem Standardkalender (Mo–Fr, 8 h)
+  und den Vorgängern nach.
+
 ## Fachexperten-Chat
 
 Der Baustein „Chat“ (Gruppe KI) macht einen KI-Schritt zum Gesprächspartner: Rolle, Wissen, Quellen und Wissensmodus
