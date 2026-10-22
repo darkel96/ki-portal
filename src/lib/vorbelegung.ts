@@ -6,6 +6,7 @@ import type { App, Block } from "./schema";
 import { fieldsOf, type FieldBlock } from "./model";
 import { jsonAus } from "./ki";
 import { istStatusFeld } from "./ampel";
+import { ausKi, tabelleSchreiben } from "./tabelle";
 
 /** Wert unter einem Punkt-Pfad („produkte.wartung.status“); undefined, wenn es ihn nicht gibt. Schlüssel ohne Beachtung der Schreibweise. */
 export function wertUnter(obj: unknown, pfad: string): unknown {
@@ -33,6 +34,7 @@ export function alsText(v: unknown): string {
 export function feldWert(b: FieldBlock, v: unknown): string | boolean | undefined {
   if (v === undefined) return undefined;
   if (b.type === "checkbox") return typeof v === "boolean" ? v : /^(ja|yes|true|1|x)$/i.test(alsText(v));
+  if (b.type === "tabelle") return tabelleSchreiben(ausKi(b.props, v));
   const text = alsText(v);
   if (b.type === "select" || b.type === "radio") {
     const t = text.toLowerCase();

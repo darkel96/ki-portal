@@ -5,6 +5,7 @@ import { KiSimulation, kiSenden } from "./ki";
 import { parsePaket, type Paket } from "./paket";
 import { dokumentLinks, quellenVerlinken, verweiseAufloesen, type DokLink } from "./verweise";
 import { teamAusfuehren, type Beitrag } from "./team";
+import { alsMarkdown, tabelleLesen } from "./tabelle";
 
 export type Werte = Record<string, string | boolean>;
 export type TeamLog =
@@ -32,6 +33,7 @@ export function kontext(app: App, werte: Werte, files: Record<string, FileInfo>)
     let v: string;
     if (b.type === "checkbox") v = werte[k] ? "ja" : "nein";
     else if (b.type === "file") v = files[k]?.text ?? "";
+    else if (b.type === "tabelle") v = alsMarkdown(b.props, werte[k]);
     else v = String(werte[k] ?? "").trim();
     ctx[k.toLowerCase()] = v || "(keine Angabe)";
     if (b.type === "file") {
@@ -53,6 +55,7 @@ export function fehlendePflichtfelder(app: App, steps: Step[], werte: Werte, fil
     const k = b.props.key;
     if (b.type === "checkbox") return !werte[k];
     if (b.type === "file") return !files[k]?.text;
+    if (b.type === "tabelle") return !tabelleLesen(werte[k]).zeilen.length;
     return !String(werte[k] ?? "").trim();
   }).map((b) => b.props.key);
 }

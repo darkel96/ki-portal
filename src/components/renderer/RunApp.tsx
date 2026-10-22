@@ -8,6 +8,7 @@ import { fieldsOf, seiteMit, seitenTitel, seitenVon, stepsFor, walk } from "@/li
 import { Blatt, Pager, blaetterTaste } from "@/components/layout/Pager";
 import { readFileInfo, UnsupportedFormatError } from "@/lib/files";
 import { ampelPaare, ampelText, ampelWert } from "@/lib/ampel";
+import { tabelleLesen } from "@/lib/tabelle";
 import { STATUS_LABEL, abhaengigkeiten, ablaufStarten, fehlendePflichtfelder, fehlendeVorstufe, type OutState, type Werte } from "@/lib/runner";
 import { mitBibliotheksAgenten } from "@/lib/agenten";
 import { DienstFehler, benachrichtigen, benachrichtigungErlauben, dienstAktiv, gemerkterLauf, laufEntfernen, laufGesehen, laufMerken, laufStand, laufStarten, type DienstLaufStand } from "@/lib/dienst";
@@ -573,7 +574,7 @@ export const RunApp = forwardRef<RunAppHandle, {
     const leer = (b: Block) => {
       if (!isFieldType(b.type) || !("pflicht" in b.props) || !b.props.pflicht) return false;
       const k = (b.props as { key: string }).key;
-      return b.type === "checkbox" ? !werte[k] : b.type === "file" ? !files[k]?.text?.trim() : !String(werte[k] ?? "").trim();
+      return b.type === "checkbox" ? !werte[k] : b.type === "file" ? !files[k]?.text?.trim() : b.type === "tabelle" ? !tabelleLesen(werte[k]).zeilen.length : !String(werte[k] ?? "").trim();
     };
     // Pflichtfelder der aktuellen Seite (App-Einstellung, Standard an)
     if (app.pflichtSperre && p) {
@@ -612,7 +613,7 @@ export const RunApp = forwardRef<RunAppHandle, {
     walk(seiteJ.children ?? [], (b) => {
       if (luecke || !isFieldType(b.type) || !("pflicht" in b.props) || !b.props.pflicht) return;
       const k = (b.props as { key: string }).key;
-      luecke = b.type === "checkbox" ? !werte[k] : b.type === "file" ? !files[k]?.text?.trim() : !String(werte[k] ?? "").trim();
+      luecke = b.type === "checkbox" ? !werte[k] : b.type === "file" ? !files[k]?.text?.trim() : b.type === "tabelle" ? !tabelleLesen(werte[k]).zeilen.length : !String(werte[k] ?? "").trim();
     });
     return luecke;
   }, [app.pflichtSperre, eingabeSeiten, werte, files]);
@@ -727,10 +728,10 @@ export const RunApp = forwardRef<RunAppHandle, {
 
   const fuellen = useMemo(() => {
     if (!p) return false;
-    // Genau ein großes Textfeld, oder ein Postfach ohne Textfeld: das füllt die Höhe bis zur Blätterleiste und scrollt in
+    // Genau ein großes Textfeld, oder ein Postfach bzw. eine Tabelle ohne Textfeld: das füllt die Höhe bis zur Blätterleiste und scrollt in
     // seinen Spalten, statt das ganze Blatt scrollen zu lassen
     let n = 0, post = false;
-    walk(p.children ?? [], (b) => { if (b.type === "textarea") n++; if (b.type === "postfach") post = true; });
+    walk(p.children ?? [], (b) => { if (b.type === "textarea") n++; if (b.type === "postfach" || b.type === "tabelle") post = true; });
     return n === 1 || (post && n === 0);
   }, [p]);
 

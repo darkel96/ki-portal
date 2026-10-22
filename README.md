@@ -95,6 +95,25 @@ Serviceangebote-App auf CHARLESTOWN):
   (z. B. Fundstelle) und `klaeren: true` markiert es gelb mit „Zu klären“, bis die Person es setzt.
 - Schritte, deren Ergebnis nur Felder vorbelegt, erscheinen nicht als Kachel in der Ergebnisübersicht.
 
+### Tabelle
+
+Der Baustein **Tabelle** (Palette, Gruppe „Eingaben“) ist für Listen mit wechselnder Zeilenzahl, etwa die Positionen
+einer Kalkulation, und daneben Spalten zum Eintragen, etwa Stunden je Gewerk.
+
+- **Spalten** legt man im Baukasten an: Titel, Typ (Text, Zahl, Datum), Werte „Aus dem KI-Ergebnis“ oder „Trägt die
+  Person ein“, bei Zahlen optional eine Summenzeile. Der Schlüssel jeder Spalte folgt ihrem Titel.
+- **Zeilen** kommen aus einer Liste im JSON-Ergebnis eines Lese-Schritts: „Vorbelegen aus“ `lesen.positionen`, jedes
+  Objekt eine Zeile. Den Aufbau der Liste mit den Schlüsseln der KI-Spalten bekommt der Lese-Schritt automatisch
+  in seine Aufgabe. Schreibweise der Schlüssel ist egal, leere Zeilen fallen weg.
+- Werte aus dem KI-Ergebnis sind nur lesbar, außer „dürfen korrigiert werden“ ist gesetzt. Zeilen lassen sich von
+  Hand ergänzen und löschen. Mit „weitere Zahlenspalten anlegen“ fügt die Person beim Ausfüllen eigene Spalten
+  hinzu, z. B. je Mitarbeiter, jeweils mit Summe.
+- Enter springt in dieselbe Spalte der nächsten Zeile. Zahlen dürfen deutsch („1.234,5“) oder mit Punkt geschrieben
+  werden. Kopf- und Summenzeile bleiben stehen, nur die Zeilen scrollen. Steht die Tabelle allein auf ihrer Seite,
+  nutzt sie die volle Höhe.
+- Spätere Schritte bekommen die Tabelle über `{{key}}` als Markdown-Tabelle samt Summenzeile. Pflicht heißt:
+  mindestens eine Zeile.
+
 ## Fachexperten-Chat
 
 Der Baustein „Chat“ (Gruppe KI) macht einen KI-Schritt zum Gesprächspartner: Rolle, Wissen, Quellen und Wissensmodus

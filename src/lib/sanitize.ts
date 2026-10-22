@@ -105,7 +105,7 @@ export function sanitizeApp(raw: unknown, base: App): App {
     dropdown: "select", auswahl: "select", auswahlliste: "select", textfeld: "textarea", textzeile: "input", eingabe: "input",
     upload: "file", datei: "file", zahl: "number", datum: "date", ankreuzfeld: "checkbox", auswahlknoepfe: "radio",
     ueberschrift: "heading", absatz: "text", paragraph: "text", hinweis: "callout", abschnitt: "section", spalten: "columns",
-    ergebnis: "output", knopf: "button", bild: "image", page: "seite",
+    ergebnis: "output", knopf: "button", bild: "image", page: "seite", table: "tabelle", liste: "tabelle",
   };
   function sb(roh: unknown, depth: number): Block[] {
     if (!isObj(roh) || typeof roh.type !== "string" || depth > 5) return [];
@@ -131,6 +131,18 @@ export function sanitizeApp(raw: unknown, base: App): App {
       if (p.key && p.key !== key) renames.push([String(p.key), key]);
       props.key = key;
       props.keyAuto = false;
+    }
+    // Tabelle: Spalten einzeln prüfen, statt bei einer fehlerhaften alle auf den Standard zurückzusetzen
+    if (type === "tabelle" && isObj(b.props) && Array.isArray(b.props.spalten)) {
+      const vergeben = new Set<string>();
+      const spalten = b.props.spalten.filter(isObj).slice(0, 20).flatMap((c) => {
+        const titel = String(c.titel ?? c.key ?? "").trim().slice(0, 60);
+        if (!titel) return [];
+        const k = uniqueKey(slug(String(c.key || titel)), vergeben);
+        vergeben.add(k);
+        return [{ key: k, titel, typ: field(z.enum(["text", "zahl", "datum"]), c.typ, "text"), art: field(z.enum(["ki", "eingabe"]), c.art, "eingabe"), summe: c.summe === true }];
+      });
+      if (spalten.length) props.spalten = spalten;
     }
     if (type === "section" || type === "seite") nb.children = liste(b.children, depth + 1);
     if (type === "columns") {
