@@ -16,6 +16,7 @@ import { useRun } from "./runContext";
 import type { Mode } from "./BlockContent";
 import { alsText, teilAus } from "@/lib/vorbelegung";
 import { diagrammeZeichnen } from "@/lib/diagramm";
+import { msProjectXml, vorgaengeAus } from "@/lib/msproject";
 
 /** Ein Teil eines JSON-Ergebnisses: Text als Markdown, Listen als Aufzählung oder Tabelle, Objekte als Tabelle „Schlüssel | Wert“. */
 function JsonTeil({ wert }: { wert: unknown }) {
@@ -45,6 +46,8 @@ const AVI = ["var(--a0i)", "var(--a2i)", "var(--a1i)", "var(--a6i)", "var(--a4i)
 /** Ergebnis als fertige Datei herunterladen: die eingestellte bzw. gewünschte Datei als Hauptknopf, alle anderen im Menü. */
 export function DateiKnoepfe({ app, text, titel, haupt, roh, vorlage, kompakt }: { app: App; text: string; titel: string; haupt: DateiArt | null; roh: { name: string; endung: string }; vorlage?: string; /** Sammelleiste: kurze Beschriftung, Ergebnisname für Screenreader */ kompakt?: string }) {
   const [baut, setBaut] = useState<DateiArt | null>(null);
+  // Hat das Ergebnis eine Vorgangstabelle, bietet das Menü zusätzlich eine Datei für MS Project an
+  const vorgaenge = vorgaengeAus(text).length;
   const laden = async (art: DateiArt) => {
     setBaut(art);
     try {
@@ -72,6 +75,11 @@ export function DateiKnoepfe({ app, text, titel, haupt, roh, vorlage, kompakt }:
         <DropdownMenuContent align="start">
           <DropdownMenuLabel>Fertige Datei</DropdownMenuLabel>
           {DATEI_ARTEN.map((a) => <DropdownMenuItem key={a} onSelect={() => void laden(a)}>{DATEI_ART[a].label} (.{DATEI_ART[a].endung})</DropdownMenuItem>)}
+          {vorgaenge > 0 && <>
+            <DropdownMenuSeparator />
+            <DropdownMenuLabel>Terminplan ({vorgaenge} Vorgänge)</DropdownMenuLabel>
+            <DropdownMenuItem onSelect={() => void saveFile(dateiName(`${app.name} ${titel}`, "xlsx").replace(/\.xlsx$/, ".xml"), msProjectXml(vorgaengeAus(text), { titel: `${app.name} – ${titel}` }), "application/xml")}>MS Project (.xml)</DropdownMenuItem>
+          </>}
           <DropdownMenuSeparator />
           <DropdownMenuItem onSelect={() => void saveFile(`${roh.name}.${roh.endung}`, text)}>Original (.{roh.endung})</DropdownMenuItem>
         </DropdownMenuContent>
