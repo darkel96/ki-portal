@@ -125,6 +125,43 @@ function OptionenFld({ werte, onCommit }: { werte: string[]; onCommit: (v: strin
   return <TextFld label="Optionen (eine pro Zeile)" multiline rows={4} value={roh} onChange={setRoh} onBlur={commit} />;
 }
 
+/** Spalten einer Tabelle: Titel, Typ, Herkunft (KI-Ergebnis oder Eingabe), Summe; der Schlüssel folgt dem Titel */
+function SpaltenFld({ b, x }: { b: Builder; x: Extract<Block, { type: "tabelle" }> }) {
+  const sp = x.props.spalten;
+  const setzen = (neu: typeof sp, coalesce?: string) => b.change((d) => {
+    const l = locate(d.blocks, x.id);
+    if (l?.b.type !== "tabelle") return;
+    const vergeben = new Set<string>();
+    l.b.props.spalten = neu.map((c) => { const k = uniqueKey(slug(c.titel || c.key), vergeben); vergeben.add(k); return { ...c, key: k }; });
+  }, coalesce);
+  const aendern = (i: number, teil: Partial<(typeof sp)[number]>, coalesce?: boolean) => setzen(sp.map((c, j) => (j === i ? { ...c, ...teil } : c)), coalesce ? `${x.id}:spalte:${i}` : undefined);
+  const schieben = (i: number, dir: -1 | 1) => { const n = [...sp]; const j = i + dir; if (j < 0 || j >= n.length) return; [n[i], n[j]] = [n[j], n[i]]; setzen(n); };
+  return (
+    <>
+      <span className="lbl">Spalten</span>
+      {sp.map((c, i) => (
+        <div key={i} className="insp-proz">
+          <TextFld label={`Spalte ${i + 1}`} value={c.titel} onChange={(v) => aendern(i, { titel: v }, true)} />
+          <Seg label="Werte" value={c.art} options={[["ki", "Aus dem KI-Ergebnis"], ["eingabe", "Trägt die Person ein"]]} onChange={(v) => aendern(i, { art: v })} />
+          <Seg label="Typ" value={c.typ} options={[["text", "Text"], ["zahl", "Zahl"], ["datum", "Datum"]]} onChange={(v) => aendern(i, { typ: v, summe: v === "zahl" ? c.summe : false })} />
+          {c.typ === "zahl" && <Check label="Summe unter der Spalte" checked={c.summe} onChange={(v) => aendern(i, { summe: v })} />}
+          <span className="hint">Im JSON des KI-Schritts: <code>{c.key}</code></span>
+          <div className="flex flex-wrap gap-1.5">
+            <Button variant="ghost" size="sm" disabled={i === 0} onClick={() => schieben(i, -1)}><ArrowLeft size={14} aria-hidden="true" />Nach links</Button>
+            <Button variant="ghost" size="sm" disabled={i === sp.length - 1} onClick={() => schieben(i, 1)}>Nach rechts<ArrowRight size={14} aria-hidden="true" /></Button>
+            <Button variant="ghost" size="sm" disabled={sp.length <= 1} onClick={() => setzen(sp.filter((_, j) => j !== i))}>Entfernen</Button>
+          </div>
+        </div>
+      ))}
+      <div><Button variant="outline" size="sm" disabled={sp.length >= 20} onClick={() => setzen([...sp, { key: "spalte", titel: `Spalte ${sp.length + 1}`, typ: "zahl", art: "eingabe", summe: true }])}>Spalte hinzufügen</Button></div>
+      <Check label="Werte aus dem KI-Ergebnis dürfen korrigiert werden" checked={x.props.kiBearbeitbar} onChange={(v) => b.change((d) => { const l = locate(d.blocks, x.id); if (l?.b.type === "tabelle") l.b.props.kiBearbeitbar = v; })} />
+      <Check label="Zeilen von Hand ergänzen und löschen" checked={x.props.zeilenHinzufuegen} onChange={(v) => b.change((d) => { const l = locate(d.blocks, x.id); if (l?.b.type === "tabelle") l.b.props.zeilenHinzufuegen = v; })} />
+      <Check label="Beim Ausfüllen weitere Zahlenspalten anlegen (z. B. je Mitarbeiter)" checked={x.props.spaltenHinzufuegen} onChange={(v) => b.change((d) => { const l = locate(d.blocks, x.id); if (l?.b.type === "tabelle") l.b.props.spaltenHinzufuegen = v; })} />
+      <p className="hint" style={{ margin: 0 }}>Die Zeilen kommen aus einer Liste im JSON-Ergebnis eines KI-Schritts (unten „Vorbelegen aus“, z. B. „lesen.positionen“). Jedes Objekt der Liste ist eine Zeile, seine Schlüssel heißen wie die Spalten „Aus dem KI-Ergebnis“. Spätere Schritte bekommen die Tabelle als Markdown, mit Summen.</p>
+    </>
+  );
+}
+
 function PassBox({ b, x }: { b: Builder; x: Block }) {
   const P = x.props as PropsOf<"input">;
   const k = P.key.toLowerCase();
@@ -294,7 +331,8 @@ export function Inspector({ b, onDelete, bereiche, onSeite }: { b: Builder; onDe
         {(x.type === "select" || x.type === "radio") && <OptionenFld werte={fp.optionen} onCommit={(v) => set("optionen", v)} />}
         {x.type === "textarea" && <Seg label="Höhe" value={x.props.rows} options={[[3, "Klein"], [5, "Mittel"], [9, "Groß"]]} onChange={(v) => set("rows", v)} />}
         <TextFld label="Hilfetext" value={fp.hilfe} placeholder="Optional, steht unter dem Feld" onChange={(v) => set("hilfe", v, true)} />
-        {x.type !== "file" && <TextFld label="Beispielwert zum Testen" multiline={x.type === "textarea"} value={fp.beispiel} onChange={(v) => set("beispiel", v, true)} />}
+        {x.type === "tabelle" && <SpaltenFld b={b} x={x} />}
+        {x.type !== "file" && x.type !== "tabelle" && <TextFld label="Beispielwert zum Testen" multiline={x.type === "textarea"} value={fp.beispiel} onChange={(v) => set("beispiel", v, true)} />}
         {x.type === "file" && <>
           <Seg label="Übergabe an die KI" value={x.props.uebergabe} options={[["text", "Inhalt als Text"], ["referenz", "Als Datei (Copilot)"]]} onChange={(v) => set("uebergabe", v)} />
           <p className="hint" style={{ margin: 0 }}>Gelesen werden Word (.docx), Excel (.xlsx), PDF und Textdateien. „Als Datei“ bedeutet: Die zentrale KI-Anbindung legt die Datei in OneDrive ab und übergibt Copilot einen Verweis.</p></>}

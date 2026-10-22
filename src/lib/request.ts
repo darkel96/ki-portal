@@ -164,6 +164,13 @@ export function buildRequest(app: App, step: Step, ctx: Record<string, string>, 
   // Prüfseite mit Status-Feldern: die Begründungen ausdrücklich und je Feld am Ende der Aufgabe verlangen (dort befolgt die KI sie zuverlässig)
   const statusPfade = fuelltPruefseite(app, step) ? fieldsOf(app).filter((f) => istStatusFeld(f) && f.props.aus.trim().split(".")[0].toLowerCase() === step.key.toLowerCase()).map((f) => f.props.aus.trim().split(".").slice(1).join(".")).filter(Boolean) : [];
   if (statusPfade.length) nachricht = `${nachricht.trim()}\n\nZusätzlich im selben JSON: Für jedes dieser Status-Felder, dessen Wert nicht eindeutig positiv ist, ein Schlüssel daneben mit Endung "_hinweis" und einem Satz Begründung mit Fundstelle (was genau fehlt oder sich widerspricht): ${statusPfade.map((x) => `"${x}_hinweis"`).join(", ")}. Diese Schlüssel gehören dazu, auch wenn das JSON-Schema oben sie nicht nennt. „Sicher“ heißt eindeutig belegt, auch bei schlechtem Befund.`;
+  // Tabellen, die dieser Schritt füllt: Aufbau der Liste ausdrücklich nennen, sonst wählt die KI eigene Schlüssel
+  if (fuelltPruefseite(app, step)) for (const t of fieldsOf(app)) {
+    if (t.type !== "tabelle" || t.props.aus.trim().split(".")[0].toLowerCase() !== step.key.toLowerCase()) continue;
+    const pfad = t.props.aus.trim().split(".").slice(1).join(".") || "zeilen";
+    const ki = t.props.spalten.filter((c) => c.art === "ki");
+    if (ki.length) nachricht = `${nachricht.trim()}\n\nFür die Tabelle „${t.props.label}“ im selben JSON unter "${pfad}": eine Liste mit einem Objekt je Zeile, in der Reihenfolge der Datei, mit den Schlüsseln ${ki.map((c) => `"${c.key}" (${c.titel}${c.typ === "zahl" ? ", Zahl ohne Tausenderpunkte" : c.typ === "datum" ? ", Datum JJJJ-MM-TT" : ""})`).join(", ")}. Leere Werte als "". Keine Summen- oder Zwischensummenzeilen als Zeile.`;
+  }
   if (auszuege) nachricht = `${nachricht.trim()}\n\n${auszuege}`;
   if (vorlagen) nachricht = `${nachricht.trim()}\n\n${vorlagen.text}`;
   const ergebnisDatei = ergebnisDateiFuer(step, nachricht);

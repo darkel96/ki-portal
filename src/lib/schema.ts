@@ -50,6 +50,29 @@ export const PropsSchemas = {
   number: z.object({ ...fieldBase, label: fieldBase.label.default("Zahl") }),
   date: z.object({ ...fieldBase, label: fieldBase.label.default("Datum") }),
   file: z.object({ ...fieldBase, label: fieldBase.label.default("Datei"), uebergabe: z.enum(["text", "referenz"]).default("text") }),
+  /**
+   * Tabelle mit Zeilen aus einem KI-Ergebnis (Spalten „ki“, vorbelegt über „aus“ aus einer Liste von Objekten) und
+   * Spalten zum Eintragen („eingabe“), z. B. Positionen einer Kalkulation und rechts die Stunden je Gewerk.
+   * Wert: JSON {"zeilen": [{<spaltenkey>: Wert}], "zusatz": ["Titel weiterer Spalten"]}; im Prompt als Markdown-Tabelle.
+   */
+  tabelle: z.object({
+    ...fieldBase, label: fieldBase.label.default("Tabelle"),
+    aus: fieldBase.aus.describe('Vorbelegung der Zeilen: Liste von Objekten im JSON-Ergebnis, z. B. "lesen.positionen"; die Schlüssel der Objekte = key der Spalten mit art "ki"'),
+    spalten: z.array(z.object({
+      key: Key.describe("Schlüssel im JSON der Zeile"),
+      titel: z.string().min(1).max(60),
+      typ: z.enum(["text", "zahl", "datum"]).default("text"),
+      art: z.enum(["ki", "eingabe"]).default("eingabe").describe('"ki" = aus dem KI-Ergebnis, "eingabe" = trägt die Person ein'),
+      summe: z.boolean().default(false).describe("Summenzeile unter Zahlenspalten"),
+    })).min(1).max(20).default([
+      { key: "bezeichnung", titel: "Bezeichnung", typ: "text", art: "ki", summe: false },
+      { key: "menge", titel: "Menge", typ: "zahl", art: "ki", summe: false },
+      { key: "stunden", titel: "Stunden", typ: "zahl", art: "eingabe", summe: true },
+    ]),
+    kiBearbeitbar: z.boolean().default(false).describe("Werte aus dem KI-Ergebnis dürfen korrigiert werden"),
+    zeilenHinzufuegen: z.boolean().default(true).describe("Zeilen von Hand ergänzen und löschen"),
+    spaltenHinzufuegen: z.boolean().default(false).describe("beim Ausfüllen weitere Zahlenspalten anlegen, z. B. je Mitarbeiter"),
+  }),
   button: z.object({ text: z.string().max(80).default("KI starten"), aktion: z.string().max(200).default("alle").describe('"alle", Step-ID, mehrere Step-IDs mit Komma oder "ab:" + Step-ID (ab diesem Schritt bis zum Ende)'), stil: z.enum(["filled", "outline"]).default("filled"), align: Align.default("left"), color: ColorOrEmpty.default("") }),
   chat: z.object({
     titel: z.string().max(120).default("Fachexperte"),
@@ -75,7 +98,7 @@ export const PropsSchemas = {
 
 export type BlockType = keyof typeof PropsSchemas;
 export const BLOCK_TYPES = Object.keys(PropsSchemas) as BlockType[];
-export const FIELD_TYPES = ["input", "textarea", "select", "radio", "checkbox", "number", "date", "file"] as const;
+export const FIELD_TYPES = ["input", "textarea", "select", "radio", "checkbox", "number", "date", "file", "tabelle"] as const;
 export type FieldType = (typeof FIELD_TYPES)[number];
 export const isFieldType = (t: string): t is FieldType => (FIELD_TYPES as readonly string[]).includes(t);
 

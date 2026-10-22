@@ -8,6 +8,7 @@ import { useRun } from "./runContext";
 import { OutputView } from "./OutputView";
 import { ChatView } from "./ChatView";
 import { PostfachView } from "./PostfachView";
+import { TabelleView } from "./TabelleView";
 
 export type Mode = "edit" | "run";
 export type RenderList = (blocks: Block[], listId: string) => ReactNode;
@@ -174,6 +175,8 @@ export function BlockContent({ b, app, mode, renderList }: { b: Block; app: App;
       return <ChatView app={app} b={b} mode={mode} />;
     case "postfach":
       return <PostfachView b={b} mode={mode} />;
+    case "tabelle":
+      return <TabelleView b={b} mode={mode} />;
     default:
       return <Field b={b} mode={mode} paar={paarVon(app, b.props.key)} />;
   }
