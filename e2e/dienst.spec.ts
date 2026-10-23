@@ -69,30 +69,36 @@ test("Auftrag nach Zeitplan läuft im Dienst und geht per E-Mail raus", async ({
     v: 1, nutzer: "lokal", pins: [{ appId: "dienst-app", seit: jetzt }], laeufe: [], automatisch: true,
     voreinstellungen: [{ id: "v1", appId: "dienst-app", name: "Standard", werte: { thema: "Wochenbericht Lager" }, dateien: {}, erstellt: jetzt, geaendert: jetzt }],
     // Termin schon verstrichen (der Hub war zu): läuft einmal nach
-    auftraege: [{ id: "a1", name: "Wochenbericht", appId: "dienst-app", voreinstellungId: "v1", zeitplan: { art: "taeglich", uhrzeit: "07:00", wochentag: 1, tag: 1 }, ziel: { art: "email", adresse: "" }, aktiv: true, naechsterLauf: new Date(Date.now() - 60_000).toISOString(), letzterLauf: "", erstellt: jetzt }],
+    auftraege: [
+      { id: "a1", name: "Wochenbericht", appId: "dienst-app", voreinstellungId: "v1", zeitplan: { art: "taeglich", uhrzeit: "07:00", wochentag: 1, tag: 1 }, ziel: { art: "email", adresse: "" }, aktiv: true, naechsterLauf: new Date(Date.now() - 60_000).toISOString(), letzterLauf: "", erstellt: jetzt },
+      { id: "a2", name: "Teamsbericht", appId: "dienst-app", voreinstellungId: "v1", zeitplan: { art: "taeglich", uhrzeit: "07:00", wochentag: 1, tag: 1 }, ziel: { art: "teams", adresse: "anna@test.local" }, aktiv: true, naechsterLauf: new Date(Date.now() - 60_000).toISOString(), letzterLauf: "", erstellt: jetzt },
+    ],
   });
   await page.goto("/mein");
   await expect(page.getByText("Aufträge laufen im Hub-Dienst")).toBeVisible();
   // Der Hub übergibt den Auftrag an den Dienst …
-  await expect.poll(async () => ((await (await api("/auftraege", nutzer)).json()) as { auftraege: unknown[] }).auftraege.length, { timeout: 15_000 }).toBe(1);
-  // … der Dienst holt den verpassten Termin nach und setzt den nächsten in die Zukunft
-  await expect.poll(async () => ((await (await api("/laeufe?auftraege=1", nutzer)).json()) as { status: string }[]).map((l) => l.status).join(), { timeout: 30_000 }).toBe("fertig");
+  await expect.poll(async () => ((await (await api("/auftraege", nutzer)).json()) as { auftraege: unknown[] }).auftraege.length, { timeout: 15_000 }).toBe(2);
+  // … der Dienst holt die verpassten Termine nach und setzt die nächsten in die Zukunft
+  await expect.poll(async () => ((await (await api("/laeufe?auftraege=1", nutzer)).json()) as { status: string }[]).map((l) => l.status).sort().join(), { timeout: 90_000 }).toBe("fertig,fertig");
   const stand = (await (await api("/auftraege", nutzer)).json()) as { auftraege: { naechsterLauf: string; letzterLauf: string }[] };
   expect(Date.parse(stand.auftraege[0].naechsterLauf)).toBeGreaterThan(Date.now());
   expect(stand.auftraege[0].letzterLauf).not.toBe("");
   // Der Verlauf in Mein Hub zeigt das Ergebnis, ohne dass der Browser gerechnet hat
-  await expect(page.getByRole("tab", { name: /Verlauf \(1\)/ })).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByRole("tab", { name: /Verlauf \(2\)/ })).toBeVisible({ timeout: 30_000 });
   await page.getByRole("tab", { name: /Verlauf/ }).click();
   await page.getByText("Wochenbericht", { exact: true }).first().click();
   await expect(page.locator(".mh-detail")).toContainText("Ergebnis der Attrappe");
-  // E-Mail über Graph (die Attrappe protokolliert sie)
+  await expect(page.locator(".mh-zustellung")).toHaveText(`Per E-Mail an ${nutzer}@test.local gesendet.`);
+  // E-Mail und Teams-Nachricht über Graph (die Attrappe protokolliert beides)
   await expect.poll(async () => {
-    const post = (await (await fetch(`${DIENST}/attrappe/post`)).json()) as { nachricht: { message: { subject: string; toRecipients: { emailAddress: { address: string } }[] } } }[];
-    return post.some((p) => p.nachricht.message.subject === "KI-Hub: Wochenbericht" && p.nachricht.message.toRecipients[0].emailAddress.address === `${nutzer}@test.local`);
+    const post = (await (await fetch(`${DIENST}/attrappe/post`)).json()) as { chat?: string; nachricht: { message?: { subject: string; toRecipients: { emailAddress: { address: string } }[] }; body?: { content: string } } }[];
+    const mail = post.some((p) => p.nachricht.message?.subject === "KI-Hub: Wochenbericht" && p.nachricht.message.toRecipients[0].emailAddress.address === `${nutzer}@test.local`);
+    const teams = post.some((p) => p.chat?.startsWith("chat-") && p.nachricht.body?.content.includes("Teamsbericht"));
+    return mail && teams;
   }, { timeout: 15_000 }).toBe(true);
-  // Ohne Dienst wäre der Auftrag im Browser gelaufen: der zweite Lauf darf nicht doppelt sein
+  // Ohne Dienst wären die Aufträge im Browser gelaufen: keine doppelten Läufe
   const laeufe = (await (await api("/laeufe?auftraege=1", nutzer)).json()) as unknown[];
-  expect(laeufe).toHaveLength(1);
+  expect(laeufe).toHaveLength(2);
 });
 
 test("Dienst: ohne Anmeldung nichts, fremde Läufe unsichtbar", async ({ page }, info) => {

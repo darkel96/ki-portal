@@ -39,6 +39,30 @@ const VORLAGEN: LegacyApp[] = [
       { titel: "Zusammenfassung", prompt: "Fasse diese Besprechungsnotizen in höchstens fünf Stichpunkten zusammen. Führe offene Fragen gesondert unter ## Offen auf.\n\n{{notizen}}" },
       { titel: "Aufgabenliste", modell: "quick", prompt: "Erstelle aus den Notizen eine Markdown-Tabelle mit den Spalten Aufgabe | Verantwortlich | Termin. Fehlt eine Angabe, schreibe „offen“.\n\nNotizen:\n{{notizen}}" },
     ] },
+  // Beispiele für geplante Aufträge: feste Eingaben als Voreinstellung, Lauf nach Zeitplan, Ergebnis per E-Mail oder Teams
+  { id: "wochen-briefing", name: "Wochen-Briefing", bereich: "Allgemein",
+    beschreibung: "Macht aus deinen Schwerpunkten und Terminen ein Briefing für die Woche: Prioritäten, Risiken, Fragen fürs Team. Gedacht als Auftrag: montags um 7 Uhr per E-Mail.",
+    auftrag: { art: "woechentlich", uhrzeit: "07:00", wochentag: 1, tag: 1, ziel: "email" },
+    felder: [
+      { key: "schwerpunkte", label: "Schwerpunkte und laufende Themen", typ: "textarea", pflicht: true, beispiel: "- CRA-Umsetzung: Kriterienliste mit Produktsicherheit abstimmen\n- Serviceangebot Nordhafen: Angebot bis Donnerstag\n- Onboarding neue Kollegin im Vertrieb\n- Audit-Vorbereitung ISO 27001 (Termin in drei Wochen)" },
+      { key: "termine", label: "Feste Termine der Woche", typ: "textarea", beispiel: "Mo 10:00 Teamrunde\nDi 14:00 Lenkungskreis CRA\nDo 9:00 Kundentermin Nordhafen\nFr 13:00 Rückblick mit Leitung" },
+      { key: "rahmen", label: "Was du diese Woche nicht aus den Augen verlieren willst", typ: "text", beispiel: "Freitag ist Abgabe des Quartalsberichts." },
+    ],
+    schritte: [
+      { titel: "Briefing", rolle: "Du bist ein erfahrener Assistent der Geschäftsleitung. Du schreibst knapp, konkret und ohne Floskeln.", prompt: "Erstelle ein Briefing für die Woche.\n\nAufbau:\n## Diese Woche zählt (drei Prioritäten, je ein Satz warum)\n## Risiken und Engpässe (was schiefgehen kann, mit Gegenmaßnahme)\n## Fragen fürs Team (drei bis fünf, die am Montag geklärt werden sollten)\n## Vorschlag für die Tagesverteilung (Mo bis Fr, je ein Schwerpunkt, Termine berücksichtigt)\n\nSchwerpunkte:\n{{schwerpunkte}}\n\nTermine:\n{{termine}}\n\nNicht vergessen: {{rahmen}}" },
+      { titel: "Kurzfassung für Teams", modell: "quick", prompt: "Fasse das Wichtigste der Woche in höchstens fünf Sätzen zusammen, als Nachricht an mich selbst, ohne Überschriften.\n\nSchwerpunkte:\n{{schwerpunkte}}\n\nTermine:\n{{termine}}" },
+    ] },
+  { id: "wochenrueckblick", name: "Wochenrückblick", bereich: "Allgemein",
+    beschreibung: "Macht aus deinen Notizen der Woche einen Statusbericht (erreicht, offen, nächste Woche) und eine kurze Teams-Nachricht. Gedacht als Auftrag: freitags um 16 Uhr als Teams-Nachricht.",
+    auftrag: { art: "woechentlich", uhrzeit: "16:00", wochentag: 5, tag: 1, ziel: "teams" },
+    felder: [
+      { key: "notizen", label: "Notizen der Woche", typ: "textarea", pflicht: true, beispiel: "- Kriterienliste CRA mit Produktsicherheit abgestimmt, Freigabe Di\n- Angebot Nordhafen raus, Kunde meldet sich nächste Woche\n- Onboarding: Zugänge fehlen noch (IT-Ticket offen)\n- Audit: Dokumentenliste zu 60 % durch" },
+      { key: "empfaenger", label: "Für wen ist der Bericht", typ: "text", beispiel: "Für meine Leitung, kurz und sachlich" },
+    ],
+    schritte: [
+      { titel: "Statusbericht", prompt: "Erstelle aus den Notizen einen Statusbericht ({{empfaenger}}).\n\nAufbau:\n## Erreicht\n## Offen (mit Grund und nächstem Schritt)\n## Nächste Woche\n\nNotizen:\n{{notizen}}" },
+      { titel: "Teams-Nachricht", modell: "quick", prompt: "Formuliere aus den Notizen eine Teams-Nachricht von höchstens vier Sätzen: Was war das Wichtigste, was bleibt offen. Keine Überschriften, keine Aufzählung.\n\nNotizen:\n{{notizen}}" },
+    ] },
   { id: "fehlermeldung", name: "Fehlermeldung erklären", bereich: "IT",
     beschreibung: "Übersetzt eine Fehlermeldung in verständliche Sprache und nennt Schritte, die man selbst prüfen kann.",
     felder: [

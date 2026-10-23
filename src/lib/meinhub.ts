@@ -70,6 +70,8 @@ export const LaufSchema = z.object({
   ende: Iso,
   status: z.enum(["laeuft", "fertig", "fehler", "abgebrochen"]).default("laeuft"),
   meldung: z.string().default(""),
+  /** Was mit dem Ergebnis geschah („Per E-Mail an … gesendet.“ oder der Fehler der Zustellung) */
+  zustellung: z.string().default(""),
   /** Ergebnis je Schritt (Status, Text, Meldung); Anfrage und Team-Verlauf werden nicht gespeichert */
   ergebnisse: z.record(z.string(), z.object({ status: z.string(), text: z.string().optional(), meldung: z.string().optional(), key: z.string().optional(), name: z.string().optional() })).default({}),
 });
@@ -96,13 +98,15 @@ export type Lauf = z.output<typeof LaufSchema>;
 export type MeinHub = z.output<typeof MeinHubSchema>;
 
 export const ZIEL_LABEL: Record<Ziel["art"], string> = {
-  hub: "Im Verlauf von Mein Hub ablegen",
-  email: "Per E-Mail an mich",
+  hub: "Nur im Verlauf von Mein Hub",
+  email: "Per E-Mail (an mich oder eine Adresse)",
+  teams: "Als Teams-Nachricht (an mich, eine Person oder einen Kanal)",
   sharepoint: "In einen SharePoint-Ordner ablegen",
-  teams: "In einen Teams-Kanal posten",
 };
-/** Ziele, die erst mit dem Hintergrunddienst (Microsoft Graph) möglich sind */
-export const ZIEL_SPAETER = new Set<Ziel["art"]>(["email", "sharepoint", "teams"]);
+/** Ziele, die es noch nicht gibt */
+export const ZIEL_SPAETER = new Set<Ziel["art"]>(["sharepoint"]);
+/** Ziele, die Microsoft Graph brauchen (Copilot-Anmeldung im Browser oder den Hub-Dienst) */
+export const ZIEL_GRAPH = new Set<Ziel["art"]>(["email", "teams"]);
 export const WOCHENTAG = ["Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag", "Sonntag"];
 
 /* ---------- Zeitplan ---------- */

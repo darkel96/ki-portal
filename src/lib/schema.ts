@@ -207,8 +207,20 @@ export const StepSchema = z.object({
 });
 
 /* ---------- Applikation ---------- */
+/** Empfehlung einer App für einen regelmäßigen Auftrag (Zeitplan und Zustellung); der Auftrag-Dialog übernimmt sie als Vorschlag */
+export const AuftragEmpfehlungSchema = z.object({
+  art: z.enum(["taeglich", "werktags", "woechentlich", "monatlich"]).default("woechentlich"),
+  uhrzeit: z.string().regex(/^\d{2}:\d{2}$/).default("07:00"),
+  wochentag: z.number().int().min(1).max(7).default(1),
+  tag: z.number().int().min(1).max(28).default(1),
+  ziel: z.enum(["hub", "email", "teams"]).default("email"),
+});
+export type AuftragEmpfehlung = z.output<typeof AuftragEmpfehlungSchema>;
+
 export const AppSchema = z.object({
   id: z.string().nullable(),
+  /** Empfohlener Auftrag (z. B. montags 07:00 per E-Mail); fehlt bei den meisten Apps */
+  auftrag: AuftragEmpfehlungSchema.optional(),
   v: z.literal(2).default(2),
   typ: z.enum(["baukasten", "link"]).default("baukasten"),
   url: z.string().max(800).default(""),

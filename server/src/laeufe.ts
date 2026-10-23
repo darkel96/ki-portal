@@ -18,6 +18,8 @@ export type DienstLauf = {
   id: string; nutzer: string; appId: string; appName: string; titel: string; aktion: string;
   auftragId: string | null; ziel: Ziel | null;
   start: string; ende: string; status: LaufStatus; meldung: string;
+  /** Was mit dem Ergebnis geschah („Per E-Mail an … gesendet.“ oder der Fehler der Zustellung) */
+  zustellung?: string;
   /** Zähler, der bei jeder Änderung steigt (der Hub fragt nur nach Neuem) */
   version: number;
   gesehen: boolean;

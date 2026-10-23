@@ -19,6 +19,7 @@ import { parsePaketFuer } from "@/lib/paket";
 import { ergebnisDateiFuer } from "@/lib/request";
 import type { OutState } from "@/lib/runner";
 import { ZIEL_LABEL, datumZeit, zeitplanText, type Auftrag, type Lauf } from "@/lib/meinhub";
+import { zielText } from "@/lib/versand";
 import type { HubApp } from "@/lib/schema";
 import { initials } from "@/lib/model";
 
@@ -137,7 +138,7 @@ function AuftragKarte({ a, app, onBearbeiten, onLoeschen }: { a: Auftrag; app?: 
         <dt>Zeitplan</dt><dd>{zeitplanText(a.zeitplan)}</dd>
         <dt>Nächster Lauf</dt><dd>{a.aktiv ? datumZeit(a.naechsterLauf) : "Pausiert"}</dd>
         <dt>Letzter Lauf</dt><dd>{laeuft ? <span className="status-pill" data-s="laeuft">Läuft</span> : letzter ? <>{datumZeit(letzter.start)} <span className="status-pill" data-s={LAUF_STATUS[letzter.status][1]}>{LAUF_STATUS[letzter.status][0]}</span></> : "Noch nie"}</dd>
-        <dt>Ergebnis</dt><dd>{ZIEL_LABEL[a.ziel.art]}</dd>
+        <dt>Ergebnis</dt><dd>{a.ziel.art === "hub" ? ZIEL_LABEL.hub : zielText(a.ziel).replace(/^./, (c) => c.toUpperCase())}</dd>
       </dl>
       <div className="mh-fuss">
         <Button size="sm" className="rounded-full ki-knopf" disabled={laeuft} onClick={() => mh.jetztAusfuehren(a.id)}><Play aria-hidden="true" />Jetzt ausführen</Button>
@@ -184,6 +185,7 @@ function LaufDetail({ lauf, app, onZurueck }: { lauf: Lauf; app?: HubApp; onZuru
         <Button size="sm" variant="ghost" className="rounded-full" disabled={laeuft} title={laeuft ? "Läuft noch" : undefined} onClick={() => setFragen(true)}><Trash aria-hidden="true" />Löschen</Button>
       </div>
       {lauf.meldung && <p className="hint" style={{ margin: 0, color: lauf.status === "fehler" ? "var(--danger)" : undefined }}>{lauf.meldung}</p>}
+      {lauf.zustellung && <p className="hint mh-zustellung" style={{ margin: 0, color: /fehlgeschlagen|^Nicht /.test(lauf.zustellung) ? "var(--danger)" : undefined }}>{lauf.zustellung}</p>}
       {app && s ? (
         <RunContext.Provider value={ctx}>
           <div className="app-frame" style={themeStyle(app.theme)}>

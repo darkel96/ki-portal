@@ -1,28 +1,30 @@
-/** Ergebnis eines Auftrags an sein Ziel bringen: E-Mail über Microsoft Graph (Berechtigung Mail.Send). */
+/** Ergebnis eines Auftrags an sein Ziel bringen (E-Mail, Teams): gemeinsame Logik aus src/lib/versand.ts, Token aus der gespeicherten Anmeldung. */
 import { KI_CONFIG } from "@/lib/ki/config";
+import { zustellen, type GraphRuf, type ZustellInhalt } from "@/lib/versand";
+import type { Ziel } from "@/lib/meinhub";
 import { emailVon, graphTokenFuer } from "./anmeldung";
 import type { DienstLauf } from "./laeufe";
 import type { DateiSpeicher } from "./speicher";
 
-const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]!);
-
-export function ergebnisHtml(l: DienstLauf): string {
+export function laufInhalt(l: DienstLauf): ZustellInhalt {
   const teile = l.app.steps.filter((s) => l.outs[s.id]).map((s) => {
     const o = l.outs[s.id]!;
-    const text = o.status === "fertig" ? o.text ?? "" : `(${o.status}${o.meldung ? `: ${o.meldung}` : ""})`;
-    return `<h2 style="font:600 16px Segoe UI,Arial,sans-serif;margin:20px 0 6px">${esc(s.name)}</h2><pre style="font:13px/1.5 Segoe UI,Arial,sans-serif;white-space:pre-wrap;margin:0">${esc(text)}</pre>`;
-  }).join("");
-  const stand = l.status === "fertig" ? "Fertig" : l.status === "fehler" ? `Fehler: ${l.meldung}` : "Abgebrochen";
-  return `<div style="font:14px Segoe UI,Arial,sans-serif;color:#1f2328"><p><b>${esc(l.titel)}</b> · ${esc(l.appName)} · ${stand}</p>${teile}<p style="margin-top:24px;color:#6b7280">Automatisch erstellt vom KI-Hub. Das Ergebnis liegt auch im Verlauf von Mein Hub.</p></div>`;
+    return { name: s.name, status: o.status, text: o.text ?? "", meldung: o.meldung };
+  });
+  return { titel: l.titel, appName: l.appName, stand: l.status === "laeuft" ? "fertig" : l.status, meldung: l.meldung, teile };
 }
 
-export async function perEmail(speicher: DateiSpeicher, l: DienstLauf): Promise<void> {
-  const an = l.ziel?.adresse?.trim() || (await emailVon(speicher, l.nutzer));
-  if (!an) throw new Error("Keine E-Mail-Adresse für den Versand bekannt.");
-  const token = await graphTokenFuer(speicher, l.nutzer);
-  const r = await fetch(`${KI_CONFIG.graph}/v1.0/me/sendMail`, {
-    method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-    body: JSON.stringify({ message: { subject: `KI-Hub: ${l.titel}`, body: { contentType: "HTML", content: ergebnisHtml(l) }, toRecipients: [{ emailAddress: { address: an } }] }, saveToSentItems: false }),
-  });
-  if (!r.ok) throw new Error(`E-Mail konnte nicht gesendet werden (${r.status}). ${r.status === 403 ? "Fehlt die Berechtigung Mail.Send?" : ""}`.trim());
+export async function zustellenImDienst(speicher: DateiSpeicher, l: DienstLauf): Promise<string> {
+  const ziel: Ziel = { ...l.ziel!, adresse: l.ziel?.adresse ?? "" };
+  // E-Mail ohne Adresse: an die Person selbst (aus der gespeicherten Anmeldung, sonst fragt das Modul Graph)
+  if (ziel.art === "email" && !ziel.adresse.trim()) ziel.adresse = await emailVon(speicher, l.nutzer);
+  const graph: GraphRuf = async (pfad, init) => {
+    const token = await graphTokenFuer(speicher, l.nutzer);
+    return fetch(`${KI_CONFIG.graph}${pfad}`, {
+      method: init?.method ?? "GET",
+      headers: { Authorization: `Bearer ${token}`, ...(init?.body !== undefined ? { "Content-Type": "application/json" } : {}) },
+      body: init?.body !== undefined ? JSON.stringify(init.body) : undefined,
+    });
+  };
+  return zustellen(ziel, laufInhalt(l), graph);
 }

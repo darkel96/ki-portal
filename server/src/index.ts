@@ -11,7 +11,8 @@ import { Laeufe } from "./laeufe";
 import { Lernen } from "./lernen";
 import { DateiSpeicher } from "./speicher";
 import { UMGEBUNG, umgebungPruefen } from "./umgebung";
-import { perEmail } from "./versand";
+import { zustellenImDienst } from "./versand";
+import { zielText } from "@/lib/versand";
 import { Zeitplan } from "./zeitplan";
 
 const MAX_BODY = 30 * 1024 * 1024;
@@ -79,9 +80,12 @@ async function start() {
   const lernen = new Lernen(speicher);
   laeufe.onEnde = async (l) => {
     console.info(`[Hub-Dienst] Lauf ${l.id} „${l.titel}“: ${l.status}${l.meldung ? ` (${l.meldung})` : ""}`);
-    if (l.auftragId && l.ziel?.art === "email") {
-      try { await perEmail(speicher, l); }
-      catch (e) { l.meldung = `${l.meldung ? l.meldung + " " : ""}Versand per E-Mail fehlgeschlagen: ${e instanceof Error ? e.message : e}`; l.version++; await speicher.schreiben(`laeufe/${l.id}.json`, l); }
+    if (l.auftragId && l.status === "fertig" && l.ziel && l.ziel.art !== "hub") {
+      try { l.zustellung = await zustellenImDienst(speicher, l); }
+      catch (e) { l.zustellung = `Zustellung ${zielText(l.ziel)} fehlgeschlagen: ${e instanceof Error ? e.message : e}`; }
+      l.version++;
+      await speicher.schreiben(`laeufe/${l.id}.json`, l);
+      console.info(`[Hub-Dienst] Lauf ${l.id}: ${l.zustellung}`);
     }
   };
   await laeufe.laden();

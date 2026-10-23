@@ -9,6 +9,8 @@ import {
 import type { App } from "@/lib/schema";
 import type { OutState } from "@/lib/runner";
 import { alsLauf, auftraegeSchreiben, auftragJetzt, dienstAktiv, laeufeListe, laufEntfernen } from "@/lib/dienst";
+import { laufInhalt, zustellenImBrowser, zustellungMoeglich } from "@/lib/ki/zustellung";
+import { zielText } from "@/lib/versand";
 
 type Ctx = {
   daten: MeinHub;
@@ -167,7 +169,7 @@ export function MeinHubProvider({ children }: { children: ReactNode }) {
       aendern((d) => { const x = d.auftraege.find((y) => y.id === id); if (x) { x.letzterLauf = jetzt.toISOString(); x.naechsterLauf = naechsterLauf(x.zeitplan, jetzt).toISOString(); } });
       let lauf: Lauf;
       if (!app || app.typ === "link") {
-        lauf = { id: neueId("l"), auftragId: a.id, appId: a.appId, appName: app?.name ?? "", titel: a.name, voreinstellungId: a.voreinstellungId, start: jetzt.toISOString(), ende: jetzt.toISOString(), status: "fehler", meldung: "Die Applikation gibt es nicht mehr.", ergebnisse: {} };
+        lauf = { id: neueId("l"), auftragId: a.id, appId: a.appId, appName: app?.name ?? "", titel: a.name, voreinstellungId: a.voreinstellungId, start: jetzt.toISOString(), ende: jetzt.toISOString(), status: "fehler", meldung: "Die Applikation gibt es nicht mehr.", zustellung: "", ergebnisse: {} };
       } else {
         const c = new AbortController();
         ctl.current = c;
@@ -179,9 +181,19 @@ export function MeinHubProvider({ children }: { children: ReactNode }) {
         ctl.current = null;
         setLaufend(null);
       }
-      const fertig = lauf;
-      aendern((d) => { d.laeufe = [fertig, ...d.laeufe.filter((x) => x.id !== fertig.id)]; });
-      if (lauf.status === "fertig") toast.success(`Auftrag „${a.name}“ ist fertig. Das Ergebnis liegt im Verlauf von Mein Hub.`);
+      let fertig = lauf;
+      // Ergebnis zustellen (E-Mail, Teams): nur fertige Läufe, und nur, wenn Graph aus diesem Browser erreichbar ist
+      if (lauf.status === "fertig" && a.ziel.art !== "hub") {
+        if (!zustellungMoeglich()) fertig = { ...lauf, zustellung: `Nicht ${zielText(a.ziel)} gesendet: Dafür braucht der Hub die Copilot-Anmeldung oder den Hub-Dienst.` };
+        else {
+          try { fertig = { ...lauf, zustellung: await zustellenImBrowser(a.ziel, laufInhalt(lauf)) }; }
+          catch (e) { fertig = { ...lauf, zustellung: `Zustellung ${zielText(a.ziel)} fehlgeschlagen: ${e instanceof Error ? e.message : String(e)}` }; }
+        }
+      }
+      const abgelegt = fertig;
+      aendern((d) => { d.laeufe = [abgelegt, ...d.laeufe.filter((x) => x.id !== abgelegt.id)]; });
+      if (lauf.status === "fertig" && /fehlgeschlagen|^Nicht /.test(fertig.zustellung)) toast.error(`Auftrag „${a.name}“ ist fertig, aber: ${fertig.zustellung}`);
+      else if (lauf.status === "fertig") toast.success(`Auftrag „${a.name}“ ist fertig. ${fertig.zustellung || "Das Ergebnis liegt im Verlauf von Mein Hub."}`);
       else if (lauf.status === "fehler") toast.error(`Auftrag „${a.name}“: ${lauf.meldung}`);
     }
   }, [aendern, find]);
