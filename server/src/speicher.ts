@@ -2,6 +2,8 @@
 import { mkdir, readFile, readdir, rename, unlink, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 
+let laufendeNr = 0;
+
 export class DateiSpeicher {
   constructor(private readonly wurzel: string) {}
 
@@ -14,7 +16,7 @@ export class DateiSpeicher {
   async schreiben(rel: string, wert: unknown): Promise<void> {
     const ziel = this.pfad(rel);
     await mkdir(dirname(ziel), { recursive: true });
-    const tmp = `${ziel}.${process.pid}.${Date.now()}.tmp`;
+    const tmp = `${ziel}.${process.pid}.${Date.now()}.${++laufendeNr}.tmp`;
     await writeFile(tmp, JSON.stringify(wert), "utf8");
     await rename(tmp, ziel);
   }

@@ -9,9 +9,12 @@ import { useMeinHub } from "@/state/meinhub";
 import type { FileInfo } from "@/lib/request";
 import type { Werte } from "@/lib/runner";
 import {
-  WOCHENTAG, ZIEL_LABEL, ZIEL_SPAETER, ZeitplanSchema, datumZeit, naechsterLauf, zeitplanText,
+  WOCHENTAG, ZIEL_GRAPH, ZIEL_LABEL, ZIEL_SPAETER, ZeitplanSchema, datumZeit, naechsterLauf, zeitplanText,
   type Auftrag, type Voreinstellung, type Zeitplan, type Ziel,
 } from "@/lib/meinhub";
+import { istWebhook, zielPruefen, zielText } from "@/lib/versand";
+import { testInhalt, zustellenImBrowser, zustellungMoeglich } from "@/lib/ki/zustellung";
+import { useApps } from "@/state/apps";
 
 type Stand = () => { werte: Werte; dateien: Record<string, FileInfo> };
 
@@ -101,37 +104,55 @@ export function AuftragDialog({ offen, onOffen, appId, appName, auftrag, stand, 
   vorlageVorschlag?: string | null;
 }) {
   const { vorlagenFuer, vorlageSpeichern, auftragSpeichern, dienstAn } = useMeinHub();
+  const { find } = useApps();
+  // Empfehlung der App (z. B. „montags 07:00 per E-Mail“) als Vorschlag für einen neuen Auftrag
+  const empfehlung = find(appId)?.auftrag;
   const fokusZurueck = useAusloeser(offen);
   const vorlagen = vorlagenFuer(appId);
   const [name, setName] = useState("");
   const [vorlage, setVorlage] = useState<string>(AKTUELL);
   const [zeitplan, setZeitplan] = useState<Zeitplan>(ZeitplanSchema.parse({}));
-  const [ziel, setZiel] = useState<Ziel["art"]>("hub");
+  const [ziel, setZiel] = useState<Ziel>({ art: "hub", adresse: "" });
   const [aktiv, setAktiv] = useState(true);
+  const [testet, setTestet] = useState(false);
+  const graphDa = zustellungMoeglich();
 
   useEffect(() => {
     if (!offen) return;
     setName(auftrag?.name ?? appName);
     setVorlage(auftrag?.voreinstellungId ?? vorlageVorschlag ?? (stand ? AKTUELL : vorlagen[0]?.id ?? ""));
-    setZeitplan(auftrag?.zeitplan ?? ZeitplanSchema.parse({}));
-    setZiel(auftrag?.ziel.art ?? "hub");
+    setZeitplan(auftrag?.zeitplan ?? (empfehlung ? ZeitplanSchema.parse({ art: empfehlung.art, uhrzeit: empfehlung.uhrzeit, wochentag: empfehlung.wochentag, tag: empfehlung.tag }) : ZeitplanSchema.parse({})));
+    setZiel(auftrag?.ziel ?? { art: empfehlung?.ziel ?? "hub", adresse: "" });
     setAktiv(auftrag?.aktiv ?? true);
   }, [offen]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const z = (k: keyof Zeitplan, v: unknown) => setZeitplan((alt) => ({ ...alt, [k]: v }));
+  const adressFehler = zielPruefen(ziel);
   const speichern = (e: FormEvent) => {
     e.preventDefault();
-    if (!optionen.length) return;
+    if (!optionen.length || adressFehler) return;
     let vid: string | null = vorlage || null;
     if (vorlage === AKTUELL) {
       if (!stand) return;
       const { werte, dateien } = stand();
       vid = vorlageSpeichern({ appId, name: (name.trim() || appName).slice(0, 80), werte, dateien }).id;
     }
-    const a = auftragSpeichern({ id: auftrag?.id, name: (name.trim() || appName).slice(0, 80), appId, voreinstellungId: vid, zeitplan, ziel: { art: ziel, adresse: "" }, aktiv });
-    toast.success(`Auftrag „${a.name}“ gespeichert. Nächster Lauf: ${datumZeit(a.naechsterLauf)}.`);
+    const a = auftragSpeichern({ id: auftrag?.id, name: (name.trim() || appName).slice(0, 80), appId, voreinstellungId: vid, zeitplan, ziel: { art: ziel.art, adresse: ziel.adresse.trim() }, aktiv });
+    toast.success(`Auftrag „${a.name}“ gespeichert. Nächster Lauf: ${datumZeit(a.naechsterLauf)}${a.ziel.art !== "hub" ? `, Ergebnis ${zielText(a.ziel)}` : ""}.`);
     onOffen(false);
   };
+  const zustellungTesten = async () => {
+    if (adressFehler) { toast.error(adressFehler); return; }
+    setTestet(true);
+    try { toast.success(`Testnachricht ${zielText(ziel)}: ${await zustellenImBrowser(ziel, testInhalt(appName))}`); }
+    catch (e) { toast.error(`Testnachricht ${zielText(ziel)} fehlgeschlagen: ${e instanceof Error ? e.message : String(e)}`); }
+    finally { setTestet(false); }
+  };
+  const zielHinweis = ziel.art === "email"
+    ? "Leer lassen heißt: an deine eigene Adresse. Sonst eine E-Mail-Adresse, z. B. ein Team-Postfach."
+    : ziel.art === "teams"
+      ? "Leer lassen heißt: in deinen Teams-Chat mit dir selbst (den gibt es, sobald du dir in Teams einmal selbst geschrieben hast). Sonst die E-Mail-Adresse einer Person (Einzelchat) oder die Webhook-Adresse eines Kanals (Teams-Kanal → Workflows → „Beim Empfang einer Webhook-Anforderung in einem Kanal posten“)."
+      : "";
   const optionen: [string, string][] = [
     ...(stand ? [[AKTUELL, "Aktuelle Eingaben (als neue Voreinstellung)"] as [string, string]] : []),
     ...vorlagen.map((v) => [v.id, v.name] as [string, string]),
@@ -158,13 +179,26 @@ export function AuftragDialog({ offen, onOffen, appId, appName, auftrag, stand, 
             <Input id="af-zeit" type="time" value={zeitplan.uhrzeit} onChange={(e) => e.target.value && z("uhrzeit", e.target.value)} className="w-32" />
           </Fld>
         </div>
-        <SelMitSperre label="Ergebnis" value={ziel} onChange={setZiel}
-          options={(Object.keys(ZIEL_LABEL) as Ziel["art"][]).map((k) => (ZIEL_SPAETER.has(k) && !(k === "email" && dienstAn) ? [k, `${ZIEL_LABEL[k]} (${k === "email" ? "braucht den Hub-Dienst" : "folgt"})`, true] : [k, ZIEL_LABEL[k]]) as [Ziel["art"], string, boolean?])} />
+        <SelMitSperre label="Ergebnis" value={ziel.art} onChange={(art) => setZiel((alt) => ({ ...alt, art }))}
+          options={(Object.keys(ZIEL_LABEL) as Ziel["art"][]).map((k) => (
+            ZIEL_SPAETER.has(k) ? [k, `${ZIEL_LABEL[k]} (folgt)`, true]
+              : ZIEL_GRAPH.has(k) && !graphDa && !dienstAn ? [k, `${ZIEL_LABEL[k]} (braucht die Copilot-Anmeldung)`, true]
+                : [k, ZIEL_LABEL[k]]) as [Ziel["art"], string, boolean?])} />
+        {ZIEL_GRAPH.has(ziel.art) && (
+          <Fld label={ziel.art === "email" ? "Empfänger (optional)" : "Empfänger oder Kanal (optional)"} htmlFor="af-adresse">
+            <div className="flex flex-wrap items-center gap-2">
+              <Input id="af-adresse" className="min-w-0 flex-1" value={ziel.adresse} autoComplete="off" maxLength={400} aria-invalid={!!adressFehler || undefined}
+                placeholder={ziel.art === "email" ? "leer = an mich" : "leer = an mich; E-Mail einer Person oder https://… (Webhook)"} onChange={(e) => setZiel((alt) => ({ ...alt, adresse: e.target.value }))} />
+              <Button type="button" variant="outline" size="sm" className="rounded-full" disabled={testet || !graphDa && !istWebhook(ziel.adresse)} title={!graphDa && !istWebhook(ziel.adresse) ? "Zum Testen aus dem Browser braucht es die Copilot-Anmeldung" : undefined} onClick={() => void zustellungTesten()}>{testet ? "Sendet …" : "Zustellung testen"}</Button>
+            </div>
+            <p className="hint" style={{ margin: "4px 0 0", color: adressFehler ? "var(--danger)" : undefined }}>{adressFehler ?? zielHinweis}</p>
+          </Fld>
+        )}
         <Check label="Auftrag ist aktiv" checked={aktiv} onChange={setAktiv} />
-        <p className="hint" style={{ margin: 0 }}>Läuft {zeitplanText(zeitplan)}, zuerst am {datumZeit(naechsterLauf(zeitplan).toISOString())}. {dienstAn ? "Der Hub-Dienst führt den Auftrag aus, auch wenn der KI-Hub geschlossen ist." : "Ohne Hub-Dienst laufen Aufträge, solange der KI-Hub in einem Browserfenster geöffnet ist; verpasste Termine werden beim nächsten Öffnen einmal nachgeholt."}</p>
+        <p className="hint" style={{ margin: 0 }}>Läuft {zeitplanText(zeitplan)}, zuerst am {datumZeit(naechsterLauf(zeitplan).toISOString())}{ziel.art !== "hub" ? `, Ergebnis ${zielText(ziel)}` : ""}. {dienstAn ? "Der Hub-Dienst führt den Auftrag aus, auch wenn der KI-Hub geschlossen ist." : "Ohne Hub-Dienst laufen Aufträge, solange der KI-Hub in einem Browserfenster geöffnet ist; verpasste Termine werden beim nächsten Öffnen einmal nachgeholt."}</p>
         <DialogFooter>
           <Button type="button" variant="ghost" onClick={() => onOffen(false)}>Abbrechen</Button>
-          <Button type="submit" disabled={!optionen.length}>Speichern</Button>
+          <Button type="submit" disabled={!optionen.length || !!adressFehler}>Speichern</Button>
         </DialogFooter>
         </form>
       </DialogContent>

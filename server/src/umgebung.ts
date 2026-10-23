@@ -19,10 +19,10 @@ export const UMGEBUNG = {
   clientSecret: String(env.HUB_CLIENT_SECRET ?? "").trim(),
   /** Berechtigung, die der Hub im Browser für den Dienst anfordert (unter „Expose an API“ der App-Registrierung) */
   apiScope: env.HUB_API_SCOPE || (clientId ? `api://${clientId}/Laeufe.Ausfuehren` : ""),
-  /** Graph-Berechtigungen, die der Dienst im Namen der Person braucht (Copilot plus E-Mail-Versand) */
+  /** Graph-Berechtigungen, die der Dienst im Namen der Person braucht (Copilot plus Zustellung per E-Mail und Teams) */
   graphScopes: String(env.HUB_GRAPH_SCOPES ?? "").split(/\s+/).filter(Boolean).length
     ? String(env.HUB_GRAPH_SCOPES).split(/\s+/).filter(Boolean)
-    : [...COPILOT_SCOPES, "https://graph.microsoft.com/Mail.Send"],
+    : [...COPILOT_SCOPES, "https://graph.microsoft.com/Mail.Send", "https://graph.microsoft.com/Chat.ReadWrite", "https://graph.microsoft.com/ChatMessage.Send"],
   /** Erlaubte Ursprünge (CORS), mit Komma; leer = nur derselbe Ursprung (Hub wird vom Dienst ausgeliefert) */
   urspruenge: String(env.HUB_URSPRUNG ?? "").split(",").map((s) => s.trim()).filter(Boolean),
   /** Verzögerung der Attrappe je Antwort (Testmodus) */

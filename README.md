@@ -35,8 +35,32 @@ In der App-Registrierung als Redirect-URI (Typ „Single-page application“) `h
 ## Hub-Dienst: Läufe ohne offenen Tab
 
 Mit dem Hub-Dienst (`server/`) laufen Läufe und Aufträge auf dem eigenen Linux-Server weiter, auch wenn der Tab
-geschlossen oder der PC aus ist; Aufträge laufen nach Zeitplan und gehen auf Wunsch per E-Mail raus. Einrichtung,
+geschlossen oder der PC aus ist; Aufträge laufen nach Zeitplan und gehen auf Wunsch per E-Mail oder Teams raus. Einrichtung,
 Azure-Schritte und Betrieb: [SERVER.md](SERVER.md). Ohne Dienst läuft alles wie bisher im Browser.
+
+## Aufträge mit Zustellung per E-Mail oder Teams
+
+Jede Applikation lässt sich als Auftrag planen („Voreinstellungen“ → „Regelmäßig ausführen“): feste Eingaben als
+Voreinstellung, Zeitplan (täglich, werktags, wöchentlich, monatlich) und ein Ziel für das Ergebnis:
+
+- **Nur im Verlauf von Mein Hub**: wie bisher.
+- **Per E-Mail**: an die eigene Adresse (Feld leer) oder eine andere, etwa ein Team-Postfach. Microsoft Graph `Mail.Send`.
+- **Als Teams-Nachricht**: in den Chat mit sich selbst (Feld leer; den Chat gibt es, sobald man sich in Teams einmal
+  selbst geschrieben hat), an eine Person (ihre E-Mail-Adresse, Einzelchat) oder in einen Kanal über eine
+  Webhook-Adresse (`https://…`; in Teams: Kanal → Workflows → „Beim Empfang einer Webhook-Anforderung in einem Kanal
+  posten“). Graph `Chat.ReadWrite` und `ChatMessage.Send`; der Webhook braucht keine Berechtigung.
+
+„Zustellung testen“ im Dialog schickt sofort eine Testnachricht auf dem gewählten Weg. Die Zustellung übernimmt der
+Hub-Dienst (auch bei geschlossenem Hub) oder, ohne Dienst, der Browser mit der Copilot-Anmeldung, sobald der Auftrag
+dort gelaufen ist; im Verlauf steht zu jedem Lauf, wohin das Ergebnis ging oder woran die Zustellung scheiterte. Die
+Graph-Berechtigungen müssen in der Azure-App-Registrierung als delegierte Berechtigungen eingetragen und freigegeben sein;
+der Browser fragt beim ersten Mal nach der Zustimmung. Markdown wird für Mail und Teams in schlichtes HTML übersetzt
+(Überschriften, Listen, Tabellen, Links); Kanäle bekommen eine Adaptive Card.
+
+Zwei Vorlagen zeigen das Muster: **Wochen-Briefing** (Schwerpunkte und Termine → Prioritäten, Risiken, Fragen fürs Team;
+Empfehlung montags 07:00 per E-Mail) und **Wochenrückblick** (Notizen der Woche → Statusbericht und Teams-Nachricht;
+Empfehlung freitags 16:00 als Teams-Nachricht). Eine Vorlage kann eine solche Empfehlung tragen (`auftrag` in der App);
+der Dialog übernimmt sie als Vorschlag.
 
 ## Lernschicht für Fachexperten-Chats
 
@@ -350,7 +374,7 @@ Jeder Push auf `main` baut den Hub und veröffentlicht ihn über GitHub Actions 
 - Microsoft-365-Copilot-Lizenzen für alle Nutzer
 - Lizenzierte Hausschrift (`fontKoerber`); Farben mit `vorlagen/koerber.potx` abgleichen (Logo ist eingebunden)
 - Copilot-Endpunkte (teils Beta) vor Inbetriebnahme mit der aktuellen Graph-Dokumentation abgleichen
-- Mein Hub im Betrieb: Speicher je Nutzer, Hintergrunddienst für regelmäßige Aufträge (z. B. Azure Function), Refresh-Token (`offline_access`) in Key Vault, Ziele E-Mail/SharePoint/Teams (siehe Konzept Abschnitt 24.4)
+- Mein Hub im Betrieb: Speicher je Nutzer, Hintergrunddienst für regelmäßige Aufträge (z. B. Azure Function), Refresh-Token (`offline_access`) in Key Vault, Ziel SharePoint-Ordner (E-Mail und Teams gibt es; siehe Konzept Abschnitt 24.4)
 
 ## Testfassung mit Claude
 

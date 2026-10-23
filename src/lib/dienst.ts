@@ -92,7 +92,7 @@ export type LaufStatus = "laeuft" | "fertig" | "fehler" | "abgebrochen";
 export type DienstLaufStand =
   | { unveraendert: true; id: string; version: number; status: LaufStatus }
   | { unveraendert?: false; id: string; version: number; status: LaufStatus; meldung: string; titel: string; appId: string; appName: string; auftragId: string | null; start: string; ende: string; gesehen: boolean; werte: Werte; files: Record<string, FileInfo>; ergebnisse: Record<string, string>; outs: Record<string, OutState> };
-export type DienstLaufKurz = { id: string; appId: string; appName: string; titel: string; auftragId: string | null; ziel: Ziel | null; start: string; ende: string; status: LaufStatus; meldung: string; version: number; gesehen: boolean; ergebnisse: Lauf["ergebnisse"] };
+export type DienstLaufKurz = { id: string; appId: string; appName: string; titel: string; auftragId: string | null; ziel: Ziel | null; start: string; ende: string; status: LaufStatus; meldung: string; zustellung?: string; version: number; gesehen: boolean; ergebnisse: Lauf["ergebnisse"] };
 export type AuftragsAbgleich = { nutzer: string; auftraege: Auftrag[]; voreinstellungen: Voreinstellung[]; appIds: string[]; stand: string };
 
 /** Lauf im Dienst starten; die Eingaben gehen mit (Dateien als gelesener Text) */
@@ -134,7 +134,7 @@ export function gemerkterLauf(appId: string): string { try { return localStorage
 
 /** Lauf aus dem Dienst als Verlaufseintrag von Mein Hub */
 export function alsLauf(k: DienstLaufKurz): Lauf {
-  return { id: k.id, auftragId: k.auftragId, appId: k.appId, appName: k.appName, titel: k.titel, voreinstellungId: null, start: k.start, ende: k.ende, status: k.status, meldung: k.meldung, ergebnisse: k.ergebnisse };
+  return { id: k.id, auftragId: k.auftragId, appId: k.appId, appName: k.appName, titel: k.titel, voreinstellungId: null, start: k.start, ende: k.ende, status: k.status, meldung: k.meldung, zustellung: k.zustellung ?? "", ergebnisse: k.ergebnisse };
 }
 
 /** Benachrichtigung des Browsers, wenn ein Lauf fertig wird, während der Tab im Hintergrund liegt */

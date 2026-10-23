@@ -224,8 +224,8 @@ function loadAppStrikt(raw: unknown): App | null {
   const name = typeof raw.name === "string" && raw.name.trim() ? raw.name.trim().slice(0, 60) : "Ohne Namen";
   const base = AppSchema.parse({ id: typeof raw.id === "string" ? raw.id : null, name });
   const app = sanitizeApp(raw, base);
-  const meta = AppSchema.pick({ typ: true, url: true, status: true, owner: true, schutz: true, version: true, geaendert: true, erstelltVon: true, rechte: true, pflichtSperre: true });
-  const m = meta.safeParse({ typ: raw.typ, url: raw.url, status: raw.status, owner: raw.owner, schutz: raw.schutz, version: raw.version, geaendert: raw.geaendert, erstelltVon: raw.erstelltVon, rechte: raw.rechte, pflichtSperre: raw.pflichtSperre });
+  const meta = AppSchema.pick({ typ: true, url: true, status: true, owner: true, schutz: true, version: true, geaendert: true, erstelltVon: true, rechte: true, pflichtSperre: true, auftrag: true });
+  const m = meta.safeParse({ typ: raw.typ, url: raw.url, status: raw.status, owner: raw.owner, schutz: raw.schutz, version: raw.version, geaendert: raw.geaendert, erstelltVon: raw.erstelltVon, rechte: raw.rechte, pflichtSperre: raw.pflichtSperre, auftrag: raw.auftrag ?? undefined });
   if (m.success) Object.assign(app, m.data);
   else {
     // Rechte-Angaben einzeln retten, damit ein Tippfehler darin nicht die übrigen Angaben verwirft

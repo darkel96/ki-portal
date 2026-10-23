@@ -196,6 +196,8 @@ type LegacyStep = { titel?: string; rolle?: string; prompt?: string; modell?: st
 export type LegacyApp = {
   id?: string | null; name: string; bereich?: string; beschreibung?: string; typ?: "baukasten" | "link"; url?: string;
   farbe?: string; felder?: LegacyField[]; schritte?: LegacyStep[]; status?: App["status"]; version?: number;
+  /** Empfohlener regelmäßiger Auftrag (Zeitplan, Zustellung) */
+  auftrag?: App["auftrag"];
 };
 
 /** Baut aus einer einfachen Beschreibung (Felder + Schritte) eine App mit Standard-Layout. */
@@ -203,6 +205,7 @@ export function fromSimple(d: LegacyApp): App {
   const app = AppSchema.parse({
     id: d.id ?? null, name: d.name || "Neue Applikation", bereich: d.bereich || "Allgemein", beschreibung: d.beschreibung || "",
     typ: d.typ || "baukasten", url: d.url || "", theme: { accent: d.farbe || "" }, status: d.status ?? "freigegeben", version: d.version ?? 1,
+    auftrag: d.auftrag,
   });
   if (app.typ === "link") return app;
   app.steps = (d.schritte ?? []).map((s, i) => StepSchema.parse({

@@ -8,6 +8,15 @@ import { UMGEBUNG } from "./umgebung";
 
 let n = 0;
 const warten = (ms: number) => new Promise((r) => setTimeout(r, ms));
+/** Gesendete Mails und Teams-Nachrichten nacheinander ins Protokoll (gleichzeitige Zustellungen überschreiben sich sonst) */
+let protokoll: Promise<void> = Promise.resolve();
+function protokollieren(speicher: DateiSpeicher, eintrag: unknown): Promise<void> {
+  protokoll = protokoll.then(async () => {
+    const bisher = (await speicher.lesen<unknown[]>("attrappe-post.json")) ?? [];
+    await speicher.schreiben("attrappe-post.json", [...bisher, eintrag]);
+  }).catch((e) => console.error("[Hub-Dienst] Attrappe:", e));
+  return protokoll;
+}
 
 function antwortZu(frage: string): string {
   const kern = frage.replace(/\s+/g, " ").trim().slice(0, 90);
@@ -40,12 +49,19 @@ export async function attrappe(req: IncomingMessage, res: ServerResponse, pfad: 
     return;
   }
   if (req.method === "POST" && pfad === "/v1.0/me/sendMail") {
-    const bisher = (await speicher.lesen<unknown[]>("attrappe-post.json")) ?? [];
-    await speicher.schreiben("attrappe-post.json", [...bisher, { zeit: new Date().toISOString(), nachricht: body }]);
+    await protokollieren(speicher, { zeit: new Date().toISOString(), nachricht: body });
     res.writeHead(202); res.end();
     return;
   }
   if (req.method === "GET" && pfad === "/post") return json(200, (await speicher.lesen<unknown[]>("attrappe-post.json")) ?? []);
-  if (req.method === "GET" && pfad === "/v1.0/me") return json(200, { displayName: "Testperson", mail: "test@test.local" });
+  if (req.method === "GET" && pfad === "/v1.0/me") return json(200, { id: "me-test", displayName: "Testperson", mail: "test@test.local", userPrincipalName: "test@test.local" });
+  // Teams: der Chat mit sich selbst (ein Mitglied), neue Chats mit einer Person, Nachrichten
+  if (req.method === "GET" && pfad === "/v1.0/me/chats") return json(200, { value: [{ id: "chat-selbst", chatType: "oneOnOne", members: [{ email: "test@test.local", userId: "me-test" }] }, { id: "chat-anna", chatType: "oneOnOne", members: [{ email: "test@test.local", userId: "me-test" }, { email: "anna@test.local", userId: "anna" }] }] });
+  if (req.method === "POST" && pfad === "/v1.0/chats") return json(201, { id: `chat-${++n}`, chatType: "oneOnOne" });
+  const nachricht = /^\/v1\.0\/chats\/([^/]+)\/messages$/.exec(pfad);
+  if (req.method === "POST" && nachricht) {
+    await protokollieren(speicher, { zeit: new Date().toISOString(), chat: decodeURIComponent(nachricht[1]!), nachricht: body });
+    return json(201, { id: `msg-${++n}` });
+  }
   json(404, { error: { message: `Die Attrappe kennt ${req.method} ${pfad} nicht.` } });
 }

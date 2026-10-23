@@ -15,8 +15,8 @@ test("Startseite: Kacheln blättern, Bereichsfilter und Suche", async ({ page },
   await page.goto("/");
   await expect(page.getByRole("heading", { level: 1 })).toContainText("Welche Aufgabe");
   // Breit steht die Anzahl neben der Suche, schmal in der Bereichsauswahl
-  if ((page.viewportSize()?.width ?? 0) > 900) await expect(page.getByText("11 Applikationen")).toBeVisible();
-  else await expect(page.getByRole("combobox", { name: "Bereich" })).toContainText("Alle Bereiche (11)");
+  if ((page.viewportSize()?.width ?? 0) > 900) await expect(page.getByText("13 Applikationen")).toBeVisible();
+  else await expect(page.getByRole("combobox", { name: "Bereich" })).toContainText("Alle Bereiche (13)");
   const kacheln = page.locator(".tiles-raster a.tile:not(.tile-new)");
   await expect(kacheln.first()).toBeVisible();
   await scrolltNicht(page);
@@ -31,7 +31,7 @@ test("Startseite: Kacheln blättern, Bereichsfilter und Suche", async ({ page },
     await page.waitForTimeout(250);
     summe += await kacheln.count();
   }
-  expect(summe).toBe(11);
+  expect(summe).toBe(13);
 
   await bereichWaehlen(page, "Vertrieb");
   await expect(page.getByRole("heading", { name: "Vertrieb", level: 2 })).toBeVisible();
