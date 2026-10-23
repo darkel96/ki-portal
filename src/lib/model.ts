@@ -1,7 +1,6 @@
 import {
   AppSchema, PropsSchemas, StepSchema, isFieldType,
-  type App, type Block, type BlockType, type Step, type FieldType, type PropsOf,
-} from "./schema";
+  type App, type Block, type BlockType, type Step, type FieldType, type PropsOf, WissenSchema } from "./schema";
 
 export const rid = (p: string) => p + Math.random().toString(36).slice(2, 9);
 export const clone = <T,>(o: T): T => JSON.parse(JSON.stringify(o));
@@ -198,6 +197,8 @@ export type LegacyApp = {
   farbe?: string; felder?: LegacyField[]; schritte?: LegacyStep[]; status?: App["status"]; version?: number;
   /** Empfohlener regelmäßiger Auftrag (Zeitplan, Zustellung) */
   auftrag?: App["auftrag"];
+  /** Wissen der App: Modus und Quellen (z. B. eigene E-Mails der letzten Tage) */
+  wissen?: { modus?: App["wissen"]["modus"]; text?: string; quellen?: Partial<App["wissen"]["quellen"][number]>[] };
 };
 
 /** Baut aus einer einfachen Beschreibung (Felder + Schritte) eine App mit Standard-Layout. */
@@ -207,6 +208,7 @@ export function fromSimple(d: LegacyApp): App {
     typ: d.typ || "baukasten", url: d.url || "", theme: { accent: d.farbe || "" }, status: d.status ?? "freigegeben", version: d.version ?? 1,
     auftrag: d.auftrag,
   });
+  if (d.wissen) app.wissen = WissenSchema.parse({ ...app.wissen, ...d.wissen });
   if (app.typ === "link") return app;
   app.steps = (d.schritte ?? []).map((s, i) => StepSchema.parse({
     id: rid("s"), name: s.titel || `KI-Schritt ${i + 1}`, key: `schritt${i + 1}`, rolle: s.rolle || "", prompt: s.prompt || "",

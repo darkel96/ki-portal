@@ -55,8 +55,18 @@ export async function attrappe(req: IncomingMessage, res: ServerResponse, pfad: 
   }
   if (req.method === "GET" && pfad === "/post") return json(200, (await speicher.lesen<unknown[]>("attrappe-post.json")) ?? []);
   if (req.method === "GET" && pfad === "/v1.0/me") return json(200, { id: "me-test", displayName: "Testperson", mail: "test@test.local", userPrincipalName: "test@test.local" });
+  // Eigene E-Mails, Teams-Nachrichten und Termine als Wissensquellen (Zeitraum ab jetzt zurück)
+  const vor = (tage: number) => new Date(Date.now() - tage * 86_400_000).toISOString();
+  if (req.method === "GET" && /^\/v1\.0\/me\/mailFolders\/[^/]+$/.test(pfad)) return json(200, { id: `ordner-${pfad.split("/").pop()}` });
+  if (req.method === "GET" && pfad === "/v1.0/me/messages") return json(200, { value: [
+    { id: "a1", subject: "KTE: Freigabe Pflichtenheft", from: { emailAddress: { name: "Anna Berger", address: "anna@test.local" } }, toRecipients: [{ emailAddress: { name: "Testperson" } }], receivedDateTime: vor(2), bodyPreview: "Das Pflichtenheft KTE ist freigegeben.", body: { contentType: "text", content: "Hallo,\n\ndas Pflichtenheft KTE ist freigegeben, Umsetzung startet Montag.\n\nAnna" }, webLink: "https://outlook.test/a1", parentFolderId: "inbox" },
+    { id: "a2", subject: "Kantinenplan", from: { emailAddress: { name: "Verwaltung" } }, receivedDateTime: vor(1), bodyPreview: "Der Kantinenplan für nächste Woche.", body: { contentType: "text", content: "Der Kantinenplan für nächste Woche hängt an." }, webLink: "https://outlook.test/a2", parentFolderId: "inbox" },
+  ] });
+  if (req.method === "GET" && /^\/v1\.0\/me\/chats\/[^/]+\/messages$/.test(pfad)) return json(200, { value: [{ id: "c1", messageType: "message", createdDateTime: vor(1), from: { user: { displayName: "Anna Berger" } }, body: { contentType: "html", content: "<p>KTE: Termin mit dem Kunden steht, Donnerstag 10 Uhr.</p>" } }] });
+  if (req.method === "GET" && pfad === "/v1.0/me/joinedTeams") return json(200, { value: [] });
+  if (req.method === "GET" && pfad === "/v1.0/me/calendarView") return json(200, { value: [{ subject: "KTE Abstimmung", start: { dateTime: vor(3).replace(/Z$/, "") }, end: { dateTime: vor(3).replace(/Z$/, "") }, organizer: { emailAddress: { name: "Anna Berger" } } }] });
   // Teams: der Chat mit sich selbst (ein Mitglied), neue Chats mit einer Person, Nachrichten
-  if (req.method === "GET" && pfad === "/v1.0/me/chats") return json(200, { value: [{ id: "chat-selbst", chatType: "oneOnOne", members: [{ email: "test@test.local", userId: "me-test" }] }, { id: "chat-anna", chatType: "oneOnOne", members: [{ email: "test@test.local", userId: "me-test" }, { email: "anna@test.local", userId: "anna" }] }] });
+  if (req.method === "GET" && pfad === "/v1.0/me/chats") return json(200, { value: [{ id: "chat-selbst", chatType: "oneOnOne", members: [{ email: "test@test.local", userId: "me-test", displayName: "Testperson" }], lastMessagePreview: { createdDateTime: vor(30) } }, { id: "chat-anna", chatType: "oneOnOne", webUrl: "https://teams.test/chat-anna", members: [{ email: "test@test.local", userId: "me-test", displayName: "Testperson" }, { email: "anna@test.local", userId: "anna", displayName: "Anna Berger" }], lastMessagePreview: { createdDateTime: vor(1) } }] });
   if (req.method === "POST" && pfad === "/v1.0/chats") return json(201, { id: `chat-${++n}`, chatType: "oneOnOne" });
   const nachricht = /^\/v1\.0\/chats\/([^/]+)\/messages$/.exec(pfad);
   if (req.method === "POST" && nachricht) {

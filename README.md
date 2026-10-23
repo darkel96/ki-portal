@@ -57,10 +57,26 @@ Graph-Berechtigungen müssen in der Azure-App-Registrierung als delegierte Berec
 der Browser fragt beim ersten Mal nach der Zustimmung. Markdown wird für Mail und Teams in schlichtes HTML übersetzt
 (Überschriften, Listen, Tabellen, Links); Kanäle bekommen eine Adaptive Card.
 
-Zwei Vorlagen zeigen das Muster: **Wochen-Briefing** (Schwerpunkte und Termine → Prioritäten, Risiken, Fragen fürs Team;
-Empfehlung montags 07:00 per E-Mail) und **Wochenrückblick** (Notizen der Woche → Statusbericht und Teams-Nachricht;
-Empfehlung freitags 16:00 als Teams-Nachricht). Eine Vorlage kann eine solche Empfehlung tragen (`auftrag` in der App);
-der Dialog übernimmt sie als Vorschlag.
+Zwei Vorlagen zeigen das Muster: **Wochen-Briefing** (Termine der kommenden Woche, E-Mails und Teams-Nachrichten der
+letzten Tage → Prioritäten, offene Zusagen, Risiken, Fragen fürs Team; Empfehlung montags 07:00 per E-Mail) und
+**Wochenrückblick** (E-Mails, Teams-Nachrichten und Termine der Woche zu einem Projekt → Statusbericht und
+Teams-Nachricht; Empfehlung freitags 16:00 als Teams-Nachricht). Eine Vorlage kann eine solche Empfehlung tragen
+(`auftrag` in der App); der Dialog übernimmt sie als Vorschlag.
+
+### Eigene E-Mails, Teams und Kalender als Wissensquellen
+
+Neben SharePoint, Dateien und Webseiten kennt der Hub drei Quellen aus Microsoft 365 der angemeldeten Person, ohne
+Adresse, dafür mit Zeitraum und Filter: **Meine E-Mails** (Posteingang, Unterordner und Gesendete der letzten N Tage;
+ohne Gelöschte, Junk, Entwürfe), **Meine Teams-Chats und -Kanäle** (Chats mit neuen Nachrichten im Zeitraum, dazu die
+Kanäle der eigenen Teams) und **Mein Kalender** (Termine N Tage zurück und voraus). Der Filter nennt Wörter mit Komma
+(„KTE, Nordhafen“); nur Nachrichten, in denen eines vorkommt, gehen mit. Platzhalter wie `{{thema}}` im Filter füllt der
+Hub aus den Eingaben, so bestimmt die Person beim Start das Projekt. Jede Nachricht geht mit Absender, Datum und Link
+an die KI, damit sie als Quelle verlinkt werden kann („Was die KI bekommen hat“ zeigt, wie viele Nachrichten gelesen
+wurden). Ohne Copilot-Anmeldung liefern die Quellen Beispiele, damit sich eine App im Baukasten prüfen lässt.
+
+Graph-Berechtigungen (delegiert, in der Azure-App einzutragen): `Mail.Read` (in den Copilot-Berechtigungen enthalten),
+`Chat.Read`, `ChannelMessage.Read.All`, `Team.ReadBasic.All`, `Channel.ReadBasic.All` für Teams, `Calendars.Read` für
+den Kalender. Der Hub-Dienst braucht sie in `HUB_GRAPH_SCOPES` (Standard enthält sie).
 
 ## Lernschicht für Fachexperten-Chats
 

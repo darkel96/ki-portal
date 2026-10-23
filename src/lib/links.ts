@@ -26,7 +26,7 @@ export function linkQuellen(text: string): Quelle[] {
       // Auch Bibliotheksansichten („…/Forms/…aspx?id=/sites/…/Datei.md“): der Dateiname steht dann im Parameter id
       const datei = u.searchParams.get("file") || (u.searchParams.get("id")?.split("/").pop() ?? "") || decodeURIComponent(u.pathname.split("/").filter(Boolean).at(-1) ?? "");
       const titel = /\.(docx?|xlsx?|pptx?|pdf|txt|md|markdown|csv)$/i.test(datei) ? datei : "";
-      if (titel && !aus.some((q) => q.url === url)) aus.push({ typ: "datei", titel, url });
+      if (titel && !aus.some((q) => q.url === url)) aus.push({ typ: "datei", titel, url, tage: 7, filter: "" });
     } catch { /* keine Adresse */ }
   }
   return aus;

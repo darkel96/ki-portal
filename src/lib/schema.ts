@@ -125,10 +125,17 @@ export const BlockSchema: z.ZodType<Block> = z.lazy(() =>
 
 /* ---------- KI-Ablauf ---------- */
 export const QuelleSchema = z.object({
-  typ: z.enum(["sharepoint", "datei", "web"]).default("sharepoint"),
+  /** mail, teams, kalender: die eigenen E-Mails, Teams-Chats und -Kanäle bzw. Termine der Person (Microsoft Graph), ohne Adresse */
+  typ: z.enum(["sharepoint", "datei", "web", "mail", "teams", "kalender"]).default("sharepoint"),
   titel: z.string().max(120).default(""),
   url: z.string().max(800).default(""),
+  /** mail, teams, kalender: Zeitraum in Tagen (Kalender: zurück und voraus) */
+  tage: z.number().int().min(1).max(90).default(7),
+  /** mail, teams: nur Nachrichten, in denen eines dieser Wörter vorkommt (Komma getrennt; Platzhalter wie {{thema}} erlaubt); leer = alle */
+  filter: z.string().max(200).default(""),
 });
+/** Quellen, die der Hub aus Microsoft 365 der angemeldeten Person liest (keine Adresse nötig) */
+export const M365_QUELLEN = new Set(["mail", "teams", "kalender"]);
 
 /** Wissensmodus: womit die KI arbeiten darf */
 export const WissenModusSchema = z.enum(["eingaben", "m365", "web"]).describe('"eingaben" = nur Eingaben und hinterlegte Quellen; "m365" = zusätzlich Wissen aus Microsoft 365 (Dokumente, E-Mails, Chats); "web" = zusätzlich Websuche');

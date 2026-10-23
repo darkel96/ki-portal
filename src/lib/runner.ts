@@ -124,13 +124,18 @@ export async function anfrageVorbereiten(app: App, s: Step, ctx: Record<string, 
   let auszuege = "";
   let gelesene: WissenAuszug[] = [];
   const diagnose: NonNullable<KiRequest["diagnose"]> = { suche: "", gelesen: false, auszuege: [], links: [] };
-  const wq = wissenFuer(app, s).quellen.filter((q) => !(vorlagenQuelle && q.url.trim() === vorlagenQuelle.url.trim()));
+  const { istM365Quelle, filterAufloesen } = await import("./ki/m365quellen");
+  const wq = wissenFuer(app, s).quellen
+    .filter((q) => !(vorlagenQuelle && q.url.trim() === vorlagenQuelle.url.trim()))
+    // Filter wie „{{thema}}“ bei E-Mail- und Teams-Quellen aus den Eingaben füllen
+    .map((q) => filterAufloesen(q, ctx as Record<string, unknown>));
   const lesbar = (q: Quelle) => q.typ === "sharepoint" || q.typ === "datei";
   // Eine SharePoint- oder Dateiquelle ohne Adresse kann der Hub nicht lesen: Das steht in der Diagnose, statt still zu fehlen
   diagnose.auszuege = wq.filter((q) => lesbar(q) && !q.url.trim()).map((q) => ({ titel: q.titel || "Wissensquelle", zeichen: 0, fehler: OHNE_ADRESSE }));
-  if (wq.some((q) => lesbar(q) && q.url.trim())) {
+  if (wq.some((q) => (lesbar(q) && q.url.trim()) || istM365Quelle(q))) {
     const w = await import("./ki/wissen");
-    if (w.wissenMoeglich()) {
+    // E-Mails, Teams und Kalender liest der Hub auch ohne SharePoint-Anbindung (Beispiele ohne Copilot-Anmeldung)
+    if (w.wissenMoeglich() || wq.some(istM365Quelle)) {
       melden?.("Wissensquellen werden gelesen\u00a0…");
       // Suchtext: im Chat die Frage (mit Vorfragen), sonst die Aufgabe mit Eingaben. Sehr kurze Fragen („was ist der cra“)
       // bekommen das Thema der App dazu; liefert die Suche nichts, wird einmal mit dem Thema nachgesucht.
