@@ -5,7 +5,7 @@
  */
 import type { Quelle } from "./schema";
 
-export type BibliotheksEintrag = Quelle & { id: string; beschreibung: string };
+export type BibliotheksEintrag = Omit<Quelle, "tage" | "filter"> & Partial<Pick<Quelle, "tage" | "filter">> & { id: string; beschreibung: string };
 
 const SCHLUESSEL = "kihub-wissensbibliothek";
 /** Vorbelegung mit den Quellen des Piloten */

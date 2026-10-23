@@ -22,7 +22,8 @@ export const UMGEBUNG = {
   /** Graph-Berechtigungen, die der Dienst im Namen der Person braucht (Copilot plus Zustellung per E-Mail und Teams) */
   graphScopes: String(env.HUB_GRAPH_SCOPES ?? "").split(/\s+/).filter(Boolean).length
     ? String(env.HUB_GRAPH_SCOPES).split(/\s+/).filter(Boolean)
-    : [...COPILOT_SCOPES, "https://graph.microsoft.com/Mail.Send", "https://graph.microsoft.com/Chat.ReadWrite", "https://graph.microsoft.com/ChatMessage.Send"],
+    : [...COPILOT_SCOPES, "https://graph.microsoft.com/Mail.Send", "https://graph.microsoft.com/Chat.ReadWrite", "https://graph.microsoft.com/ChatMessage.Send",
+      "https://graph.microsoft.com/Calendars.Read", "https://graph.microsoft.com/Team.ReadBasic.All", "https://graph.microsoft.com/Channel.ReadBasic.All"],
   /** Erlaubte Ursprünge (CORS), mit Komma; leer = nur derselbe Ursprung (Hub wird vom Dienst ausgeliefert) */
   urspruenge: String(env.HUB_URSPRUNG ?? "").split(",").map((s) => s.trim()).filter(Boolean),
   /** Verzögerung der Attrappe je Antwort (Testmodus) */

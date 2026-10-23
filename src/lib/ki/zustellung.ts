@@ -1,20 +1,16 @@
 /** Zustellung aus dem Browser: Microsoft Graph mit dem Token der angemeldeten Person (Copilot-Anmeldung). */
 import type { Lauf, Ziel } from "@/lib/meinhub";
 import { zustellen, zustellScopes, type GraphRuf, type ZustellInhalt } from "@/lib/versand";
-import { graphToken } from "./auth";
 import { KI_CONFIG } from "./config";
-import { kiModus } from "./index";
-
-/** Nur in der Entwicklung: Tests legen hier ein Ersatz-Token ab und fangen Graph mit einer Attrappe ab. */
-const testToken = () => { try { return import.meta.env.DEV ? localStorage.getItem("kihub-graph-test") : null; } catch { return null; } };
+import { graphErreichbar, graphTokenFuer } from "./graph";
 
 /** Ob eine Zustellung aus diesem Browser möglich ist (Graph erreichbar) */
-export const zustellungMoeglich = () => kiModus() === "copilot" || !!testToken();
+export const zustellungMoeglich = graphErreichbar;
 
 export async function zustellenImBrowser(ziel: Ziel, inhalt: ZustellInhalt): Promise<string> {
   const scopes = zustellScopes(ziel);
   const graph: GraphRuf = async (pfad, init) => {
-    const token = scopes.length ? (testToken() ?? await graphToken(scopes)) : "";
+    const token = scopes.length ? await graphTokenFuer(scopes) : "";
     return fetch(`${KI_CONFIG.graph}${pfad}`, {
       method: init?.method ?? "GET",
       headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}), ...(init?.body !== undefined ? { "Content-Type": "application/json" } : {}) },

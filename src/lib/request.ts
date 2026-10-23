@@ -10,6 +10,7 @@ export const FORMAT_LABEL: Record<Step["format"], string> = {
 export const MODELL_LABEL: Record<Step["modell"], string> = { quick: "Schnell", default: "Standard", complex: "Gründlich" };
 export const QUELL_TYP: Record<string, string> = {
   sharepoint: "SharePoint (Website, Bibliothek oder Ordner)", datei: "Einzelne Datei (SharePoint/OneDrive)", web: "Webseite",
+  mail: "Meine E-Mails (Zeitraum, Filter)", teams: "Meine Teams-Chats und -Kanäle (Zeitraum, Filter)", kalender: "Mein Kalender (Zeitraum)",
 };
 /** Globale Regel: Diagramme als Mermaid, die der Hub zeichnet und als SVG, PNG und draw.io anbietet; keine erfundenen Datei-Links */
 export const DIAGRAMM_HINWEIS = "Ist ein Ablauf, Prozess, Organigramm, Entscheidungsweg oder Zeitplan gefragt oder hilfreich, zeichne ihn immer als Mermaid-Codeblock (```mermaid mit flowchart TD), nie als Text- oder Pfeildiagramm. Jeder Kasten: kurzer Titel und optional eine Erläuterungszeile, z. B. B[Risk Classification<br/>CRA-Relevanz bewerten]; Entscheidungen als C{Lokal umsetzbar?} mit beschrifteten Pfeilen -->|Ja|. Keine Farben oder Styles angeben, der Hub gestaltet das Diagramm und bietet es als SVG, PNG und draw.io-Datei zum Herunterladen an. Du kannst keine Dateien bereitstellen: Verweise nie auf Download-Links oder Dateien, die du selbst erstellt hättest.";

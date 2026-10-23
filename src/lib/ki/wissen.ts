@@ -494,13 +494,22 @@ async function dateiLaden(q: Quelle, token: string, signal?: AbortSignal): Promi
  * kurzen Fragen wie „was ist der cra“ passiert das), wird einmal damit nachgesucht.
  */
 export async function wissenAuszuege(quellen: Quelle[], suche: string, signal?: AbortSignal, breiter?: string): Promise<Auszug[]> {
+  const { istM365Quelle, m365Auszug } = await import("./m365quellen");
   const lesbar = quellen.filter((q) => (q.typ === "sharepoint" || q.typ === "datei") && q.url.trim());
-  if (!lesbar.length || !wissenMoeglich()) return [];
-  const token = await graphToken();
-  return Promise.all(lesbar.map(async (q) => {
-    try { return q.typ === "datei" ? await dateiAuszug(q, token, signal) : await sharepointAuszuege(q, suche, token, signal, breiter); }
-    catch (e) { return { titel: q.titel || q.url, url: q.url, text: "", fehler: e instanceof Error ? e.message : String(e) }; }
-  }));
+  const m365 = quellen.filter(istM365Quelle);
+  const spTeil: Promise<Auszug[]> = lesbar.length && wissenMoeglich()
+    ? (async () => {
+      const token = await graphToken();
+      return Promise.all(lesbar.map(async (q) => {
+        try { return q.typ === "datei" ? await dateiAuszug(q, token, signal) : await sharepointAuszuege(q, suche, token, signal, breiter); }
+        catch (e) { return { titel: q.titel || q.url, url: q.url, text: "", fehler: e instanceof Error ? e.message : String(e) }; }
+      }));
+    })()
+    : Promise.resolve([]);
+  // Eigene E-Mails, Teams und Kalender: unabhängig vom SharePoint-Wissen, mit Beispielen ohne Copilot-Anmeldung
+  const mTeil = Promise.all(m365.map((q) => m365Auszug(q, signal)));
+  const [a, b] = await Promise.all([spTeil, mTeil]);
+  return [...a, ...b];
 }
 
 /*

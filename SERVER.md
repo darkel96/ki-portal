@@ -77,7 +77,7 @@ Der Dienst nutzt **dieselbe App-Registrierung** wie der Hub. Im Azure-Portal unt
    - Unter „Autorisierte Clientanwendungen“ die eigene Client-ID mit diesem Bereich eintragen (dann erscheint keine
      zusätzliche Zustimmungsabfrage).
 4. **API-Berechtigungen** (delegiert, Microsoft Graph): zu den sieben der Copilot-Chat-API kommen
-   `Mail.Send`, `Chat.ReadWrite`, `ChatMessage.Send` (Zustellung per E-Mail und Teams) und `offline_access` (der Dienst darf nach Ablauf des Tokens weiterarbeiten).
+   `Mail.Send`, `Chat.ReadWrite`, `ChatMessage.Send` (Zustellung per E-Mail und Teams), `Calendars.Read`, `Team.ReadBasic.All`, `Channel.ReadBasic.All` (eigene Termine, Teams-Chats und -Kanäle als Wissensquellen) und `offline_access` (der Dienst darf nach Ablauf des Tokens weiterarbeiten).
    Anschließend **Administratorzustimmung erteilen**.
 5. Werte nach `server/.env`: `HUB_TENANT_ID`, `HUB_CLIENT_ID`, `HUB_CLIENT_SECRET`, dazu dieselben IDs als
    `VITE_ENTRA_CLIENT_ID` / `VITE_ENTRA_TENANT_ID` für den Hub.
@@ -104,7 +104,7 @@ Soll der Hub weiter von GitHub Pages kommen, liefert der Dienst nur die API:
 | `HUB_STATISCH` | Verzeichnis mit dem gebauten Hub, das der Dienst ausliefert (im Container `/app/dist`); leer = nur API |
 | `HUB_TENANT_ID`, `HUB_CLIENT_ID`, `HUB_CLIENT_SECRET` | App-Registrierung |
 | `HUB_API_SCOPE` | Berechtigung des Dienstes (Standard `api://<Client-ID>/Laeufe.Ausfuehren`) |
-| `HUB_GRAPH_SCOPES` | Graph-Berechtigungen des Dienstes (Standard: Copilot-Chat-API plus `Mail.Send`, `Chat.ReadWrite`, `ChatMessage.Send`) |
+| `HUB_GRAPH_SCOPES` | Graph-Berechtigungen des Dienstes (Standard: Copilot-Chat-API plus `Mail.Send`, `Chat.ReadWrite`, `ChatMessage.Send`, `Calendars.Read`, `Team.ReadBasic.All`, `Channel.ReadBasic.All`) |
 | `HUB_SCHLUESSEL` | 64 Hex-Zeichen für die Verschlüsselung der Anmeldungen (`openssl rand -hex 32`); fehlt er, legt der Dienst einen unter `HUB_DATEN/schluessel.json` an |
 | `HUB_URSPRUNG` | Erlaubte Ursprünge (CORS), wenn der Hub woanders liegt |
 | `HUB_PARALLEL` | Gleichzeitige Läufe (Standard 3) |

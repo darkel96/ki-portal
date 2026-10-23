@@ -41,7 +41,7 @@ test("Wissen: Textdateien (.md) und Bibliotheksansichten werden gelesen", async 
   expect(r.gross).toContain("Stelle 1 (Abschnitt „Meldefristen“)");
   expect(r.gross).toContain("72 Stunden");
   expect(r.gross.length).toBeLessThan(7000);
-  expect(r.link).toEqual([{ typ: "datei", titel: "KPSS_CRA_Quick_Reference_Guide_DE.md", url: expect.stringContaining("KPSS%20Default.aspx") }]);
+  expect(r.link).toEqual([{ typ: "datei", titel: "KPSS_CRA_Quick_Reference_Guide_DE.md", url: expect.stringContaining("KPSS%20Default.aspx"), tage: 7, filter: "" }]);
   expect(r.md).toBe(true);
 });
 
