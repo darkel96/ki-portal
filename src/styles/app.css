@@ -251,6 +251,7 @@ a.tile:hover .tile-go svg { transform: translateX(5px); }
 .o-btn-row { display: flex; }
 .o-btn { font: 500 15px/1.2 inherit; font-family: inherit; padding: 12px 24px; border-radius: 999px; border: 1.5px solid var(--btn); background: var(--btn); color: var(--btn-ink); }
 .o-btn.outline { background: transparent; color: var(--btn); }
+.e-senden { display: inline-flex; align-items: center; gap: 6px; padding: 10px 18px; }
 .o-btn:hover:not(:disabled) { background: color-mix(in srgb, var(--btn) 86%, var(--app-ink)); }
 .o-btn.outline:hover:not(:disabled) { background: color-mix(in srgb, var(--btn) 10%, transparent); }
 .o-btn:disabled { opacity: 0.45; cursor: not-allowed; }

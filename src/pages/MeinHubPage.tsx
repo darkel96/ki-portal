@@ -20,6 +20,7 @@ import { ergebnisDateiFuer } from "@/lib/request";
 import type { OutState } from "@/lib/runner";
 import { ZIEL_LABEL, datumZeit, zeitplanText, type Auftrag, type Lauf } from "@/lib/meinhub";
 import { zielText } from "@/lib/versand";
+import { ErgebnisSenden } from "@/components/renderer/RunApp";
 import type { HubApp } from "@/lib/schema";
 import { initials } from "@/lib/model";
 
@@ -182,6 +183,7 @@ function LaufDetail({ lauf, app, onZurueck }: { lauf: Lauf; app?: HubApp; onZuru
         <h2 className="mh-h2">{lauf.titel}</h2>
         <span className="hint">{datumZeit(lauf.start)}{lauf.appName && lauf.appName !== lauf.titel ? `, ${lauf.appName}` : ""}</span>
         <span className="flex-1" />
+        {app && !laeuft && lauf.status === "fertig" && <ErgebnisSenden app={app} outs={outs} variante="hub" />}
         <Button size="sm" variant="ghost" className="rounded-full" disabled={laeuft} title={laeuft ? "Läuft noch" : undefined} onClick={() => setFragen(true)}><Trash aria-hidden="true" />Löschen</Button>
       </div>
       {lauf.meldung && <p className="hint" style={{ margin: 0, color: lauf.status === "fehler" ? "var(--danger)" : undefined }}>{lauf.meldung}</p>}

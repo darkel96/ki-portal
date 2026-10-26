@@ -7,10 +7,10 @@ import { test, expect, type Page } from "@playwright/test";
 const APP = {
   id: "plan-app", name: "Wochenplan", bereich: "Allgemein", status: "freigegeben", version: 1,
   steps: [{ id: "s1", key: "plan", name: "Plan", prompt: "Plane: {{thema}}" }],
-  blocks: [{ id: "p1", type: "seite", props: { titel: "Start" }, children: [
-    { id: "f1", type: "input", props: { key: "thema", label: "Thema", pflicht: true } },
-    { id: "o1", type: "output", props: { titel: "Plan", quelle: "s1" } },
-  ] }],
+  blocks: [
+    { id: "p1", type: "seite", props: { titel: "Start" }, children: [{ id: "f1", type: "input", props: { key: "thema", label: "Thema", pflicht: true } }] },
+    { id: "p2", type: "seite", props: { titel: "Ergebnis" }, children: [{ id: "o1", type: "output", props: { titel: "Plan", quelle: "s1" } }] },
+  ],
 };
 
 type Post = { pfad: string; body: unknown };
@@ -127,4 +127,24 @@ test("Beispiel-App „Wochen-Briefing“: Auftrag-Dialog übernimmt die Empfehlu
   await page.goto("/mein");
   await page.getByRole("tab", { name: /Aufträge \(1\)/ }).click();
   await expect(page.getByText("Per E-Mail an team@firma.de")).toBeVisible();
+});
+
+test("„Senden“ an den Ergebnissen schickt einen fertigen Lauf sofort per E-Mail oder Teams an mich", async ({ page }, info) => {
+  test.skip(info.project.name !== "desktop", "einmal reicht");
+  const posts = await attrappen(page);
+  await page.addInitScript((app) => localStorage.setItem("kihub-apps-v3", JSON.stringify([app])), APP);
+  await page.goto("/app/plan-app");
+  await page.getByLabel("Thema").fill("Woche 44");
+  await page.getByRole("button", { name: /Ergebnisse erstellen/ }).click();
+  await expect(page.getByText("1 von 1 fertig")).toBeVisible({ timeout: 20_000 });
+  await page.getByRole("button", { name: "Senden" }).click();
+  await page.getByRole("menuitem", { name: "Als Teams-Nachricht an mich" }).click();
+  await expect(page.getByText("Als Teams-Nachricht an dich gesendet.")).toBeVisible();
+  const teams = posts.find((p) => p.pfad === "/v1.0/chats/chat-selbst/messages")!.body as { body: { content: string } };
+  expect(teams.body.content).toContain("Wochenplan");
+  expect(teams.body.content).toContain("<li><b>Montag</b>: Kriterienliste</li>");
+  await page.getByRole("button", { name: "Senden" }).click();
+  await page.getByRole("menuitem", { name: "Per E-Mail an mich" }).click();
+  await expect(page.getByText("Per E-Mail an ich@firma.de gesendet.")).toBeVisible();
+  expect((posts.find((p) => p.pfad === "/v1.0/me/sendMail")!.body as { message: { subject: string } }).message.subject).toBe("KI-Hub: Wochenplan");
 });
