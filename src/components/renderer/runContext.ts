@@ -16,6 +16,8 @@ export type RunCtx = {
   outs: Record<string, OutState>;
   /** ID des Buttons, dessen Ablauf gerade läuft */
   laeuft: string | null;
+  /** „Stoppen“ wurde gedrückt, der Ablauf endet gleich (im Hub-Dienst nach dessen Bestätigung) */
+  stoppt?: boolean;
   starten: (buttonId: string, aktion: string) => void;
   /** Semantische Überschriften-Ebene je Baustein (keine übersprungenen Ebenen, erste Überschrift = h1) */
   ebenen: Record<string, number>;

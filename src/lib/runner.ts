@@ -186,6 +186,8 @@ export async function ablaufStarten(opts: {
     setOut(s.id, { status: "laeuft", req: buildRequest(app, s, ctx, files), team: s.art === "team" ? [] : undefined });
     try {
       const req = await anfrageVorbereiten(app, s, ctx, files, signal, (meldung) => setOut(s.id, (prev) => ({ ...(prev ?? { status: "laeuft" }), status: "laeuft", meldung })));
+      // Während des Lesens gestoppt: nicht mehr fragen (Lesefehler werden je Quelle abgefangen, der Stopp sonst übersehen)
+      if (signal.aborted) throw new DOMException("Abgebrochen.", "AbortError");
       setOut(s.id, (prev) => ({ ...(prev ?? { status: "laeuft" }), status: "laeuft", req, meldung: undefined }));
       let text: string;
       if (s.art === "team") {

@@ -161,10 +161,10 @@ export function BlockContent({ b, app, mode, renderList }: { b: Block; app: App;
       return (
         <div className="o-btn-row" style={{ justifyContent: b.props.align === "center" ? "center" : b.props.align === "right" ? "flex-end" : "flex-start" }}>
           <button type="button" className={`o-btn ${b.props.stil === "outline" ? "outline" : ""}`} style={{ "--btn": c, "--btn-ink": ink } as CSSProperties}
-            disabled={mode === "edit" || (!!run?.laeuft && !laeuft)} tabIndex={mode === "edit" ? -1 : undefined}
+            disabled={mode === "edit" || (!!run?.laeuft && !laeuft) || (laeuft && !!run?.stoppt)} tabIndex={mode === "edit" ? -1 : undefined}
             onClick={() => run?.starten(b.id, b.props.aktion)}
             title={mode === "run" && run?.laeuft && !laeuft ? "Ein anderer Ablauf läuft gerade. Warte, bis er fertig ist, oder stopp ihn." : undefined}>
-            {laeuft ? "Stoppen" : b.props.text}
+            {laeuft ? (run?.stoppt ? "Wird gestoppt\u00a0…" : "Stoppen") : b.props.text}
           </button>
         </div>
       );
