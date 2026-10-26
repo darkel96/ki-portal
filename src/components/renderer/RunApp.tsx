@@ -1,5 +1,10 @@
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
-import { ChevronLeft } from "lucide-react";
+import { ChevronDown, ChevronLeft, Send } from "lucide-react";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Button } from "@/components/ui/button";
+import { zustellenImBrowser, zustellungMoeglich } from "@/lib/ki/zustellung";
+import { zielText } from "@/lib/versand";
+import type { Ziel } from "@/lib/meinhub";
 import { useBlocker } from "react-router";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
@@ -89,6 +94,34 @@ function vorschau(k: Kachel, outs: Record<string, OutState>, laeuft: boolean, ap
   return "Wird erstellt, sobald du „Ergebnisse erstellen“ startest.";
 }
 
+/** Fertige Ergebnisse sofort per E-Mail oder Teams an sich selbst schicken (ohne Auftrag) */
+export function ErgebnisSenden({ app, outs, variante = "app" }: { app: App; outs: Record<string, OutState>; /** app: Knopf im Stil der App, hub: Knopf des Hubs (Mein Hub) */ variante?: "app" | "hub" }) {
+  const [sendet, setSendet] = useState<Ziel["art"] | null>(null);
+  if (!zustellungMoeglich()) return null;
+  const senden = async (art: Ziel["art"]) => {
+    const teile = app.steps.filter((s) => outs[s.id]?.text && outs[s.id]?.status === "fertig").map((s) => ({ name: s.name, status: "fertig", text: outs[s.id]!.text ?? "" }));
+    if (!teile.length) { toast.error("Noch kein fertiges Ergebnis zum Senden."); return; }
+    const ziel: Ziel = { art, adresse: "" };
+    setSendet(art);
+    try { toast.success(await zustellenImBrowser(ziel, { titel: app.name, appName: app.name, stand: "fertig", teile })); }
+    catch (e) { toast.error(`Senden ${zielText(ziel)} fehlgeschlagen: ${e instanceof Error ? e.message : String(e)}`); }
+    finally { setSendet(null); }
+  };
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        {variante === "hub"
+          ? <Button size="sm" variant="outline" className="rounded-full" disabled={!!sendet}><Send aria-hidden="true" />{sendet ? "Sendet …" : "Senden"}<ChevronDown aria-hidden="true" /></Button>
+          : <button type="button" className="o-btn outline e-senden" disabled={!!sendet}><Send size={15} aria-hidden="true" />{sendet ? "Sendet …" : "Senden"}<ChevronDown size={14} aria-hidden="true" /></button>}
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-64">
+        <DropdownMenuItem onSelect={() => void senden("email")}>Per E-Mail an mich</DropdownMenuItem>
+        <DropdownMenuItem onSelect={() => void senden("teams")}>Als Teams-Nachricht an mich</DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
 function Uebersicht({ app, kacheln, outs, laeuft, geaendert, onStart, onOeffnen }: {
   app: App; kacheln: Kachel[]; outs: Record<string, OutState>; laeuft: boolean; geaendert: boolean;
   onStart: () => void; onOeffnen: (id: string) => void;
@@ -104,6 +137,7 @@ function Uebersicht({ app, kacheln, outs, laeuft, geaendert, onStart, onOeffnen 
         <span className="e-stand" aria-live="polite">{laeuft ? `${fertig} von ${kacheln.length} fertig, der Ablauf läuft\u00a0…` : gestartet ? `${fertig} von ${kacheln.length} fertig${mitFehler ? `, ${mitFehler} mit Fehler` : ""}` : "Noch nicht erstellt"}</span>
         <span className="flex-1" />
         {geaendert && !laeuft && gestartet && <span className="e-hinweis">Die Eingaben wurden seitdem geändert.</span>}
+        {!laeuft && fertig > 0 && <ErgebnisSenden app={app} outs={outs} />}
         <button type="button" className={`o-btn ${gestartet && !laeuft ? "outline" : ""}`} style={{ "--btn": "var(--signal)", "--btn-ink": "var(--signal-ink)" } as CSSProperties} onClick={onStart}>
           {laeuft ? "Stoppen" : gestartet ? "Neu erstellen" : "Ergebnisse erstellen"}
         </button>
