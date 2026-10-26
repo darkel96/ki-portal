@@ -278,9 +278,15 @@ async function alsPdf(bl: DokBlock[], meta: DokMeta): Promise<Blob> {
       const items = b.punkte.map((p) => ({ text: runs(p.laeufe), margin: [p.tiefe * 14, 0, 0, 3] }));
       content.push(b.nummeriert ? { ol: items, style: "p" } : { ul: items, style: "p" });
     } else if (b.typ === "tabelle") {
+      // Breiten nach Inhalt, lange Wörter umbrechbar, bei vielen Spalten kleinere Schrift: sonst ragt die Tabelle über den Rand
+      const zeilen = tabelleNormal(b.kopf, b.zeilen);
+      const n = b.kopf.length, groesse = n >= 7 ? 7.5 : n >= 5 ? 8.5 : 9.5, rand = n >= 5 ? 3 : 5;
+      const zelle = (l: Lauf[]) => runs(l.map((x) => ({ ...x, text: umbrechbar(x.text) })));
       content.push({
-        table: { headerRows: 1, widths: b.kopf.map(() => "*"), body: [b.kopf.map((c) => ({ text: c, style: "th" })), ...b.zeilen.map((r) => r.map((c) => ({ text: laeufe(c).length ? runs(laeufe(c)) : "", style: "td" })))] },
-        layout: { hLineWidth: (i: number) => (i <= 1 ? 1 : 0.5), vLineWidth: () => 0, hLineColor: (i: number) => (i <= 1 ? INK : LINIE), paddingTop: () => 5, paddingBottom: () => 5, fillColor: (i: number) => (i === 0 ? FLAECHE : null) },
+        table: { headerRows: 1, widths: spaltenAnteile(b.kopf, zeilen, { breite: 483, schrift: groesse, rand }).map((a) => `${(a * 100).toFixed(2)}%`),
+          body: [b.kopf.map((c) => ({ text: umbrechbar(c), style: "th", fontSize: groesse })), ...zeilen.map((r) => r.map((c) => ({ text: laeufe(c).length ? zelle(laeufe(c)) : "", style: "td", fontSize: groesse })))] },
+        layout: { hLineWidth: (i: number) => (i <= 1 ? 1 : 0.5), vLineWidth: () => 0, hLineColor: (i: number) => (i <= 1 ? INK : LINIE), paddingTop: () => 5, paddingBottom: () => 5,
+          paddingLeft: () => rand, paddingRight: () => rand, fillColor: (i: number) => (i === 0 ? FLAECHE : null) },
         margin: [0, 4, 0, 12],
       });
     } else if (b.typ === "code") content.push({ text: b.text, style: "code" });
@@ -309,6 +315,35 @@ async function alsPdf(bl: DokBlock[], meta: DokMeta): Promise<Blob> {
   };
   return pdfMake.createPdf(def as never).getBlob();
 }
+
+/* ---------- Tabellen: Spaltenbreiten nach Inhalt ---------- */
+/** Zeilen auf die Spaltenzahl des Kopfs bringen: fehlende Zellen leer, überzählige in die letzte Zelle */
+export function tabelleNormal(kopf: string[], zeilen: string[][]): string[][] {
+  const n = kopf.length;
+  return zeilen.map((r) => (r.length === n ? r : r.length < n ? [...r, ...Array(n - r.length).fill("")] : [...r.slice(0, n - 1), r.slice(n - 1).join(" | ")]));
+}
+/**
+ * Anteile der Spalten (Summe 1) nach mittlerer Textlänge, höchstens 45 % je Spalte. Jede Spalte bekommt mindestens
+ * die Breite ihres längsten Worts (bis 21 Zeichen), damit Daten und normale Wörter nicht mitten im Wort umbrechen;
+ * reicht der Platz dafür nicht, werden die Mindestbreiten anteilig gekürzt.
+ */
+export function spaltenAnteile(kopf: string[], zeilen: string[][], seite = { breite: 483, schrift: 9.5, rand: 5 }): number[] {
+  const texte = kopf.map((k, i) => [k, ...zeilen.map((r) => r[i] ?? "")].map((t) => reinText(laeufe(t))));
+  const roh = texte.map((ts) => Math.max(4, ts.reduce((a, t) => a + t.length, 0) / ts.length));
+  const wort = texte.map((ts) => Math.min(21, Math.max(3, ...ts.flatMap((t) => t.split(/\s+/).map((w) => w.length)))));
+  let mind = wort.map((w) => (w * 0.55 * seite.schrift + 2 * seite.rand + 2) / seite.breite);
+  const mindSumme = mind.reduce((x, y) => x + y, 0);
+  if (mindSumme > 0.9) mind = mind.map((m) => (m * 0.9) / mindSumme);
+  let a = roh.map((g) => g / roh.reduce((x, y) => x + y, 0));
+  for (let runde = 0; runde < 6; runde++) {
+    a = a.map((x, i) => Math.min(Math.max(0.45, mind[i]!), Math.max(mind[i]!, 0.06, x)));
+    const summe = a.reduce((x, y) => x + y, 0);
+    a = a.map((x) => x / summe);
+  }
+  return a;
+}
+/** Adressen und Kennungen (ab 22 Zeichen ohne Leerzeichen) dürfen in schmalen Spalten umbrechen; normale lange Wörter bleiben ganz */
+export const umbrechbar = (t: string) => t.replace(/\S{22,}/g, (w) => w.replace(/([/_.:\-–])/g, "$1\u200B").replace(/([^\u200B]{12})(?=[^\u200B])/g, "$1\u200B"));
 
 /* ---------- Word ---------- */
 async function alsDocx(bl: DokBlock[], meta: DokMeta): Promise<Blob> {
@@ -342,7 +377,10 @@ async function alsDocx(bl: DokBlock[], meta: DokMeta): Promise<Blob> {
           margins: { top: 60, bottom: 60, left: 100, right: 100 },
         })),
       });
-      kinder.push(new d.Table({ width: { size: 100, type: d.WidthType.PERCENTAGE }, rows: [zeile(b.kopf, true), ...b.zeilen.map((r) => zeile(r, false))] }));
+      // Spaltenbreiten nach Inhalt (A4 hochkant: etwa 9.000 Twips nutzbar), festes Layout: Word hält sich daran
+      const zeilen = tabelleNormal(b.kopf, b.zeilen);
+      const breiten = spaltenAnteile(b.kopf, zeilen, { breite: 450, schrift: 11, rand: 5 }).map((a) => Math.round(a * 9000));
+      kinder.push(new d.Table({ width: { size: 100, type: d.WidthType.PERCENTAGE }, columnWidths: breiten, layout: d.TableLayoutType.FIXED, rows: [zeile(b.kopf, true), ...zeilen.map((r) => zeile(r, false))] }));
       kinder.push(new d.Paragraph({ children: [] }));
     } else if (b.typ === "code") for (const z of b.text.split("\n")) kinder.push(new d.Paragraph({ children: [new d.TextRun({ text: z, font: "Consolas", size: 18 })], shading: { type: d.ShadingType.CLEAR, color: "auto", fill: CODE_FLAECHE.slice(1) } }));
     else if (b.typ === "bild") { const g = bildMass(b, 600, 800); kinder.push(new d.Paragraph({ alignment: d.AlignmentType.CENTER, children: [new d.ImageRun({ type: "png", data: b.png, transformation: { width: g.w, height: g.h }, altText: { title: b.alt, description: b.alt, name: b.alt } })] })); }
