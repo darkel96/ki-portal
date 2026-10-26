@@ -13,7 +13,11 @@ export default defineConfig(({ mode }) => ({
     rollupOptions: {
       input: {
         main: fileURLToPath(new URL("./index.html", import.meta.url)),
-        ...(mode === "artifact" ? {} : { redirect: fileURLToPath(new URL("./auth-redirect.html", import.meta.url)) }),
+        ...(mode === "artifact" ? {} : {
+          redirect: fileURLToPath(new URL("./auth-redirect.html", import.meta.url)),
+          // Zeichnet Diagramme für Mail und Teams, wenn der Hub-Dienst ohne Browser zustellt
+          diagramm: fileURLToPath(new URL("./diagramm.html", import.meta.url)),
+        }),
       } as Record<string, string>,
     },
   },

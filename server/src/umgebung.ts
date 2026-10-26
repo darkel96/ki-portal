@@ -34,6 +34,8 @@ export const UMGEBUNG = {
   aufbewahrungTage: Number(env.HUB_AUFBEWAHRUNG_TAGE) || 30,
   /** Schlüssel (64 Hex-Zeichen) für gespeicherte Anmeldungen; fehlt er, legt der Dienst einen unter HUB_DATEN an */
   schluessel: String(env.HUB_SCHLUESSEL ?? "").trim(),
+  /** Chromium für Diagramme in Mail und Teams; leer = suchen (/usr/bin/chromium-browser, /usr/bin/chromium), „aus“ = abgeschaltet */
+  chromium: String(env.HUB_CHROMIUM ?? "").trim(),
 };
 
 export function umgebungPruefen(): string[] {

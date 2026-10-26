@@ -27,6 +27,8 @@ function antwortZu(frage: string): string {
   ] });
   if (/Antworte nur mit gültigem JSON in dieser Form: \{"hinweis"/.test(frage)) return JSON.stringify({ hinweis: "Paket der Attrappe", dateien: [{ pfad: "Attrappe/Ergebnis.md", inhalt: `# Ergebnis\n\nAttrappe zu: ${kern}` }] });
   if (/Antworte nur mit gültigem JSON/.test(frage)) return JSON.stringify({ attrappe: true, hinweis: `Attrappe zu: ${kern}` });
+  // Frage nach einem Diagramm: Antwort mit Mermaid-Block (für die Tests der Zustellung mit Bild)
+  if (/Diagramm-Test/.test(frage)) return `## Ablauf der Attrappe\n\n\`\`\`mermaid\nflowchart TD\n  A[Anfrage] --> B{Geprüft?}\n  B -->|Ja| C[Freigabe]\n  B -->|Nein| A\n\`\`\`\n\nAufgabe: ${kern}`;
   return `## Ergebnis der Attrappe\n\nDiese Antwort stammt aus dem Testmodus des Hub-Dienstes, nicht von Copilot.\n\nAufgabe: ${kern} …`;
 }
 

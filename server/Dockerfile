@@ -31,6 +31,8 @@ WORKDIR /app
 ENV NODE_ENV=production HUB_PORT=8787 HUB_DATEN=/daten HUB_STATISCH=/app/dist
 COPY --from=bauen /app/server/dist ./server/dist
 COPY --from=bauen /app/dist ./dist
+# Chromium zeichnet Diagramme (Mermaid, SVG) als Bild für Mail und Teams; ohne bleiben sie Quelltext (HUB_CHROMIUM=aus)
+RUN apk add --no-cache chromium font-dejavu
 RUN mkdir -p /daten && chown node:node /daten
 VOLUME /daten
 EXPOSE 8787

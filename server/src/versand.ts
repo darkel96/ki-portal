@@ -5,6 +5,7 @@ import type { Ziel } from "@/lib/meinhub";
 import { emailVon, graphTokenFuer } from "./anmeldung";
 import type { DienstLauf } from "./laeufe";
 import type { DateiSpeicher } from "./speicher";
+import { diagrammMalerImDienst } from "./diagramm";
 
 export function laufInhalt(l: DienstLauf): ZustellInhalt {
   const teile = l.app.steps.filter((s) => l.outs[s.id]).map((s) => {
@@ -26,5 +27,5 @@ export async function zustellenImDienst(speicher: DateiSpeicher, l: DienstLauf):
       body: init?.body !== undefined ? JSON.stringify(init.body) : undefined,
     });
   };
-  return zustellen(ziel, laufInhalt(l), graph);
+  return zustellen(ziel, laufInhalt(l), graph, diagrammMalerImDienst());
 }

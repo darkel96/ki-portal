@@ -1,6 +1,6 @@
 /** Zustellung aus dem Browser: Microsoft Graph mit dem Token der angemeldeten Person (Copilot-Anmeldung). */
 import type { Lauf, Ziel } from "@/lib/meinhub";
-import { zustellen, zustellScopes, type GraphRuf, type ZustellInhalt } from "@/lib/versand";
+import { zustellen, zustellScopes, type DiagrammMaler, type GraphRuf, type ZustellInhalt } from "@/lib/versand";
 import { KI_CONFIG } from "./config";
 import { graphErreichbar, graphTokenFuer } from "./graph";
 
@@ -17,8 +17,17 @@ export async function zustellenImBrowser(ziel: Ziel, inhalt: ZustellInhalt): Pro
       body: init?.body !== undefined ? JSON.stringify(init.body) : undefined,
     });
   };
-  return zustellen(ziel, inhalt, graph);
+  return zustellen(ziel, inhalt, graph, diagrammMaler);
 }
+
+/** Diagramme wie im Hub zeichnen (Mermaid samt Gestaltung) und als PNG für Mail und Teams mitgeben */
+const diagrammMaler: DiagrammMaler = async (code, art) => {
+  const { diagrammAlsPng } = await import("@/lib/diagramm");
+  const r = await diagrammAlsPng(code, art);
+  let bin = "";
+  for (let i = 0; i < r.png.length; i += 0x8000) bin += String.fromCharCode(...r.png.subarray(i, i + 0x8000));
+  return { png: btoa(bin), breite: r.breite, hoehe: r.hoehe };
+};
 
 /** Inhalt aus einem gespeicherten Lauf (Browser) */
 export function laufInhalt(lauf: Lauf): ZustellInhalt {
