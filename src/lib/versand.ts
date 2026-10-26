@@ -161,10 +161,17 @@ export async function zustellen(ziel: Ziel, inhalt: ZustellInhalt, graph: GraphR
   const anMich = !adresse || meine.some((m) => gleich(m, adresse));
   let chatId: string;
   if (anMich) {
-    // Der Chat mit sich selbst lässt sich über Graph nicht anlegen, nur finden: er hat genau ein Mitglied (mich)
-    const chats = await graphJson<{ value: GraphChat[] }>(graph, "/v1.0/me/chats?$filter=chatType eq 'oneOnOne'&$expand=members&$top=50", "Teams");
-    const selbst = chats.value.find((c) => (c.members ?? []).length > 0 && (c.members ?? []).every((m) => gleich(m.userId, ich.id) || meine.some((x) => gleich(x, m.email))));
-    if (!selbst) throw new Error("Den Teams-Chat mit dir selbst gibt es noch nicht. Öffne ihn einmal in Teams (deinen Namen in der Suche wählen, eine Nachricht an dich schicken), dann klappt die Zustellung.");
+    // Der Chat mit sich selbst lässt sich über Graph nicht anlegen, nur finden: er hat genau ein Mitglied (mich).
+    // Graph liefert höchstens 50 Chats je Seite, ohne feste Reihenfolge; bei vielen Chats steht er auf einer späteren Seite.
+    const istSelbst = (c: GraphChat) => (c.members ?? []).length > 0 && (c.members ?? []).every((m) => gleich(m.userId, ich.id) || meine.some((x) => gleich(x, m.email)));
+    let selbst: GraphChat | undefined;
+    let pfad: string | null = "/v1.0/me/chats?$filter=chatType eq 'oneOnOne'&$expand=members&$top=50";
+    for (let seite = 0; pfad && !selbst && seite < 40; seite++) {
+      const chats: { value: GraphChat[]; "@odata.nextLink"?: string } = await graphJson(graph, pfad, "Teams");
+      selbst = chats.value.find(istSelbst);
+      pfad = chats["@odata.nextLink"] ? chats["@odata.nextLink"].replace(/^https:\/\/graph\.microsoft\.com/, "") : null;
+    }
+    if (!selbst) throw new Error("Den Teams-Chat mit dir selbst gibt es noch nicht (in allen Einzelchats keiner, in dem du das einzige Mitglied bist). Öffne ihn einmal in Teams (deinen Namen in der Suche wählen, eine Nachricht an dich schicken), dann klappt die Zustellung.");
     chatId = selbst.id;
   } else {
     const chat = await graphJson<GraphChat>(graph, "/v1.0/chats", "Teams-Chat anlegen", { method: "POST", body: {
