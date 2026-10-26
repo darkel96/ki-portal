@@ -162,17 +162,21 @@ export async function zustellen(ziel: Ziel, inhalt: ZustellInhalt, graph: GraphR
   let chatId: string;
   let chatUrl = "";
   if (anMich) {
-    // Der Chat mit sich selbst lässt sich über Graph nicht anlegen, nur finden. Sein Kennzeichen: Die Chat-ID enthält
-    // die eigene Benutzer-ID zweimal („19:<id>_<id>@unq.gbl.spaces“). Erst direkt versuchen, sonst die Liste durchgehen
-    // (höchstens 50 je Seite, ohne Reihenfolge). Ein Chat mit nur einem Mitglied reicht nicht als Kennzeichen: Den gibt
-    // es auch mit Personen, die das Unternehmen verlassen haben.
+    // Der Chat mit sich selbst lässt sich über Graph nicht anlegen, nur finden. Er hat die feste Kennung „48:notes“
+    // (ältere Mandanten: die eigene Benutzer-ID zweimal in der ID). Erst direkt abfragen, sonst die Chatliste seitenweise
+    // durchgehen (höchstens 50 je Seite, ohne Reihenfolge). Ein Chat mit nur einem Mitglied reicht nicht als Kennzeichen:
+    // Den gibt es auch mit Personen, die das Unternehmen verlassen haben.
     const kennung = `${ich.id}_${ich.id}`;
+    const istSelbst = (c: GraphChat) => c.id === "48:notes" || c.id.includes(kennung);
     let selbst: GraphChat | undefined;
-    try { selbst = await graphJson<GraphChat>(graph, `/v1.0/me/chats/${encodeURIComponent(`19:${kennung}@unq.gbl.spaces`)}`, "Teams"); } catch { /* nicht vorhanden oder anderes Format: suchen */ }
+    for (const id of ["48:notes", `19:${kennung}@unq.gbl.spaces`]) {
+      if (selbst) break;
+      try { selbst = await graphJson<GraphChat>(graph, `/v1.0/me/chats/${encodeURIComponent(id)}`, "Teams"); } catch { /* nicht vorhanden: weiter */ }
+    }
     let pfad: string | null = selbst ? null : "/v1.0/me/chats?$filter=chatType eq 'oneOnOne'&$top=50";
     for (let seite = 0; pfad && !selbst && seite < 40; seite++) {
       const chats: { value: GraphChat[]; "@odata.nextLink"?: string } = await graphJson(graph, pfad, "Teams");
-      selbst = chats.value.find((c) => c.id.includes(kennung));
+      selbst = chats.value.find(istSelbst);
       pfad = chats["@odata.nextLink"] ? chats["@odata.nextLink"].replace(/^https:\/\/graph\.microsoft\.com/, "") : null;
     }
     if (!selbst) throw new Error("Den Teams-Chat mit dir selbst gibt es noch nicht. Öffne ihn einmal in Teams (deinen Namen in der Suche wählen, eine Nachricht an dich schicken), dann klappt die Zustellung.");
