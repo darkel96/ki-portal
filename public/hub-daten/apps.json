@@ -825,16 +825,15 @@
     "erstelltVon": "dario.keller@koerber.com",
     "rechte": {
       "bearbeiten": [
-        "rouven.lips@koerber.com",
-        "dario.keller@koerber.com"
+        "dario.keller@koerber.com",
+        "benjamin.godi@koerber.com"
       ],
       "nutzen": [
-        "rouven.lips@koerber.com",
-        "dario.keller@koerber.com"
+        "benjamin.godi@koerber.com"
       ]
     },
     "schutz": "oeffentlich",
-    "version": 18,
-    "geaendert": "2026-10-26T15:22:34.625Z"
+    "version": 20,
+    "geaendert": "2026-10-26T15:35:31.463Z"
   }
 }
