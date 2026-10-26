@@ -26,12 +26,16 @@ export function ampelWert(wert: unknown): Ampel | null {
   return null;
 }
 
-/** Ampel eines freien Texts: nur ausdrückliche Markierungen, damit normaler Text nicht bunt wird */
-export function ampelText(wert: unknown): Ampel | null {
+/**
+ * Ampel eines freien Texts. Selbst geschriebener Text zählt nur mit ausdrücklichen Markierungen („[offen]“,
+ * „[fehlt]“): Eine Anweisung wie „weise auf widersprüchliche Quellen hin“ ist kein Widerspruch. Hat die KI das Feld
+ * vorbelegt (Prüfseite, `vorbelegt`), zählen auch ihre Wörter dafür („widerspricht“, „zu klären“).
+ */
+export function ampelText(wert: unknown, vorbelegt = false): Ampel | null {
   if (typeof wert !== "string" || !wert.trim()) return null;
   const v = wert.toLowerCase();
-  if (/\[(fehlt|widerspruch|widersprüchlich)\]|widersprüchlich|widerspricht/.test(v)) return "rot";
-  if (/\[(offen|unklar|prüfen|zu klären|klären|tbd)\]|zu klären|ungeklärt/.test(v)) return "gelb";
+  if (/\[(fehlt|widerspruch|widersprüchlich)\]/.test(v) || (vorbelegt && /widersprüchlich|widerspricht/.test(v))) return "rot";
+  if (/\[(offen|unklar|prüfen|zu klären|klären|tbd)\]/.test(v) || (vorbelegt && /zu klären|ungeklärt/.test(v))) return "gelb";
   return null;
 }
 

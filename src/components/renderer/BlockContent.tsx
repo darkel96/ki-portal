@@ -44,7 +44,7 @@ function Field({ b, mode, paar }: { b: Extract<Block, { type: "input" | "textare
   const v = run?.werte[P.key];
   // Ampel (globale Regel): Auswahlwerte nach Bedeutung, Text nach Markierungen; ein Inhaltsfeld übernimmt die Ampel seines Status-Felds
   const aktiv = mode !== "edit" && !!run;
-  const eigene: Ampel | null = !aktiv ? null : b.type === "select" || b.type === "radio" ? ampelWert(v) : b.type === "textarea" || b.type === "input" ? ampelText(v) : null;
+  const eigene: Ampel | null = !aktiv ? null : b.type === "select" || b.type === "radio" ? ampelWert(v) : b.type === "textarea" || b.type === "input" ? ampelText(v, !!(P as { aus?: string }).aus) : null;
   const geerbt: Ampel | null = aktiv && paar?.rolle === "inhalt" ? ampelWert(run!.werte[paar.key]) : null;
   const ampel: Ampel | null = eigene ?? geerbt;
   const warnt = eigene === "rot" || eigene === "gelb";
