@@ -70,6 +70,11 @@ class LocalStore implements AppStore {
     return g.app;
   }
   async entsorgen(id: string) { this.korbSchreiben(this.korbLesen().filter((x) => x.app.id !== id)); }
+  /** Aus dem Browser entfernen, ohne Papierkorb (nachdem die App im gemeinsamen Speicher liegt) */
+  async vergessen(id: string) {
+    const alle = this.read(), rest = alle.filter((a) => !(isObj(a) && a.id === id));
+    if (rest.length !== alle.length) this.write(rest);
+  }
 }
 
 /** Dateiname einer App: nur sichere Zeichen */
@@ -120,10 +125,37 @@ class GemischterStore implements AppStore {
   entsorgen(id: string) { return lokalerAppStore.entsorgen(id); }
 }
 const gemischt = new GemischterStore();
+/**
+ * Gemeinsamer Speicher, beschreibbar: Apps, die noch aus der Zeit ohne Schreibzugang im Browser liegen, bleiben
+ * sichtbar und wandern beim nächsten Speichern in den gemeinsamen Speicher (dann aus dem Browser entfernt).
+ */
+class GemeinsamMitBrowser extends GemeinsamerStore {
+  async list() {
+    const [gem, lok] = await Promise.all([super.list(), lokalerAppStore.list()]);
+    const ids = new Set(gem.map((a) => a.id));
+    return [...gem, ...lok.filter((a) => !ids.has(a.id))];
+  }
+  async save(app: App) {
+    await super.save(app);
+    await lokalerAppStore.vergessen(app.id!);
+  }
+  async remove(id: string) {
+    if ((await super.list()).some((a) => a.id === id)) return super.remove(id);
+    return lokalerAppStore.remove(id);
+  }
+}
+const gemeinsamMitBrowser = new GemeinsamMitBrowser();
+/** Apps, die nur in diesem Browser liegen, obwohl ein beschreibbarer gemeinsamer Speicher da ist (zum Übernehmen) */
+export async function appsNurImBrowser(): Promise<App[]> {
+  if ((await speicherKonfig()).art === "lokal" || !(await speicherSchreibbar())) return [];
+  const [gem, lok] = await Promise.all([gemeinsam.list().catch(() => [] as App[]), lokalerAppStore.list()]);
+  const ids = new Set(gem.map((a) => a.id));
+  return lok.filter((a) => !ids.has(a.id));
+}
 const aktiv = async (): Promise<AppStore> => {
   const k = await speicherKonfig();
   if (k.art === "lokal") return lokalerAppStore;
-  return (await speicherSchreibbar()) ? gemeinsam : gemischt;
+  return (await speicherSchreibbar()) ? gemeinsamMitBrowser : gemischt;
 };
 
 /**

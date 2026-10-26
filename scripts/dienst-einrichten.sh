@@ -99,6 +99,15 @@ if [ -z "$(wert HUB_CLIENT_SECRET)" ]; then
     echo "HUB_CLIENT_SECRET fehlt in $ENV_DATEI. Eintragen oder als Umgebungsvariable mitgeben. Abbruch."; exit 1
   fi
 fi
+# Token, mit dem der Dienst Apps für alle in den Git-Speicher schreibt (sonst braucht jede Person einen eigenen)
+if [ -n "$(wert HUB_GIT_REPO)" ] && [ -z "$(wert HUB_GIT_TOKEN)" ]; then
+  if [ -n "${HUB_GIT_TOKEN:-}" ]; then setzen HUB_GIT_TOKEN "$HUB_GIT_TOKEN"
+  elif [ -t 0 ]; then
+    echo "  GitHub-Token für den Dienst (Contents: Read and write auf $(wert HUB_GIT_REPO)); Enter = überspringen:"
+    read -rs -p "  HUB_GIT_TOKEN: " GITTOKEN; echo
+    if [ -n "$GITTOKEN" ]; then setzen HUB_GIT_TOKEN "$GITTOKEN"; else echo "  übersprungen: ohne Token im Browser bleibt der Git-Speicher nur lesbar"; fi
+  fi
+fi
 [ "${DIENST_NUR_ENV:-}" = "1" ] && { echo "Fertig (nur $ENV_DATEI vorbereitet)."; exit 0; }
 
 echo "== Container bauen und starten"

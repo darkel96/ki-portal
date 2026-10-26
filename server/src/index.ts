@@ -3,6 +3,7 @@
  * den gebauten Hub mit aus. Start: `node server/dist/index.mjs`, Einstellungen über die Umgebung (server/.env.example).
  */
 import { chromiumPfad, diagrammMalerImDienst } from "./diagramm";
+import { hubDatenLesen, hubDatenSchreibbar } from "./hubdaten";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { readFile, stat } from "node:fs/promises";
 import { extname, join, normalize } from "node:path";
@@ -45,26 +46,6 @@ function cors(req: IncomingMessage, res: ServerResponse): boolean {
   return false;
 }
 
-/** Hub-Daten je Datei höchstens alle 20 Sekunden aus GitHub holen; bei Fehlern gilt die Datei aus dem Build */
-const gitCache = new Map<string, { zeit: number; text: string | null }>();
-async function hubDatenAusGit(datei: string): Promise<string | null> {
-  const alt = gitCache.get(datei);
-  if (alt && Date.now() - alt.zeit < 20_000) return alt.text;
-  const pfad = `public/hub-daten/${datei}`;
-  let text: string | null = null;
-  try {
-    const r = UMGEBUNG.gitToken
-      ? await fetch(`https://api.github.com/repos/${UMGEBUNG.gitRepo}/contents/${pfad}?ref=${encodeURIComponent(UMGEBUNG.gitBranch)}`, { headers: { Authorization: `Bearer ${UMGEBUNG.gitToken}`, Accept: "application/vnd.github.raw" } })
-      // Öffentliches Repository: raw-Inhalt; der Zeitstempel umgeht den Zwischenspeicher von GitHub
-      : await fetch(`https://raw.githubusercontent.com/${UMGEBUNG.gitRepo}/${encodeURIComponent(UMGEBUNG.gitBranch)}/${pfad}?t=${Math.floor(Date.now() / 20_000)}`);
-    if (r.ok) { const t = await r.text(); JSON.parse(t); text = t; }
-    else if (r.status === 404) text = null;   // gibt es (noch) nicht: wie bisher
-    else console.warn(`[Hub-Dienst] Hub-Daten ${datei} aus GitHub: Fehler ${r.status}, nehme den Stand aus dem Build`);
-  } catch (e) { console.warn(`[Hub-Dienst] Hub-Daten ${datei} aus GitHub nicht erreichbar (${e instanceof Error ? e.message : e}), nehme den Stand aus dem Build`); }
-  gitCache.set(datei, { zeit: Date.now(), text });
-  return text;
-}
-
 /** Gebauter Hub aus HUB_STATISCH; hub-config.json bekommt die Dienst-Adresse „/“ (derselbe Ursprung) */
 async function statisch(pfad: string, res: ServerResponse): Promise<boolean> {
   if (!UMGEBUNG.statisch) return false;
@@ -81,7 +62,7 @@ async function statisch(pfad: string, res: ServerResponse): Promise<boolean> {
   }
   // Hub-Daten aus dem Git-Speicher frisch aus dem Repository: Wer ohne Token liest, sähe sonst nur den Stand des letzten Builds
   if (/^\/hub-daten\/[\w.-]+\.json$/.test(rel.replace(/\\/g, "/")) && UMGEBUNG.gitRepo) {
-    const frisch = await hubDatenAusGit(rel.replace(/\\/g, "/").slice("/hub-daten/".length));
+    const frisch = await hubDatenLesen(rel.replace(/\\/g, "/").slice("/hub-daten/".length));
     if (frisch !== null) {
       res.writeHead(200, { "Content-Type": "application/json", "Cache-Control": "no-cache" });
       res.end(frisch);
@@ -141,6 +122,7 @@ async function start() {
   });
   server.listen(UMGEBUNG.port, () => {
     console.info(`[Hub-Dienst] Version ${UMGEBUNG.version} auf Port ${UMGEBUNG.port}${UMGEBUNG.testmodus ? " (Testmodus mit Copilot-Attrappe)" : ""}; Daten unter ${UMGEBUNG.daten}${UMGEBUNG.statisch ? `; Hub aus ${UMGEBUNG.statisch}` : ""}`);
+    if (UMGEBUNG.gitRepo) console.info(hubDatenSchreibbar() ? `[Hub-Dienst] Git-Speicher ${UMGEBUNG.gitRepo}: Apps werden über den Dienst für alle gespeichert` : `[Hub-Dienst] Git-Speicher ${UMGEBUNG.gitRepo}: nur lesen (für Speichern ohne Token im Browser HUB_GIT_TOKEN eintragen)`);
     console.info(diagrammMalerImDienst() ? `[Hub-Dienst] Diagramme in Mail und Teams als Bild (Chromium: ${chromiumPfad()})` : "[Hub-Dienst] Diagramme in Mail und Teams als Quelltext (kein Chromium oder kein ausgelieferter Hub; siehe HUB_CHROMIUM)");
   });
   const ende = () => { console.info("[Hub-Dienst] Beende …"); zeitplan.stop(); server.close(() => process.exit(0)); setTimeout(() => process.exit(0), 3000).unref(); };

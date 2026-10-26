@@ -259,6 +259,12 @@ den Stand nach dem nächsten Laden. Ohne Token bleiben eigene Änderungen im Bro
 alle in `public/hub-config.json` unter `speicher.git` (`repo`, `branch`, `pfad`), zum Testen je Browser in der
 Verwaltung. Anmeldungen bleiben im Git-Speicher im Browser (jede Anmeldung wäre sonst ein Commit).
 
+**Mit Hub-Dienst braucht niemand einen Token:** Bekommt der Dienst einen eigenen Token (`HUB_GIT_TOKEN` in
+`server/.env`, siehe `SERVER.md`), speichert der Hub darüber. Der Dienst prüft Anmeldung und Rechte (Baukasten-Recht;
+fremde Apps nur mit Bearbeiten-Recht; Rechte nur die Verwaltung), schreibt den Commit mit der E-Mail der Person in der
+Nachricht und liefert die Hub-Daten frisch aus dem Repository aus. Apps, die vorher nur im Browser lagen, zeigt die
+Übersicht mit „Für alle speichern“ an; beim nächsten Speichern wandern sie ohnehin in den gemeinsamen Speicher.
+
 ## Gemeinsamer Speicher (SharePoint)
 
 Ohne Einrichtung liegen Applikationen und Rechte nur im Browser. Für den gemeinsamen Betrieb:

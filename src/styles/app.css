@@ -945,3 +945,7 @@ a.mh-titel:hover { text-decoration: underline; text-underline-offset: 4px; }
 .toaster [data-sonner-toast][data-type="warning"] { border-left-color: var(--k-orange) !important; background: color-mix(in srgb, var(--k-orange) 12%, var(--surface)) !important; }
 .toaster [data-sonner-toast] [data-close-button] { left: auto !important; right: clamp(12px, 2.4vw, 36px) !important; top: 50% !important; transform: translateY(-50%) !important; width: 28px; height: 28px; background: transparent !important; border: 0 !important; color: var(--muted-ink); }
 .toaster [data-sonner-toast] [data-close-button]:hover { background: color-mix(in srgb, var(--ink) 8%, transparent) !important; color: var(--ink); }
+
+/* ----- Übersicht: Apps, die nur in diesem Browser liegen ----- */
+.hub-nurbrowser { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; margin: 0 auto 12px; width: min(100%, var(--app-max, 1200px)); padding: 10px 14px; border: 1px solid var(--app-line); border-left: 3px solid var(--tool-text, #b45309); border-radius: var(--app-radius); background: var(--app-soft); font-size: 14px; }
+.hub-nurbrowser span { flex: 1 1 280px; min-width: 0; }

@@ -83,11 +83,18 @@ export async function speicherName(): Promise<string> {
   const k = await speicherKonfig();
   return k.art === "lokal" ? "Dieser Browser" : k.art === "github" ? `GitHub (${k.repo})` : "SharePoint";
 }
-/** Gemeinsamer Speicher vorhanden und von diesem Browser aus beschreibbar? (Git: nur mit Token) */
+/** Git-Speicher ohne Token im Browser: Speichert der Hub-Dienst stellvertretend (mit seinem Token)? */
+async function ueberDienst(): Promise<boolean> {
+  if (gitToken()) return false;
+  try { return await (await import("./dienst")).dienstSpeichertHubDaten(); } catch { return false; }
+}
+/** Gemeinsamer Speicher vorhanden und von diesem Browser aus beschreibbar? (Git: mit Token oder über den Hub-Dienst) */
 export async function speicherSchreibbar(): Promise<boolean> {
   const k = await speicherKonfig();
-  return k.art === "sharepoint" || (k.art === "github" && !!gitToken());
+  return k.art === "sharepoint" || (k.art === "github" && (!!gitToken() || await ueberDienst()));
 }
+/** Speichern im Git-Speicher läuft über den Hub-Dienst (für die Anzeige in der Verwaltung) */
+export async function speichertUeberDienst(): Promise<boolean> { return (await speicherKonfig()).art === "github" && await ueberDienst(); }
 
 /* ---------- Gemeinsame Dateischicht: SharePoint-Ordner oder Git-Speicher ---------- */
 /**
@@ -98,10 +105,14 @@ export async function dateiLesen<T>(pfad: string): Promise<T | null> {
   return (await speicherKonfig()).art === "github" ? gitLesen<T>(pfad) : spLesen<T>(pfad);
 }
 export async function dateiSchreiben(pfad: string, daten: unknown, still = false): Promise<void> {
-  return (await speicherKonfig()).art === "github" ? gitSchreiben(pfad, daten) : spSchreiben(pfad, daten, still);
+  if ((await speicherKonfig()).art !== "github") return spSchreiben(pfad, daten, still);
+  if (await ueberDienst()) { await (await import("./dienst")).hubDatenSchreiben(pfad, daten); return; }
+  return gitSchreiben(pfad, daten);
 }
 export async function dateiLoeschen(pfad: string): Promise<void> {
-  return (await speicherKonfig()).art === "github" ? gitLoeschen(pfad) : spLoeschen(pfad);
+  if ((await speicherKonfig()).art !== "github") return spLoeschen(pfad);
+  if (await ueberDienst()) { await (await import("./dienst")).hubDatenLoeschen(pfad); return; }
+  return gitLoeschen(pfad);
 }
 export async function dateienLesen(unter: string): Promise<unknown[]> {
   return (await speicherKonfig()).art === "github" ? gitAlleLesen(unter) : spAlleLesen(unter);
