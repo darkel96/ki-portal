@@ -31,6 +31,28 @@ Daten liegen als JSON-Dateien unter `HUB_DATEN`: `laeufe/<id>.json` (Lauf mit Ei
 `nutzer/<id>/auftraege.json` (Aufträge, Voreinstellungen, Abbild der Applikationen), `nutzer/<id>/zugang.json`
 (verschlüsselte Anmeldung). Fertige Läufe werden nach `HUB_AUFBEWAHRUNG_TAGE` (Standard 30) gelöscht.
 
+## Einrichtung mit zwei Skripten
+
+Der kürzeste Weg, wenn die App-Registrierung des Hubs schon besteht:
+
+1. **Azure, am eigenen PC (PowerShell mit Azure CLI, Admin-Rolle für die Zustimmung):**
+   ```powershell
+   cd scripts
+   .\entra-einrichten.ps1 -ClientId <Client-ID> -Dienst -DienstHost ki-hub.firma.de
+   ```
+   Das trägt die Berechtigungen für Zustellung, Wissensquellen und `offline_access` ein, macht die API
+   `api://<Client-ID>` mit dem Bereich `Laeufe.Ausfuehren` verfügbar, legt einen Clientschlüssel „Hub-Dienst“ an und
+   gibt am Ende die fertigen Zeilen für `server/.env` aus (mit `-EnvDatei ..\server\.env` werden sie direkt eingetragen).
+   Der Clientschlüssel erscheint nur einmal.
+2. **Auf dem Server (im Hauptverzeichnis des Repositories):**
+   ```bash
+   bash scripts/dienst-einrichten.sh
+   ```
+   Das holt den neuesten Stand, legt `server/.env` an oder ergänzt fehlende Werte (vorhandene bleiben; der
+   Clientschlüssel wird abgefragt, `HUB_SCHLUESSEL` erzeugt), baut und startet den Container, wartet auf
+   `/api/dienst` und zeigt bei Problemen die letzten Protokollzeilen. Dasselbe Kommando bringt den Dienst später auf
+   den neuesten Stand. Davor gehört einmalig der Reverse-Proxy mit HTTPS (siehe Schnellstart).
+
 ## Schnellstart auf dem Linux-Server (Docker)
 
 Voraussetzungen: Docker mit Compose, ein DNS-Name für den Server (z. B. `ki-hub.firma.de`), Port 443 erreichbar.
