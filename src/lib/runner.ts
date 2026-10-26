@@ -3,7 +3,7 @@ import { fieldsOf, stepsFor, stepsUsing, stepText, varsIn } from "./model";
 import { auszuegeZusammen, buildRequest, wissenFuer, type FileInfo, type KiRequest, type WissenAuszug } from "./request";
 import { KiSimulation, kiSenden } from "./ki";
 import { parsePaket, type Paket } from "./paket";
-import { dokumentLinks, quellenVerlinken, verweiseAufloesen, type DokLink } from "./verweise";
+import { dokumentLinks, linksBenennen, quellenVerlinken, verweiseAufloesen, type DokLink } from "./verweise";
 import { teamAusfuehren, type Beitrag } from "./team";
 import { alsMarkdown, tabelleLesen } from "./tabelle";
 
@@ -204,7 +204,11 @@ export async function ablaufStarten(opts: {
         const live = s.format === "markdown" || s.format === "text" ? mitlesen((t) => setOut(s.id, (prev) => ({ ...(prev ?? { status: "laeuft" }), text: t }))) : undefined;
         text = await kiSenden(req, signal, live?.teil);
         live?.ende();
-        if (s.format === "markdown" || s.format === "text") text = quellenVerlinken(verweiseAufloesen(text), req.diagnose?.links ?? []);
+        // Quellen verlinken und jedem Link einen sprechenden Text geben; nackte Adressen nur im formatierten Text zu Links
+        if (s.format === "markdown" || s.format === "text") {
+          const links = req.diagnose?.links ?? [];
+          text = linksBenennen(quellenVerlinken(verweiseAufloesen(text), links), links, s.format === "markdown");
+        }
       }
       const paket = s.format === "dateien" ? parsePaket(text) : undefined;
       if (paket && req.vorlagenUrl) paket.vorlagenUrl = req.vorlagenUrl;

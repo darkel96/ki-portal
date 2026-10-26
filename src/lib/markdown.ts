@@ -20,25 +20,21 @@ const link = (href: string, text: string, title = "") => istTotLink(href)
   : `<a href="${hrefSauber(href)}"${title ? ` title="${title}"` : ""}>${text}</a>`;
 /** Dateiendungen, bis zu denen eine nackte Adresse auch über Leerzeichen hinweg als eine Adresse gilt */
 const DATEI_ENDUNG = "docx?|pptx?|xlsx?|pdf|md|txt|csv|aspx";
-/** Lesbarer Name für eine nackte Adresse: der Dateiname bzw. letzte Pfadteil ohne Prozentzeichen, sonst der Host */
-export function linkName(url: string): string {
-  try {
-    const u = new URL(url.replace(/&amp;/g, "&"));
-    const teile = u.pathname.split("/").filter(Boolean);
-    let letzter = teile.at(-1) ?? "";
-    try { letzter = decodeURIComponent(letzter); } catch { /* ungültige Kodierung: so lassen */ }
-    letzter = letzter.replace(/\.aspx$/i, "").replace(/[_-]+/g, " ").trim();
-    return esc(letzter || u.hostname);
-  } catch { return url; }
-}
+/** Lesbarer Name für eine nackte Adresse (siehe dokumentName: Dateiname, E-Mail, Teams-Nachricht, Liste …), HTML-sicher */
+export const linkName = (url: string): string => esc(dokumentName(url));
 export { dokumentName, verweiseAufloesen } from "./verweise";
+import { dokumentName, linkText } from "./verweise";
 
 const inline = (s: string) => esc(s)
   // [Text](https://…) und nackte Adressen (nicht schon Teil eines Links); Satzzeichen am Ende bleiben draußen
   // Adressen dürfen Klammern enthalten („…/Cyber Resilience Act (CRA) EU …“), solange sie paarig sind
   .replace(/\[([^\]]+)\]\(((?:sandbox|attachment):[^\s)]+)\)/g, (_, t: string) => `<span class="o-totlink" title="Diese Datei liegt nur in der Copilot-Umgebung und lässt sich hier nicht herunterladen.">${t} <em>(nur in Copilot abrufbar)</em></span>`)
   // Linkadressen dürfen Leerzeichen enthalten (werden kodiert), nicht aber unpaarige Klammern
-  .replace(/\[([^\]]+)\]\((https?:\/\/(?:[^()\n]|\([^()\n]*\))+?)\)/g, (_, t: string, u: string) => link(u.trim(), t))
+  .replace(/\[([^\]]+)\]\((https?:\/\/(?:[^()\n]|\([^()\n]*\))+?)\)/g, (_, t: string, u: string) => {
+    // Nichtssagender Linktext („owa“, Nummer, Kennung): Dokumentname, auch in älteren Ergebnissen
+    const adr = u.trim(), neu = linkText(t, adr.replace(/&amp;/g, "&"));
+    return link(adr, neu === t ? t : esc(neu));
+  })
   // Nackte Dateiadresse mit Leerzeichen im Pfad („…/KPSS Templates/Archive/Cheat Sheet.docx“): bis zur Dateiendung eine Adresse
   .replace(new RegExp(`(^|[^"&>\\w/])(https?:\\/\\/[^\\s<]+?(?: [^\\s<]+?)*?\\.(?:${DATEI_ENDUNG}))(?=$|[\\s.,;:)!?])`, "gi"), (_, vor: string, u: string) => vor + link(u, linkName(u), u))
   .replace(/(^|[^"&>\w/])(https?:\/\/[^\s<]*[^\s<.,;:)!?])/g, (_, vor: string, u: string) => vor + link(u, linkName(u), u))

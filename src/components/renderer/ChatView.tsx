@@ -6,7 +6,7 @@ import { fill } from "@/lib/model";
 import { GespraechVerfallen, KiSimulation, kiModus, kiSenden } from "@/lib/ki";
 import { OHNE_ADRESSE, anfrageVorbereiten, kontext } from "@/lib/runner";
 import { markdown } from "@/lib/markdown";
-import { quellenVerlinken, verweiseAufloesen, type DokLink } from "@/lib/verweise";
+import { linksBenennen, quellenVerlinken, verweiseAufloesen, type DokLink } from "@/lib/verweise";
 import type { WissenAuszug } from "@/lib/request";
 import { diagrammeZeichnen } from "@/lib/diagramm";
 import { ohneQuelle, vorschlagAnlegen, type Bewertung } from "@/lib/lernen";
@@ -233,7 +233,7 @@ export function ChatView({ app, b, mode }: { app: App; b: Extract<Block, { type:
       }
       if (nachschlagenAus(text)) text = "Dazu habe ich in den hinterlegten Unterlagen nichts gefunden.";
       gesendet.current = [...gesendet.current, ...neu];
-      setzeAntwort({ text: quellenVerlinken(verweiseAufloesen(text), linkverzeichnis.current) });
+      setzeAntwort({ text: linksBenennen(quellenVerlinken(verweiseAufloesen(text), linkverzeichnis.current), linkverzeichnis.current) });
     } catch (e) {
       if (e instanceof KiSimulation) setzeAntwort({ text: "", simulation: "nachricht" in e.req ? e.req.nachricht : "" });
       else if (c.signal.aborted) setzeAntwort({ text: bisherText ? `${bisherText}\n\n(gestoppt)` : "(gestoppt)", gestoppt: true });
