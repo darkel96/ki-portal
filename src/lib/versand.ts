@@ -111,7 +111,7 @@ export function ergebnisMarkdown(i: ZustellInhalt): string {
 }
 
 type GraphPerson = { id?: string; mail?: string | null; userPrincipalName?: string };
-type GraphChat = { id: string; chatType?: string; webUrl?: string; members?: { email?: string | null; userId?: string | null }[] };
+type GraphChat = { id: string; chatType?: string; webUrl?: string; members?: { email?: string | null; userId?: string | null }[]; lastMessagePreview?: { createdDateTime?: string } | null };
 
 async function fehlerText(r: Response, was: string): Promise<string> {
   const t = await r.text().catch(() => "");
@@ -162,24 +162,40 @@ export async function zustellen(ziel: Ziel, inhalt: ZustellInhalt, graph: GraphR
   let chatId: string;
   let chatUrl = "";
   if (anMich) {
-    // Der Chat mit sich selbst lässt sich über Graph nicht anlegen, nur finden. Er hat die feste Kennung „48:notes“
-    // (ältere Mandanten: die eigene Benutzer-ID zweimal in der ID). Erst direkt abfragen, sonst die Chatliste seitenweise
-    // durchgehen (höchstens 50 je Seite, ohne Reihenfolge). Ein Chat mit nur einem Mitglied reicht nicht als Kennzeichen:
-    // Den gibt es auch mit Personen, die das Unternehmen verlassen haben.
+    // Der Chat mit sich selbst: je nach Mandant unter der festen Kennung „48:notes“ erreichbar, unter einer ID mit der
+    // eigenen Benutzer-ID zweimal, oder nur über die Chatliste (höchstens 50 je Seite, ohne Reihenfolge) als Einzelchat,
+    // dessen einziges Mitglied man selbst ist. Jeder Versuch wird vermerkt, damit die Fehlermeldung sagt, was Graph geantwortet hat.
     const kennung = `${ich.id}_${ich.id}`;
-    const istSelbst = (c: GraphChat) => c.id === "48:notes" || c.id.includes(kennung);
+    const versuche: string[] = [];
+    const fehlerKurz = (e: unknown) => (e instanceof Error ? e.message : String(e)).replace(/^Teams[^:]*: /, "").slice(0, 120);
     let selbst: GraphChat | undefined;
     for (const id of ["48:notes", `19:${kennung}@unq.gbl.spaces`]) {
       if (selbst) break;
-      try { selbst = await graphJson<GraphChat>(graph, `/v1.0/me/chats/${encodeURIComponent(id)}`, "Teams"); } catch { /* nicht vorhanden: weiter */ }
+      try { selbst = await graphJson<GraphChat>(graph, `/v1.0/me/chats/${encodeURIComponent(id)}`, "Teams"); } catch (e) { versuche.push(`${id}: ${fehlerKurz(e)}`); }
     }
-    let pfad: string | null = selbst ? null : "/v1.0/me/chats?$filter=chatType eq 'oneOnOne'&$top=50";
+    if (!selbst) {
+      // Manche Mandanten liefern den Chat mit sich selbst beim Anlegen eines Einzelchats mit sich selbst
+      try {
+        selbst = await graphJson<GraphChat>(graph, "/v1.0/chats", "Teams", { method: "POST", body: { chatType: "oneOnOne", members: [
+          { "@odata.type": "#microsoft.graph.aadUserConversationMember", roles: ["owner"], "user@odata.bind": `${GRAPH}/v1.0/users('${ich.id}')` },
+          { "@odata.type": "#microsoft.graph.aadUserConversationMember", roles: ["owner"], "user@odata.bind": `${GRAPH}/v1.0/users('${ich.id}')` },
+        ] } });
+      } catch (e) { versuche.push(`Anlegen: ${fehlerKurz(e)}`); }
+    }
+    let gesehen = 0;
+    const kandidaten: GraphChat[] = [];
+    let pfad: string | null = selbst ? null : "/v1.0/me/chats?$filter=chatType eq 'oneOnOne'&$expand=members,lastMessagePreview&$top=50";
     for (let seite = 0; pfad && !selbst && seite < 40; seite++) {
       const chats: { value: GraphChat[]; "@odata.nextLink"?: string } = await graphJson(graph, pfad, "Teams");
-      selbst = chats.value.find(istSelbst);
+      gesehen += chats.value.length;
+      selbst = chats.value.find((c) => c.id === "48:notes" || c.id.includes(kennung));
+      // Einzelchats, deren einziges Mitglied man selbst ist: der Chat mit sich selbst, aber auch alte Chats mit
+      // Personen, die das Unternehmen verlassen haben; deshalb erst am Ende der jüngste davon
+      kandidaten.push(...chats.value.filter((c) => (c.members ?? []).length === 1 && (c.members ?? []).every((m) => gleich(m.userId, ich.id) || meine.some((x) => gleich(x, m.email)))));
       pfad = chats["@odata.nextLink"] ? chats["@odata.nextLink"].replace(/^https:\/\/graph\.microsoft\.com/, "") : null;
     }
-    if (!selbst) throw new Error("Den Teams-Chat mit dir selbst gibt es noch nicht. Öffne ihn einmal in Teams (deinen Namen in der Suche wählen, eine Nachricht an dich schicken), dann klappt die Zustellung.");
+    if (!selbst && kandidaten.length) selbst = [...kandidaten].sort((x, y) => (y.lastMessagePreview?.createdDateTime ?? "").localeCompare(x.lastMessagePreview?.createdDateTime ?? ""))[0];
+    if (!selbst) throw new Error(`Den Teams-Chat mit dir selbst gibt es noch nicht oder Graph zeigt ihn nicht (${gesehen} Einzelchats durchsucht${versuche.length ? `; ${versuche.join("; ")}` : ""}). Öffne ihn einmal in Teams (deinen Namen in der Suche wählen, eine Nachricht an dich schicken), dann klappt die Zustellung.`);
     chatId = selbst.id;
     chatUrl = selbst.webUrl ?? "";
   } else {
