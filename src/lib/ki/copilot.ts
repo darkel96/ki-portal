@@ -49,6 +49,9 @@ export class ErstesZeichenAus extends Error {
  * Aufruf zusätzlich ab, wenn bis dahin kein erstes Zeichen da ist (da() = false): dann ErstesZeichenAus.
  */
 async function anfrage<T>(url: string, body: unknown, token: string, signal: AbortSignal | undefined, lesen: (res: Response, wach: () => void) => Promise<T>, accept = "application/json", limitMs = KI_CONFIG.timeoutMs, ersteFrist?: { ms: number; da: () => boolean }): Promise<T> {
+  // Schon gestoppt (z. B. während die Wissensquellen gelesen wurden): gar nicht erst anfragen. Ein Listener auf
+  // „abort“ käme sonst nie an, und die Anfrage liefe bis zum Ende durch.
+  if (signal?.aborted) throw new DOMException("Abgebrochen.", "AbortError");
   const ctl = new AbortController();
   let ersteAus = false;
   const erst = ersteFrist ? setTimeout(() => { if (!ersteFrist.da()) { ersteAus = true; ctl.abort(); } }, ersteFrist.ms) : undefined;

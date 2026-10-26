@@ -122,8 +122,8 @@ export function ErgebnisSenden({ app, outs, variante = "app" }: { app: App; outs
   );
 }
 
-function Uebersicht({ app, kacheln, outs, laeuft, geaendert, onStart, onOeffnen }: {
-  app: App; kacheln: Kachel[]; outs: Record<string, OutState>; laeuft: boolean; geaendert: boolean;
+function Uebersicht({ app, kacheln, outs, laeuft, stoppt, geaendert, onStart, onOeffnen }: {
+  app: App; kacheln: Kachel[]; outs: Record<string, OutState>; laeuft: boolean; stoppt?: boolean; geaendert: boolean;
   onStart: () => void; onOeffnen: (id: string) => void;
 }) {
   const stati = kacheln.map((k) => kachelStatus(k, outs));
@@ -138,8 +138,8 @@ function Uebersicht({ app, kacheln, outs, laeuft, geaendert, onStart, onOeffnen 
         <span className="flex-1" />
         {geaendert && !laeuft && gestartet && <span className="e-hinweis">Die Eingaben wurden seitdem geändert.</span>}
         {!laeuft && fertig > 0 && <ErgebnisSenden app={app} outs={outs} />}
-        <button type="button" className={`o-btn ${gestartet && !laeuft ? "outline" : ""}`} style={{ "--btn": "var(--signal)", "--btn-ink": "var(--signal-ink)" } as CSSProperties} onClick={onStart}>
-          {laeuft ? "Stoppen" : gestartet ? "Neu erstellen" : "Ergebnisse erstellen"}
+        <button type="button" className={`o-btn ${gestartet && !laeuft ? "outline" : ""}`} style={{ "--btn": "var(--signal)", "--btn-ink": "var(--signal-ink)" } as CSSProperties} onClick={onStart} disabled={laeuft && stoppt}>
+          {laeuft ? (stoppt ? "Wird gestoppt\u00a0…" : "Stoppen") : gestartet ? "Neu erstellen" : "Ergebnisse erstellen"}
         </button>
       </div>
       <ul className="e-kacheln">
@@ -267,6 +267,8 @@ export const RunApp = forwardRef<RunAppHandle, {
   const [fehler, setFehler] = useState<Set<string>>(new Set());
   const [outs, setOuts] = useState<Record<string, OutState>>({});
   const [laeuft, setLaeuft] = useState<string | null>(null);
+  const [stoppt, setStoppt] = useState(false);
+  useEffect(() => { if (!laeuft) setStoppt(false); }, [laeuft]);
   /** ID des Laufs im Hub-Dienst, wenn der Ablauf dort läuft (dann geht er auch ohne offenen Tab weiter) */
   const [hintergrund, setHintergrund] = useState<string | null>(null);
   const verfolgung = useRef(0);
@@ -454,7 +456,8 @@ export const RunApp = forwardRef<RunAppHandle, {
   }, [app.id, app.name]);
 
   const starten = useCallback(async (buttonId: string, aktion: string, bleiben = false) => {
-    if (ctl.current) { ctl.current.abort(); return; }
+    // Zweiter Klick auf denselben Knopf: stoppen und das sofort zeigen (im Dienst dauert die Bestätigung einen Moment)
+    if (ctl.current) { if (!ctl.current.signal.aborted) { ctl.current.abort(); setStoppt(true); } return; }
     const steps = stepsFor(app, aktion);
     if (!steps.length) return;
     if (liest.size) { toast.info("Die Datei wird noch gelesen. Einen Moment, dann noch einmal starten."); return; }
@@ -689,7 +692,7 @@ export const RunApp = forwardRef<RunAppHandle, {
       // Die Person hat entschieden: Markierung „zu klären“ weg, der Hinweis bleibt als Herkunft stehen
       setHinweise((h) => (h[k]?.klaeren ? { ...h, [k]: { ...h[k], klaeren: false } } : h));
     },
-    files, dateiInfo, dateiFehler, setDatei: (k, f) => void setDatei(k, f), fehler, hinweise, outs, laeuft, ebenen, starten: (b, a) => void starten(b, a),
+    files, dateiInfo, dateiFehler, setDatei: (k, f) => void setDatei(k, f), fehler, hinweise, outs, laeuft, stoppt, ebenen, starten: (b, a) => void starten(b, a),
   };
 
   const renderList: RenderList = (blocks: Block[]) => inReihen(blocks, (b) => <BlockContent key={b.id} b={b} app={app} mode="run" renderList={renderList} />);
@@ -806,7 +809,7 @@ export const RunApp = forwardRef<RunAppHandle, {
                 : <OutputView app={app} titel={offen.titel} stepId={offen.stepIds[0]} stil="card" mode="run" />}
             </>
           ) : imUeberblick ? (
-            <Uebersicht app={app} kacheln={kacheln} outs={outs} laeuft={!!laeuft} geaendert={geaendert}
+            <Uebersicht app={app} kacheln={kacheln} outs={outs} laeuft={!!laeuft} stoppt={stoppt} geaendert={geaendert}
               onStart={() => void starten("uebersicht", uebersichtAktion)} onOeffnen={oeffnen} />
           ) : p && <>
             <VorbelegungStand schritte={vorbelegungsSchritte(p)} outs={outs} laeuft={!!laeuft} onStart={(st) => void starten(`vorbelegen:${st.id}`, st.id, true)} />
