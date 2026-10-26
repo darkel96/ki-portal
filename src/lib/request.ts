@@ -18,8 +18,10 @@ export const DIAGRAMM_HINWEIS = "Ist ein Ablauf, Prozess, Organigramm, Entscheid
 /** Globale Regel: Dokumente entstehen im Hub aus der Antwort (Word, PDF), nie als Datei in OneDrive oder Teams */
 export const DOKUMENT_HINWEIS = "Wird ein Dokument, Plan, Protokoll, eine Checkliste oder Vorlage gewünscht, schreibe den vollständigen Inhalt in die Antwort (## Überschriften, Tabellen, Listen); der Hub bietet die Antwort als Word und PDF zum Herunterladen an. Lege keine Dateien in OneDrive, Teams oder anderswo an und verweise nicht auf solche Dateien.";
 
+/** Globale Regel für Links: immer Markdown-Link mit sprechendem Text, nie nackte Adressen, Nummern oder Kennungen */
+export const LINK_HINWEIS = "Jeder Link ist ein Markdown-Link mit sprechendem Text: [Betreff der E-Mail](Adresse), [Name des Dokuments, Abschnitt](Adresse), [Teams-Chat mit Name, Datum](Adresse). Nie die nackte Adresse, nie Nummern wie [1] oder Kennungen als Linktext.";
 export const FORMAT_HINT: Record<Step["format"], string> = {
-  markdown: "Formatiere mit einfachem Markdown: ## Überschriften, - Listen, Tabellen nur wenn sie helfen. Beginne direkt mit dem Ergebnis. " + DIAGRAMM_HINWEIS + " " + DOKUMENT_HINWEIS,
+  markdown: "Formatiere mit einfachem Markdown: ## Überschriften, - Listen, Tabellen nur wenn sie helfen. Beginne direkt mit dem Ergebnis. " + LINK_HINWEIS + " " + DIAGRAMM_HINWEIS + " " + DOKUMENT_HINWEIS,
   text: "Antworte als schlichter Text ohne Markdown. Beginne direkt mit dem Ergebnis.",
   json: "Antworte nur mit gültigem JSON, ohne Erklärung davor oder danach.",
   dateien: 'Antworte nur mit gültigem JSON in dieser Form: {"hinweis": "ein Satz zum Paket", "dateien": [{"pfad": "Ordner/Unterordner/Datei.md", "inhalt": "vollständiger Dateiinhalt als Text oder Markdown"}]}. Pfade mit / trennen, ohne Umlaute, Leerzeichen und Sonderzeichen. Soll eine Datei ein PDF, Word-, Excel- oder PowerPoint-Dokument sein, gib ihr die Endung .pdf, .docx, .xlsx bzw. .pptx und schreibe den Inhalt als Markdown; der Hub wandelt sie automatisch um. Keine Erklärung vor oder nach dem JSON.',

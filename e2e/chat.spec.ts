@@ -174,7 +174,7 @@ test("Markdown: nackte Adressen bekommen einen lesbaren Namen", async ({ page },
       link: m.markdown("[CRA Q&A, Scope](https://x.sharepoint.com/sites/KSC/SitePages/CRA-QA.aspx)"),
     };
   });
-  expect(r.datei).toContain('>CyRPS Training 2026 de DE.pptx</a>');
+  expect(r.datei).toContain('>CyRPS Training 2026 de-DE.pptx</a>');
   expect(r.datei).toContain('>KSCAL Vorlage OT CRA V1.0.docx</a>');
   expect(r.datei).toContain('href="https://x.sharepoint.com/sites/KSC/Legal%20&amp;%20Sales/KSCAL_Vorlage_OT_CRA_V1.0.docx"');
   expect(r.seite).toContain('>CRA QA</a>.');
@@ -194,7 +194,7 @@ test("Markdown: nackte Adressen bekommen einen lesbaren Namen", async ({ page },
   expect(l.nackt).toContain('href="https://x.sharepoint.com/sites/KSC/KPSS%20Templates/Archive/Cyber%20Resilience%20Act%20%28CRA%29%20–%20Cheat%20Sheet.docx"');
   expect(l.nackt).toContain(">Cyber Resilience Act (CRA) – Cheat Sheet.docx</a>");
   expect(l.nackt).not.toContain(">KPSS</a>");
-  expect(l.satz).toContain(">doc</a> und dann weiter im Text.");
+  expect(l.satz).toContain(">SharePoint</a> und dann weiter im Text.");   // Doc.aspx ist die Office-Ansicht, kein Name
 });
 
 test("Markdown: nummerierte Copilot-Verweise werden zu Links mit Quellennamen", async ({ page }, info) => {

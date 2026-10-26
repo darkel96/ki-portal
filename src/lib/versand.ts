@@ -6,6 +6,7 @@
  */
 import type { Ziel } from "./meinhub";
 import { diagrammQuelle } from "./diagrammquelle";
+import { linksBenennen } from "./verweise";
 
 export type ZustellTeil = { name: string; text: string; status: string; meldung?: string };
 export type ZustellInhalt = { titel: string; appName: string; stand: "fertig" | "fehler" | "abgebrochen" | "test"; meldung?: string; teile: ZustellTeil[] };
@@ -105,7 +106,8 @@ const standText = (i: ZustellInhalt) => i.stand === "fertig" ? "Fertig" : i.stan
 /** Ergebnis als HTML (E-Mail und Teams-Chat) */
 export function ergebnisHtml(i: ZustellInhalt, bild?: BildHtml): string {
   const teile = i.teile.map((t) => {
-    const inhalt = t.status === "fertig" ? markdownSchlicht(t.text, bild) : `<p><i>(${esc(t.status)}${t.meldung ? `: ${esc(t.meldung)}` : ""})</i></p>`;
+    // Jeder Link mit sprechendem Text, auch nackte Adressen (in Outlook sonst lange Kennungen)
+    const inhalt = t.status === "fertig" ? markdownSchlicht(linksBenennen(t.text), bild) : `<p><i>(${esc(t.status)}${t.meldung ? `: ${esc(t.meldung)}` : ""})</i></p>`;
     return `<h2 style="font:600 16px Segoe UI,Arial,sans-serif;margin:20px 0 6px">${esc(t.name)}</h2><div style="font:14px/1.5 Segoe UI,Arial,sans-serif">${inhalt}</div>`;
   }).join("");
   return `<div style="font:14px Segoe UI,Arial,sans-serif;color:#1f2328"><p><b>${esc(i.titel)}</b> · ${esc(i.appName)} · ${esc(standText(i))}</p>${teile}<p style="margin-top:24px;color:#6b7280">Automatisch erstellt vom KI-Hub. Das Ergebnis liegt auch im Verlauf von Mein Hub.</p></div>`;
@@ -118,7 +120,7 @@ export function ergebnisMarkdown(i: ZustellInhalt): string {
     const q = diagrammQuelle(sprache.toLowerCase(), code.replace(/\n$/, ""));
     return q && q.art !== "drawio" ? "_(Diagramm: im Verlauf von Mein Hub als Bild)_" : ganz;
   });
-  const teile = i.teile.map((t) => `**${t.name}**\n\n${t.status === "fertig" ? ohneDiagramme(t.text).replace(/^#{1,6}\s+(.*)$/gm, "**$1**") : `_(${t.status}${t.meldung ? `: ${t.meldung}` : ""})_`}`).join("\n\n");
+  const teile = i.teile.map((t) => `**${t.name}**\n\n${t.status === "fertig" ? ohneDiagramme(linksBenennen(t.text)).replace(/^#{1,6}\s+(.*)$/gm, "**$1**") : `_(${t.status}${t.meldung ? `: ${t.meldung}` : ""})_`}`).join("\n\n");
   const ganz = `**${i.titel}** · ${i.appName} · ${standText(i)}\n\n${teile}`;
   return ganz.length > 8000 ? `${ganz.slice(0, 7900)}\n\n_(gekürzt; vollständig im Verlauf von Mein Hub)_` : ganz;
 }

@@ -4,6 +4,7 @@
  * Die Bibliotheken werden erst beim Herunterladen nachgeladen.
  */
 import type { Step } from "./schema";
+import { dokumentName, linkText } from "./verweise";
 
 export type DateiArt = Exclude<Step["datei"], "" | "wunsch">;
 export const DATEI_ART: Record<DateiArt, { label: string; endung: string; mime: string }> = {
@@ -35,7 +36,8 @@ export function dateiWunsch(text: string): DateiArt | null {
 }
 
 /* ---------- Dokumentmodell ---------- */
-export type Lauf = { text: string; fett?: boolean; kursiv?: boolean; code?: boolean };
+/** Ein Stück Text mit Auszeichnung; `link` macht es zum Hyperlink (Word, PDF, PowerPoint) */
+export type Lauf = { text: string; fett?: boolean; kursiv?: boolean; code?: boolean; link?: string };
 export type DokBlock =
   | { typ: "ueberschrift"; ebene: 1 | 2 | 3 | 4; laeufe: Lauf[] }
   | { typ: "absatz"; laeufe: Lauf[] }
@@ -48,8 +50,26 @@ export type DokBlock =
 
 const reinText = (l: Lauf[]) => l.map((x) => x.text).join("");
 
-/** **fett**, *kursiv* / _kursiv_, `code` */
+/** Markdown-Link „[Text](https://…)“ oder nackte Adresse (auch „<https://…>“) */
+const LINK_IM_TEXT = /\[([^\]\n]+)\]\((https?:\/\/(?:[^\s()]|\([^\s()]*\))+)\)|<?(https?:\/\/[^\s<>()\]]*[^\s<>().,;:!?'"“”\]])>?/g;
+
+/** **fett**, *kursiv* / _kursiv_, `code` und Links (mit sprechendem Text statt Kennung oder Adresse) */
 export function laeufe(s: string): Lauf[] {
+  const out: Lauf[] = [];
+  let last = 0;
+  for (const m of s.matchAll(LINK_IM_TEXT)) {
+    if (m.index! > last) out.push(...formatiert(s.slice(last, m.index)));
+    const url = (m[2] ?? m[3]!).trim();
+    const fett = m[1] !== undefined && /^\*\*.*\*\*$/.test(m[1].trim());
+    const text = m[1] !== undefined ? linkText(m[1].replace(/\*\*|__/g, ""), url) : dokumentName(url);
+    out.push({ text, link: url.replace(/ /g, "%20"), ...(fett ? { fett } : {}) });
+    last = m.index! + m[0].length;
+  }
+  if (last < s.length) out.push(...formatiert(s.slice(last)));
+  return out.filter((x) => x.text);
+}
+
+function formatiert(s: string): Lauf[] {
   const out: Lauf[] = [];
   const re = /(\*\*[^*]+\*\*|__[^_]+__|`[^`]+`|\*[^*\s][^*]*\*|_[^_\s][^_]*_)/g;
   let last = 0;
@@ -242,7 +262,8 @@ async function alsPdf(bl: DokBlock[], meta: DokMeta): Promise<Blob> {
   pdfMake.addVirtualFileSystem(vfs);
   const akzent = hex6(meta.akzent);
   const [titel, rest] = titelUndRest(bl, meta.titel);
-  const runs = (l: Lauf[]) => l.map((x) => ({ text: x.text, bold: x.fett || undefined, italics: x.kursiv || undefined, background: x.code ? CODE_FLAECHE : undefined }));
+  const runs = (l: Lauf[]) => l.map((x) => ({ text: x.text, bold: x.fett || undefined, italics: x.kursiv || undefined, background: x.code ? CODE_FLAECHE : undefined,
+    ...(x.link ? { link: x.link, color: akzent, decoration: "underline" } : {}) }));
   type C = Record<string, unknown>;
   const content: C[] = [
     { text: meta.app.toUpperCase(), style: "kicker" },
@@ -294,7 +315,10 @@ async function alsDocx(bl: DokBlock[], meta: DokMeta): Promise<Blob> {
   const d = await import("docx");
   const akzent = hex6(meta.akzent).slice(1);
   const [titel, rest] = titelUndRest(bl, meta.titel);
-  const runs = (l: Lauf[], extra: Record<string, unknown> = {}) => l.map((x) => new d.TextRun({ text: x.text, bold: x.fett, italics: x.kursiv, font: x.code ? "Consolas" : undefined, ...extra }));
+  // Links als echte Hyperlinks (blau, unterstrichen wie in Word üblich)
+  const runs = (l: Lauf[], extra: Record<string, unknown> = {}) => l.map((x) => x.link
+    ? new d.ExternalHyperlink({ link: x.link, children: [new d.TextRun({ text: x.text, bold: x.fett, italics: x.kursiv, color: "0563C1", underline: {}, ...extra })] })
+    : new d.TextRun({ text: x.text, bold: x.fett, italics: x.kursiv, font: x.code ? "Consolas" : undefined, ...extra }));
   const H = [d.HeadingLevel.HEADING_1, d.HeadingLevel.HEADING_1, d.HeadingLevel.HEADING_2, d.HeadingLevel.HEADING_3, d.HeadingLevel.HEADING_4];
   const kinder: (InstanceType<typeof d.Paragraph> | InstanceType<typeof d.Table>)[] = [
     new d.Paragraph({ children: [new d.TextRun({ text: meta.app.toUpperCase(), size: 16, color: GRAU.slice(1) })] }),
@@ -438,14 +462,14 @@ async function alsPptx(bl: DokBlock[], meta: DokMeta): Promise<Blob> {
       y += h + 0.1;
       punkte = [];
     };
-    const runs = (l: Lauf[]) => l.map((x) => ({ text: x.text, options: { bold: x.fett, italic: x.kursiv } }));
+    const runs = (l: Lauf[]) => l.map((x) => ({ text: x.text, options: { bold: x.fett, italic: x.kursiv, ...(x.link ? { hyperlink: { url: x.link } } : {}) } }));
     for (const b of f.teile) {
       if (b.typ === "tabelle") {
         textRaus();
         const zeilenProFolie = 10;
         for (let k = 0; k < Math.max(1, b.zeilen.length); k += zeilenProFolie) {
           if (k > 0 || y > 5.5) { s = neueFolie(`${f.titel} (Fortsetzung)`); y = 1.55; }
-          const rows = [b.kopf.map((c) => ({ text: c, options: { bold: true, fill: { color: FLAECHE.slice(1) } } })), ...b.zeilen.slice(k, k + zeilenProFolie).map((r) => r.map((c) => ({ text: c })))];
+          const rows = [b.kopf.map((c) => ({ text: c, options: { bold: true, fill: { color: FLAECHE.slice(1) } } })), ...b.zeilen.slice(k, k + zeilenProFolie).map((r) => r.map((c) => ({ text: reinText(laeufe(c)) })))];
           s.addTable(rows as never, { x: 0.6, y, w: 12.1, rowH: 0.42, fontFace: font, fontSize: 12, color: ink, border: { type: "solid", pt: 0.5, color: LINIE.slice(1) }, autoPage: false });
           y += 0.42 * rows.length + 0.25;
         }
