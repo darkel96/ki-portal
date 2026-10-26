@@ -46,11 +46,14 @@ test("Ampel-Regeln", async ({ page }, info) => {
     const a = await import("/src/lib/ampel.ts");
     return {
       werte: ["Widersprüchlich", "weicht ab", "Fehlt", "nicht erfüllt", "Unsicher", "zu klären", "Offen", "Sicher", "Bestätigt", "Ja", "Nein", "Hoch", "", "Erfüllt"].map(a.ampelWert),
-      text: ["Lieferung [offen]", "Das widerspricht der Spezifikation", "Normaler Text ohne Marke"].map(a.ampelText),
+      text: ["Lieferung [offen]", "Das widerspricht der Spezifikation", "Normaler Text ohne Marke"].map((t) => a.ampelText(t, true)),
+      // Selbst geschrieben (z. B. eine Anweisung an die KI): nur ausdrückliche Markierungen zählen
+      eigen: ["Weise auf widersprüchliche oder fehlende Quellen hin; kennzeichne Ungeklärtes als ungeklärt.", "Lieferung [fehlt]", "Termin zu klären"].map((t) => a.ampelText(t)),
     };
   });
   expect(r.werte).toEqual(["rot", "rot", "rot", "rot", "gelb", "gelb", "gelb", "gruen", "gruen", null, null, null, null, "gruen"]);
   expect(r.text).toEqual(["gelb", "rot", null]);
+  expect(r.eigen).toEqual([null, "rot", null]);
 });
 
 test("Prüfseite: Erklärung unter markierten Feldern, KI bekommt die Anweisung dazu", async ({ page }, info) => {

@@ -192,7 +192,7 @@ function AmpelUeberblick({ app, seite, werte, onFeld }: { app: App; seite: Block
   walk(seite.children ?? [], (b) => {
     if (!isFieldType(b.type)) return;
     const k = (b.props as { key: string }).key, label = (b.props as { label: string }).label;
-    const a = b.type === "select" || b.type === "radio" ? ampelWert(werte[k]) : b.type === "textarea" || b.type === "input" ? ampelText(werte[k]) : null;
+    const a = b.type === "select" || b.type === "radio" ? ampelWert(werte[k]) : b.type === "textarea" || b.type === "input" ? ampelText(werte[k], !!(b.props as { aus?: string }).aus) : null;
     // Im Überblick heißt ein Status-Feld wie sein Inhaltsfeld („Durchsatz und Leistung“ statt „Bewertung“)
     const inhalt = paare.zuInhalt.get(k);
     if (a === "rot" || a === "gelb") treffer.push({ key: k, label: (inhalt && name(inhalt)) || label.replace(/^status\s+/i, ""), ampel: a });
