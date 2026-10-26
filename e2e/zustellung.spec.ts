@@ -16,14 +16,15 @@ const APP = {
 type Post = { pfad: string; body: unknown };
 
 /** Nachgebaute KI und Graph-Attrappe; sammelt alles, was an Graph oder den Webhook geht */
-async function attrappen(page: Page) {
+const PLAN = "## Diese Woche\n\n- **Montag**: Kriterienliste\n- Dienstag: Angebot\n\n| Tag | Fokus |\n|---|---|\n| Mo | CRA |";
+async function attrappen(page: Page, kiText = PLAN, optionen: { bilderAblehnen?: boolean } = {}) {
   const posts: Post[] = [];
   await page.route("https://api.anthropic.com/**", async (route) => {
     const ev = (type: string, data: object) => `event: ${type}\ndata: ${JSON.stringify({ type, ...data })}\n\n`;
     const sse = [
       ev("message_start", { message: { id: "m", type: "message", role: "assistant", model: "x", content: [], stop_reason: null, stop_sequence: null, usage: { input_tokens: 1, output_tokens: 1 } } }),
       ev("content_block_start", { index: 0, content_block: { type: "text", text: "" } }),
-      ev("content_block_delta", { index: 0, delta: { type: "text_delta", text: "## Diese Woche\n\n- **Montag**: Kriterienliste\n- Dienstag: Angebot\n\n| Tag | Fokus |\n|---|---|\n| Mo | CRA |" } }),
+      ev("content_block_delta", { index: 0, delta: { type: "text_delta", text: kiText } }),
       ev("content_block_stop", { index: 0 }), ev("message_delta", { delta: { stop_reason: "end_turn", stop_sequence: null }, usage: { output_tokens: 2 } }), ev("message_stop", {}),
     ].join("");
     await route.fulfill({ status: 200, headers: { "content-type": "text/event-stream", "access-control-allow-origin": "*" }, body: sse });
@@ -41,7 +42,11 @@ async function attrappen(page: Page) {
     if (req.method() === "GET" && pfad === "/v1.0/me/chats") return route.fulfill({ status: 200, headers: cors, contentType: "application/json", body: JSON.stringify({ value: [{ id: "19:me1_me1@unq.gbl.spaces", chatType: "oneOnOne", members: [{ email: null, userId: "me1" }] }] }) });
     if (req.method() === "POST") {
       posts.push({ pfad: decodeURIComponent(pfad), body: req.postDataJSON() });   // Chat-IDs stehen kodiert im Pfad
-      if (pfad === "/v1.0/me/sendMail") return route.fulfill({ status: 202, headers: cors });
+      if (pfad === "/v1.0/me/sendMail") {
+        const mitBild = !!(req.postDataJSON() as { message: { attachments?: unknown[] } }).message.attachments?.length;
+        if (optionen.bilderAblehnen && mitBild) return route.fulfill({ status: 413, headers: cors, contentType: "application/json", body: JSON.stringify({ error: { code: "ErrorMessageSizeExceeded", message: "zu groß" } }) });
+        return route.fulfill({ status: 202, headers: cors });
+      }
       if (pfad === "/v1.0/chats") {
         const m = (req.postDataJSON() as { members: { "user@odata.bind": string }[] }).members.map((x) => x["user@odata.bind"]);
         if (m[0] === m[1]) return route.fulfill({ status: 400, headers: cors, contentType: "application/json", body: JSON.stringify({ error: { code: "BadRequest", message: "Duplicate members" } }) });
@@ -154,4 +159,49 @@ test("„Senden“ an den Ergebnissen schickt einen fertigen Lauf sofort per E-M
   await page.getByRole("menuitem", { name: "Per E-Mail an mich" }).click();
   await expect(page.getByText("Per E-Mail an ich@firma.de gesendet.")).toBeVisible();
   expect((posts.find((p) => p.pfad === "/v1.0/me/sendMail")!.body as { message: { subject: string } }).message.subject).toBe("KI-Hub: Wochenplan");
+});
+
+const MIT_DIAGRAMM = "## Ablauf\n\nSo läuft es:\n\n```mermaid\nflowchart TD\n  A[Angebot] --> B{Freigabe?}\n  B -->|Ja| C[Auftrag]\n```\n\nEnde.";
+
+test("Diagramme kommen in Mail und Teams als eingebettetes Bild an, nicht als Quelltext", async ({ page }, info) => {
+  test.skip(info.project.name !== "desktop", "einmal reicht");
+  const posts = await attrappen(page, MIT_DIAGRAMM);
+  await page.addInitScript((app) => localStorage.setItem("kihub-apps-v3", JSON.stringify([app])), APP);
+  await page.goto("/app/plan-app");
+  await page.getByLabel("Thema").fill("Woche 44");
+  await page.getByRole("button", { name: /Ergebnisse erstellen/ }).click();
+  await expect(page.getByText("1 von 1 fertig")).toBeVisible({ timeout: 20_000 });
+  await page.getByRole("button", { name: "Senden" }).click();
+  await page.getByRole("menuitem", { name: "Per E-Mail an mich" }).click();
+  await expect(page.getByText("Per E-Mail an ich@firma.de gesendet.")).toBeVisible({ timeout: 20_000 });
+  const mail = posts.find((p) => p.pfad === "/v1.0/me/sendMail")!.body as { message: { body: { content: string }; attachments: { contentType: string; isInline: boolean; contentId: string; contentBytes: string }[] } };
+  expect(mail.message.body.content).toContain('src="cid:diagramm1"');
+  expect(mail.message.body.content).not.toContain("flowchart");
+  expect(mail.message.body.content).toContain("Ende.");
+  expect(mail.message.attachments).toHaveLength(1);
+  expect(mail.message.attachments[0]).toMatchObject({ contentType: "image/png", isInline: true, contentId: "diagramm1" });
+  expect(Buffer.from(mail.message.attachments[0].contentBytes, "base64").subarray(1, 4).toString()).toBe("PNG");
+  await page.getByRole("button", { name: "Senden" }).click();
+  await page.getByRole("menuitem", { name: "Als Teams-Nachricht an mich" }).click();
+  await expect(page.getByText("Als Teams-Nachricht an dich gesendet.")).toBeVisible({ timeout: 20_000 });
+  const teams = posts.find((p) => p.pfad === "/v1.0/chats/19:me1_me1@unq.gbl.spaces/messages")!.body as { body: { content: string }; hostedContents: { "@microsoft.graph.temporaryId": string; contentType: string }[] };
+  expect(teams.body.content).toContain('src="../hostedContents/1/$value"');
+  expect(teams.hostedContents).toEqual([expect.objectContaining({ "@microsoft.graph.temporaryId": "1", contentType: "image/png" })]);
+});
+
+test("Lehnt Microsoft die Bilder ab, kommt die Mail trotzdem an, mit Quelltext und Hinweis", async ({ page }, info) => {
+  test.skip(info.project.name !== "desktop", "einmal reicht");
+  const posts = await attrappen(page, MIT_DIAGRAMM, { bilderAblehnen: true });
+  await page.addInitScript((app) => localStorage.setItem("kihub-apps-v3", JSON.stringify([app])), APP);
+  await page.goto("/app/plan-app");
+  await page.getByLabel("Thema").fill("Woche 44");
+  await page.getByRole("button", { name: /Ergebnisse erstellen/ }).click();
+  await expect(page.getByText("1 von 1 fertig")).toBeVisible({ timeout: 20_000 });
+  await page.getByRole("button", { name: "Senden" }).click();
+  await page.getByRole("menuitem", { name: "Per E-Mail an mich" }).click();
+  await expect(page.getByText(/Die Diagramme kamen als Quelltext/)).toBeVisible({ timeout: 20_000 });
+  const mails = posts.filter((p) => p.pfad === "/v1.0/me/sendMail").map((p) => p.body as { message: { body: { content: string }; attachments?: unknown[] } });
+  expect(mails).toHaveLength(2);
+  expect(mails[1].message.attachments).toBeUndefined();
+  expect(mails[1].message.body.content).toContain("flowchart TD");
 });

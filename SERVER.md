@@ -134,6 +134,7 @@ Soll der Hub weiter von GitHub Pages kommen, liefert der Dienst nur die API:
 | `HUB_FEEDBACK_TAGE` | Rückmeldungen der Lernschicht so lange behalten (Standard 90) |
 | `HUB_LERNEN_MS` | Abstand, in dem der Dienst fällige Auswertungen prüft (Standard 10 Minuten) |
 | `HUB_GIT_REPO`, `HUB_GIT_BRANCH` | Nur beim Bauen: Git-Speicher (`owner/repo`, Standard-Branch `main`) in `hub-config.json` eintragen, wie es `.github/workflows/pages.yml` für GitHub Pages tut. Leer = kein Git-Speicher. Die Hub-Daten liest der Hub dann von der ausgelieferten Seite, Änderungen sieht man also erst nach einem Neubau |
+| `HUB_CHROMIUM` | Chromium für Diagramme in Mail und Teams. Leer = suchen (`/usr/bin/chromium-browser`, `/usr/bin/chromium`; im Container vorinstalliert), Pfad = dieses Programm, `aus` = Diagramme gehen als Quelltext raus. Braucht den ausgelieferten Hub (`HUB_STATISCH`), weil Chromium dessen Seite `diagramm.html` öffnet |
 | `HUB_TESTMODUS` | `1` = Copilot-Attrappe, keine Microsoft-Anmeldung (nur lokal und in Tests) |
 
 ## Sicherheit und Datenschutz

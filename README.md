@@ -51,6 +51,11 @@ Voreinstellung, Zeitplan (täglich, werktags, wöchentlich, monatlich) und ein Z
   Berechtigung. Nachrichten in den eigenen Chat gehen im eigenen Namen raus, Teams zeigt dafür weder Hinweisfenster
   noch Zähler; wer benachrichtigt werden will, nimmt den Webhook (dann schreibt der Workflows-Bot) oder die E-Mail.
 
+Diagramme im Ergebnis (Mermaid, SVG) kommen in Mail und Teams-Chat als eingebettetes Bild an, so wie der Hub sie
+zeichnet; im Hub-Dienst übernimmt das ein Headless-Chromium im Container (`HUB_CHROMIUM`, siehe `SERVER.md`). Lehnt
+Microsoft die Bilder ab, geht die Nachricht mit dem Quelltext raus. Webhook-Karten zeigen statt des Diagramms einen
+Hinweis auf den Verlauf.
+
 „Zustellung testen“ im Dialog schickt sofort eine Testnachricht auf dem gewählten Weg. Die Zustellung übernimmt der
 Hub-Dienst (auch bei geschlossenem Hub) oder, ohne Dienst, der Browser mit der Copilot-Anmeldung, sobald der Auftrag
 dort gelaufen ist; im Verlauf steht zu jedem Lauf, wohin das Ergebnis ging oder woran die Zustellung scheiterte. Die

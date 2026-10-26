@@ -2,6 +2,7 @@
  * KI-Hub-Dienst: führt Läufe und Aufträge aus, auch wenn im Browser kein Tab mehr offen ist, und liefert auf Wunsch
  * den gebauten Hub mit aus. Start: `node server/dist/index.mjs`, Einstellungen über die Umgebung (server/.env.example).
  */
+import { chromiumPfad, diagrammMalerImDienst } from "./diagramm";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { readFile, stat } from "node:fs/promises";
 import { extname, join, normalize } from "node:path";
@@ -111,6 +112,7 @@ async function start() {
   });
   server.listen(UMGEBUNG.port, () => {
     console.info(`[Hub-Dienst] Version ${UMGEBUNG.version} auf Port ${UMGEBUNG.port}${UMGEBUNG.testmodus ? " (Testmodus mit Copilot-Attrappe)" : ""}; Daten unter ${UMGEBUNG.daten}${UMGEBUNG.statisch ? `; Hub aus ${UMGEBUNG.statisch}` : ""}`);
+    console.info(diagrammMalerImDienst() ? `[Hub-Dienst] Diagramme in Mail und Teams als Bild (Chromium: ${chromiumPfad()})` : "[Hub-Dienst] Diagramme in Mail und Teams als Quelltext (kein Chromium oder kein ausgelieferter Hub; siehe HUB_CHROMIUM)");
   });
   const ende = () => { console.info("[Hub-Dienst] Beende …"); zeitplan.stop(); server.close(() => process.exit(0)); setTimeout(() => process.exit(0), 3000).unref(); };
   process.on("SIGTERM", ende);
