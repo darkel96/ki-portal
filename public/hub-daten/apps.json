@@ -770,6 +770,13 @@
             "url": "",
             "tage": 7,
             "filter": "{{kunde}},{{thema}}"
+          },
+          {
+            "typ": "sharepoint",
+            "titel": "",
+            "url": "",
+            "tage": 7,
+            "filter": ""
           }
         ],
         "bedingung": null,
@@ -833,7 +840,7 @@
       ]
     },
     "schutz": "oeffentlich",
-    "version": 20,
-    "geaendert": "2026-10-26T15:35:31.463Z"
+    "version": 21,
+    "geaendert": "2026-10-26T15:44:52.526Z"
   }
 }
