@@ -42,7 +42,11 @@ async function attrappen(page: Page) {
     if (req.method() === "POST") {
       posts.push({ pfad: decodeURIComponent(pfad), body: req.postDataJSON() });   // Chat-IDs stehen kodiert im Pfad
       if (pfad === "/v1.0/me/sendMail") return route.fulfill({ status: 202, headers: cors });
-      if (pfad === "/v1.0/chats") return route.fulfill({ status: 201, headers: cors, contentType: "application/json", body: JSON.stringify({ id: "chat-neu" }) });
+      if (pfad === "/v1.0/chats") {
+        const m = (req.postDataJSON() as { members: { "user@odata.bind": string }[] }).members.map((x) => x["user@odata.bind"]);
+        if (m[0] === m[1]) return route.fulfill({ status: 400, headers: cors, contentType: "application/json", body: JSON.stringify({ error: { code: "BadRequest", message: "Duplicate members" } }) });
+        return route.fulfill({ status: 201, headers: cors, contentType: "application/json", body: JSON.stringify({ id: "chat-neu" }) });
+      }
       if (/^\/v1\.0\/chats\/[^/]+\/messages$/.test(pfad)) return route.fulfill({ status: 201, headers: cors, contentType: "application/json", body: JSON.stringify({ id: "msg1" }) });
     }
     return route.fulfill({ status: 404, headers: cors, body: "{}" });
@@ -75,7 +79,8 @@ test("Aufträge stellen ihr Ergebnis zu: E-Mail an mich, Teams-Chat mit mir, Tea
   await page.goto("/mein");
   await expect(page.getByRole("tab", { name: /Verlauf \(3\)/ })).toBeVisible({ timeout: 30_000 });
   // Alle drei zugestellt; der Verlauf nennt den Weg
-  await expect.poll(() => posts.length, { timeout: 15_000 }).toBe(3);
+  const zugestellt = () => posts.filter((p) => p.pfad !== "/v1.0/chats").length;   // der Versuch, den Chat mit sich selbst anzulegen, zählt nicht
+  await expect.poll(zugestellt, { timeout: 15_000 }).toBe(3);
   const mail = posts.find((p) => p.pfad === "/v1.0/me/sendMail")!.body as { message: { subject: string; body: { content: string }; toRecipients: { emailAddress: { address: string } }[] } };
   expect(mail.message.subject).toBe("KI-Hub: Mailbericht");
   expect(mail.message.toRecipients[0].emailAddress.address).toBe("ich@firma.de");
