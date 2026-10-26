@@ -111,7 +111,7 @@ export function ergebnisMarkdown(i: ZustellInhalt): string {
 }
 
 type GraphPerson = { id?: string; mail?: string | null; userPrincipalName?: string };
-type GraphChat = { id: string; chatType?: string; members?: { email?: string | null; userId?: string | null }[] };
+type GraphChat = { id: string; chatType?: string; webUrl?: string; members?: { email?: string | null; userId?: string | null }[] };
 
 async function fehlerText(r: Response, was: string): Promise<string> {
   const t = await r.text().catch(() => "");
@@ -160,19 +160,24 @@ export async function zustellen(ziel: Ziel, inhalt: ZustellInhalt, graph: GraphR
   const meine = [ich.mail, ich.userPrincipalName].filter(Boolean) as string[];
   const anMich = !adresse || meine.some((m) => gleich(m, adresse));
   let chatId: string;
+  let chatUrl = "";
   if (anMich) {
-    // Der Chat mit sich selbst lässt sich über Graph nicht anlegen, nur finden: er hat genau ein Mitglied (mich).
-    // Graph liefert höchstens 50 Chats je Seite, ohne feste Reihenfolge; bei vielen Chats steht er auf einer späteren Seite.
-    const istSelbst = (c: GraphChat) => (c.members ?? []).length > 0 && (c.members ?? []).every((m) => gleich(m.userId, ich.id) || meine.some((x) => gleich(x, m.email)));
+    // Der Chat mit sich selbst lässt sich über Graph nicht anlegen, nur finden. Sein Kennzeichen: Die Chat-ID enthält
+    // die eigene Benutzer-ID zweimal („19:<id>_<id>@unq.gbl.spaces“). Erst direkt versuchen, sonst die Liste durchgehen
+    // (höchstens 50 je Seite, ohne Reihenfolge). Ein Chat mit nur einem Mitglied reicht nicht als Kennzeichen: Den gibt
+    // es auch mit Personen, die das Unternehmen verlassen haben.
+    const kennung = `${ich.id}_${ich.id}`;
     let selbst: GraphChat | undefined;
-    let pfad: string | null = "/v1.0/me/chats?$filter=chatType eq 'oneOnOne'&$expand=members&$top=50";
+    try { selbst = await graphJson<GraphChat>(graph, `/v1.0/me/chats/${encodeURIComponent(`19:${kennung}@unq.gbl.spaces`)}`, "Teams"); } catch { /* nicht vorhanden oder anderes Format: suchen */ }
+    let pfad: string | null = selbst ? null : "/v1.0/me/chats?$filter=chatType eq 'oneOnOne'&$top=50";
     for (let seite = 0; pfad && !selbst && seite < 40; seite++) {
       const chats: { value: GraphChat[]; "@odata.nextLink"?: string } = await graphJson(graph, pfad, "Teams");
-      selbst = chats.value.find(istSelbst);
+      selbst = chats.value.find((c) => c.id.includes(kennung));
       pfad = chats["@odata.nextLink"] ? chats["@odata.nextLink"].replace(/^https:\/\/graph\.microsoft\.com/, "") : null;
     }
-    if (!selbst) throw new Error("Den Teams-Chat mit dir selbst gibt es noch nicht (in allen Einzelchats keiner, in dem du das einzige Mitglied bist). Öffne ihn einmal in Teams (deinen Namen in der Suche wählen, eine Nachricht an dich schicken), dann klappt die Zustellung.");
+    if (!selbst) throw new Error("Den Teams-Chat mit dir selbst gibt es noch nicht. Öffne ihn einmal in Teams (deinen Namen in der Suche wählen, eine Nachricht an dich schicken), dann klappt die Zustellung.");
     chatId = selbst.id;
+    chatUrl = selbst.webUrl ?? "";
   } else {
     const chat = await graphJson<GraphChat>(graph, "/v1.0/chats", "Teams-Chat anlegen", { method: "POST", body: {
       chatType: "oneOnOne",
@@ -184,5 +189,5 @@ export async function zustellen(ziel: Ziel, inhalt: ZustellInhalt, graph: GraphR
     chatId = chat.id;
   }
   await graphJson(graph, `/v1.0/chats/${encodeURIComponent(chatId)}/messages`, "Teams-Nachricht senden", { method: "POST", body: { body: { contentType: "html", content: ergebnisHtml(inhalt) } } });
-  return anMich ? "Als Teams-Nachricht an dich gesendet." : `Als Teams-Nachricht an ${adresse} gesendet.`;
+  return anMich ? `Als Teams-Nachricht an dich gesendet${chatUrl ? ` (Chat: ${chatUrl})` : ""}.` : `Als Teams-Nachricht an ${adresse} gesendet.`;
 }

@@ -38,9 +38,9 @@ async function attrappen(page: Page) {
     if (req.method() === "GET" && pfad === "/v1.0/me") return route.fulfill({ status: 200, headers: cors, contentType: "application/json", body: JSON.stringify({ id: "me1", mail: "ich@firma.de", userPrincipalName: "ich@firma.de" }) });
     // Der Chat mit mir selbst steht erst auf der zweiten Seite (Graph liefert 50 je Seite, ohne Reihenfolge)
     if (req.method() === "GET" && pfad === "/v1.0/me/chats" && !url.searchParams.has("$skiptoken")) return route.fulfill({ status: 200, headers: cors, contentType: "application/json", body: JSON.stringify({ value: [{ id: "chat-anna", chatType: "oneOnOne", members: [{ email: "ich@firma.de", userId: "me1" }, { email: "anna@firma.de", userId: "u2" }] }], "@odata.nextLink": "https://graph.microsoft.com/v1.0/me/chats?$filter=chatType%20eq%20'oneOnOne'&$expand=members&$top=50&$skiptoken=seite2" }) });
-    if (req.method() === "GET" && pfad === "/v1.0/me/chats") return route.fulfill({ status: 200, headers: cors, contentType: "application/json", body: JSON.stringify({ value: [{ id: "chat-selbst", chatType: "oneOnOne", members: [{ email: null, userId: "me1" }] }] }) });
+    if (req.method() === "GET" && pfad === "/v1.0/me/chats") return route.fulfill({ status: 200, headers: cors, contentType: "application/json", body: JSON.stringify({ value: [{ id: "19:me1_me1@unq.gbl.spaces", chatType: "oneOnOne", members: [{ email: null, userId: "me1" }] }] }) });
     if (req.method() === "POST") {
-      posts.push({ pfad, body: req.postDataJSON() });
+      posts.push({ pfad: decodeURIComponent(pfad), body: req.postDataJSON() });   // Chat-IDs stehen kodiert im Pfad
       if (pfad === "/v1.0/me/sendMail") return route.fulfill({ status: 202, headers: cors });
       if (pfad === "/v1.0/chats") return route.fulfill({ status: 201, headers: cors, contentType: "application/json", body: JSON.stringify({ id: "chat-neu" }) });
       if (/^\/v1\.0\/chats\/[^/]+\/messages$/.test(pfad)) return route.fulfill({ status: 201, headers: cors, contentType: "application/json", body: JSON.stringify({ id: "msg1" }) });
@@ -83,7 +83,7 @@ test("Aufträge stellen ihr Ergebnis zu: E-Mail an mich, Teams-Chat mit mir, Tea
   expect(mail.message.body.content).toContain("<p><b>Diese Woche</b></p>");
   expect(mail.message.body.content).toContain("<li><b>Montag</b>: Kriterienliste</li>");
   expect(mail.message.body.content).toContain("<th align=\"left\">Tag</th>");
-  const teams = posts.find((p) => p.pfad === "/v1.0/chats/chat-selbst/messages")!.body as { body: { contentType: string; content: string } };
+  const teams = posts.find((p) => p.pfad === "/v1.0/chats/19:me1_me1@unq.gbl.spaces/messages")!.body as { body: { contentType: string; content: string } };
   expect(teams.body.contentType).toBe("html");
   expect(teams.body.content).toContain("Teamsbericht");
   const kanal = posts.find((p) => p.pfad === "webhook")!.body as { type: string; attachments: { content: { body: { text: string }[] } }[] };
@@ -142,7 +142,7 @@ test("„Senden“ an den Ergebnissen schickt einen fertigen Lauf sofort per E-M
   await page.getByRole("button", { name: "Senden" }).click();
   await page.getByRole("menuitem", { name: "Als Teams-Nachricht an mich" }).click();
   await expect(page.getByText("Als Teams-Nachricht an dich gesendet.")).toBeVisible();
-  const teams = posts.find((p) => p.pfad === "/v1.0/chats/chat-selbst/messages")!.body as { body: { content: string } };
+  const teams = posts.find((p) => p.pfad === "/v1.0/chats/19:me1_me1@unq.gbl.spaces/messages")!.body as { body: { content: string } };
   expect(teams.body.content).toContain("Wochenplan");
   expect(teams.body.content).toContain("<li><b>Montag</b>: Kriterienliste</li>");
   await page.getByRole("button", { name: "Senden" }).click();
