@@ -718,7 +718,16 @@
               "stil": "card",
               "pfad": ""
             }
-          },
+          }
+        ]
+      },
+      {
+        "id": "b732ban4",
+        "type": "seite",
+        "props": {
+          "titel": "Offene Punkte & To-dos"
+        },
+        "children": [
           {
             "id": "b7u3zfh5",
             "type": "output",
@@ -825,7 +834,7 @@
       ]
     },
     "schutz": "oeffentlich",
-    "version": 16,
-    "geaendert": "2026-10-26T15:18:55.426Z"
+    "version": 17,
+    "geaendert": "2026-10-26T15:21:29.186Z"
   }
 }
