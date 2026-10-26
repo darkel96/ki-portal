@@ -133,7 +133,8 @@ Soll der Hub weiter von GitHub Pages kommen, liefert der Dienst nur die API:
 | `HUB_AUFBEWAHRUNG_TAGE` | Fertige Läufe so lange behalten (Standard 30) |
 | `HUB_FEEDBACK_TAGE` | Rückmeldungen der Lernschicht so lange behalten (Standard 90) |
 | `HUB_LERNEN_MS` | Abstand, in dem der Dienst fällige Auswertungen prüft (Standard 10 Minuten) |
-| `HUB_GIT_REPO`, `HUB_GIT_BRANCH` | Nur beim Bauen: Git-Speicher (`owner/repo`, Standard-Branch `main`) in `hub-config.json` eintragen, wie es `.github/workflows/pages.yml` für GitHub Pages tut. Leer = kein Git-Speicher. Die Hub-Daten liest der Hub dann von der ausgelieferten Seite, Änderungen sieht man also erst nach einem Neubau |
+| `HUB_GIT_REPO`, `HUB_GIT_BRANCH` | Git-Speicher (`owner/repo`, Standard-Branch `main`). Beim Bauen wird er in `hub-config.json` eingetragen, wie es `.github/workflows/pages.yml` für GitHub Pages tut. Im Betrieb liefert der Dienst die Hub-Daten (`/hub-daten/*.json`: Apps, Rechte, Agenten) frisch aus dem Repository (höchstens 20 Sekunden alt), damit neue und geänderte Apps ohne neuen Build bei allen ankommen; ist GitHub nicht erreichbar, gilt der Stand aus dem Build. Leer = kein Git-Speicher |
+| `HUB_GIT_TOKEN` | Nur bei privatem Repository: Token mit Lesezugriff auf den Inhalt, damit der Dienst die Hub-Daten lesen kann. Öffentliches Repository: leer lassen |
 | `HUB_CHROMIUM` | Chromium für Diagramme in Mail und Teams. Leer = suchen (`/usr/bin/chromium-browser`, `/usr/bin/chromium`; im Container vorinstalliert), Pfad = dieses Programm, `aus` = Diagramme gehen als Quelltext raus. Braucht den ausgelieferten Hub (`HUB_STATISCH`), weil Chromium dessen Seite `diagramm.html` öffnet |
 | `HUB_TESTMODUS` | `1` = Copilot-Attrappe, keine Microsoft-Anmeldung (nur lokal und in Tests) |
 

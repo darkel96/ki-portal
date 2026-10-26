@@ -45,6 +45,26 @@ function cors(req: IncomingMessage, res: ServerResponse): boolean {
   return false;
 }
 
+/** Hub-Daten je Datei höchstens alle 20 Sekunden aus GitHub holen; bei Fehlern gilt die Datei aus dem Build */
+const gitCache = new Map<string, { zeit: number; text: string | null }>();
+async function hubDatenAusGit(datei: string): Promise<string | null> {
+  const alt = gitCache.get(datei);
+  if (alt && Date.now() - alt.zeit < 20_000) return alt.text;
+  const pfad = `public/hub-daten/${datei}`;
+  let text: string | null = null;
+  try {
+    const r = UMGEBUNG.gitToken
+      ? await fetch(`https://api.github.com/repos/${UMGEBUNG.gitRepo}/contents/${pfad}?ref=${encodeURIComponent(UMGEBUNG.gitBranch)}`, { headers: { Authorization: `Bearer ${UMGEBUNG.gitToken}`, Accept: "application/vnd.github.raw" } })
+      // Öffentliches Repository: raw-Inhalt; der Zeitstempel umgeht den Zwischenspeicher von GitHub
+      : await fetch(`https://raw.githubusercontent.com/${UMGEBUNG.gitRepo}/${encodeURIComponent(UMGEBUNG.gitBranch)}/${pfad}?t=${Math.floor(Date.now() / 20_000)}`);
+    if (r.ok) { const t = await r.text(); JSON.parse(t); text = t; }
+    else if (r.status === 404) text = null;   // gibt es (noch) nicht: wie bisher
+    else console.warn(`[Hub-Dienst] Hub-Daten ${datei} aus GitHub: Fehler ${r.status}, nehme den Stand aus dem Build`);
+  } catch (e) { console.warn(`[Hub-Dienst] Hub-Daten ${datei} aus GitHub nicht erreichbar (${e instanceof Error ? e.message : e}), nehme den Stand aus dem Build`); }
+  gitCache.set(datei, { zeit: Date.now(), text });
+  return text;
+}
+
 /** Gebauter Hub aus HUB_STATISCH; hub-config.json bekommt die Dienst-Adresse „/“ (derselbe Ursprung) */
 async function statisch(pfad: string, res: ServerResponse): Promise<boolean> {
   if (!UMGEBUNG.statisch) return false;
@@ -58,6 +78,15 @@ async function statisch(pfad: string, res: ServerResponse): Promise<boolean> {
     res.writeHead(200, { "Content-Type": "application/json", "Cache-Control": "no-store" });
     res.end(JSON.stringify({ ...konfig, dienst: { ...(konfig.dienst as object ?? {}), url: "/" } }));
     return true;
+  }
+  // Hub-Daten aus dem Git-Speicher frisch aus dem Repository: Wer ohne Token liest, sähe sonst nur den Stand des letzten Builds
+  if (/^\/hub-daten\/[\w.-]+\.json$/.test(rel.replace(/\\/g, "/")) && UMGEBUNG.gitRepo) {
+    const frisch = await hubDatenAusGit(rel.replace(/\\/g, "/").slice("/hub-daten/".length));
+    if (frisch !== null) {
+      res.writeHead(200, { "Content-Type": "application/json", "Cache-Control": "no-cache" });
+      res.end(frisch);
+      return true;
+    }
   }
   try {
     const s = await stat(datei);

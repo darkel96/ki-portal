@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useBlocker, useLocation, useNavigate, useParams, useSearchParams } from "react-router";
+import { appSpeicherOrt } from "@/lib/store";
 import { toast } from "sonner";
 import { Eye, EyeOff, Loader2, Redo2, Save, Undo2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -160,7 +161,14 @@ function Editor({ start, ungespeichert }: { start: App; ungespeichert: boolean }
     try {
       const def = await save(b.aktuell());
       b.setDirty(false);
-      toast.success(`„${def.name}“ gespeichert, Version ${def.version}.`);
+      // Nur im eigenen Browser gespeichert: deutlich sagen, dass andere die App so nicht sehen
+      const ort = await appSpeicherOrt().catch(() => "gemeinsam" as const);
+      // (Ganz ohne gemeinsamen Speicher ist das gewollt, etwa zum Ausprobieren: dann keine Warnung.)
+      if (ort !== "browser-git") toast.success(`„${def.name}“ gespeichert, Version ${def.version}.`);
+      else toast.warning(`„${def.name}“ ist nur in diesem Browser gespeichert, andere sehen die App nicht.`, {
+        duration: 12_000,
+        description: "Damit alle sie sehen: Verwaltung → Gemeinsamer Speicher → GitHub-Token eintragen, dann „In den Git-Speicher übernehmen“.",
+      });
       if (!bleiben) nav(pfad(def), { viewTransition: true });
       return true;
     } catch (e) {
