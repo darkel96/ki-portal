@@ -9,8 +9,33 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 ENV_DATEI=server/.env
-COMPOSE=(docker compose -f server/docker-compose.yml)
-command -v docker >/dev/null 2>&1 && docker compose version >/dev/null 2>&1 || COMPOSE=(docker-compose -f server/docker-compose.yml)
+BASIS=(docker compose)
+command -v docker >/dev/null 2>&1 && docker compose version >/dev/null 2>&1 || BASIS=(docker-compose)
+COMPOSE=("${BASIS[@]}" -f server/docker-compose.yml)
+# Läuft der Dienst schon, dann mit genau dem Projektnamen und den Compose-Dateien weiterarbeiten, mit denen er gestartet
+# wurde (z. B. eigener Name, Override-Datei für den Proxy). Sonst entstünde ein zweiter Container mit leerem Datenvolume.
+ORDNER="$(pwd)/server"
+if command -v docker >/dev/null 2>&1; then
+  BESTAND=$(docker ps -a --filter "label=com.docker.compose.project.working_dir=$ORDNER" \
+    --format '{{.CreatedAt}}|{{.Label "com.docker.compose.project"}}|{{.Label "com.docker.compose.project.config_files"}}' 2>/dev/null | sort | head -1 || true)
+  if [ -n "$BESTAND" ]; then
+    REST=${BESTAND#*|}; PROJEKT=${REST%%|*}; DATEIEN=${REST#*|}
+    DATEI_ARGS=(); FEHLT=""
+    IFS=',' read -ra LISTE <<< "$DATEIEN"
+    for d in "${LISTE[@]}"; do [ -n "$d" ] || continue; [ -f "$d" ] || FEHLT="$d"; DATEI_ARGS+=(-f "$d"); done
+    if [ -n "$PROJEKT" ] && [ -z "$FEHLT" ] && [ ${#DATEI_ARGS[@]} -gt 0 ]; then
+      COMPOSE=("${BASIS[@]}" -p "$PROJEKT" "${DATEI_ARGS[@]}")
+      echo "Laufender Dienst gefunden: Projekt „$PROJEKT“, Dateien ${DATEIEN//,/, }"
+    elif [ -n "$FEHLT" ]; then
+      echo "Der laufende Dienst wurde mit $FEHLT gestartet, die Datei gibt es nicht mehr. Abbruch, damit kein zweiter Container entsteht."
+      exit 1
+    fi
+    ANDERE=$(docker ps -a --filter "label=com.docker.compose.project.working_dir=$ORDNER" --format '{{.Label "com.docker.compose.project"}}' | sort -u | grep -vx "$PROJEKT" || true)
+    for a in $ANDERE; do
+      echo "Hinweis: Projekt „$a“ läuft zusätzlich aus diesem Ordner. Entfernen mit:  ${BASIS[*]} -p $a -f server/docker-compose.yml down"
+    done
+  fi
+fi
 
 # Voreinstellungen für den KSCA-Hub; andere Tenants geben die Werte als Umgebungsvariablen mit
 STANDARD_TENANT_ID=dca04e92-b0c8-46b4-9d33-f893be36d972
@@ -81,7 +106,8 @@ echo "== Container bauen und starten"
 
 echo "== Warten auf den Dienst"
 for i in $(seq 1 60); do
-  if ANTWORT=$(curl -fs http://127.0.0.1:8787/api/dienst 2>/dev/null); then
+  # Im Container selbst fragen: Port 8787 auf dem Server kann zu einem anderen Container gehören oder gar nicht freigegeben sein
+  if ANTWORT=$("${COMPOSE[@]}" exec -T ki-hub wget -qO- http://127.0.0.1:8787/api/dienst 2>/dev/null); then
     echo "  $ANTWORT"
     echo
     echo "Der Hub-Dienst läuft. Im Browser: Mein Hub öffnen, einen Auftrag mit „Jetzt ausführen“ starten, Tab schließen."
@@ -90,6 +116,6 @@ for i in $(seq 1 60); do
   fi
   sleep 2
 done
-echo "Der Dienst antwortet nach 2 Minuten nicht auf http://127.0.0.1:8787/api/dienst. Letzte Protokollzeilen:"
+echo "Der Dienst antwortet nach 2 Minuten nicht auf /api/dienst. Letzte Protokollzeilen:"
 "${COMPOSE[@]}" logs --tail 40
 exit 1
