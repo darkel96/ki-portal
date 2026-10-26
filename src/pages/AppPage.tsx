@@ -108,7 +108,7 @@ export function AppPage() {
     const quellen = [...a.wissen.quellen, ...a.steps.flatMap((s) => s.quellen)];
     if (quellen.some((q) => q.typ === "sharepoint")) void import("@/lib/ki/wissen").then((w) => w.wissenVorladen(quellen)).catch(() => undefined);
   }, [a?.id]); // eslint-disable-line react-hooks/exhaustive-deps
-  if (!a) return geladen ? <NotFoundPage /> : <p className="hint">Applikation wird geladen\u00a0…</p>;
+  if (!a) return geladen ? <NotFoundPage /> : <p className="hint">Applikation wird geladen&nbsp;…</p>;
   const ci = areaIdx(a.bereich);
   const hatBeispiele = fieldsOf(a).some((f) => f.type !== "file" && f.props.beispiel);
   const eigene = a._src === "eigene";

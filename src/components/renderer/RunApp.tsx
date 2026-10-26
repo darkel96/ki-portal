@@ -774,6 +774,8 @@ export const RunApp = forwardRef<RunAppHandle, {
   const ungesichert = (!!laeuft && !hintergrund) || (hatEingaben && (!stand || stand !== JSON.stringify(werte) + Object.keys(files).join("|")));
   useEffect(() => () => ctl.current?.abort(), []);
 
+  // Unter der Leiste „Alle Ergebnisse“, nicht darüber: die Leiste klebt oben und reicht in den oberen Innenabstand
+  const hinweisDienst = hintergrund && laeuft ? <p className="o-hintergrund" role="status">Läuft im Hub-Dienst weiter, auch wenn du diesen Tab schließt. Beim nächsten Öffnen der Applikation siehst du das Ergebnis.</p> : null;
   const linearTitel = (i: number) => (i === uebersichtIdx && mitUebersicht ? "Ergebnisse" : seitenTitel(eingabeSeiten[i], seiten.indexOf(eingabeSeiten[i])));
   const kIdx = offen ? kacheln.indexOf(offen) : -1;
   const geaendert = !!stand && stand !== JSON.stringify(werte) + Object.keys(files).join("|");
@@ -795,10 +797,11 @@ export const RunApp = forwardRef<RunAppHandle, {
         }}>
         <Blatt id={ansicht} innerRef={blatt} className="app-inner innen-scroll" aria-label={offen ? offen.titel : imUeberblick ? "Ergebnisse" : linearTitel(akt)}>
           <SammelDownloads.Provider value={sammeln}>
-          {hintergrund && laeuft && <p className="o-hintergrund" role="status">Läuft im Hub-Dienst weiter, auch wenn du diesen Tab schließt. Beim nächsten Öffnen der Applikation siehst du das Ergebnis.</p>}
+          {!offen && hinweisDienst}
           {offen ? (
             <>
               <div className="e-zurueck"><button type="button" className="pg-btn" onClick={() => oeffnen(null)}><ChevronLeft aria-hidden="true" size={16} />Alle Ergebnisse</button></div>
+              {hinweisDienst}
               {offen.seite ? renderList(offen.seite.children ?? [], `${offen.seite.id}:c`)
                 : <OutputView app={app} titel={offen.titel} stepId={offen.stepIds[0]} stil="card" mode="run" />}
             </>
