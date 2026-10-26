@@ -703,25 +703,6 @@
         ]
       },
       {
-        "id": "bk74el6i",
-        "type": "seite",
-        "props": {
-          "titel": "Briefing"
-        },
-        "children": [
-          {
-            "id": "bev84cv1",
-            "type": "output",
-            "props": {
-              "titel": "Briefing",
-              "quelle": "n1",
-              "stil": "card",
-              "pfad": ""
-            }
-          }
-        ]
-      },
-      {
         "id": "b732ban4",
         "type": "seite",
         "props": {
@@ -734,6 +715,25 @@
             "props": {
               "titel": "Offene Punkte & To-dos",
               "quelle": "n2",
+              "stil": "card",
+              "pfad": ""
+            }
+          }
+        ]
+      },
+      {
+        "id": "bk74el6i",
+        "type": "seite",
+        "props": {
+          "titel": "Briefing"
+        },
+        "children": [
+          {
+            "id": "bev84cv1",
+            "type": "output",
+            "props": {
+              "titel": "Briefing",
+              "quelle": "n1",
               "stil": "card",
               "pfad": ""
             }
@@ -834,7 +834,7 @@
       ]
     },
     "schutz": "oeffentlich",
-    "version": 17,
-    "geaendert": "2026-10-26T15:21:29.186Z"
+    "version": 18,
+    "geaendert": "2026-10-26T15:22:34.625Z"
   }
 }
