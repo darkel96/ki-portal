@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useRechte } from "@/state/rechte";
 import { RECHTE, RECHT_LABEL, istFesterAdmin, lokalerRechteStore, rechteStore, type Nutzer, type Recht } from "@/lib/rechte";
-import { browserGit, browserGitSetzen, browserOrdner, browserOrdnerSetzen, gitPruefen, gitToken, gitTokenSetzen, ordnerPruefen, speicherKonfig, speicherSchreibbar, type GitKonfig, type SpeicherKonfig } from "@/lib/speicher";
+import { browserGit, browserGitSetzen, browserOrdner, browserOrdnerSetzen, gitPruefen, gitToken, gitTokenSetzen, ordnerPruefen, speicherKonfig, speicherSchreibbar, speichertUeberDienst, type GitKonfig, type SpeicherKonfig } from "@/lib/speicher";
 import { agentSpeichern, agentenLaden } from "@/lib/agenten";
 import { appStore, lokalerAppStore, PAPIERKORB_TAGE, type Geloescht } from "@/lib/store";
 import { useApps } from "@/state/apps";
@@ -209,6 +209,7 @@ function SpeicherBereich() {
   const [laeuft, setLaeuft] = useState("");
   const [lokal, setLokal] = useState({ apps: 0, personen: 0 });
   const [schreibbar, setSchreibbar] = useState(false);
+  const [ueberDienst, setUeberDienst] = useState(false);
   // Git-Speicher (GitHub-Repository)
   const [git, setGit] = useState<GitKonfig>(browserGit() ?? { repo: "", branch: "main", pfad: "public/hub-daten" });
   const [token, setToken] = useState(gitToken());
@@ -218,6 +219,7 @@ function SpeicherBereich() {
     setK(kk);
     if (kk.art === "github" && !browserGit()) setGit({ repo: kk.repo, branch: kk.branch, pfad: kk.pfad });
     setSchreibbar(await speicherSchreibbar());
+    setUeberDienst(await speichertUeberDienst());
     setLokal({ apps: (await lokalerAppStore.list()).length, personen: (await lokalerRechteStore.laden()).nutzer.length });
   };
   useEffect(() => { void aktualisieren(); }, []);
@@ -274,7 +276,7 @@ function SpeicherBereich() {
     <section className="rv-speicher" aria-labelledby="speicher-titel">
       <h2 id="speicher-titel">Gemeinsamer Speicher</h2>
       <p className="hint" style={{ margin: 0 }}>
-        {!k ? "Wird geprüft …" : gh ? <>{gh.quelle === "browser" ? "Dieser Browser nutzt" : "Alle nutzen"} den Git-Speicher <b>{gh.repo}</b> (Branch {gh.branch}, Ordner {gh.pfad}). Lesen geht für alle von der veröffentlichten Seite; {schreibbar ? "dieser Browser schreibt mit seinem GitHub-Token direkt ins Repository." : "zum Schreiben braucht dieser Browser einen GitHub-Token, bis dahin bleiben eigene Änderungen hier im Browser."}</>
+        {!k ? "Wird geprüft …" : gh ? <>{gh.quelle === "browser" ? "Dieser Browser nutzt" : "Alle nutzen"} den Git-Speicher <b>{gh.repo}</b> (Branch {gh.branch}, Ordner {gh.pfad}). Lesen geht für alle von der veröffentlichten Seite; {ueberDienst ? "gespeichert wird über den Hub-Dienst mit seinem eigenen Token, für alle mit Baukasten-Recht; ein Token im Browser ist nicht nötig." : schreibbar ? "dieser Browser schreibt mit seinem GitHub-Token direkt ins Repository." : "zum Schreiben braucht dieser Browser einen GitHub-Token, bis dahin bleiben eigene Änderungen hier im Browser. Einfacher: dem Hub-Dienst einen Token geben (HUB_GIT_TOKEN, siehe SERVER.md), dann speichern alle ohne eigenen Token."}</>
           : !sp ? "Applikationen und Rechte liegen nur in diesem Browser. Damit alle dasselbe sehen, braucht der Hub einen gemeinsamen Speicher: ein SharePoint-Ordner oder der Git-Speicher (Repository des Hubs)."
           : sp.quelle === "browser" ? <>Dieser Browser nutzt zum Testen den SharePoint-Ordner <b>{sp.ordner}</b>. Für alle gilt er erst, wenn er in der Konfiguration des Hubs (hub-config.json) steht.</>
           : <>Alle nutzen den SharePoint-Ordner <b>{sp.ordner}</b>.</>}

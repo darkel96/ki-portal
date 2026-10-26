@@ -6,6 +6,7 @@ import type { DateiSpeicher } from "./speicher";
 import { UMGEBUNG } from "./umgebung";
 import type { Zeitplan } from "./zeitplan";
 import type { Lernen } from "./lernen";
+import { HubDatenFehler, hubDatenAendern, hubDatenSchreibbar } from "./hubdaten";
 
 export class ApiFehler extends Error { constructor(public status: number, msg: string) { super(msg); } }
 
@@ -16,7 +17,7 @@ export async function api(req: IncomingMessage, res: ServerResponse, pfad: strin
   const methode = req.method ?? "GET";
   try {
     if (pfad === "/dienst" && methode === "GET") {
-      return json(200, { dienst: "KI-Hub", version: UMGEBUNG.version, testmodus: UMGEBUNG.testmodus, apiScope: UMGEBUNG.apiScope, clientId: UMGEBUNG.clientId, tenantId: UMGEBUNG.tenantId, zeit: new Date().toISOString() });
+      return json(200, { dienst: "KI-Hub", version: UMGEBUNG.version, testmodus: UMGEBUNG.testmodus, apiScope: UMGEBUNG.apiScope, clientId: UMGEBUNG.clientId, tenantId: UMGEBUNG.tenantId, hubDaten: hubDatenSchreibbar(), zeit: new Date().toISOString() });
     }
     const { nutzer, token } = await anmeldungPruefen(req.headers.authorization);
     /** Zugang der Person hinterlegen bzw. auffrischen (bei allem, was der Dienst später in ihrem Namen tut) */
@@ -74,6 +75,12 @@ export async function api(req: IncomingMessage, res: ServerResponse, pfad: strin
       return json(201, { id: await d.zeitplan.jetzt(nutzer.id, jetzt[1]) });
     }
     // Lernschicht: Rückmeldungen (anonym), Auswertung, Freigabe-Stand der Vorschläge
+    // Hub-Daten (Apps, Papierkorb, Agenten, Rechte) im Git-Speicher schreiben, mit dem Token des Dienstes
+    const hubDaten = /^\/hub-daten\/(.+)$/.exec(pfad);
+    if (hubDaten && (methode === "PUT" || methode === "DELETE")) {
+      await hubDatenAendern(nutzer, decodeURIComponent(hubDaten[1]!), methode === "PUT" ? body : undefined);
+      return json(200, { ok: true });
+    }
     const lernen = /^\/lernen\/([^/]+)(?:\/(rueckmeldungen|auswerten|vorschlaege)|\/vorschlaege\/([^/]+))?$/.exec(pfad);
     if (lernen) {
       const appId = decodeURIComponent(lernen[1]);
@@ -88,6 +95,7 @@ export async function api(req: IncomingMessage, res: ServerResponse, pfad: strin
     if (e instanceof NichtAngemeldet) return json(401, { fehler: e.message });
     if (e instanceof KeineAnmeldungGespeichert) return json(409, { fehler: e.message });
     if (e instanceof ApiFehler) return json(e.status, { fehler: e.message });
+    if (e instanceof HubDatenFehler) return json(e.status, { fehler: e.message });
     console.error("[Hub-Dienst] API:", e);
     return json(500, { fehler: e instanceof Error ? e.message : "Unbekannter Fehler im Dienst." });
   }

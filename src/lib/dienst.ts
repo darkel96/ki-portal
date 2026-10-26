@@ -18,7 +18,8 @@ import type { LernStand, Rueckmeldung, Vorschlag } from "./lernen";
 const LS_URL = "kihub-dienst-url";
 const LS_NUTZER = "kihub-dienst-nutzer";
 
-export type DienstInfo = { url: string; version: string; testmodus: boolean; apiScope: string; clientId: string; tenantId: string };
+/** hubDaten: der Dienst speichert in den Git-Speicher (eigener Token), niemand braucht einen Token im Browser */
+export type DienstInfo = { url: string; version: string; testmodus: boolean; apiScope: string; clientId: string; tenantId: string; hubDaten: boolean };
 export class DienstFehler extends Error { constructor(public status: number, msg: string) { super(msg); } }
 
 /** Im Browser eingetragene Adresse (Verwaltung, Tests); null entfernt sie */
@@ -50,7 +51,7 @@ export function dienstInfo(): Promise<DienstInfo | null> {
       const r = await fetch(`${url}/api/dienst`, { cache: "no-store" });
       if (!r.ok) return null;
       const j = (await r.json()) as Partial<DienstInfo> & { dienst?: string };
-      return j?.dienst === "KI-Hub" ? { url, version: String(j.version ?? ""), testmodus: !!j.testmodus, apiScope: String(j.apiScope ?? ""), clientId: String(j.clientId ?? ""), tenantId: String(j.tenantId ?? "") } : null;
+      return j?.dienst === "KI-Hub" ? { url, version: String(j.version ?? ""), testmodus: !!j.testmodus, apiScope: String(j.apiScope ?? ""), clientId: String(j.clientId ?? ""), tenantId: String(j.tenantId ?? ""), hubDaten: !!j.hubDaten } : null;
     } catch { return null; }
   })();
   return info;
@@ -114,6 +115,11 @@ export const laeufeListe = (q: { app?: string; auftraege?: boolean; seit?: strin
 export const auftraegeLesen = () => ruf<AuftragsAbgleich>("/auftraege");
 export const auftraegeSchreiben = (b: { auftraege: Auftrag[]; voreinstellungen: Voreinstellung[]; apps: Record<string, App> }) =>
   ruf<AuftragsAbgleich>("/auftraege", { method: "PUT", body: JSON.stringify(b) });
+/** Hub-Daten über den Dienst schreiben oder löschen (Pfad wie „apps/<id>.json“); der Dienst prüft die Rechte */
+export const hubDatenSchreiben = (pfad: string, daten: unknown) => ruf<{ ok: true }>(`/hub-daten/${pfad.split("/").map(encodeURIComponent).join("/")}`, { method: "PUT", body: JSON.stringify(daten) });
+export const hubDatenLoeschen = (pfad: string) => ruf<{ ok: true }>(`/hub-daten/${pfad.split("/").map(encodeURIComponent).join("/")}`, { method: "DELETE" });
+/** Speichert der erreichbare Dienst für alle in den Git-Speicher? */
+export async function dienstSpeichertHubDaten(): Promise<boolean> { return !!(await dienstAktiv())?.hubDaten; }
 export const auftragJetzt = (id: string) => ruf<{ id: string }>(`/auftraege/${encodeURIComponent(id)}/jetzt`, { method: "POST" });
 /* Lernschicht: Rückmeldungen und Vorschläge liegen im Dienst, die Auswertung läuft dort (auch nach Zeitplan) */
 export const lernStandHolen = (appId: string) => ruf<LernStand>(`/lernen/${encodeURIComponent(appId)}`);

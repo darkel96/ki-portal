@@ -39,8 +39,10 @@ export const UMGEBUNG = {
   /** Git-Speicher (owner/repo): Hub-Daten (Apps, Rechte, Agenten) liefert der Dienst frisch aus dem Repository statt aus dem Build */
   gitRepo: String(env.HUB_GIT_REPO ?? "").trim(),
   gitBranch: String(env.HUB_GIT_BRANCH ?? "").trim() || "main",
-  /** Nur für private Repositories: Token mit Lesezugriff auf den Inhalt */
+  /** Token des Dienstes für den Git-Speicher: mit „Contents: Read and write“ speichert der Dienst Apps für alle (niemand braucht einen Token im Browser) */
   gitToken: String(env.HUB_GIT_TOKEN ?? "").trim(),
+  /** GitHub-API (nur für Tests änderbar) */
+  gitApi: String(env.HUB_GIT_API ?? "").trim().replace(/\/+$/, "") || "https://api.github.com",
 };
 
 export function umgebungPruefen(): string[] {

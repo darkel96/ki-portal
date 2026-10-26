@@ -2,10 +2,12 @@ import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "reac
 import { Link, useSearchParams } from "react-router";
 import { Input } from "@/components/ui/input";
 import { useApps } from "@/state/apps";
+import { appsNurImBrowser } from "@/lib/store";
+import { toast } from "sonner";
 import { useRechte } from "@/state/rechte";
 import { ArrowRight, Plus } from "lucide-react";
 import { areaList, fieldsOf, initials } from "@/lib/model";
-import type { HubApp } from "@/lib/schema";
+import type { App, HubApp } from "@/lib/schema";
 import { Blatt, Pager, blaetterTaste } from "@/components/layout/Pager";
 import { useRaster } from "@/components/layout/useRaster";
 import { useGleiten } from "@/components/layout/useGleiten";
@@ -165,6 +167,7 @@ export function HubPage() {
         </div>
       </section>
       {fehler && <p role="alert" className="hint" style={{ color: "var(--danger)" }}>{fehler}</p>}
+      <NurImBrowser />
       <section className="hub-liste" aria-labelledby="liste-titel">
         <h2 id="liste-titel" className="sr-only">{aktiv === "Alle" ? "Alle Applikationen" : aktiv}</h2>
         <div className="filter">
@@ -218,5 +221,34 @@ export function HubPage() {
         <Pager seite={akt} anzahl={seiten} onWechsel={setSeite} label="Seite" />
       </section>
     </>
+  );
+}
+
+/**
+ * Apps, die noch aus der Zeit ohne Schreibzugang nur in diesem Browser liegen, obwohl der gemeinsame Speicher jetzt
+ * beschreibbar ist (Token oder Hub-Dienst): ein Hinweis mit „Für alle speichern“.
+ */
+function NurImBrowser() {
+  const { save, geladen } = useApps();
+  const [liste, setListe] = useState<App[]>([]);
+  const [laeuft, setLaeuft] = useState(false);
+  useEffect(() => { if (geladen) void appsNurImBrowser().then(setListe).catch(() => setListe([])); }, [geladen]);
+  if (!liste.length) return null;
+  const namen = liste.map((a) => `„${a.name}“`);
+  const teilen = async () => {
+    setLaeuft(true);
+    let ok = 0;
+    for (const a of liste) {
+      try { await save(a); ok++; } catch (e) { toast.error(`„${a.name}“: ${e instanceof Error ? e.message : "Speichern fehlgeschlagen."}`); }
+    }
+    setLaeuft(false);
+    if (ok) toast.success(ok === 1 ? `${namen[0]} ist jetzt für alle gespeichert.` : `${ok} Applikationen sind jetzt für alle gespeichert.`);
+    setListe(await appsNurImBrowser().catch(() => []));
+  };
+  return (
+    <p className="hub-nurbrowser" role="status">
+      <span>{namen.length === 1 ? `${namen[0]} liegt` : `${namen.slice(0, 3).join(", ")}${namen.length > 3 ? ` und ${namen.length - 3} weitere` : ""} liegen`} nur in diesem Browser, andere sehen sie noch nicht.</span>
+      <button type="button" className="pg-btn" disabled={laeuft} onClick={() => void teilen()}>{laeuft ? "Speichert …" : "Für alle speichern"}</button>
+    </p>
   );
 }

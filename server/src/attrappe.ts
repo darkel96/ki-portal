@@ -7,6 +7,8 @@ import type { DateiSpeicher } from "./speicher";
 import { UMGEBUNG } from "./umgebung";
 
 let n = 0;
+/** Dateien der GitHub-Attrappe: Pfad im Repository → Inhalt, Sha-Zähler, letzte Commit-Nachricht */
+const github = new Map<string, { inhalt: string; sha: number; nachricht: string }>();
 const warten = (ms: number) => new Promise((r) => setTimeout(r, ms));
 /** Gesendete Mails und Teams-Nachrichten nacheinander ins Protokoll (gleichzeitige Zustellungen überschreiben sich sonst) */
 let protokoll: Promise<void> = Promise.resolve();
@@ -34,6 +36,30 @@ function antwortZu(frage: string): string {
 
 export async function attrappe(req: IncomingMessage, res: ServerResponse, pfad: string, body: unknown, speicher: DateiSpeicher): Promise<void> {
   const json = (status: number, wert: unknown) => { res.writeHead(status, { "Content-Type": "application/json" }); res.end(JSON.stringify(wert)); };
+  // GitHub-Contents-API im Speicher (für die Tests: Dienst schreibt Hub-Daten mit seinem Token)
+  const gh = /^\/github\/repos\/[^/]+\/[^/]+\/contents\/(.+)$/.exec(pfad);
+  if (gh) {
+    const datei = gh[1]!;
+    if (req.headers.authorization !== "Bearer test-git") return json(401, { message: "Bad credentials" });
+    const d = github.get(datei);
+    if (req.method === "GET") {
+      if (!d) return json(404, { message: "Not Found" });
+      if (/raw/.test(String(req.headers.accept))) { res.writeHead(200, { "Content-Type": "text/plain" }); res.end(d.inhalt); return; }
+      return json(200, { content: Buffer.from(d.inhalt, "utf8").toString("base64"), sha: `sha${d.sha}`, encoding: "base64" });
+    }
+    if (req.method === "PUT") {
+      const b = body as { content: string; sha?: string; message: string };
+      if (d && b.sha !== `sha${d.sha}`) return json(409, { message: "Conflict" });
+      github.set(datei, { inhalt: Buffer.from(b.content, "base64").toString("utf8"), sha: (d?.sha ?? 0) + 1, nachricht: b.message });
+      return json(200, { content: { sha: `sha${(d?.sha ?? 0) + 1}` } });
+    }
+  }
+  if (req.method === "POST" && pfad === "/github-setzen") {
+    const b = body as { datei: string; inhalt: unknown };
+    github.set(b.datei, { inhalt: JSON.stringify(b.inhalt), sha: (github.get(b.datei)?.sha ?? 0) + 1, nachricht: "Testdaten" });
+    return json(200, { ok: true });
+  }
+  if (req.method === "GET" && pfad === "/github-dateien") return json(200, Object.fromEntries([...github].map(([k, v]) => [k, { inhalt: JSON.parse(v.inhalt), nachricht: v.nachricht }])));
   if (req.method === "POST" && pfad === "/beta/copilot/conversations") return json(201, { id: `att-${++n}` });
   const chat = /^\/beta\/copilot\/conversations\/([^/]+)\/(chat|chatOverStream)$/.exec(pfad);
   if (req.method === "POST" && chat) {
