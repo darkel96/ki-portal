@@ -205,3 +205,13 @@ export function linksBenennen(text: string, links: DokLink[] = [], nackt = true)
     return z.split(/(`[^`]*`)/).map((s, i) => (i % 2 ? s : teil(s))).join("");
   }).join("\n");
 }
+
+/** Markdown als kurzer Klartext für Vorschauen (Kacheln): Links werden zu ihrem Text, nackte Adressen zum Dokumentnamen */
+export function klartext(md: string): string {
+  return md.replace(/```[\s\S]*?```/g, " ")
+    .replace(/\[([^\]\n]*)\]\((https?:\/\/(?:[^\s()]|\([^\s()]*\))+)\)/g, (_, t: string, u: string) => linkText(t, u))
+    .replace(/<(https?:\/\/[^\s<>]+)>/g, (_, u: string) => dokumentName(u))
+    .replace(/https?:\/\/[^\s<>()\]]*[^\s<>()\].,;:!?]/g, (u) => dokumentName(u))
+    .replace(/<[^>]+>/g, " ").replace(/(^|\s)[-•]\s+/g, " ").replace(/[#*_`>|]+/g, " ").replace(/-{3,}/g, " ")
+    .replace(/\s+/g, " ").trim();
+}

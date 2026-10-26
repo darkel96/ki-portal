@@ -21,9 +21,12 @@ test("Linknamen: E-Mail, Teams, Liste, versteckte Adresse; Datei bleibt Dateinam
       kennung: v.dokumentName("https://x.sharepoint.com/sites/A/1234567890123"),
       gruppe: v.verweiseAufloesen(`Termin steht fest. [1](${a.OWA})[2](${a.OWA2})[3](${a.TEAMS})`),
       benannt: v.linksBenennen(`Siehe [owa](${a.OWA}), [1792743491983](${a.TEAMS}), [Plan Q4](https://x.de/plan) und ${a.LISTE}.\n\n\`${a.OWA}\`\n\n\`\`\`\n${a.OWA}\n\`\`\``, [{ titel: "E-Mail: AW: Angebot 190014936", link: a.OWA }]),
+      klar: v.klartext(`## Stand\n\nFernwartung von [Stefan Naujoks](https://www.office.com/search?q=Stefan+Naujoks&EntityRepresentationId=be10d83c-2dfa) laut ${a.OWA}. **Wichtig:** [1792743491983](${a.TEAMS})`),
       html: (await import("/src/lib/markdown.ts")).markdown(`Alt: [eyJ1IjoiaHR0cHM6Ly9rb2VyYmVyY29ycC5zaGFyZXBvaW50LmNvbS9zaXRlcy9QUk9KRUNU](${a.LOOP}) und [owa](${a.OWA})`),
     };
   }, { OWA, OWA2, TEAMS, LISTE, LOOP });
+  // Kachel-Vorschau: Klartext, Links als ihr Text
+  expect(r.klar).toBe("Stand Fernwartung von Stefan Naujoks laut E-Mail. Wichtig: Teams-Nachricht");
   expect(r.owa).toBe("E-Mail");
   expect(r.mail).toBe("E-Mail");
   expect(r.termin).toBe("Termin in Outlook");

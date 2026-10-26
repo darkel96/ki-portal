@@ -1,3 +1,4 @@
+import { klartext } from "@/lib/verweise";
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { ChevronDown, ChevronLeft, Send } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -80,7 +81,8 @@ function vorschau(k: Kachel, outs: Record<string, OutState>, laeuft: boolean, ap
     if (o.status === "simuliert") return "Simulation: Die Anfrage ist vorbereitet, es gibt keine KI-Antwort.";
     if ((o.status === "uebersprungen" || o.status === "fehler") && o.meldung) return o.meldung;
     if (o.paket) return `${o.paket.dateien.length} ${o.paket.dateien.length === 1 ? "Datei" : "Dateien"}${o.paket.hinweis ? `: ${o.paket.hinweis}` : ""}`;
-    if (o.text) return o.text.replace(/```[\s\S]*?```/g, " ").replace(/<[^>]+>/g, " ").replace(/(^|\s)[-•]\s+/g, " ").replace(/[#*_`>|]+/g, " ").replace(/-{3,}/g, " ").replace(/\s+/g, " ").trim().slice(0, 260);
+    // Klartext: Links als ihr Text („Stefan Naujoks“), nicht als Markdown mit Adresse
+    if (o.text) return klartext(o.text).slice(0, 260);
     if (o.status === "gestoppt") return "Gestoppt, bevor ein Ergebnis da war.";
     if (o.status === "fehler") return "Abgebrochen. Öffnen und „Erneut versuchen“.";
     if (o.status === "wartet") {
