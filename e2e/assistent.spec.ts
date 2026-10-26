@@ -91,3 +91,58 @@ test("Assistent: kompakte Antwort ohne Block-IDs ergibt eine vollständige App",
   expect(r.quelle).toBe(r.step);
   expect(r.datei).toBe("docx");
 });
+
+test("KI-JSON reparieren: deutsche Anführungszeichen, Anführungszeichen im Text, Zeilenumbruch, Komma am Ende", async ({ page }, info) => {
+  test.skip(info.project.name !== "desktop", "einmal reicht");
+  await page.goto("/");
+  const r = await page.evaluate(async () => {
+    const k = await import("/src/lib/ki/index.ts");
+    return {
+      deutsch: k.jsonAus('{"text":"Ordner „Vertragsüberwachung" prüfen","n":1}'),
+      innen: k.jsonAus('Antwort: {"a":"er sagte "ja" heute","b":2}'),
+      umbruch: k.jsonAus('{"a":"Zeile 1\nZeile 2","b":[1,2,],}'),
+      gueltig: k.jsonAus('{"a":"\\"zitiert\\"","b":{"c":"}"}}'),
+      kaputt: (() => { try { k.jsonAus('{"a":1,"b":'); return ""; } catch (e) { return (e as Error).message; } })(),
+    };
+  });
+  expect(r.deutsch).toEqual({ text: "Ordner „Vertragsüberwachung“ prüfen", n: 1 });
+  expect(r.innen).toEqual({ a: 'er sagte "ja" heute', b: 2 });
+  expect(r.umbruch).toEqual({ a: "Zeile 1\nZeile 2", b: [1, 2] });
+  expect(r.gueltig).toEqual({ a: '"zitiert"', b: { c: "}" } });
+  expect(r.kaputt).toContain("JSON");
+});
+
+test("KI-Assistent: unlesbare Antwort, einmal mit Ansage zu Anführungszeichen nachgefragt, dann umgesetzt", async ({ page }, info) => {
+  test.skip(info.project.name !== "desktop", "einmal reicht");
+  const prompts: string[] = [];
+  await page.route("https://api.anthropic.com/**", async (route) => {
+    const body = route.request().postDataJSON() as { messages?: { content: string | { type: string; text?: string }[] }[] };
+    const c = body?.messages?.[0]?.content ?? "";
+    const prompt = typeof c === "string" ? c : c.map((t) => t.text ?? "").join("\n");
+    prompts.push(prompt);
+    const ctx = JSON.parse(prompt.split("## Aktuelle Applikation (Eigenschaften mit Standardwert sind weggelassen)\n")[1].split("\n\n## Wunsch der Person")[0]);
+    // Erste Antwort abgeschnitten (nicht zu reparieren), zweite gültig, mit „…" im Text
+    const ganz = `{"zusammenfassung":"Seite „Checkliste" umbenannt.","app":${JSON.stringify({ name: ctx.name, theme: "unveraendert", wissen: "unveraendert",
+      blocks: [{ ...ctx.blocks[0], props: { ...ctx.blocks[0].props, titel: "Checkliste hochladen" } }, ...ctx.blocks.slice(1).map((b: { id: string }) => ({ id: b.id, unveraendert: true }))],
+      steps: ctx.steps.map((s: { id: string }) => ({ id: s.id, unveraendert: true })) })}}`;
+    const antwort = prompts.length === 1 ? ganz.slice(0, 200) : ganz;
+    const ev = (type: string, data: object) => `event: ${type}\ndata: ${JSON.stringify({ type, ...data })}\n\n`;
+    const sse = [
+      ev("message_start", { message: { id: "m", type: "message", role: "assistant", model: "x", content: [], stop_reason: null, stop_sequence: null, usage: { input_tokens: 1, output_tokens: 1 } } }),
+      ev("content_block_start", { index: 0, content_block: { type: "text", text: "" } }),
+      ev("content_block_delta", { index: 0, delta: { type: "text_delta", text: antwort } }),
+      ev("content_block_stop", { index: 0 }), ev("message_delta", { delta: { stop_reason: "end_turn", stop_sequence: null }, usage: { output_tokens: 2 } }), ev("message_stop", {}),
+    ].join("");
+    await route.fulfill({ status: 200, headers: { "content-type": "text/event-stream", "access-control-allow-origin": "*" }, body: sse });
+  });
+  await page.addInitScript(() => localStorage.setItem("kihub-anthropic-key", "sk-ant-test"));
+  await page.goto("/baukasten?kopie=serviceangebot");
+  const auf = page.getByRole("button", { name: "KI-Assistent aufklappen" });
+  if (await auf.count()) await auf.click();
+  await page.getByLabel("Wunsch an den KI-Assistenten").fill("Benenne die erste Seite um");
+  await page.getByRole("button", { name: "Umsetzen" }).click();
+  await expect(page.locator(".ai-meldung[role=status]")).toContainText("Seite „Checkliste“ umbenannt.", { timeout: 20_000 });
+  expect(prompts).toHaveLength(2);
+  expect(prompts[1]).toContain("Anführungszeichen innerhalb von Texten schreibst du als „ “");
+  await expect(page.getByRole("tab", { name: /Checkliste hochladen/ }).or(page.getByRole("button", { name: /Checkliste hochladen/ })).first()).toBeVisible();
+});

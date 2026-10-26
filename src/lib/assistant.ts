@@ -146,7 +146,16 @@ export function bewahren(next: App, app: App): App {
 export async function assistentAnwenden(app: App, wunsch: string, scope: AssistScope, signal?: AbortSignal, onTeil?: (zeichen: number) => void): Promise<{ app: App; zusammenfassung: string }> {
   const bilder = new Map<string, string>();
   walk(app.blocks, (b) => { if (b.type === "image") bilder.set(b.id, b.props.src); });
-  const roh = jsonAus(await kiFragen(assistPrompt(app, wunsch, scope), signal, onTeil ? (t) => onTeil(t.length) : undefined)) as { zusammenfassung?: unknown; app?: unknown };
+  const frage = assistPrompt(app, wunsch, scope);
+  const fragen = async (text: string) => jsonAus(await kiFragen(text, signal, onTeil ? (t) => onTeil(t.length) : undefined)) as { zusammenfassung?: unknown; app?: unknown };
+  let roh: { zusammenfassung?: unknown; app?: unknown };
+  try { roh = await fragen(frage); }
+  catch (e) {
+    // Nicht lesbares JSON (meist Anführungszeichen in Texten): einmal mit klarer Ansage nachfragen
+    if (signal?.aborted || !/JSON/.test(e instanceof Error ? e.message : "")) throw e;
+    try { roh = await fragen(`${frage}\n\nWichtig: Deine Antwort muss ein einziges, gültiges JSON-Objekt sein, ohne Text davor oder danach. Anführungszeichen innerhalb von Texten schreibst du als „ “ (deutsch, beide typografisch) oder als \\", nie als einfaches ".`); }
+    catch { throw e; }
+  }
   if (!roh || typeof roh !== "object" || !roh.app || typeof roh.app !== "object" || Array.isArray(roh.app)) throw new Error("Die Antwort der KI war unvollständig. Versuch es noch einmal oder formuliere den Wunsch kürzer.");
   roh.app = ergaenzen(roh.app as Roh, app);
   const next = applyScope(sanitizeApp(roh.app, app), app, scope);

@@ -54,7 +54,15 @@ export async function kiFragen(text: string, signal?: AbortSignal, onTeil?: (tex
  * Ablaufdiagramm ```mermaid in einer Zeichenkette, z. B. in der Lernschicht), wäre sonst das Diagramm als JSON gelesen worden.
  */
 export function jsonAus(text: string): unknown {
-  const t = String(text);
+  try { return objektAus(String(text)); }
+  catch (e) {
+    // Typische Fehler der KI reparieren und noch einmal lesen; klappt das nicht, gilt die ursprüngliche Meldung
+    try { return objektAus(jsonReparieren(String(text))); }
+    catch { throw e instanceof SyntaxError ? new Error(`Die KI hat fehlerhaftes JSON geliefert (${e.message}). Starte erneut.`) : e; }
+  }
+}
+
+function objektAus(t: string): unknown {
   const fence = /```(?:json)?\s*([\s\S]*?)```/.exec(t);
   const umschliesst = !!fence && (t.indexOf("{") < 0 || fence.index < t.indexOf("{"));
   const src = fence && umschliesst ? fence[1] : t;
@@ -69,4 +77,31 @@ export function jsonAus(text: string): unknown {
     else if (c === "}" && --tiefe === 0) return JSON.parse(src.slice(a, i + 1));
   }
   throw new Error("Die Antwort enthält kein vollständiges JSON. Starte erneut.");
+}
+
+/**
+ * Häufige Fehler in JSON von der KI beheben: deutsche Anführungszeichen mit geradem Schlusszeichen („Wort"),
+ * unmaskierte Anführungszeichen mitten in Texten, Zeilenumbrüche und Tabs in Zeichenketten, Komma vor } oder ].
+ * Ein " in einer Zeichenkette gilt nur als Ende, wenn danach , } ] oder : folgt.
+ */
+export function jsonReparieren(roh: string): string {
+  const s = roh.replace(/„([^"„“\n]{0,300})"/g, "„$1“");
+  let out = "", inText = false, esc = false;
+  for (let i = 0; i < s.length; i++) {
+    const c = s[i]!;
+    if (!inText) { if (c === '"') inText = true; out += c; continue; }
+    if (esc) { esc = false; out += c; continue; }
+    if (c === "\\") { esc = true; out += c; continue; }
+    if (c === "\n") { out += "\\n"; continue; }
+    if (c === "\r") continue;
+    if (c === "\t") { out += "\\t"; continue; }
+    if (c === '"') {
+      const danach = /^\s*(\S)/.exec(s.slice(i + 1, i + 40))?.[1];
+      if (danach === undefined || /[,}\]:]/.test(danach)) { inText = false; out += c; }
+      else out += '\\"';
+      continue;
+    }
+    out += c;
+  }
+  return out.replace(/,(\s*[}\]])/g, "$1");
 }
