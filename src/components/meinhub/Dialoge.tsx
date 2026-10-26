@@ -151,7 +151,7 @@ export function AuftragDialog({ offen, onOffen, appId, appName, auftrag, stand, 
   const zielHinweis = ziel.art === "email"
     ? "Leer lassen heißt: an deine eigene Adresse. Sonst eine E-Mail-Adresse, z. B. ein Team-Postfach."
     : ziel.art === "teams"
-      ? "Leer lassen heißt: in deinen Teams-Chat mit dir selbst (den gibt es, sobald du dir in Teams einmal selbst geschrieben hast). Sonst die E-Mail-Adresse einer Person (Einzelchat) oder die Webhook-Adresse eines Kanals (Teams-Kanal → Workflows → „Beim Empfang einer Webhook-Anforderung in einem Kanal posten“)."
+      ? "Leer lassen heißt: in deinen Teams-Chat mit dir selbst. Die Nachricht geht in deinem Namen raus, deshalb zeigt Teams dafür kein Hinweisfenster und keine Zahl am Chat. Soll Teams dich benachrichtigen, nimm eine Webhook-Adresse: im Chat oder Kanal → Workflows → „Beim Empfang einer Webhook-Anforderung posten“; dann schreibt der Workflows-Bot und Teams meldet die Nachricht. Sonst die E-Mail-Adresse einer Person (Einzelchat)."
       : "";
   const optionen: [string, string][] = [
     ...(stand ? [[AKTUELL, "Aktuelle Eingaben (als neue Voreinstellung)"] as [string, string]] : []),
