@@ -149,7 +149,7 @@ export function AuftragDialog({ offen, onOffen, appId, appName, auftrag, stand, 
     finally { setTestet(false); }
   };
   const zielHinweis = ziel.art === "email"
-    ? "Leer lassen heißt: an deine eigene Adresse. Sonst eine E-Mail-Adresse, z. B. ein Team-Postfach."
+    ? "Leer lassen heißt: an dich. Mehrere Empfänger trennst du mit Komma oder Semikolon, „ich“ steht für dich selbst (z. B. „ich, anna.berger@koerber.com“). Alle Empfänger stehen gemeinsam im An-Feld; die Testnachricht geht an alle."
     : ziel.art === "teams"
       ? "Leer lassen heißt: in deinen Teams-Chat mit dir selbst. Die Nachricht geht in deinem Namen raus, deshalb zeigt Teams dafür kein Hinweisfenster und keine Zahl am Chat. Soll Teams dich benachrichtigen, nimm eine Webhook-Adresse: im Chat oder Kanal → Workflows → „Beim Empfang einer Webhook-Anforderung posten“; dann schreibt der Workflows-Bot und Teams meldet die Nachricht. Sonst die E-Mail-Adresse einer Person (Einzelchat)."
       : "";
@@ -185,10 +185,10 @@ export function AuftragDialog({ offen, onOffen, appId, appName, auftrag, stand, 
               : ZIEL_GRAPH.has(k) && !graphDa && !dienstAn ? [k, `${ZIEL_LABEL[k]} (braucht die Copilot-Anmeldung)`, true]
                 : [k, ZIEL_LABEL[k]]) as [Ziel["art"], string, boolean?])} />
         {ZIEL_GRAPH.has(ziel.art) && (
-          <Fld label={ziel.art === "email" ? "Empfänger (optional)" : "Empfänger oder Kanal (optional)"} htmlFor="af-adresse">
+          <Fld label={ziel.art === "email" ? "Empfänger (optional, auch mehrere)" : "Empfänger oder Kanal (optional)"} htmlFor="af-adresse">
             <div className="flex flex-wrap items-center gap-2">
-              <Input id="af-adresse" className="min-w-0 flex-1" value={ziel.adresse} autoComplete="off" maxLength={400} aria-invalid={!!adressFehler || undefined}
-                placeholder={ziel.art === "email" ? "leer = an mich" : "leer = an mich; E-Mail einer Person oder https://… (Webhook)"} onChange={(e) => setZiel((alt) => ({ ...alt, adresse: e.target.value }))} />
+              <Input id="af-adresse" className="min-w-0 flex-1" value={ziel.adresse} autoComplete="off" maxLength={2000} aria-invalid={!!adressFehler || undefined}
+                placeholder={ziel.art === "email" ? "leer = an mich; mehrere mit Komma trennen" : "leer = an mich; E-Mail einer Person oder https://… (Webhook)"} onChange={(e) => setZiel((alt) => ({ ...alt, adresse: e.target.value }))} />
               <Button type="button" variant="outline" size="sm" className="rounded-full" disabled={testet || !graphDa && !istWebhook(ziel.adresse)} title={!graphDa && !istWebhook(ziel.adresse) ? "Zum Testen aus dem Browser braucht es die Copilot-Anmeldung" : undefined} onClick={() => void zustellungTesten()}>{testet ? "Sendet …" : "Zustellung testen"}</Button>
             </div>
             <p className="hint" style={{ margin: "4px 0 0", color: adressFehler ? "var(--danger)" : undefined }}>{adressFehler ?? zielHinweis}</p>

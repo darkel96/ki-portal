@@ -126,10 +126,10 @@ test("Beispiel-App „Wochen-Briefing“: Auftrag-Dialog übernimmt die Empfehlu
   await expect(dialog.getByRole("combobox", { name: "Ergebnis" })).toContainText("Per E-Mail");
   await expect(dialog.getByText(/Ergebnis per E-Mail an mich/)).toBeVisible();
   // Adresse prüfen, Testnachricht
-  await dialog.getByLabel("Empfänger (optional)").fill("kein-postfach");
-  await expect(dialog.getByText("Die E-Mail-Adresse sieht nicht vollständig aus.")).toBeVisible();
+  await dialog.getByLabel("Empfänger (optional, auch mehrere)").fill("kein-postfach");
+  await expect(dialog.getByText("„kein-postfach“ sieht nicht wie eine vollständige E-Mail-Adresse aus.", { exact: false })).toBeVisible();
   await expect(dialog.getByRole("button", { name: "Speichern" })).toBeDisabled();
-  await dialog.getByLabel("Empfänger (optional)").fill("team@firma.de");
+  await dialog.getByLabel("Empfänger (optional, auch mehrere)").fill("team@firma.de");
   await dialog.getByRole("button", { name: "Zustellung testen" }).click();
   await expect(page.getByText(/Testnachricht per E-Mail an team@firma.de: Per E-Mail an team@firma.de gesendet\./)).toBeVisible();
   const test1 = posts.find((p) => p.pfad === "/v1.0/me/sendMail")!.body as { message: { subject: string } };
@@ -204,4 +204,42 @@ test("Lehnt Microsoft die Bilder ab, kommt die Mail trotzdem an, mit Quelltext u
   expect(mails).toHaveLength(2);
   expect(mails[1].message.attachments).toBeUndefined();
   expect(mails[1].message.body.content).toContain("flowchart TD");
+});
+
+test("E-Mail an mehrere Empfänger: Komma oder Semikolon, „ich“ = man selbst, doppelte nur einmal, falsche Adresse wird benannt", async ({ page }, info) => {
+  test.skip(info.project.name !== "desktop", "einmal reicht");
+  const posts = await attrappen(page);
+  const jetzt = new Date().toISOString();
+  await page.addInitScript(({ app, meinHub }) => {
+    localStorage.setItem("kihub-apps-v3", JSON.stringify([app]));
+    localStorage.setItem("kihub-meinhub-v1:lokal", JSON.stringify(meinHub));
+  }, { app: APP, meinHub: {
+    v: 1, nutzer: "lokal", pins: [], laeufe: [], automatisch: true,
+    voreinstellungen: [{ id: "v1", appId: "plan-app", name: "Standard", werte: { thema: "Woche 43" }, dateien: {}, erstellt: jetzt, geaendert: jetzt }],
+    auftraege: [auftrag("a1", "Teamverteiler", { art: "email", adresse: "ich, anna@firma.de; Ben@Firma.de\nanna@firma.de" })],
+  } });
+  await page.goto("/mein");
+  await expect.poll(() => posts.filter((p) => p.pfad === "/v1.0/me/sendMail").length, { timeout: 30_000 }).toBe(1);
+  const mail = posts.find((p) => p.pfad === "/v1.0/me/sendMail")!.body as { message: { toRecipients: { emailAddress: { address: string } }[] } };
+  expect(mail.message.toRecipients.map((r) => r.emailAddress.address)).toEqual(["ich@firma.de", "anna@firma.de", "Ben@Firma.de"]);
+  await page.getByRole("tab", { name: /Verlauf/ }).click();
+  await page.getByText("Teamverteiler", { exact: true }).first().click();
+  await expect(page.locator(".mh-zustellung")).toHaveText("Per E-Mail an ich@firma.de, anna@firma.de und Ben@Firma.de gesendet.");
+  await page.getByRole("button", { name: "Verlauf" }).click();
+  await page.getByRole("tab", { name: /Aufträge/ }).click();
+  await expect(page.getByText("Per E-Mail an mich, anna@firma.de und Ben@Firma.de")).toBeVisible();
+  // Prüfung im Dialog: falsche Adresse wird genannt, Teams bleibt bei einer Person
+  const r = await page.evaluate(async () => {
+    const v = await import("/src/lib/versand.ts");
+    return {
+      falsch: v.zielPruefen({ art: "email", adresse: "anna@firma.de, ben@firma" }),
+      gut: v.zielPruefen({ art: "email", adresse: "anna@firma.de; ben@firma.de, ich" }),
+      teams: v.zielPruefen({ art: "teams", adresse: "anna@firma.de, ben@firma.de" }),
+      viele: v.zielText({ art: "email", adresse: "a@x.de, b@x.de, c@x.de, d@x.de, e@x.de" }),
+    };
+  });
+  expect(r.falsch).toContain("„ben@firma“");
+  expect(r.gut).toBeNull();
+  expect(r.teams).toContain("an eine Person");
+  expect(r.viele).toBe("per E-Mail an a@x.de, b@x.de und 3 weitere");
 });
