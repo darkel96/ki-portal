@@ -36,6 +36,11 @@ export const UMGEBUNG = {
   schluessel: String(env.HUB_SCHLUESSEL ?? "").trim(),
   /** Chromium für Diagramme in Mail und Teams; leer = suchen (/usr/bin/chromium-browser, /usr/bin/chromium), „aus“ = abgeschaltet */
   chromium: String(env.HUB_CHROMIUM ?? "").trim(),
+  /** Git-Speicher (owner/repo): Hub-Daten (Apps, Rechte, Agenten) liefert der Dienst frisch aus dem Repository statt aus dem Build */
+  gitRepo: String(env.HUB_GIT_REPO ?? "").trim(),
+  gitBranch: String(env.HUB_GIT_BRANCH ?? "").trim() || "main",
+  /** Nur für private Repositories: Token mit Lesezugriff auf den Inhalt */
+  gitToken: String(env.HUB_GIT_TOKEN ?? "").trim(),
 };
 
 export function umgebungPruefen(): string[] {

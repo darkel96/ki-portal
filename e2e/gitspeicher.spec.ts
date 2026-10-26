@@ -99,7 +99,9 @@ test("Git-Speicher ohne Token: gemeinsame Apps von der veröffentlichten Seite, 
   // Eigene App speichern: bleibt im Browser, kein Commit
   await page.goto("/baukasten?kopie=protokoll");
   await page.locator(".bar-speichern").click();
-  await expect(page.getByText(/gespeichert/i).first()).toBeVisible();
+  // Deutlich: nur in diesem Browser, mit dem Weg, wie alle sie sehen
+  await expect(page.getByText("„Meeting-Protokoll (Kopie)“ ist nur in diesem Browser gespeichert, andere sehen die App nicht.")).toBeVisible();
+  await expect(page.getByText(/GitHub-Token eintragen, dann „In den Git-Speicher übernehmen“/)).toBeVisible();
   expect(commits).toHaveLength(0);
   const lokal = JSON.parse((await page.evaluate(() => localStorage.getItem("kihub-apps-v3"))) || "[]") as { name: string }[];
   expect(lokal.map((a) => a.name)).toContain("Meeting-Protokoll (Kopie)");

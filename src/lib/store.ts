@@ -126,6 +126,16 @@ const aktiv = async (): Promise<AppStore> => {
   return (await speicherSchreibbar()) ? gemeinsam : gemischt;
 };
 
+/**
+ * Wo eine neue oder geänderte App landet: „gemeinsam“ (alle sehen sie), „browser-git“ (Git-Speicher ohne Token,
+ * nur dieser Browser) oder „browser“ (kein gemeinsamer Speicher eingerichtet).
+ */
+export async function appSpeicherOrt(): Promise<"gemeinsam" | "browser-git" | "browser"> {
+  const k = await speicherKonfig();
+  if (k.art === "lokal") return "browser";
+  return (await speicherSchreibbar()) ? "gemeinsam" : "browser-git";
+}
+
 export const appStore: AppStore = {
   list: async () => (await aktiv()).list(),
   save: async (app) => (await aktiv()).save(app),
