@@ -43,7 +43,8 @@ export const ZeitplanSchema = z.object({
 
 export const ZielSchema = z.object({
   art: z.enum(["hub", "email", "sharepoint", "teams"]).default("hub"),
-  adresse: z.string().max(400).default(""),
+  /** E-Mail: eine oder mehrere Adressen (Komma, Semikolon), „ich“ = man selbst; Teams: eine Person oder Webhook */
+  adresse: z.string().max(2000).default(""),
 });
 
 export const AuftragSchema = z.object({

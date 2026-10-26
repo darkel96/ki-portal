@@ -30,10 +30,34 @@ export function zustellScopes(ziel: Ziel): string[] {
   return SCOPES[ziel.art].map((s) => `${GRAPH}/${s}`);
 }
 
+const EMAIL = /^[^\s@,;]+@[^\s@,;]+\.[^\s@,;]+$/;
+/** „ich“ (auch „mich“, „me“) steht in der Empfängerliste für die eigene Adresse */
+const ICH = /^(ich|mich|me|mir)$/i;
+/** Höchstzahl Empfänger einer Mail */
+export const MAX_EMPFAENGER = 50;
+
+/** Empfänger aus dem Adressfeld: getrennt mit Komma, Semikolon oder Zeilenumbruch, doppelte nur einmal */
+export function adressenListe(adresse: string): string[] {
+  const gesehen = new Set<string>();
+  return adresse.split(/[,;\n]+/).map((a) => a.trim().replace(/^<(.+)>$/, "$1")).filter((a) => {
+    const k = ICH.test(a) ? "ich" : a.toLowerCase();
+    if (!a || gesehen.has(k)) return false;
+    gesehen.add(k);
+    return true;
+  });
+}
+
+/** „a“, „a und b“, „a, b und c“, „a, b und 3 weitere“ */
+function aufzaehlen(namen: string[]): string {
+  if (namen.length <= 1) return namen[0] ?? "";
+  if (namen.length > 3) return `${namen.slice(0, 2).join(", ")} und ${namen.length - 2} weitere`;
+  return `${namen.slice(0, -1).join(", ")} und ${namen.at(-1)}`;
+}
+
 /** Kurzform für Listen und Hinweise („per E-Mail an mich“) */
 export function zielText(ziel: Ziel): string {
   const an = ziel.adresse.trim();
-  if (ziel.art === "email") return an ? `per E-Mail an ${an}` : "per E-Mail an mich";
+  if (ziel.art === "email") return an ? `per E-Mail an ${aufzaehlen(adressenListe(an).map((a) => (ICH.test(a) ? "mich" : a)))}` : "per E-Mail an mich";
   if (ziel.art === "teams") return istWebhook(an) ? "in einen Teams-Kanal (Webhook)" : an ? `als Teams-Nachricht an ${an}` : "als Teams-Nachricht an mich";
   if (ziel.art === "sharepoint") return "in einen SharePoint-Ordner";
   return "im Verlauf von Mein Hub";
@@ -43,8 +67,17 @@ export function zielText(ziel: Ziel): string {
 export function zielPruefen(ziel: Ziel): string | null {
   const an = ziel.adresse.trim();
   if (!an || ziel.art === "hub") return null;
-  if (ziel.art === "email") return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(an) ? null : "Die E-Mail-Adresse sieht nicht vollständig aus.";
-  if (ziel.art === "teams") return istWebhook(an) || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(an) ? null : "Für Teams brauchst du die E-Mail-Adresse einer Person oder die Webhook-Adresse (https://…) eines Kanals.";
+  if (ziel.art === "email") {
+    const liste = adressenListe(an);
+    const falsch = liste.find((a) => !ICH.test(a) && !EMAIL.test(a));
+    if (falsch) return `„${falsch}“ sieht nicht wie eine vollständige E-Mail-Adresse aus. Mehrere Empfänger trennst du mit Komma oder Semikolon.`;
+    return liste.length > MAX_EMPFAENGER ? `Höchstens ${MAX_EMPFAENGER} Empfänger; für mehr nimm eine Verteilerliste.` : null;
+  }
+  if (ziel.art === "teams") {
+    if (istWebhook(an)) return null;
+    if (adressenListe(an).length > 1) return "Eine Teams-Nachricht geht an eine Person. Für mehrere Empfänger nimm „Per E-Mail“ oder einen Teams-Kanal (Webhook).";
+    return EMAIL.test(an) ? null : "Für Teams brauchst du die E-Mail-Adresse einer Person oder die Webhook-Adresse (https://…) eines Kanals.";
+  }
   return null;
 }
 
@@ -189,13 +222,22 @@ export async function zustellen(ziel: Ziel, inhalt: ZustellInhalt, graph: GraphR
   const bilder = maler && (ziel.art === "email" || !istWebhook(adresse)) ? await bilderMalen(inhalt, maler) : new Map<string, Bild>();
   const ohneBilderHinweis = (e: unknown) => ` Die Diagramme kamen als Quelltext, weil Microsoft die Bilder abgelehnt hat (${(e instanceof Error ? e.message : String(e)).slice(0, 160)}).`;
   if (ziel.art === "email") {
-    let an = adresse;
-    if (!an) { const ich = await graphJson<GraphPerson>(graph, "/v1.0/me?$select=id,mail,userPrincipalName", "E-Mail"); an = ich.mail || ich.userPrincipalName || ""; }
-    if (!an) throw new Error("Keine E-Mail-Adresse für den Versand bekannt.");
+    const fehler = zielPruefen(ziel);
+    if (fehler) throw new Error(fehler);
+    // Leer = an mich; „ich“ in der Liste = die eigene Adresse
+    let liste = adressenListe(adresse);
+    if (!liste.length) liste = ["ich"];
+    if (liste.some((a) => ICH.test(a))) {
+      const ich = await graphJson<GraphPerson>(graph, "/v1.0/me?$select=id,mail,userPrincipalName", "E-Mail");
+      const meine = ich.mail || ich.userPrincipalName || "";
+      if (!meine) throw new Error("Deine eigene E-Mail-Adresse ist nicht bekannt; trag sie statt „ich“ ein.");
+      liste = adressenListe(liste.map((a) => (ICH.test(a) ? meine : a)).join(","));
+    }
+    const an = aufzaehlen(liste);
     const nachricht = (mitBildern: boolean) => ({ message: {
       subject: betreff,
       body: { contentType: "HTML", content: ergebnisHtml(inhalt, mitBildern ? bildHtml(bilder, (b) => `cid:diagramm${b.nr}`) : undefined) },
-      toRecipients: [{ emailAddress: { address: an } }],
+      toRecipients: liste.map((address) => ({ emailAddress: { address } })),
       ...(mitBildern ? { attachments: [...bilder.values()].map((b) => ({ "@odata.type": "#microsoft.graph.fileAttachment", name: `Diagramm ${b.nr}.png`, contentType: "image/png", contentBytes: b.png, isInline: true, contentId: `diagramm${b.nr}` })) } : {}),
     }, saveToSentItems: false });
     let hinweis = "";

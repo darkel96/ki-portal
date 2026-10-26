@@ -44,7 +44,9 @@ Jede Applikation lässt sich als Auftrag planen („Voreinstellungen“ → „R
 Voreinstellung, Zeitplan (täglich, werktags, wöchentlich, monatlich) und ein Ziel für das Ergebnis:
 
 - **Nur im Verlauf von Mein Hub**: wie bisher.
-- **Per E-Mail**: an die eigene Adresse (Feld leer) oder eine andere, etwa ein Team-Postfach. Microsoft Graph `Mail.Send`.
+- **Per E-Mail**: an die eigene Adresse (Feld leer), an eine andere (etwa ein Team-Postfach) oder an mehrere,
+  getrennt mit Komma oder Semikolon; „ich“ steht für die eigene Adresse („ich, anna.berger@koerber.com“). Alle stehen
+  gemeinsam im An-Feld, höchstens 50. Microsoft Graph `Mail.Send`.
 - **Als Teams-Nachricht**: in den Chat mit sich selbst (Feld leer), an eine Person (ihre E-Mail-Adresse, Einzelchat)
   oder in einen Chat oder Kanal über eine Webhook-Adresse (`https://…`; in Teams: Chat oder Kanal → Workflows → „Beim
   Empfang einer Webhook-Anforderung posten“). Graph `Chat.ReadWrite` und `ChatMessage.Send`; der Webhook braucht keine
