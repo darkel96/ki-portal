@@ -833,15 +833,18 @@
     "rechte": {
       "bearbeiten": [
         "dario.keller@koerber.com",
-        "benjamin.godi@koerber.com"
+        "benjamin.godi@koerber.com",
+        "rouven.lips@koerber.com"
       ],
       "nutzen": [
-        "benjamin.godi@koerber.com"
+        "benjamin.godi@koerber.com",
+        "rouven.lips@koerber.com",
+        "dario.keller@koerber.com"
       ]
     },
     "schutz": "oeffentlich",
-    "version": 21,
-    "geaendert": "2026-10-26T15:44:52.526Z"
+    "version": 22,
+    "geaendert": "2026-10-26T15:56:42.291Z"
   },
   "app-mvpftng4v7e5": {
     "id": "app-mvpftng4v7e5",
