@@ -36,7 +36,9 @@ async function attrappen(page: Page) {
     if (req.method() === "OPTIONS") return route.fulfill({ status: 204, headers: cors });
     if (req.headers()["authorization"] !== "Bearer test-token") return route.fulfill({ status: 401, headers: cors, body: "{}" });
     if (req.method() === "GET" && pfad === "/v1.0/me") return route.fulfill({ status: 200, headers: cors, contentType: "application/json", body: JSON.stringify({ id: "me1", mail: "ich@firma.de", userPrincipalName: "ich@firma.de" }) });
-    if (req.method() === "GET" && pfad === "/v1.0/me/chats") return route.fulfill({ status: 200, headers: cors, contentType: "application/json", body: JSON.stringify({ value: [{ id: "chat-selbst", chatType: "oneOnOne", members: [{ email: "ich@firma.de", userId: "me1" }] }] }) });
+    // Der Chat mit mir selbst steht erst auf der zweiten Seite (Graph liefert 50 je Seite, ohne Reihenfolge)
+    if (req.method() === "GET" && pfad === "/v1.0/me/chats" && !url.searchParams.has("$skiptoken")) return route.fulfill({ status: 200, headers: cors, contentType: "application/json", body: JSON.stringify({ value: [{ id: "chat-anna", chatType: "oneOnOne", members: [{ email: "ich@firma.de", userId: "me1" }, { email: "anna@firma.de", userId: "u2" }] }], "@odata.nextLink": "https://graph.microsoft.com/v1.0/me/chats?$filter=chatType%20eq%20'oneOnOne'&$expand=members&$top=50&$skiptoken=seite2" }) });
+    if (req.method() === "GET" && pfad === "/v1.0/me/chats") return route.fulfill({ status: 200, headers: cors, contentType: "application/json", body: JSON.stringify({ value: [{ id: "chat-selbst", chatType: "oneOnOne", members: [{ email: null, userId: "me1" }] }] }) });
     if (req.method() === "POST") {
       posts.push({ pfad, body: req.postDataJSON() });
       if (pfad === "/v1.0/me/sendMail") return route.fulfill({ status: 202, headers: cors });
