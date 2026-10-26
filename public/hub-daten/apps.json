@@ -234,5 +234,368 @@
     "schutz": "intern",
     "version": 5,
     "geaendert": "2026-10-26T14:30:13.933Z"
+  },
+  "app-mvjcen1ky7ur": {
+    "id": "app-mvjcen1ky7ur",
+    "v": 2,
+    "typ": "baukasten",
+    "url": "",
+    "name": "Retrofit-Kalkulation",
+    "bereich": "Retrofit",
+    "beschreibung": "Liest zentrale Werte und Positionen aus einer Retrofit-Kalkulation aus, ermöglicht die Erfassung von Stunden und erstellt einen Terminplan mit Export für Microsoft Project.",
+    "theme": {
+      "accent": "#0060ff",
+      "bg": "",
+      "font": "sans",
+      "radius": "m",
+      "width": "m"
+    },
+    "wissen": {
+      "modus": "eingaben",
+      "text": "",
+      "quellen": []
+    },
+    "blocks": [
+      {
+        "id": "brbxeupl",
+        "type": "seite",
+        "props": {
+          "titel": "Kalkulation hochladen"
+        },
+        "children": [
+          {
+            "id": "b5mwo7ft",
+            "type": "heading",
+            "props": {
+              "text": "Kalkulation hochladen",
+              "level": 1,
+              "align": "left",
+              "color": ""
+            }
+          },
+          {
+            "id": "bv05pypf",
+            "type": "text",
+            "props": {
+              "text": "Lade die aktuelle Kalkulation (Excel) hoch.",
+              "size": "m",
+              "align": "left",
+              "color": ""
+            }
+          },
+          {
+            "id": "bfrlunwt",
+            "type": "section",
+            "props": {
+              "bg": "",
+              "pad": "m",
+              "border": true
+            },
+            "children": [
+              {
+                "id": "bvxujr8y",
+                "type": "file",
+                "props": {
+                  "label": "Kalkulation",
+                  "key": "kalkulation",
+                  "keyAuto": false,
+                  "pflicht": true,
+                  "hilfe": "Lade die aktuelle Kalkulation (Excel) hoch.",
+                  "beispiel": "",
+                  "placeholder": "",
+                  "aus": "",
+                  "uebergabe": "text"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "b6bxr9s7",
+        "type": "seite",
+        "props": {
+          "titel": "Werte prüfen"
+        },
+        "children": [
+          {
+            "id": "bknrs3vz",
+            "type": "heading",
+            "props": {
+              "text": "Werte prüfen",
+              "level": 1,
+              "align": "left",
+              "color": ""
+            }
+          },
+          {
+            "id": "bzuk7o75",
+            "type": "section",
+            "props": {
+              "bg": "",
+              "pad": "m",
+              "border": true
+            },
+            "children": [
+              {
+                "id": "bvqxtsh1",
+                "type": "heading",
+                "props": {
+                  "text": "Kalkulationswerte",
+                  "level": 3,
+                  "align": "left",
+                  "color": ""
+                }
+              },
+              {
+                "id": "b0wcj4yk",
+                "type": "input",
+                "props": {
+                  "label": "Kunde",
+                  "key": "kunde",
+                  "keyAuto": false,
+                  "pflicht": false,
+                  "hilfe": "",
+                  "beispiel": "",
+                  "placeholder": "",
+                  "aus": "lesen.kunde"
+                }
+              },
+              {
+                "id": "bjiiyftd",
+                "type": "input",
+                "props": {
+                  "label": "Projekt / Anlage",
+                  "key": "projekt",
+                  "keyAuto": false,
+                  "pflicht": false,
+                  "hilfe": "",
+                  "beispiel": "",
+                  "placeholder": "",
+                  "aus": "lesen.projekt"
+                }
+              },
+              {
+                "id": "badleetd",
+                "type": "input",
+                "props": {
+                  "label": "Angebotsnummer",
+                  "key": "angebotsnummer",
+                  "keyAuto": false,
+                  "pflicht": false,
+                  "hilfe": "",
+                  "beispiel": "",
+                  "placeholder": "",
+                  "aus": "lesen.angebotsnummer"
+                }
+              },
+              {
+                "id": "bjpc23wm",
+                "type": "number",
+                "props": {
+                  "label": "Gesamtpreis netto in EUR",
+                  "key": "gesamtpreis_eur",
+                  "keyAuto": false,
+                  "pflicht": false,
+                  "hilfe": "",
+                  "beispiel": "",
+                  "placeholder": "",
+                  "aus": "lesen.gesamtpreis_eur"
+                }
+              },
+              {
+                "id": "bo34msxh",
+                "type": "date",
+                "props": {
+                  "label": "Liefertermin",
+                  "key": "liefertermin",
+                  "keyAuto": false,
+                  "pflicht": false,
+                  "hilfe": "",
+                  "beispiel": "",
+                  "placeholder": "",
+                  "aus": "lesen.liefertermin"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "bvdkpd4v",
+        "type": "seite",
+        "props": {
+          "titel": "Stunden erfassen"
+        },
+        "children": [
+          {
+            "id": "bangw7c5",
+            "type": "heading",
+            "props": {
+              "text": "Stunden erfassen",
+              "level": 1,
+              "align": "left",
+              "color": ""
+            }
+          },
+          {
+            "id": "bc6dwhfx",
+            "type": "tabelle",
+            "props": {
+              "label": "Positionen",
+              "key": "positionen",
+              "keyAuto": false,
+              "pflicht": false,
+              "hilfe": "",
+              "beispiel": "",
+              "placeholder": "",
+              "aus": "lesen.positionen",
+              "spalten": [
+                {
+                  "key": "pos",
+                  "titel": "Pos.",
+                  "typ": "text",
+                  "art": "ki",
+                  "summe": false
+                },
+                {
+                  "key": "bezeichnung",
+                  "titel": "Bezeichnung",
+                  "typ": "text",
+                  "art": "ki",
+                  "summe": false
+                },
+                {
+                  "key": "menge",
+                  "titel": "Menge",
+                  "typ": "zahl",
+                  "art": "ki",
+                  "summe": false
+                },
+                {
+                  "key": "einheit",
+                  "titel": "Einheit",
+                  "typ": "text",
+                  "art": "ki",
+                  "summe": false
+                },
+                {
+                  "key": "elektrik",
+                  "titel": "Elektrik (Std)",
+                  "typ": "zahl",
+                  "art": "eingabe",
+                  "summe": true
+                },
+                {
+                  "key": "software",
+                  "titel": "Software (Std)",
+                  "typ": "zahl",
+                  "art": "eingabe",
+                  "summe": true
+                },
+                {
+                  "key": "inbetriebnahme",
+                  "titel": "Inbetriebnahme (Std)",
+                  "typ": "zahl",
+                  "art": "eingabe",
+                  "summe": true
+                }
+              ],
+              "kiBearbeitbar": true,
+              "zeilenHinzufuegen": false,
+              "spaltenHinzufuegen": true
+            }
+          }
+        ]
+      },
+      {
+        "id": "bchg8h3v",
+        "type": "seite",
+        "props": {
+          "titel": "Terminplan"
+        },
+        "children": [
+          {
+            "id": "b6dufllr",
+            "type": "heading",
+            "props": {
+              "text": "Terminplan",
+              "level": 1,
+              "align": "left",
+              "color": ""
+            }
+          },
+          {
+            "id": "bbxz4n7n",
+            "type": "output",
+            "props": {
+              "titel": "Terminplan",
+              "quelle": "n1",
+              "stil": "card",
+              "pfad": ""
+            }
+          }
+        ]
+      }
+    ],
+    "steps": [
+      {
+        "id": "sbivs0l3",
+        "name": "Kalkulation lesen",
+        "key": "lesen",
+        "art": "prompt",
+        "rolle": "Lies ausschließlich die angegebenen Kalkulationswerte und Positionen aus der hochgeladenen Excel-Datei aus.",
+        "wissen": "",
+        "prompt": "Lies aus {{kalkulation}} ausschließlich die folgenden Werte und Positionen aus.\nRegeln:\n- Nur Werte übernehmen, die in der Datei stehen.\n- Nichts schätzen oder berechnen.\n- Fehlt ein Wert, das Feld leer lassen.\n- Zahlen ohne Tausenderpunkte und ohne Währungszeichen liefern.\n- gesamtpreis_eur ist der Gesamtpreis netto nach Rabatt.\n- liefertermin ist der Liefertermin, nicht das Kalkulationsdatum.\n- positionen enthält alle vorhandenen Positionen mit Pos., Bezeichnung, Menge und Einheit.\n- Gib ausschließlich ein JSON-Objekt mit diesem Schema zurück:\n{\"kunde\":\"\",\"projekt\":\"\",\"angebotsnummer\":\"\",\"gesamtpreis_eur\":\"\",\"liefertermin\":\"\",\"positionen\":[{\"pos\":\"\",\"bezeichnung\":\"\",\"menge\":0,\"einheit\":\"\"}]}",
+        "modell": "complex",
+        "format": "json",
+        "datei": "",
+        "autoAll": false,
+        "vorlage": null,
+        "wissenModus": "app",
+        "quellen": [],
+        "bedingung": null,
+        "hausregeln": {
+          "fassungen": []
+        },
+        "faq": {
+          "eintraege": []
+        }
+      },
+      {
+        "id": "n1",
+        "name": "terminplan",
+        "key": "terminplan",
+        "art": "prompt",
+        "rolle": "Erstelle einen nachvollziehbaren Retrofit-Terminplan aus den geprüften Projektdaten und den eingetragenen Stunden.",
+        "wissen": "",
+        "prompt": "Erstelle für den Kunden {{kunde}} und das Projekt {{projekt}} aus {{positionen}} einen Terminplan, der rückwärts vom Liefertermin {{liefertermin}} geplant wird.\nRegeln:\n- Erzeuge je Position und Gewerk mit eingetragenen Stunden einen eigenen Vorgang.\n- Dauer in Arbeitstagen = Stunden geteilt durch 8, auf den nächsten ganzen Tag aufgerundet, mindestens 1 Tag.\n- Plane ausschließlich Montag bis Freitag.\n- Elektrik und Software laufen soweit möglich parallel.\n- Inbetriebnahme folgt nach Elektrik und Software.\n- Schulung und Dokumentation stehen zum Schluss, sofern dafür Stunden eingetragen sind.\n- Füge am Ende einen Meilenstein „Übergabe“ mit Dauer 0 ein.\n- Erfinde keine Feiertage oder zusätzlichen Vorgänge.\n- Beginne mit einem Mermaid-Codeblock für ein Gantt-Diagramm mit gantt und dateFormat YYYY-MM-DD; gliedere mit Abschnitten je Gewerk.\n- Gib darunter dieselben Vorgänge als Markdown-Tabelle mit genau diesen Spalten aus: Nr | Vorgangsname | Dauer (Tage) | Anfang | Ende | Vorgänger | Gewerk.\n- Verwende für Anfang und Ende das Format JJJJ-MM-TT.\n- Nenne unter der Tabelle kurz die verwendeten Annahmen, insbesondere 8 Stunden je Arbeitstag und die Reihenfolge.",
+        "modell": "complex",
+        "format": "markdown",
+        "datei": "",
+        "autoAll": true,
+        "vorlage": null,
+        "wissenModus": "app",
+        "quellen": [],
+        "bedingung": null,
+        "hausregeln": {
+          "fassungen": []
+        },
+        "faq": {
+          "eintraege": []
+        }
+      }
+    ],
+    "status": "entwurf",
+    "pflichtSperre": true,
+    "owner": "",
+    "erstelltVon": "dario.keller@koerber.com",
+    "rechte": {
+      "bearbeiten": [],
+      "nutzen": []
+    },
+    "schutz": "intern",
+    "version": 5,
+    "geaendert": "2026-10-26T14:30:16.856Z"
   }
 }
