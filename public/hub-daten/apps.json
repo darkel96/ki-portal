@@ -713,7 +713,7 @@
             "id": "bev84cv1",
             "type": "output",
             "props": {
-              "titel": "Briefing & To-dos",
+              "titel": "Briefing",
               "quelle": "n1",
               "stil": "card",
               "pfad": ""
@@ -825,7 +825,7 @@
       ]
     },
     "schutz": "oeffentlich",
-    "version": 13,
-    "geaendert": "2026-10-26T15:16:02.763Z"
+    "version": 14,
+    "geaendert": "2026-10-26T15:17:26.570Z"
   }
 }
