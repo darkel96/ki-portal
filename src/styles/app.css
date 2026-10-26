@@ -315,13 +315,14 @@ a.tile:hover .tile-go svg { transform: translateX(5px); }
 .o-body ul, .o-body ol { margin: 0 0 10px; padding-left: 22px; list-style: revert; }
 .o-body code { font-family: var(--k-font-mono); font-size: 13px; background: var(--app-soft); padding: 1px 5px; }
 .o-foot { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
-.o-foot details { flex-basis: 100%; }
+/* min-width 0: lange Zeilen (IDs, Base64) machen die Details sonst breiter als die Karte */
+.o-foot details { flex-basis: 100%; min-width: 0; max-width: 100%; }
 .o-foot summary { cursor: pointer; font-size: 13px; color: var(--app-muted); }
 .tbl { overflow-x: auto; margin: 0 0 12px; }
 .tbl table { border-collapse: collapse; font-size: 14px; min-width: 100%; }
 .tbl th, .tbl td { text-align: left; padding: 7px 10px; border-bottom: 1px solid var(--app-line, var(--line)); vertical-align: top; }
 .tbl th { font-weight: 600; background: var(--app-soft, var(--surface-2)); }
-pre.code { margin: 0; white-space: pre-wrap; font: 12.5px/1.5 var(--k-font-mono); background: var(--app-soft, var(--surface-2)); padding: 12px; overflow-x: auto; color: inherit; }
+pre.code { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; font: 12.5px/1.5 var(--k-font-mono); background: var(--app-soft, var(--surface-2)); padding: 12px; overflow-x: auto; color: inherit; }
 .o-body .o-sim { max-height: 280px; overflow: auto; margin: 0 0 10px; }
 .status-pill { font-size: 12px; line-height: 1; padding: 5px 10px; border-radius: 999px; background: var(--surface-2); color: var(--muted-ink); display: inline-flex; gap: 6px; align-items: center; white-space: nowrap; }
 .status-pill[data-s="laeuft"] { background: var(--signal); color: var(--signal-ink); }
@@ -794,7 +795,7 @@ a.mh-titel:hover { text-decoration: underline; text-underline-offset: 4px; }
 .o-totlink em { font-style: normal; font-size: .9em; color: var(--app-muted); }
 
 /* ----- Lauf im Hub-Dienst (geht ohne offenen Tab weiter) ----- */
-.o-hintergrund { margin: 0; padding: 8px 12px; border-radius: var(--app-radius); border: 1px dashed var(--app-line); background: var(--app-soft); color: var(--app-muted); font-size: 13px; }
+.o-hintergrund { flex: none; margin: 0; padding: 8px 12px; border-radius: var(--app-radius); border: 1px dashed var(--app-line); background: var(--app-soft); color: var(--app-muted); font-size: 13px; }
 
 /* ----- Lernschicht: Rückmeldung unter Chat-Antworten ----- */
 .o-chat-feedback { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 8px; font-size: 12px; color: var(--app-muted); }

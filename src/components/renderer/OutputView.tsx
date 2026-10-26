@@ -222,7 +222,7 @@ export function OutputView({ app, titel, stepId, stil, mode, pfad = "" }: { app:
     body = <p className="o-muted">{knopf ? `Das Ergebnis erscheint hier, sobald du „${knopf}“ startest.` : "Das Ergebnis erscheint hier."}</p>;
   }
   else if (o.status === "wartet") body = <p className="o-muted">{run?.laeuft ? "Wartet, bis die vorherigen Schritte fertig sind\u00a0…" : "Noch nicht erstellt."}</p>;
-  else if (o.status === "laeuft" && !team && !o.text) body = <p className="o-muted">KI arbeitet\u00a0…</p>;
+  else if (o.status === "laeuft" && !team && !o.text) body = <p className="o-muted">KI arbeitet&nbsp;…</p>;
   else if (o.status === "simuliert") body = <><p className="o-muted" style={{ color: "var(--tool-text)" }}>Simulation: Diese Anfrage würde an die zentrale KI-Anbindung gehen.</p>{o.req && <pre className="code o-sim">{o.req.nachricht}</pre>}<p className="o-muted">Den vollständigen Aufbau zeigen die technischen Details.</p></>;
   else if (o.status === "uebersprungen") body = <p className="o-muted">{o.meldung}</p>;
   else body = (
@@ -253,10 +253,10 @@ export function OutputView({ app, titel, stepId, stil, mode, pfad = "" }: { app:
       ) : teil !== undefined ? <JsonTeil wert={teil} /> : step?.format !== "dateien" && (
         <div className={`o-body ${team ? "team-result" : ""}`} dangerouslySetInnerHTML={{ __html: renderResult(o.text, step?.format ?? "markdown") }} />
       ))}
-      {o.status === "laeuft" && !team && <p className="o-muted">KI schreibt\u00a0…</p>}
+      {o.status === "laeuft" && !team && <p className="o-muted">KI schreibt&nbsp;…</p>}
       {o.status === "fehler" && o.meldung && <p className="o-err" role="alert">{o.meldung}</p>}
       {o.status === "gestoppt" && <p className="o-muted">Gestoppt.</p>}
-      {team && o.status === "laeuft" && <p className="o-muted">Das Team arbeitet\u00a0…</p>}
+      {team && o.status === "laeuft" && <p className="o-muted">Das Team arbeitet&nbsp;…</p>}
       {team && !!o.team?.length && (() => { const n = o.team.filter((e) => e.art === "beitrag").length; return (
         <details className="team-verlauf" open={o.status === "laeuft"}>
           <summary>Verlauf ({n} {n === 1 ? "Beitrag" : "Beiträge"})</summary>
