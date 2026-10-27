@@ -3,7 +3,7 @@
  * Erster Schritt: nur anzeigen. Ohne Copilot-Anbindung (Testmodus, eigener Schlüssel, Simulation) zeigt der Hub ein
  * Beispielpostfach, damit sich der Baustein ansehen und prüfen lässt.
  */
-import { graphToken } from "./auth";
+import { graphToken, nutzerKennung } from "./auth";
 import { graphTestToken } from "./graph";
 import { KI_CONFIG } from "./config";
 import { kiModus } from "./index";
@@ -31,6 +31,18 @@ const warten = (ms: number, signal?: AbortSignal) => new Promise<void>((ok, fehl
   signal?.addEventListener("abort", () => { clearTimeout(t); fehler(new DOMException("Abgebrochen", "AbortError")); }, { once: true });
 });
 
+/**
+ * Exchange erlaubt je Postfach nur wenige gleichzeitige Anfragen; mehr enden mit 429 (ApplicationThrottled) und
+ * langen Wartezeiten. Daher laufen höchstens drei Graph-Aufrufe des Postfachs gleichzeitig, der Rest wartet kurz.
+ */
+let laufend = 0;
+const warteschlange: (() => void)[] = [];
+async function platz<T>(f: () => Promise<T>): Promise<T> {
+  if (laufend >= 3) await new Promise<void>((ok) => warteschlange.push(ok));
+  laufend++;
+  try { return await f(); } finally { laufend--; warteschlange.shift()?.(); }
+}
+
 async function graph<T>(pfad: string, signal?: AbortSignal, opts: { method?: string; body?: unknown; schreiben?: boolean } = {}): Promise<T> {
   const token = graphTestToken() ?? await graphToken(opts.schreiben ? SCOPES_SCHREIBEN : SCOPES);
   const senden = () => fetch(pfad.startsWith("http") ? pfad : `${GRAPH}${pfad}`, {
@@ -38,12 +50,12 @@ async function graph<T>(pfad: string, signal?: AbortSignal, opts: { method?: str
     headers: { Authorization: `Bearer ${token}`, Prefer: 'outlook.body-content-type="html"', ...(opts.body !== undefined ? { "Content-Type": "application/json" } : {}) },
     body: opts.body !== undefined ? JSON.stringify(opts.body) : undefined,
   });
-  let r = await senden();
+  let r = await platz(senden);
   // Zu viele Anfragen (429) oder kurz überlastet (503): so lange warten, wie Microsoft sagt, und erneut versuchen
   for (let versuch = 0; (r.status === 429 || r.status === 503) && versuch < 6; versuch++) {
     const sek = Number(r.headers.get("Retry-After"));
     await warten(Math.min(30, Number.isFinite(sek) && sek > 0 ? sek : 2 ** versuch) * 1000, signal);
-    r = await senden();
+    r = await platz(senden);
   }
   if (!r.ok) {
     const t = await r.text().catch(() => "");
@@ -64,6 +76,29 @@ const nachrichtAus = (m: GraphNachricht): Nachricht => ({
 });
 const namen = (l?: { emailAddress?: { name?: string; address?: string } }[]) => (l ?? []).map((x) => x.emailAddress?.name || x.emailAddress?.address || "").filter(Boolean);
 
+/** Zwischenspeicher im Browser je Person (Ordner-IDs ändern sich nicht; die Ordnerliste zeigt sich so sofort) */
+async function merkSchluessel(was: string): Promise<string | null> { const k = await nutzerKennung(); return k ? `kihub-postfach-${was}:${k}` : null; }
+async function gemerkt<T>(was: string): Promise<T | null> {
+  try { const k = await merkSchluessel(was); return k ? (JSON.parse(localStorage.getItem(k) || "null") as T | null) : null; } catch { return null; }
+}
+async function merken(was: string, wert: unknown) { try { const k = await merkSchluessel(was); if (k) localStorage.setItem(k, JSON.stringify(wert)); } catch { /* voll oder gesperrt */ } }
+
+/** IDs der bekannten Ordner (Posteingang, Gelöschte …): einmal je Person holen, dann aus dem Speicher */
+let bekannteIdsCache: Record<string, string> | null = null;
+async function bekannteOrdnerIds(signal?: AbortSignal): Promise<Record<string, string>> {
+  if (bekannteIdsCache) return bekannteIdsCache;
+  const alt = await gemerkt<Record<string, string>>("bekannt");
+  if (alt && REIHENFOLGE.every((w) => w in alt)) return (bekannteIdsCache = alt);
+  const paare = await Promise.all(REIHENFOLGE.map(async (w) => { try { return [w, (await graph<{ id: string }>(`/mailFolders/${w}?$select=id`, signal)).id] as const; } catch { return [w, ""] as const; } }));
+  const ids: Record<string, string> = Object.fromEntries(paare);
+  // Nur merken, wenn alles da ist (ein Archiv gibt es nicht in jedem Postfach); sonst beim nächsten Mal neu fragen
+  if (REIHENFOLGE.every((w) => ids[w] || w === "archive")) { bekannteIdsCache = ids; await merken("bekannt", ids); }
+  return ids;
+}
+
+/** Zuletzt geladene Ordnerliste dieser Person (sofort anzeigen, während die frische lädt) */
+export async function ordnerGemerkt(): Promise<Ordner[] | null> { return postfachEcht() ? gemerkt<Ordner[]>("ordner") : null; }
+
 /**
  * Oberste Ordner (bekannte zuerst, dann alphabetisch), je mit den direkten Unterordnern. Die stabile Graph-Schnittstelle
  * kennt kein Feld für den bekannten Ordnernamen; die IDs von Posteingang, Entwürfe usw. werden daher einzeln geholt.
@@ -72,12 +107,12 @@ export async function ordnerLaden(signal?: AbortSignal): Promise<Ordner[]> {
   if (!postfachEcht()) return beispiel.ordner;
   const [alle, bekannt] = await Promise.all([
     graph<{ value: GraphOrdner[] }>("/mailFolders?$top=100&$select=id,displayName,unreadItemCount,totalItemCount,childFolderCount", signal).then((j) => j.value),
-    Promise.all(REIHENFOLGE.map(async (w) => { try { return [(await graph<{ id: string }>(`/mailFolders/${w}?$select=id`, signal)).id, w] as const; } catch { return null; } })),
+    bekannteOrdnerIds(signal),
   ]);
-  const bekannteIds = new Map(bekannt.filter((x): x is readonly [string, string] => !!x));
+  const bekannteIds = new Map(Object.entries(bekannt).filter(([, id]) => id).map(([w, id]) => [id, w] as const));
   const rang = (o: GraphOrdner) => { const i = REIHENFOLGE.indexOf(bekannteIds.get(o.id) ?? ""); return i < 0 ? 99 : i; };
   const sortiert = [...alle].sort((a, b) => rang(a) - rang(b) || a.displayName.localeCompare(b.displayName, "de"));
-  return Promise.all(sortiert.map(async (o) => {
+  const liste = await Promise.all(sortiert.map(async (o) => {
     const ordner = ordnerAus(o, bekannteIds.get(o.id));
     if (o.childFolderCount) {
       const kinder = (await graph<{ value: GraphOrdner[] }>(`/mailFolders/${encodeURIComponent(o.id)}/childFolders?$top=50&$select=id,displayName,unreadItemCount,totalItemCount`, signal).catch(() => ({ value: [] as GraphOrdner[] }))).value;
@@ -85,6 +120,8 @@ export async function ordnerLaden(signal?: AbortSignal): Promise<Ordner[]> {
     }
     return ordner;
   }));
+  await merken("ordner", liste);
+  return liste;
 }
 
 /** Nachrichten eines Ordners, neueste zuerst; weiter = Adresse der nächsten Seite; suche durchsucht Betreff, Absender und Text */
@@ -117,7 +154,8 @@ export async function nachrichtenSeit(tage: number, signal?: AbortSignal, max = 
     return beispiel.nachrichten.filter((n) => Date.parse(n.empfangen) >= ab.getTime() && !["deleteditems", "junkemail", "drafts", "sentitems"].includes(n.ordner))
       .sort((a, b) => b.empfangen.localeCompare(a.empfangen)).map(({ ordner, an: _a, cc: _c, html: _h, text: _t, ...n }) => ({ ...n, ordnerId: ordner }));
   }
-  const weg = new Set((await Promise.all(["deleteditems", "junkemail", "drafts", "sentitems"].map(async (w) => { try { return (await graph<{ id: string }>(`/mailFolders/${w}?$select=id`, signal)).id; } catch { return ""; } }))).filter(Boolean));
+  const ids = await bekannteOrdnerIds(signal);
+  const weg = new Set(["deleteditems", "junkemail", "drafts", "sentitems"].map((w) => ids[w]).filter(Boolean));
   const aus: (Nachricht & { ordnerId: string })[] = [];
   let pfad: string | null = `/messages?$filter=receivedDateTime ge ${ab.toISOString()}&$orderby=receivedDateTime desc&$top=100&$select=id,subject,from,receivedDateTime,isRead,hasAttachments,bodyPreview,importance,parentFolderId`;
   while (pfad && aus.length < max) {
@@ -142,7 +180,8 @@ export async function nachrichtenSuchen(begriffe: string[], tage: number, signal
       && saetze.some((l) => l.every((w) => passtZumThema(`${n.betreff} ${n.von} ${n.vonAdresse} ${n.text}`, [w.toLowerCase()]))))
       .sort((a, b) => b.empfangen.localeCompare(a.empfangen)).map(({ ordner, an: _a, cc: _c, html: _h, text: _t, ...n }) => ({ ...n, ordnerId: ordner }));
   }
-  const weg = new Set((await Promise.all(weglassen.map(async (w) => { try { return (await graph<{ id: string }>(`/mailFolders/${w}?$select=id`, signal)).id; } catch { return ""; } }))).filter(Boolean));
+  const ids = await bekannteOrdnerIds(signal);
+  const weg = new Set(weglassen.map((w) => ids[w]).filter(Boolean));
   const kql = `(${saetze.map((l) => (l.length > 1 ? `(${l.join(" AND ")})` : l[0])).join(" OR ")}) AND received>=${ab.toISOString().slice(0, 10)}`;
   const aus = new Map<string, Nachricht & { ordnerId: string }>();
   let pfad: string | null = `/messages?$search=${encodeURIComponent(`"${kql}"`)}&$top=100&$select=id,subject,from,receivedDateTime,isRead,hasAttachments,bodyPreview,importance,parentFolderId`;
