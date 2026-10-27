@@ -869,33 +869,9 @@
         ]
       }
     ],
-    "steps": [
-      {
-        "id": "srwkcn8h",
-        "name": "Ergebnis",
-        "key": "schritt1",
-        "art": "prompt",
-        "rolle": "",
-        "wissen": "",
-        "prompt": "Keine Ausgabe",
-        "modell": "default",
-        "format": "markdown",
-        "datei": "",
-        "autoAll": false,
-        "vorlage": null,
-        "wissenModus": "app",
-        "quellen": [],
-        "bedingung": null,
-        "hausregeln": {
-          "fassungen": []
-        },
-        "faq": {
-          "eintraege": []
-        }
-      }
-    ],
+    "steps": [],
     "status": "entwurf",
-    "pflichtSperre": true,
+    "pflichtSperre": false,
     "owner": "",
     "erstelltVon": "dario.keller@koerber.com",
     "rechte": {
@@ -903,7 +879,7 @@
       "nutzen": []
     },
     "schutz": "intern",
-    "version": 3,
-    "geaendert": "2026-10-27T08:25:29.653Z"
+    "version": 4,
+    "geaendert": "2026-10-27T08:27:13.541Z"
   }
 }
