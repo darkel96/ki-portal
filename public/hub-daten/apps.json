@@ -181,60 +181,6 @@
     "version": 7,
     "geaendert": "2026-10-18T15:33:20.926Z"
   },
-  "app-mvi3alnrlwjk": {
-    "id": "app-mvi3alnrlwjk",
-    "v": 2,
-    "typ": "baukasten",
-    "url": "",
-    "name": "Neue Applikation",
-    "bereich": "Allgemein",
-    "beschreibung": "Beschreib hier kurz, was die Applikation macht.",
-    "theme": {
-      "accent": "",
-      "bg": "",
-      "font": "sans",
-      "radius": "m",
-      "width": "m"
-    },
-    "wissen": {
-      "modus": "eingaben",
-      "text": "",
-      "quellen": []
-    },
-    "blocks": [
-      {
-        "id": "b8igw332",
-        "type": "seite",
-        "props": {
-          "titel": "Eingaben"
-        },
-        "children": [
-          {
-            "id": "bp9gqb53",
-            "type": "postfach",
-            "props": {
-              "titel": "Postfach",
-              "anzahl": 25,
-              "vorschau": true,
-              "prozeduren": []
-            }
-          }
-        ]
-      }
-    ],
-    "steps": [],
-    "status": "entwurf",
-    "pflichtSperre": true,
-    "owner": "",
-    "erstelltVon": "dario.keller@koerber.com",
-    "rechte": {
-      "bearbeiten": [],
-      "nutzen": []
-    },
-    "schutz": "intern",
-    "version": 5,
-    "geaendert": "2026-10-26T14:30:13.933Z"
-  },
   "app-mvjcen1ky7ur": {
     "id": "app-mvjcen1ky7ur",
     "v": 2,
