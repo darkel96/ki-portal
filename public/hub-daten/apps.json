@@ -697,6 +697,34 @@
                   "placeholder": "14",
                   "aus": ""
                 }
+              },
+              {
+                "id": "b6072iue",
+                "type": "checkbox",
+                "props": {
+                  "label": "To-dos erstellen",
+                  "key": "todos_erstellen",
+                  "keyAuto": false,
+                  "pflicht": false,
+                  "hilfe": "Erstellt die Übersicht mit offenen Punkten und To-dos.",
+                  "beispiel": "true",
+                  "placeholder": "",
+                  "aus": ""
+                }
+              },
+              {
+                "id": "b40zrna6",
+                "type": "checkbox",
+                "props": {
+                  "label": "Briefing erstellen",
+                  "key": "briefing_erstellen",
+                  "keyAuto": false,
+                  "pflicht": false,
+                  "hilfe": "Erstellt das ausführliche Themen-Briefing.",
+                  "beispiel": "true",
+                  "placeholder": "",
+                  "aus": ""
+                }
               }
             ]
           }
@@ -779,7 +807,11 @@
             "filter": ""
           }
         ],
-        "bedingung": null,
+        "bedingung": {
+          "feld": "briefing_erstellen",
+          "op": "gleich",
+          "wert": "true"
+        },
         "hausregeln": {
           "fassungen": []
         },
@@ -817,7 +849,11 @@
             "filter": "{{kunde}},{{thema}}"
           }
         ],
-        "bedingung": null,
+        "bedingung": {
+          "feld": "todos_erstellen",
+          "op": "gleich",
+          "wert": "true"
+        },
         "hausregeln": {
           "fassungen": []
         },
@@ -843,8 +879,8 @@
       ]
     },
     "schutz": "oeffentlich",
-    "version": 22,
-    "geaendert": "2026-10-26T15:56:42.291Z"
+    "version": 23,
+    "geaendert": "2026-10-27T08:14:14.524Z"
   },
   "app-mvpftng4v7e5": {
     "id": "app-mvpftng4v7e5",
