@@ -1,3 +1,4 @@
+import { tabellenReparieren } from "./tabellenreparatur";
 import type { App, Quelle, Step } from "./schema";
 import { fieldsOf, slug, stepsFor, stepsUsing, stepText, varsIn } from "./model";
 import { auszuegeZusammen, buildRequest, wissenFuer, type FileInfo, type KiRequest, type WissenAuszug } from "./request";
@@ -253,6 +254,8 @@ export async function ablaufStarten(opts: {
         if (s.format === "markdown" || s.format === "text") {
           const links = req.diagnose?.links ?? [];
           text = linksBenennen(quellenVerlinken(verweiseAufloesen(text), links), links, s.format === "markdown");
+          // Tabellen ohne äußere Striche und Trennzeile (kommt bei Copilot vor) zu echten Tabellen
+          if (s.format === "markdown") text = tabellenReparieren(text);
         }
       }
       const paket = s.format === "dateien" ? parsePaket(text) : undefined;
