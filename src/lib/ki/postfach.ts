@@ -108,7 +108,7 @@ export async function nachrichtLaden(id: string, signal?: AbortSignal): Promise<
 }
 
 /** Nachrichten der letzten Tage aus dem ganzen Postfach (ohne Gelöschte, Junk, Entwürfe, Gesendete), neueste zuerst, höchstens 300 */
-export async function nachrichtenSeit(tage: number, signal?: AbortSignal): Promise<(Nachricht & { ordnerId: string })[]> {
+export async function nachrichtenSeit(tage: number, signal?: AbortSignal, max = 300): Promise<(Nachricht & { ordnerId: string })[]> {
   const ab = new Date(Date.now() - tage * 86_400_000);
   if (!postfachEcht()) {
     return beispiel.nachrichten.filter((n) => Date.parse(n.empfangen) >= ab.getTime() && !["deleteditems", "junkemail", "drafts", "sentitems"].includes(n.ordner))
@@ -117,12 +117,12 @@ export async function nachrichtenSeit(tage: number, signal?: AbortSignal): Promi
   const weg = new Set((await Promise.all(["deleteditems", "junkemail", "drafts", "sentitems"].map(async (w) => { try { return (await graph<{ id: string }>(`/mailFolders/${w}?$select=id`, signal)).id; } catch { return ""; } }))).filter(Boolean));
   const aus: (Nachricht & { ordnerId: string })[] = [];
   let pfad: string | null = `/messages?$filter=receivedDateTime ge ${ab.toISOString()}&$orderby=receivedDateTime desc&$top=100&$select=id,subject,from,receivedDateTime,isRead,hasAttachments,bodyPreview,importance,parentFolderId`;
-  while (pfad && aus.length < 300) {
+  while (pfad && aus.length < max) {
     const j: { value: (GraphNachricht & { parentFolderId?: string })[]; "@odata.nextLink"?: string } = await graph(pfad, signal);
     for (const m of j.value) if (!weg.has(m.parentFolderId ?? "")) aus.push({ ...nachrichtAus(m), ordnerId: m.parentFolderId ?? "" });
     pfad = j["@odata.nextLink"] ?? null;
   }
-  return aus;
+  return aus.slice(0, max);
 }
 
 /** Namen der Ordner zu IDs: erst aus der geladenen Ordnerliste, unbekannte (tiefere Unterordner) einzeln bei Graph */

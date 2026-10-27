@@ -11,6 +11,9 @@ import { markdown } from "@/lib/markdown";
 import type { Mode } from "./BlockContent";
 
 type Prozedur = Extract<Block, { type: "postfach" }>["props"]["prozeduren"][number];
+/** Themensuche: so viele Mails lädt sie höchstens, und so viele prüft die KI je Anfrage */
+const MAX_MAILS = 1000;
+const PAKET = 150;
 type Treffer = Nachricht & { ordnerId: string; ordnerName?: string; gewaehlt: boolean };
 
 /** Vordefinierte KI-Aktionen zur geöffneten Mail */
@@ -95,27 +98,35 @@ export function PostfachView({ b, mode }: Props) {
     if (!p.thema.trim()) { toast.error("Bitte ein Thema oder Suchbegriffe angeben."); return; }
     setProz(p); setProzLaeuft("suche"); setTreffer(null); setProzMeldung(""); setProzPhase(`Lädt die Mails der letzten ${p.tage} Tage`);
     try {
-      const alle = await nachrichtenSeit(p.tage);
+      const alle = await nachrichtenSeit(p.tage, undefined, MAX_MAILS);
       const w = suchWorte(p.thema);
       // Wortsuche: nur echte Suchwörter (ohne „alles“, „zum“, „Projekt“ …), jeweils am Wortanfang
       const wortTreffer = alle.filter((n) => passtZumThema(`${n.betreff} ${n.von} ${n.vonAdresse} ${n.vorschau}`, w));
       let passend = wortTreffer;
       if (p.ki && alle.length) {
-        setProzPhase(`KI wählt aus ${Math.min(150, alle.length)} Mails`);
-        const geprueft = alle.slice(0, 150);
-        const liste = geprueft.map((n, i) => `${i + 1} | ${n.empfangen.slice(0, 10)} | ${n.von} | ${n.betreff} | ${n.vorschau.slice(0, 120)}`).join("\n");
-        try {
-          const antwort = await kiFragen(`Welche dieser E-Mails gehören eindeutig zum Thema „${p.thema}“? Zähle auch Mails dazu, die das Thema anders benennen (Projektnummer, Kunde, Anlage), aber nur, wenn der Bezug klar ist; im Zweifel nicht. Newsletter, Einladungen, Benachrichtigungen von Tools und Werbung gehören nicht dazu, außer sie handeln ausdrücklich vom Thema. Antworte nur mit JSON: {"nummern": [Zahlen]}\n\nNr | Datum | Von | Betreff | Vorschau\n${liste}`);
-          const j = jsonAus(antwort) as { nummern?: unknown };
-          const nummern = Array.isArray(j.nummern) ? j.nummern.map(Number).filter((n) => n >= 1 && n <= geprueft.length) : [];
-          // Die KI entscheidet über die geprüften Mails; ältere, die sie nicht gesehen hat, kommen über die Wortsuche dazu
-          const ids = new Set([...nummern.map((n) => geprueft[n - 1]!.id), ...wortTreffer.filter((n) => !geprueft.includes(n)).map((n) => n.id)]);
-          passend = alle.filter((n) => ids.has(n.id));
-        } catch (e) {
-          if (e instanceof KiSimulation) setProzMeldung("Simulation: Die KI-Auswahl würde an die zentrale KI-Anbindung gehen; gezeigt wird nur die Wortsuche.");
-          else setProzMeldung(`KI-Auswahl nicht möglich (${e instanceof Error ? e.message : String(e)}); gezeigt wird die Wortsuche.`);
+        // Die KI prüft alle geladenen Mails in Paketen (je Anfrage höchstens PAKET, sonst wird die Liste zu lang)
+        const ids = new Set<string>();
+        let ohneKi = 0;
+        for (let ab = 0; ab < alle.length; ab += PAKET) {
+          const paket = alle.slice(ab, ab + PAKET);
+          setProzPhase(alle.length > PAKET ? `KI prüft Mails ${ab + 1} bis ${ab + paket.length} von ${alle.length}` : `KI wählt aus ${alle.length} Mails`);
+          const liste = paket.map((n, i) => `${i + 1} | ${n.empfangen.slice(0, 10)} | ${n.von} | ${n.betreff} | ${n.vorschau.slice(0, 120)}`).join("\n");
+          try {
+            const antwort = await kiFragen(`Welche dieser E-Mails gehören eindeutig zum Thema „${p.thema}“? Zähle auch Mails dazu, die das Thema anders benennen (Projektnummer, Kunde, Anlage), aber nur, wenn der Bezug klar ist; im Zweifel nicht. Newsletter, Einladungen, Benachrichtigungen von Tools und Werbung gehören nicht dazu, außer sie handeln ausdrücklich vom Thema. Antworte nur mit JSON: {"nummern": [Zahlen]}\n\nNr | Datum | Von | Betreff | Vorschau\n${liste}`);
+            const j = jsonAus(antwort) as { nummern?: unknown };
+            const nummern = Array.isArray(j.nummern) ? j.nummern.map(Number).filter((n) => n >= 1 && n <= paket.length) : [];
+            for (const n of nummern) ids.add(paket[n - 1]!.id);
+          } catch (e) {
+            if (e instanceof KiSimulation) { setProzMeldung("Simulation: Die KI-Auswahl würde an die zentrale KI-Anbindung gehen; gezeigt wird nur die Wortsuche."); ids.clear(); ohneKi = -1; break; }
+            // Paket ohne KI: dort zählt die Wortsuche
+            for (const n of paket) if (wortTreffer.includes(n)) ids.add(n.id);
+            ohneKi += paket.length;
+            setProzMeldung(`KI-Auswahl für ${ohneKi} Mails nicht möglich (${e instanceof Error ? e.message : String(e)}); dort zählt die Wortsuche.`);
+          }
         }
+        if (ohneKi >= 0) passend = alle.filter((n) => ids.has(n.id));
       }
+      if (alle.length >= MAX_MAILS) setProzMeldung((m) => m || `Geprüft wurden die neuesten ${MAX_MAILS} Mails dieses Zeitraums, ältere nicht.`);
       // Ordner, in dem die Mail gerade liegt (Spalte in der Auswahl)
       const namen = await ordnerNamen(passend.map((n) => n.ordnerId), ordner).catch(() => ({} as Record<string, string>));
       setTreffer(passend.map((n) => ({ ...n, ordnerName: namen[n.ordnerId] ?? "", gewaehlt: true })));
