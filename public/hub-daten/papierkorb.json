@@ -1,0 +1,148 @@
+{
+  "app-mvpftng4v7e5": {
+    "app": {
+      "id": "app-mvpftng4v7e5",
+      "v": 2,
+      "typ": "baukasten",
+      "url": "",
+      "name": "Neue Applikation",
+      "bereich": "Allgemein",
+      "beschreibung": "Beschreib hier kurz, was die Applikation macht.",
+      "theme": {
+        "accent": "",
+        "bg": "",
+        "font": "sans",
+        "radius": "m",
+        "width": "m"
+      },
+      "wissen": {
+        "modus": "eingaben",
+        "text": "",
+        "quellen": []
+      },
+      "blocks": [
+        {
+          "id": "b3isvngl",
+          "type": "seite",
+          "props": {
+            "titel": "Eingaben"
+          },
+          "children": [
+            {
+              "id": "b4dm5r33",
+              "type": "heading",
+              "props": {
+                "text": "Neue Applikation",
+                "level": 1,
+                "align": "left",
+                "color": ""
+              }
+            },
+            {
+              "id": "b1bv4csm",
+              "type": "text",
+              "props": {
+                "text": "Beschreib hier kurz, was die Applikation macht.",
+                "size": "m",
+                "align": "left",
+                "color": ""
+              }
+            },
+            {
+              "id": "biyozmsg",
+              "type": "section",
+              "props": {
+                "bg": "",
+                "pad": "m",
+                "border": true
+              },
+              "children": [
+                {
+                  "id": "bu0br13x",
+                  "type": "heading",
+                  "props": {
+                    "text": "Eingaben",
+                    "level": 3,
+                    "align": "left",
+                    "color": ""
+                  }
+                },
+                {
+                  "id": "bhmw2o9g",
+                  "type": "textarea",
+                  "props": {
+                    "label": "Text",
+                    "key": "text",
+                    "keyAuto": false,
+                    "pflicht": true,
+                    "hilfe": "",
+                    "beispiel": "",
+                    "placeholder": "",
+                    "aus": "",
+                    "rows": 5
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "b1mtv0u3",
+          "type": "seite",
+          "props": {
+            "titel": "Ergebnis"
+          },
+          "children": [
+            {
+              "id": "b8uai9x9",
+              "type": "output",
+              "props": {
+                "titel": "Ergebnis",
+                "quelle": "s4mn6w7g",
+                "stil": "card",
+                "pfad": ""
+              }
+            }
+          ]
+        }
+      ],
+      "steps": [
+        {
+          "id": "s4mn6w7g",
+          "name": "Ergebnis",
+          "key": "schritt1",
+          "art": "prompt",
+          "rolle": "",
+          "wissen": "",
+          "prompt": "Fasse den folgenden Text in fünf Stichpunkten zusammen:\n\n{{text}}",
+          "modell": "default",
+          "format": "markdown",
+          "datei": "",
+          "autoAll": false,
+          "vorlage": null,
+          "wissenModus": "app",
+          "quellen": [],
+          "bedingung": null,
+          "hausregeln": {
+            "fassungen": []
+          },
+          "faq": {
+            "eintraege": []
+          }
+        }
+      ],
+      "status": "entwurf",
+      "pflichtSperre": true,
+      "owner": "",
+      "erstelltVon": "dario.keller@koerber.com",
+      "rechte": {
+        "bearbeiten": [],
+        "nutzen": []
+      },
+      "schutz": "intern",
+      "version": 1,
+      "geaendert": "2026-10-26T15:54:54.580Z"
+    },
+    "geloescht": "2026-10-27T08:18:23.920Z"
+  }
+}
