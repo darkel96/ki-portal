@@ -5,7 +5,7 @@ import DOMPurify from "dompurify";
 import { toast } from "sonner";
 import { BookmarkPlus, ChevronDown, ChevronRight, FolderInput, Mail, MailOpen, Paperclip, RefreshCw, Search, Sparkles, Square } from "lucide-react";
 import type { Block } from "@/lib/schema";
-import { antwortEntwurf, mailKontext, nachrichtenLaden, nachrichtenSeit, nachrichtenSuchen, nachrichtenVerschieben, nachrichtLaden, ordnerAnlegen, ordnerGemerkt, ordnerLaden, ordnerNamen, postfachEcht, type Nachricht, type NachrichtVoll, type Ordner } from "@/lib/ki/postfach";
+import { antwortEntwurf, mailKontext, nachrichtenLaden, nachrichtenSeit, nachrichtenSuchen, nachrichtenVerschieben, nachrichtLaden, ordnerGemerkt, ordnerLaden, ordnerNamen, ordnerNeuAnlegen, postfachEcht, zielOrdnerSuchen, pfadTeile, type OrdnerPfad, type Nachricht, type NachrichtVoll, type Ordner } from "@/lib/ki/postfach";
 import { KiSimulation, jsonAus, kiFragen } from "@/lib/ki";
 import { markdown } from "@/lib/markdown";
 import type { Mode } from "./BlockContent";
@@ -59,6 +59,8 @@ export function PostfachView({ b, mode }: Props) {
   const [prozOffen, setProzOffen] = useState(false);
   const [proz, setProz] = useState<Prozedur>({ name: "", thema: "", tage: 30, zielordner: "", ki: true });
   const [treffer, setTreffer] = useState<Treffer[] | null>(null);
+  /** Zielordner zur Eingabe: gefunden (mit Pfad), mehrfach vorhanden (Person muss genauer werden) oder neu anzulegen */
+  const [ziel, setZiel] = useState<{ eingabe: string; treffer: OrdnerPfad[] } | null>(null);
   const [prozLaeuft, setProzLaeuft] = useState<"suche" | "verschieben" | null>(null);
   const [prozMeldung, setProzMeldung] = useState("");
   /** Was die Suche gerade tut (für den Knopf): „Lädt die Mails …“, „KI wählt aus 150 Mails …“ */
@@ -128,11 +130,13 @@ export function PostfachView({ b, mode }: Props) {
           if (e instanceof KiSimulation) { kiAus = true; hinweise.push("Simulation: Die KI-Auswahl würde an die zentrale KI-Anbindung gehen; gezeigt wird nur die Suche nach den Wörtern."); }
         }
       }
-      // Was schon im Zielordner liegt, muss nicht noch einmal verschoben werden
-      const flach = (l: Ordner[]): Ordner[] => l.flatMap((o) => [o, ...flach(o.kinder ?? [])]);
-      const ziel = p.zielordner.trim() ? flach(ordner).find((o) => o.name.toLowerCase() === p.zielordner.trim().toLowerCase()) : undefined;
-      const schonDa = ziel ? kandidaten.filter((n) => n.ordnerId === ziel.id).length : 0;
-      if (ziel) kandidaten = kandidaten.filter((n) => n.ordnerId !== ziel.id);
+      // Zielordner in allen Ebenen suchen; was schon dort liegt, muss nicht noch einmal verschoben werden
+      setProzPhase("Sucht den Zielordner");
+      const zt = p.zielordner.trim() ? await zielOrdnerSuchen(p.zielordner).catch(() => [] as OrdnerPfad[]) : [];
+      setZiel(p.zielordner.trim() ? { eingabe: p.zielordner.trim(), treffer: zt } : null);
+      const zielId = zt.length === 1 ? zt[0]!.id : "";
+      const schonDa = zielId ? kandidaten.filter((n) => n.ordnerId === zielId).length : 0;
+      if (zielId) kandidaten = kandidaten.filter((n) => n.ordnerId !== zielId);
       let passend = kandidaten;
       if (!kiAus && kandidaten.length) {
         // 3. Die KI prüft die Treffer in Paketen und wirft aus, was nicht wirklich zum Thema gehört
@@ -157,7 +161,7 @@ export function PostfachView({ b, mode }: Props) {
         passend = kandidaten.filter((n) => ids.has(n.id));
       }
       if (kandidaten.length >= MAX_MAILS) hinweise.push(`Mehr als ${MAX_MAILS} Treffer; berücksichtigt sind die neuesten ${MAX_MAILS}.`);
-      if (schonDa) hinweise.push(`${schonDa} ${schonDa === 1 ? "Mail liegt" : "Mails liegen"} schon in „${ziel!.name}“.`);
+      if (schonDa) hinweise.push(`${schonDa} ${schonDa === 1 ? "Mail liegt" : "Mails liegen"} schon in „${zt[0]!.pfad.join(" › ")}“.`);
       setProzMeldung(hinweise.join(" "));
       // Ordner, in dem die Mail gerade liegt (Spalte in der Auswahl)
       const namen = await ordnerNamen(passend.map((n) => n.ordnerId), ordner).catch(() => ({} as Record<string, string>));
@@ -169,13 +173,22 @@ export function PostfachView({ b, mode }: Props) {
   const prozAusfuehren = async () => {
     const ids = (treffer ?? []).filter((t) => t.gewaehlt).map((t) => t.id);
     if (!ids.length || !proz.zielordner.trim()) { toast.error(ids.length ? "Bitte einen Zielordner angeben." : "Keine Mail ausgewählt."); return; }
-    setProzLaeuft("verschieben"); setProzPhase(`Verschiebt 0 von ${ids.length} Mails`);
+    setProzLaeuft("verschieben"); setProzPhase("Sucht den Zielordner");
     const erledigt = new Set<string>();
     try {
-      const ziel = await ordnerAnlegen(proz.zielordner);
-      const n = await nachrichtenVerschieben(ids, ziel.id, undefined, (id) => { erledigt.add(id); setProzPhase(`Verschiebt ${erledigt.size} von ${ids.length} Mails`); });
-      toast.success(`${n} ${n === 1 ? "Mail" : "Mails"} nach „${ziel.name}“ verschoben.`);
-      setTreffer(null); setProzMeldung(`${n} ${n === 1 ? "Mail" : "Mails"} nach „${ziel.name}“ verschoben.`);
+      // Zielordner noch einmal frisch suchen (in allen Ebenen); angelegt wird nur, was es nirgends gibt und was die Person gesehen hat
+      const eingabe = proz.zielordner.trim();
+      const gefunden = await zielOrdnerSuchen(eingabe);
+      const gesehen = ziel?.eingabe === eingabe ? ziel.treffer : null;
+      setZiel({ eingabe, treffer: gefunden });
+      if (gefunden.length > 1) { toast.error(`„${eingabe}“ gibt es mehrmals. Bitte den Pfad angeben, z. B. „${gefunden[0]!.pfad.slice(-2).join("/")}“.`); return; }
+      if (!gefunden.length && gesehen?.length !== 0) { toast.info(`Den Ordner „${eingabe}“ gibt es noch nicht. Zum Anlegen noch einmal auf „Anlegen und verschieben“ klicken.`); return; }
+      const zo = gefunden[0] ?? await ordnerNeuAnlegen(eingabe);
+      const zielName = zo.pfad.join(" › ");
+      setProzPhase(`Verschiebt 0 von ${ids.length} Mails`);
+      const n = await nachrichtenVerschieben(ids, zo.id, undefined, (id) => { erledigt.add(id); setProzPhase(`Verschiebt ${erledigt.size} von ${ids.length} Mails`); });
+      toast.success(`${n} ${n === 1 ? "Mail" : "Mails"} nach „${zielName}“ verschoben.`);
+      setTreffer(null); setZiel(null); setProzMeldung(`${n} ${n === 1 ? "Mail" : "Mails"} nach „${zielName}“ verschoben.`);
       await ordnerHolen(); setSuche((s) => s);   // Liste und Zähler neu
       setGewaehlt((g) => (g ? { ...g } : g));
     } catch (e) {
@@ -186,6 +199,7 @@ export function PostfachView({ b, mode }: Props) {
     finally { setProzLaeuft(null); setProzPhase(""); }
   };
 
+  const zielStand: "da" | "neu" | "mehrfach" | null = !ziel || ziel.eingabe !== proz.zielordner.trim() ? null : ziel.treffer.length === 1 ? "da" : ziel.treffer.length ? "mehrfach" : "neu";
   const ordnerHolen = async () => {
     setLaedt("ordner"); setFehler("");
     // Zuletzt geladene Ordner sofort zeigen, die frische Liste ersetzt sie gleich
@@ -290,8 +304,11 @@ export function PostfachView({ b, mode }: Props) {
                 <button type="button" className="o-chat-link" onClick={() => setTreffer(treffer.map((t) => ({ ...t, gewaehlt: true })))}>alle</button>
                 <button type="button" className="o-chat-link" onClick={() => setTreffer(treffer.map((t) => ({ ...t, gewaehlt: false })))}>keine</button>
                 <span className="flex-1" />
-                <button type="button" className="o-btn" style={{ "--btn": "var(--app-accent)", "--btn-ink": "var(--app-accent-ink)" } as CSSProperties} disabled={prozLaeuft !== null || !treffer.some((t) => t.gewaehlt)} onClick={() => void prozAusfuehren()}>{prozLaeuft === "verschieben" ? <Arbeitet text="Verschiebt" /> : `Nach „${proz.zielordner || "…"}“ verschieben`}</button>
+                <button type="button" className="o-btn" style={{ "--btn": "var(--app-accent)", "--btn-ink": "var(--app-accent-ink)" } as CSSProperties} disabled={prozLaeuft !== null || !treffer.some((t) => t.gewaehlt) || (zielStand === "mehrfach")} onClick={() => void prozAusfuehren()}>{prozLaeuft === "verschieben" ? <Arbeitet text="Verschiebt" /> : zielStand === "neu" ? `„${proz.zielordner.trim()}“ anlegen und verschieben` : `Nach „${zielStand === "da" ? ziel!.treffer[0]!.pfad.slice(-2).join(" › ") : proz.zielordner || "…"}“ verschieben`}</button>
               </div>
+              {zielStand === "da" && <p className="o-muted o-post-ziel">Ziel: {ziel!.treffer[0]!.pfad.join(" › ")}</p>}
+              {zielStand === "neu" && <p className="o-muted o-post-ziel">Einen Ordner „{ziel!.eingabe}“ gibt es noch nicht; er wird beim Verschieben {pfadTeile(ziel!.eingabe).length > 1 ? "dort" : "auf oberster Ebene"} neu angelegt.</p>}
+              {zielStand === "mehrfach" && <p className="o-post-ziel o-post-ziel-warn" role="alert">„{ziel!.eingabe}“ gibt es mehrmals: {ziel!.treffer.map((o) => o.pfad.join(" › ")).join("; ")}. Bitte den Pfad als Zielordner angeben, z. B. „{ziel!.treffer[0]!.pfad.slice(-2).join("/")}“, und neu suchen.</p>}
               <ul>
                 {treffer.map((t) => (
                   <li key={t.id}><label><input type="checkbox" checked={t.gewaehlt} onChange={(e) => setTreffer(treffer.map((x) => (x.id === t.id ? { ...x, gewaehlt: e.target.checked } : x)))} /><span className="o-post-datum">{datum(t.empfangen)}</span><b>{t.von}</b><span className="o-post-betreff">{t.betreff}</span><span className="o-post-ort" title={t.ordnerName ? `Liegt in „${t.ordnerName}“` : undefined}>{t.ordnerName || "–"}</span></label></li>

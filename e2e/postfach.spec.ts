@@ -113,7 +113,9 @@ test("Postfach: KI zur geöffneten Mail (Zusammenfassung, Antwortentwurf) und Pr
   await expect(treffer.locator("li").filter({ hasText: "CRA Attest Retrofit Linie 3" }).locator(".o-post-ort")).toHaveText("Posteingang");
   // Eine abwählen, dann verschieben
   await treffer.getByLabel(/Rückfrage SBOM/).uncheck();
-  await treffer.getByRole("button", { name: "Nach „CRA-Ablage“ verschieben" }).click();
+  // „CRA-Ablage“ gibt es noch nicht: die Schaltfläche sagt, dass er angelegt wird
+  await expect(treffer).toContainText("Einen Ordner „CRA-Ablage“ gibt es noch nicht");
+  await treffer.getByRole("button", { name: "„CRA-Ablage“ anlegen und verschieben" }).click();
   await expect(post.getByText("3 Mails nach „CRA-Ablage“ verschoben.").first()).toBeVisible();
   await expect(post.getByRole("navigation", { name: "Ordner" }).getByRole("button", { name: /CRA-Ablage/ })).toBeVisible();
   await post.getByRole("navigation", { name: "Ordner" }).getByRole("button", { name: /CRA-Ablage/ }).click();
@@ -236,4 +238,36 @@ test("Postfach über Microsoft: höchstens drei Anfragen gleichzeitig (sonst bre
   await expect(page.getByText(/Fehler 429/)).toHaveCount(0);
   expect(gebremst).toBe(2);
   expect(hoechstens).toBeLessThanOrEqual(3);
+});
+
+test("Zielordner wird in allen Ebenen gesucht: „KTE“ unter Projekte wird genutzt, nicht neu angelegt; doppelte Namen muss man genauer angeben", async ({ page }, info) => {
+  test.skip(info.project.name !== "desktop", "einmal reicht");
+  await kiNachbau(page);
+  const app = { ...APP, blocks: [{ id: "p1", type: "seite", props: { titel: "Postfach" }, children: [
+    { id: "pf", type: "postfach", props: { titel: "Postfach", anzahl: 25, vorschau: true, prozeduren: [] } },
+  ] }] };
+  await page.addInitScript((a) => localStorage.setItem("kihub-apps-v3", JSON.stringify([a])), app);
+  await page.goto("/app/post-app");
+  const post = page.locator(".o-post");
+  await post.getByRole("button", { name: "Prozeduren" }).click();
+  await post.getByRole("textbox", { name: "Thema", exact: true }).fill("Nordhafen");
+  await post.getByRole("textbox", { name: "Zielordner", exact: true }).fill("KTE");
+  await post.getByRole("checkbox", { name: /KI wählt/ }).uncheck();
+  await post.getByRole("button", { name: "Vorschau" }).click();
+  const treffer = post.getByRole("group", { name: "Gefundene Mails" });
+  await expect(treffer).toContainText("Ziel: Posteingang › Projekte › KTE");
+  await treffer.getByRole("button", { name: "Nach „Projekte › KTE“ verschieben" }).click();
+  await expect(post.getByText("1 Mail nach „Posteingang › Projekte › KTE“ verschoben.").first()).toBeVisible();
+  // Kein zweiter Ordner „KTE“ auf oberster Ebene
+  const ordner = post.getByRole("navigation", { name: "Ordner" });
+  await expect(ordner.getByRole("button", { name: /^KTE/ })).toHaveCount(0);
+  // Gibt es den Namen zweimal, legt der Hub nichts an und verschiebt nicht, bis der Pfad eindeutig ist
+  const r = await page.evaluate(async () => {
+    const p = await import("/src/lib/ki/postfach.ts");
+    await p.ordnerNeuAnlegen("CRA");
+    return { zwei: (await p.zielOrdnerSuchen("CRA")).map((o) => o.pfad.join(" › ")), eins: (await p.zielOrdnerSuchen("Posteingang/CRA")).length, teile: p.pfadTeile("Projekte › KTE") };
+  });
+  expect(r.zwei).toEqual(["Posteingang › CRA", "CRA"]);
+  expect(r.eins).toBe(1);
+  expect(r.teile).toEqual(["Projekte", "KTE"]);
 });

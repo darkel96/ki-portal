@@ -927,6 +927,8 @@ a.mh-titel:hover { text-decoration: underline; text-underline-offset: 4px; }
 .o-post-proz-treffer li label { display: flex; align-items: center; gap: 10px; padding: 6px 10px; font-size: 13.5px; border-bottom: 1px solid var(--app-line); cursor: pointer; }
 .o-post-proz-treffer li:last-child label { border-bottom: 0; }
 .o-post-proz-treffer li b { flex: 0 0 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.o-post-ziel { margin: 0; padding: 4px 10px 6px; font-size: 12.5px; }
+.o-post-ziel-warn { color: var(--app-danger, #b42318); font-weight: 600; }
 .o-post-proz-treffer .o-post-ort { flex: 0 0 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; color: var(--app-muted); text-align: right; }
 @media (max-width: 640px) { .o-post-proz-treffer .o-post-ort { flex-basis: 90px; } }
 
