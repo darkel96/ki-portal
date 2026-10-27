@@ -827,5 +827,102 @@
     "schutz": "oeffentlich",
     "version": 23,
     "geaendert": "2026-10-27T08:14:14.524Z"
+  },
+  "app-mvqf3ilxj7xk": {
+    "id": "app-mvqf3ilxj7xk",
+    "v": 2,
+    "typ": "baukasten",
+    "url": "",
+    "name": "Neue Applikation",
+    "bereich": "Allgemein",
+    "beschreibung": "Beschreib hier kurz, was die Applikation macht.",
+    "theme": {
+      "accent": "",
+      "bg": "",
+      "font": "sans",
+      "radius": "m",
+      "width": "m"
+    },
+    "wissen": {
+      "modus": "eingaben",
+      "text": "",
+      "quellen": []
+    },
+    "blocks": [
+      {
+        "id": "bd6ufja9",
+        "type": "seite",
+        "props": {
+          "titel": "Eingaben"
+        },
+        "children": [
+          {
+            "id": "bjrtgj5w",
+            "type": "postfach",
+            "props": {
+              "titel": "Postfach",
+              "anzahl": 25,
+              "vorschau": true,
+              "prozeduren": []
+            }
+          }
+        ]
+      },
+      {
+        "id": "buaw1b2e",
+        "type": "seite",
+        "props": {
+          "titel": "Ergebnis"
+        },
+        "children": [
+          {
+            "id": "breky5wq",
+            "type": "output",
+            "props": {
+              "titel": "Ergebnis",
+              "quelle": "srwkcn8h",
+              "stil": "card",
+              "pfad": ""
+            }
+          }
+        ]
+      }
+    ],
+    "steps": [
+      {
+        "id": "srwkcn8h",
+        "name": "Ergebnis",
+        "key": "schritt1",
+        "art": "prompt",
+        "rolle": "",
+        "wissen": "",
+        "prompt": "Keine Ausgabe",
+        "modell": "default",
+        "format": "markdown",
+        "datei": "",
+        "autoAll": false,
+        "vorlage": null,
+        "wissenModus": "app",
+        "quellen": [],
+        "bedingung": null,
+        "hausregeln": {
+          "fassungen": []
+        },
+        "faq": {
+          "eintraege": []
+        }
+      }
+    ],
+    "status": "entwurf",
+    "pflichtSperre": true,
+    "owner": "",
+    "erstelltVon": "dario.keller@koerber.com",
+    "rechte": {
+      "bearbeiten": [],
+      "nutzen": []
+    },
+    "schutz": "intern",
+    "version": 1,
+    "geaendert": "2026-10-27T08:22:21.429Z"
   }
 }
