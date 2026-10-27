@@ -4,8 +4,10 @@
  * Beispielpostfach, damit sich der Baustein ansehen und prüfen lässt.
  */
 import { graphToken } from "./auth";
+import { graphTestToken } from "./graph";
 import { KI_CONFIG } from "./config";
 import { kiModus } from "./index";
+import { passtZumThema } from "../themensuche";
 
 export type Ordner = { id: string; name: string; ungelesen: number; gesamt: number; kinder?: Ordner[] };
 export type Nachricht = { id: string; betreff: string; von: string; vonAdresse: string; empfangen: string; gelesen: boolean; anhang: boolean; vorschau: string; wichtig: boolean };
@@ -20,7 +22,8 @@ const SCOPES_SCHREIBEN = ["https://graph.microsoft.com/Mail.ReadWrite"];
 const REIHENFOLGE = ["inbox", "drafts", "sentitems", "deleteditems", "junkemail", "archive"];
 const DEUTSCH: Record<string, string> = { inbox: "Posteingang", drafts: "Entwürfe", sentitems: "Gesendete Elemente", deleteditems: "Gelöschte Elemente", junkemail: "Junk-E-Mail", archive: "Archiv", outbox: "Postausgang" };
 
-export const postfachEcht = () => kiModus() === "copilot";
+/** Echtes Postfach über Graph: mit Copilot-Anmeldung (in der Entwicklung auch mit Test-Token „kihub-graph-test“) */
+export const postfachEcht = () => kiModus() === "copilot" || !!graphTestToken();
 
 const warten = (ms: number, signal?: AbortSignal) => new Promise<void>((ok, fehler) => {
   if (signal?.aborted) { fehler(new DOMException("Abgebrochen", "AbortError")); return; }
@@ -29,7 +32,7 @@ const warten = (ms: number, signal?: AbortSignal) => new Promise<void>((ok, fehl
 });
 
 async function graph<T>(pfad: string, signal?: AbortSignal, opts: { method?: string; body?: unknown; schreiben?: boolean } = {}): Promise<T> {
-  const token = await graphToken(opts.schreiben ? SCOPES_SCHREIBEN : SCOPES);
+  const token = graphTestToken() ?? await graphToken(opts.schreiben ? SCOPES_SCHREIBEN : SCOPES);
   const senden = () => fetch(pfad.startsWith("http") ? pfad : `${GRAPH}${pfad}`, {
     method: opts.method ?? "GET", signal,
     headers: { Authorization: `Bearer ${token}`, Prefer: 'outlook.body-content-type="html"', ...(opts.body !== undefined ? { "Content-Type": "application/json" } : {}) },
@@ -123,6 +126,35 @@ export async function nachrichtenSeit(tage: number, signal?: AbortSignal, max = 
     pfad = j["@odata.nextLink"] ?? null;
   }
   return aus.slice(0, max);
+}
+
+/**
+ * Volltextsuche über alle Ordner im Zeitraum (Betreff, Text, Absender; Graph „$search“ mit KQL). Ein Treffer reicht
+ * für eines der Wörter; ein Begriff aus mehreren Wörtern braucht alle. Gelöschte, Junk, Entwürfe und Gesendete fallen weg.
+ */
+export async function nachrichtenSuchen(begriffe: string[], tage: number, signal?: AbortSignal, max = 1000): Promise<(Nachricht & { ordnerId: string })[]> {
+  const ab = new Date(Date.now() - tage * 86_400_000);
+  const saetze = begriffe.map((b) => b.replace(/["\\()]/g, " ").split(/\s+/).filter((w) => w.length >= 2)).filter((l) => l.length);
+  if (!saetze.length) return [];
+  const weglassen = ["deleteditems", "junkemail", "drafts", "sentitems"];
+  if (!postfachEcht()) {
+    return beispiel.nachrichten.filter((n) => Date.parse(n.empfangen) >= ab.getTime() && !weglassen.includes(n.ordner)
+      && saetze.some((l) => l.every((w) => passtZumThema(`${n.betreff} ${n.von} ${n.vonAdresse} ${n.text}`, [w.toLowerCase()]))))
+      .sort((a, b) => b.empfangen.localeCompare(a.empfangen)).map(({ ordner, an: _a, cc: _c, html: _h, text: _t, ...n }) => ({ ...n, ordnerId: ordner }));
+  }
+  const weg = new Set((await Promise.all(weglassen.map(async (w) => { try { return (await graph<{ id: string }>(`/mailFolders/${w}?$select=id`, signal)).id; } catch { return ""; } }))).filter(Boolean));
+  const kql = `(${saetze.map((l) => (l.length > 1 ? `(${l.join(" AND ")})` : l[0])).join(" OR ")}) AND received>=${ab.toISOString().slice(0, 10)}`;
+  const aus = new Map<string, Nachricht & { ordnerId: string }>();
+  let pfad: string | null = `/messages?$search=${encodeURIComponent(`"${kql}"`)}&$top=100&$select=id,subject,from,receivedDateTime,isRead,hasAttachments,bodyPreview,importance,parentFolderId`;
+  while (pfad && aus.size < max) {
+    const j: { value: (GraphNachricht & { parentFolderId?: string })[]; "@odata.nextLink"?: string } = await graph(pfad, signal);
+    for (const m of j.value) {
+      if (weg.has(m.parentFolderId ?? "") || Date.parse(m.receivedDateTime ?? "") < ab.getTime()) continue;
+      aus.set(m.id, { ...nachrichtAus(m), ordnerId: m.parentFolderId ?? "" });
+    }
+    pfad = j["@odata.nextLink"] ?? null;
+  }
+  return [...aus.values()].sort((a, b) => b.empfangen.localeCompare(a.empfangen)).slice(0, max);
 }
 
 /** Namen der Ordner zu IDs: erst aus der geladenen Ordnerliste, unbekannte (tiefere Unterordner) einzeln bei Graph */
