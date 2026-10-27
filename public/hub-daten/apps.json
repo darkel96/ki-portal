@@ -722,6 +722,7 @@
         "key": "briefing",
         "art": "prompt",
         "rolle": "",
+        "agent": "",
         "wissen": "",
         "prompt": "Analysiere die verfügbaren E-Mails, Teams-Nachrichten und Dokumente zum Kunden {{kunde}} und zu folgendem Thema: {{thema}}. Berücksichtige nur Informationen aus den letzten {{tage}} Tagen. Vergleiche die Quellen miteinander und erstelle ein kompaktes Arbeitsbriefing. Gliedere es in: 1. Aktueller Stand, 2. Was hat sich verändert?, 3. Offene Punkte, 4. To-dos mit Verantwortlichen und Fristen, soweit aus den Quellen eindeutig erkennbar, 5. Worauf muss ich achten?, 6. Kommunikation: Nenne konkret, welche offenen Punkte sinnvoll per E-Mail oder Teams adressiert werden sollten. Kennzeichne Widersprüche und fehlende Informationen ausdrücklich. Keine Vermutungen als Fakten darstellen.",
         "modell": "complex",
@@ -771,6 +772,7 @@
         "key": "todos",
         "art": "prompt",
         "rolle": "Du erstellst eine sehr kurze, handlungsorientierte Übersicht. Nenne ausschließlich offene Punkte und konkrete To-dos. Übernimm Verantwortliche und Fristen nur, wenn sie eindeutig belegt sind; andernfalls schreibe „festzulegen“ bzw. „nicht dokumentiert“. Erfinde keine Angaben.",
+        "agent": "",
         "wissen": "",
         "prompt": "Analysiere die verfügbaren E-Mails, Teams-Nachrichten und Dokumente zum Kunden {{kunde}} und zum Thema {{thema}} aus den letzten {{tage}} Tagen. Gib ausschließlich eine knappe Liste der aktuell offenen Punkte und To-dos aus. Je Punkt: Aufgabe bzw. offener Punkt, Verantwortlicher falls belegt, Frist falls belegt. Keine Einleitung, keine Zusammenfassung und keine weiteren Abschnitte.",
         "modell": "complex",
@@ -825,8 +827,8 @@
       ]
     },
     "schutz": "oeffentlich",
-    "version": 24,
-    "geaendert": "2026-10-27T10:13:02.869Z"
+    "version": 25,
+    "geaendert": "2026-10-27T10:14:04.695Z"
   },
   "app-mvqf3ilxj7xk": {
     "id": "app-mvqf3ilxj7xk",
