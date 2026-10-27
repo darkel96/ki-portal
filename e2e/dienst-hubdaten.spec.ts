@@ -74,3 +74,29 @@ test("Apps, die nur im Browser lagen: Hinweis in der Übersicht, „Für alle sp
   expect(JSON.parse((await page.evaluate(() => localStorage.getItem("kihub-apps-v3"))) || "[]")).toEqual([]);
   await expect(page.getByRole("link", { name: /Themen-Briefing Test/ })).toBeVisible();
 });
+
+test("Verwaltung sieht alle, die sich angemeldet haben (der Dienst vermerkt sie), auch aus anderen Browsern", async ({ browser }, info) => {
+  test.skip(info.project.name !== "desktop", "einmal reicht");
+  const chef = `chef${Date.now()}`, kollege = `kollege${Date.now()}`, ohne = `ohne${Date.now()}`;
+  await setzen("rechte.json", { nutzer: [{ email: `${chef}@test.local`, rechte: ["admin"] }], ausgeblendet: [] });
+  // Der Kollege öffnet den Hub in seinem eigenen Browser
+  const k = await browser.newContext();
+  const kp = await k.newPage();
+  await hub(kp, kollege);
+  await kp.goto("/");
+  await expect.poll(async () => (await (await api("/personen", chef)).json() as { email: string }[]).some((p) => p.email === `${kollege}@test.local`), { timeout: 15_000 }).toBe(true);
+  await k.close();
+  // Ohne Verwaltung oder Baukasten keine Personenliste
+  expect((await api("/personen", ohne)).status).toBe(403);
+  // Die Verwaltung im anderen Browser zeigt ihn mit Datum, Nutzen gilt für alle
+  const c = await browser.newContext();
+  const cp = await c.newPage();
+  await hub(cp, chef);
+  await cp.goto("/verwaltung");
+  const zeile = cp.getByRole("row").filter({ hasText: `${kollege}@test.local` });
+  await expect(zeile).toBeVisible({ timeout: 15_000 });
+  await expect(zeile).not.toContainText("noch nie");
+  await expect(zeile.getByRole("checkbox", { name: /Applikationen nutzen/ })).toBeChecked();
+  await expect(zeile.getByRole("checkbox", { name: /Baukasten/ })).not.toBeChecked();
+  await c.close();
+});

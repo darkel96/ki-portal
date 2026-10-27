@@ -55,19 +55,20 @@ export function VerwaltungPage() {
       <div className="rv">
       <section className="rv-personen" aria-labelledby="personen-titel">
       <h2 id="personen-titel">Personen und Rechte</h2>
-      <p className="hint" style={{ margin: 0 }}>Wer sich einmal anmeldet, erscheint hier. Hier legst du fest, wer Applikationen bauen, den KI-Assistenten nutzen und freigeben darf.</p>
+      <p className="hint" style={{ margin: 0 }}>Wer sich einmal am Hub anmeldet, erscheint hier. Jede Person kann alle Applikationen nutzen, außer eine Applikation ist im Baukasten unter „Freigabe“ auf bestimmte Personen beschränkt. Weitere Rechte (Verwaltung, Baukasten, KI-Assistent, Freigeben) setzt du hier.</p>
       <div className="rv-tabelle" role="region" aria-label="Tabelle der Personen">
         <table>
           <thead>
             <tr>
               <th scope="col">Person</th>
               <th scope="col">Zuletzt angemeldet</th>
+              <th scope="col" title="Alle Applikationen nutzen (außer sie sind unter „Freigabe“ beschränkt)">Nutzen</th>
               {RECHTE.map((x) => <th key={x} scope="col" title={RECHT_LABEL[x][1]}>{RECHT_LABEL[x][0]}</th>)}
               <th scope="col"><span className="sr-only">Entfernen</span></th>
             </tr>
           </thead>
           <tbody>
-            {nutzer.length === 0 && <tr><td colSpan={RECHTE.length + 3} className="hint">Noch keine Person angemeldet. Trag unten eine E-Mail-Adresse ein, um Rechte schon vorher zu vergeben.</td></tr>}
+            {nutzer.length === 0 && <tr><td colSpan={RECHTE.length + 4} className="hint">Noch keine Person angemeldet. Trag unten eine E-Mail-Adresse ein, um Rechte schon vorher zu vergeben.</td></tr>}
             {nutzer.map((n, i) => {
               const fest = istFesterAdmin(n.email);
               const ausKonfig = r.fest[n.email.trim().toLowerCase()] ?? [];
@@ -81,6 +82,7 @@ export function VerwaltungPage() {
                     {!fest && ausKonfig.length > 0 && <span className="hint">Fest in der Hub-Konfiguration: {ausKonfig.map((x) => RECHT_LABEL[x][0]).join(", ")}</span>}
                   </td>
                   <td className="hint">{datum(n.zuletzt)}</td>
+                  <td><input type="checkbox" checked disabled aria-label={`Applikationen nutzen für ${n.name || n.email} (gilt für alle)`} /></td>
                   {RECHTE.map((x) => (
                     <td key={x}>
                       <input type="checkbox" aria-label={`${RECHT_LABEL[x][0]} für ${n.name || n.email}`} checked={fest || ausKonfig.includes(x) || n.rechte.includes(x) || (x !== "admin" && n.rechte.includes("admin"))}

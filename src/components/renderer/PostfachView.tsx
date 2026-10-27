@@ -124,16 +124,21 @@ export function PostfachView({ b, mode }: Props) {
   const prozAusfuehren = async () => {
     const ids = (treffer ?? []).filter((t) => t.gewaehlt).map((t) => t.id);
     if (!ids.length || !proz.zielordner.trim()) { toast.error(ids.length ? "Bitte einen Zielordner angeben." : "Keine Mail ausgewählt."); return; }
-    setProzLaeuft("verschieben");
+    setProzLaeuft("verschieben"); setProzPhase(`Verschiebt 0 von ${ids.length} Mails`);
+    const erledigt = new Set<string>();
     try {
       const ziel = await ordnerAnlegen(proz.zielordner);
-      const n = await nachrichtenVerschieben(ids, ziel.id);
+      const n = await nachrichtenVerschieben(ids, ziel.id, undefined, (id) => { erledigt.add(id); setProzPhase(`Verschiebt ${erledigt.size} von ${ids.length} Mails`); });
       toast.success(`${n} ${n === 1 ? "Mail" : "Mails"} nach „${ziel.name}“ verschoben.`);
       setTreffer(null); setProzMeldung(`${n} ${n === 1 ? "Mail" : "Mails"} nach „${ziel.name}“ verschoben.`);
       await ordnerHolen(); setSuche((s) => s);   // Liste und Zähler neu
       setGewaehlt((g) => (g ? { ...g } : g));
-    } catch (e) { toast.error(e instanceof Error ? e.message : "Verschieben fehlgeschlagen."); }
-    finally { setProzLaeuft(null); }
+    } catch (e) {
+      // Schon Verschobene aus der Auswahl nehmen, damit „Erneut starten“ nur den Rest verschiebt
+      if (erledigt.size) setTreffer((t) => t?.filter((x) => !erledigt.has(x.id)) ?? t);
+      toast.error(e instanceof Error ? e.message : "Verschieben fehlgeschlagen.");
+    }
+    finally { setProzLaeuft(null); setProzPhase(""); }
   };
 
   const ordnerHolen = async () => {
@@ -228,7 +233,7 @@ export function PostfachView({ b, mode }: Props) {
             <button type="submit" className="o-btn" style={{ "--btn": "var(--app-accent)", "--btn-ink": "var(--app-accent-ink)" } as CSSProperties} disabled={prozLaeuft !== null}>{prozLaeuft === "suche" ? <Arbeitet text="Sucht" /> : "Vorschau"}</button>
             <button type="button" className="o-chat-knopf" disabled={!proz.thema.trim()} onClick={merken} title="Diese Suche als eigene Prozedur merken (nur in diesem Browser)"><BookmarkPlus size={13} aria-hidden="true" />Merken</button>
           </form>
-          {prozLaeuft === "suche" && prozPhase && <p className="o-muted" role="status"><Arbeitet text={prozPhase} /></p>}
+          {prozLaeuft && prozPhase && <p className="o-muted" role="status"><Arbeitet text={prozPhase} /></p>}
           {prozMeldung && <p className="o-muted" role="status">{prozMeldung}</p>}
           {treffer && treffer.length > 0 && (
             <div className="o-post-proz-treffer" role="group" aria-label="Gefundene Mails">
