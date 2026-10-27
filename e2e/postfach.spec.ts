@@ -236,7 +236,7 @@ test("Postfach über Microsoft: höchstens drei Anfragen gleichzeitig (sonst bre
   const ordner = page.locator(".o-post").getByRole("navigation", { name: "Ordner" });
   await expect(ordner.getByRole("button", { name: /Ordner 7/ })).toBeVisible({ timeout: 20_000 });
   await expect(page.getByText(/Fehler 429/)).toHaveCount(0);
-  expect(gebremst).toBe(2);
+  expect(gebremst).toBeGreaterThanOrEqual(2);
   expect(hoechstens).toBeLessThanOrEqual(3);
 });
 

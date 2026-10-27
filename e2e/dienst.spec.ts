@@ -136,3 +136,25 @@ test("Jetzt ausführen im Dienst: Meldung beim Start und wenn der Auftrag fertig
   // Der Auftrag bleibt in der Liste
   await expect(page.locator(".mh-karte")).toContainText("Inventurbericht");
 });
+
+test("Lauf im Hub-Dienst: Seite im Hub verlassen und zurückkommen bricht ihn nicht ab", async ({ page }, info) => {
+  test.skip(info.project.name !== "desktop", "einmal reicht");
+  const nutzer = `weg${Date.now()}`;
+  const loeschen: string[] = [];
+  page.on("request", (r) => { if (r.method() === "DELETE" && r.url().includes("/api/laeufe/")) loeschen.push(r.url()); });
+  await hubMitDienst(page, nutzer);
+  await page.goto("/app/dienst-app");
+  await page.getByLabel("Thema").fill("Leergutlager");
+  await page.getByRole("navigation", { name: "Seiten blättern" }).getByRole("button", { name: /erstellen/i }).click();
+  await expect(page.getByText("Läuft im Hub-Dienst weiter")).toBeVisible();
+  // Innerhalb des Hubs weg (kein Verlassen-Dialog, der Lauf ist im Dienst sicher) und zurück
+  await page.getByRole("navigation", { name: "Hauptnavigation" }).getByRole("link", { name: "Mein Hub" }).click();
+  await expect(page).toHaveURL(/\/mein/);
+  await expect(page.getByRole("alertdialog")).toHaveCount(0);
+  await page.goBack();
+  await expect(page.getByText(/Der Lauf ist im Hintergrund fertig geworden|Der Ablauf läuft im Hintergrund weiter/)).toBeVisible({ timeout: 20_000 });
+  await expect(page.getByText(/endete mit: Abgebrochen/)).toHaveCount(0);
+  expect(loeschen).toEqual([]);
+  const liste = await (await api("/laeufe", nutzer)).json() as { status: string }[];
+  expect(liste[0]?.status).not.toBe("abgebrochen");
+});

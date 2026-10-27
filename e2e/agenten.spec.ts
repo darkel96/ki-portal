@@ -1,17 +1,18 @@
 import { test, expect, type Page } from "@playwright/test";
 
 /** Agentenbibliothek: Agenten global anlegen, feinjustieren, ausprobieren; Agenten-Teams verknüpfen und bekommen beim Lauf die aktuelle Fassung */
-async function kiNachbau(page: Page, antwort: string) {
+async function kiNachbau(page: Page, antwort: string | ((prompt: string) => string)) {
   const prompts: string[] = [];
   await page.route("https://api.anthropic.com/**", async (route) => {
     const body = route.request().postDataJSON() as { messages?: { content: string | { type: string; text?: string }[] }[] };
     const c = body?.messages?.[0]?.content ?? "";
-    prompts.push(typeof c === "string" ? c : c.map((t) => t.text ?? "").join("\n"));
+    const prompt = typeof c === "string" ? c : c.map((t) => t.text ?? "").join("\n");
+    prompts.push(prompt);
     const ev = (type: string, data: object) => `event: ${type}\ndata: ${JSON.stringify({ type, ...data })}\n\n`;
     const sse = [
       ev("message_start", { message: { id: "m", type: "message", role: "assistant", model: "x", content: [], stop_reason: null, stop_sequence: null, usage: { input_tokens: 1, output_tokens: 1 } } }),
       ev("content_block_start", { index: 0, content_block: { type: "text", text: "" } }),
-      ev("content_block_delta", { index: 0, delta: { type: "text_delta", text: antwort } }),
+      ev("content_block_delta", { index: 0, delta: { type: "text_delta", text: typeof antwort === "function" ? antwort(prompt) : antwort } }),
       ev("content_block_stop", { index: 0 }), ev("message_delta", { delta: { stop_reason: "end_turn", stop_sequence: null }, usage: { output_tokens: 2 } }), ev("message_stop", {}),
     ].join("");
     await route.fulfill({ status: 200, headers: { "content-type": "text/event-stream", "access-control-allow-origin": "*" }, body: sse });
@@ -89,20 +90,41 @@ test("Agenten: ohne Baukasten-Recht keine Bibliothek", async ({ page }, info) =>
 
 test("Agent als Rolle eines KI-Schritts: Rolle als Agent speichern, in einer anderen App wählen, Feinjustierung wirkt beim Lauf", async ({ page }, info) => {
   test.skip(info.project.name !== "desktop", "einmal reicht");
-  await kiNachbau(page, "ok");
-  // App 1: eigene Rolle als Agent in die Bibliothek
+  // KI: teilt die Rolle auf und stimmt die Aufgabe ab (Platzhalter bleiben)
+  const prompts = await kiNachbau(page, (p) => p.includes("Teile die Rolle auf")
+    ? JSON.stringify({ name: "Vertragsprüfer", beschreibung: "Prüft Projekte gegen den Vertrag", rolle: "Du bist ein sorgfältiger Projekt- und Vertragsüberwachungsassistent.", hinweise: "Erfinde keine Angaben.", aufgabe: "Beginne mit der Tabelle „Offene Punkte“." })
+    : p.includes("Stimme die Aufgabe des Schritts")
+      ? JSON.stringify({ aufgabe: `${/Aufgabe:\n"""\n([\s\S]*?)\n"""/.exec(p)?.[1] ?? ""}\nAbgestimmt.`, aenderungen: ["Doppelte Prüfregel gestrichen"] })
+      : "ok");
+  // App 1: eigene Rolle als Agent in die Bibliothek; die KI teilt sie in Agent und App-Teil auf
   await page.goto("/baukasten?kopie=protokoll");
   await page.getByRole("tab", { name: /KI-Ablauf/ }).click();
   await page.getByRole("tab", { name: "Feineinstellungen" }).click();
-  await page.getByLabel("Rolle und Regeln für die KI").fill("Du bist ein sorgfältiger Projekt- und Vertragsüberwachungsassistent. Du triffst keine verbindlichen Entscheidungen.");
+  await page.getByLabel("Rolle und Regeln für die KI").fill("Du bist ein sorgfältiger Projekt- und Vertragsüberwachungsassistent. Erfinde keine Angaben. Beginne mit der Tabelle „Offene Punkte“.");
   await page.getByRole("button", { name: "Als Agent speichern" }).click();
-  await expect(page.getByText(/ist jetzt in der Agentenbibliothek und hier als Rolle verknüpft/)).toBeVisible();
+  const dialog = page.getByRole("dialog", { name: "Als Agent speichern" });
+  await expect(dialog.getByLabel("Name des Agenten")).toHaveValue("Vertragsprüfer");
+  await expect(dialog.getByLabel("Feinjustierung (Regeln, die immer gelten)")).toHaveValue("Erfinde keine Angaben.");
+  await expect(dialog.getByLabel("Kommt in die Aufgabe dieses Schritts")).toHaveValue("Beginne mit der Tabelle „Offene Punkte“.");
+  await dialog.getByRole("button", { name: "Agent anlegen und verknüpfen" }).click();
+  await expect(page.getByText(/ist jetzt in der Agentenbibliothek und hier als Rolle verknüpft\. Der App-Teil steht jetzt in der Aufgabe/)).toBeVisible();
   const gruppe = page.getByRole("group", { name: "Rolle von einem Agenten" });
-  await expect(gruppe).toContainText("Rolle von Agent");
+  await expect(gruppe).toContainText("Rolle von Agent „Vertragsprüfer“");
   await expect(page.getByLabel("Rolle und Regeln für die KI")).toHaveCount(0);
-  const bib = await page.evaluate(() => JSON.parse(localStorage.getItem("kihub-agenten-v1") || "[]") as { id: string; name: string; rolle: string }[]);
+  // Von selbst: Vorschlag, die Aufgabe auf den Agenten abzustimmen; Platzhalter bleiben erhalten
+  const vorschlag = page.getByRole("group", { name: "Vorschlag für die Aufgabe" });
+  await expect(vorschlag).toContainText("Doppelte Prüfregel gestrichen");
+  await expect(vorschlag.getByLabel("Vorgeschlagene Aufgabe")).toHaveValue(/Beginne mit der Tabelle „Offene Punkte“\.\nAbgestimmt\.$/);
+  await expect(vorschlag.getByRole("alert")).toHaveCount(0);
+  await vorschlag.getByRole("button", { name: "Übernehmen" }).click();
+  await expect(vorschlag).toHaveCount(0);
+  await page.getByRole("tab", { name: "Aufgabe", exact: true }).click();
+  await expect(page.getByLabel("Aufgabe für die KI")).toHaveValue(/Abgestimmt\.$/);
+  expect(prompts.some((p) => p.includes("Teile die Rolle auf"))).toBe(true);
+  const bib = await page.evaluate(() => JSON.parse(localStorage.getItem("kihub-agenten-v1") || "[]") as { id: string; name: string; rolle: string; hinweise: string }[]);
   expect(bib).toHaveLength(1);
   expect(bib[0].rolle).toContain("Vertragsüberwachungsassistent");
+  expect(bib[0].hinweise).toBe("Erfinde keine Angaben.");
   await page.locator(".bar-speichern").click();
   await expect(page.getByText(/gespeichert/i).first()).toBeVisible();
   // App 2: denselben Agenten als Rolle wählen
@@ -112,6 +134,13 @@ test("Agent als Rolle eines KI-Schritts: Rolle als Agent speichern, in einer and
   await page.getByLabel("Rolle von einem Agenten").click();
   await page.getByRole("option", { name: bib[0].name }).click();
   await expect(page.getByRole("group", { name: "Rolle von einem Agenten" })).toContainText(`Rolle von Agent „${bib[0].name}“`);
+  // Auch hier schlägt der Hub von selbst eine abgestimmte Aufgabe vor; verwerfen lässt die Aufgabe, wie sie ist
+  const vorschlag2 = page.getByRole("group", { name: "Vorschlag für die Aufgabe" });
+  await expect(vorschlag2).toBeVisible();
+  await vorschlag2.getByRole("button", { name: "Verwerfen" }).click();
+  await expect(vorschlag2).toHaveCount(0);
+  // Platzhalter, die ein Vorschlag verliert, werden genannt
+  expect(await page.evaluate(async () => (await import("/src/lib/agentenabgleich.ts")).fehlendePlatzhalter("Kunde {{kunde}}, Thema {{thema}}", "Thema {{thema}}"))).toEqual(["kunde"]);
   await page.locator(".bar-speichern").click();
   await expect(page.getByText(/gespeichert/i).first()).toBeVisible();
   // Bibliothek: in beiden Apps verwendet; Feinjustierung ändern

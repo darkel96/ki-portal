@@ -277,6 +277,9 @@ export const RunApp = forwardRef<RunAppHandle, {
   useEffect(() => { if (!laeuft) setStoppt(false); }, [laeuft]);
   /** ID des Laufs im Hub-Dienst, wenn der Ablauf dort läuft (dann geht er auch ohne offenen Tab weiter) */
   const [hintergrund, setHintergrund] = useState<string | null>(null);
+  /** Lauf im Hub-Dienst (für Aufräumen beim Verlassen: der läuft weiter, nur das Mitverfolgen endet) */
+  const hintergrundRef = useRef<string | null>(null);
+  hintergrundRef.current = hintergrund;
   const verfolgung = useRef(0);
   useEffect(() => () => { verfolgung.current = -1; }, []);
   const ergebnisse = useRef<Record<string, string>>({});
@@ -780,8 +783,12 @@ export const RunApp = forwardRef<RunAppHandle, {
 
   // Ungesicherte Eingaben bzw. laufender Ablauf: vor dem Verlassen fragen
   const hatEingaben = Object.values(werte).some((v) => v !== "" && v !== false) || Object.keys(files).length > 0;
-  const ungesichert = (!!laeuft && !hintergrund) || (hatEingaben && (!stand || stand !== JSON.stringify(werte) + Object.keys(files).join("|")));
-  useEffect(() => () => ctl.current?.abort(), []);
+  // Läuft der Ablauf im Hub-Dienst, geht beim Verlassen nichts verloren (Eingaben und Ergebnis liegen dort)
+  const ungesichert = !hintergrund && (!!laeuft || (hatEingaben && (!stand || stand !== JSON.stringify(werte) + Object.keys(files).join("|"))));
+  // Seite verlassen: ein Lauf im Browser endet; ein Lauf im Hub-Dienst läuft weiter (Ergebnis beim nächsten Öffnen
+  // und in Mein Hub), hier endet nur das Mitverfolgen. Abbrechen im Dienst nur über „Stoppen“.
+  const verlassen = useCallback(() => { if (hintergrundRef.current) verfolgung.current++; else ctl.current?.abort(); }, []);
+  useEffect(() => () => verlassen(), [verlassen]);
 
   // Unter der Leiste „Alle Ergebnisse“, nicht darüber: die Leiste klebt oben und reicht in den oberen Innenabstand
   const hinweisDienst = hintergrund && laeuft ? <p className="o-hintergrund" role="status">Läuft im Hub-Dienst weiter, auch wenn du diesen Tab schließt. Beim nächsten Öffnen der Applikation siehst du das Ergebnis.</p> : null;
@@ -840,7 +847,7 @@ export const RunApp = forwardRef<RunAppHandle, {
           </>
         )}
       </div>
-      {!eingebettet && <VerlassenSchutz ungesichert={ungesichert} laeuft={!!laeuft} blatt={blatt} onVerlassen={() => ctl.current?.abort()} />}
+      {!eingebettet && <VerlassenSchutz ungesichert={ungesichert} laeuft={!!laeuft} blatt={blatt} onVerlassen={verlassen} />}
     </RunContext.Provider>
   );
 });
