@@ -863,7 +863,15 @@
               "titel": "Postfach",
               "anzahl": 25,
               "vorschau": true,
-              "prozeduren": []
+              "prozeduren": [
+                {
+                  "name": "Aufräumen",
+                  "thema": "",
+                  "tage": 30,
+                  "zielordner": "",
+                  "ki": true
+                }
+              ]
             }
           }
         ]
@@ -879,7 +887,7 @@
       "nutzen": []
     },
     "schutz": "intern",
-    "version": 5,
-    "geaendert": "2026-10-27T08:27:23.229Z"
+    "version": 6,
+    "geaendert": "2026-10-27T08:28:05.909Z"
   }
 }
