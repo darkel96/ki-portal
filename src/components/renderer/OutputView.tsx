@@ -3,7 +3,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import type { App } from "@/lib/schema";
 import { renderResult, markdown } from "@/lib/markdown";
-import { STATUS_LABEL, type OutState } from "@/lib/runner";
+import { STATUS_LABEL, schrittDauer, type OutState } from "@/lib/runner";
 import { graphPreview } from "@/lib/request";
 import { paketName, paketPfade, treeText, zipPaket } from "@/lib/paket";
 import { saveFile } from "@/lib/files";
@@ -285,6 +285,7 @@ export function OutputView({ app, titel, stepId, stil, mode, pfad = "" }: { app:
           )}
           {fertig && (!o.paket || einDokument) && <KopierKnopf text={einDokument ? einDokument.inhalt : teilText ?? o.text ?? ""} format={einDokument || teilText !== null ? "markdown" : step?.format ?? "markdown"} teil={o.status !== "fertig"} />}
           {!gesammelt && <Downloads app={app} stepId={stepId} o={o} pfad={pfad} />}
+          {schrittDauer(o) && <span className="o-dauer" title="Vom Start des Schritts bis zum Ergebnis">Dauer {schrittDauer(o)}</span>}
           {o.req && step && Array.isArray(o.req.dateien) && (
             <details>
               <summary>Technische Details</summary>

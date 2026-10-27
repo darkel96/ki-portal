@@ -16,7 +16,7 @@ import { Blatt, Pager, blaetterTaste } from "@/components/layout/Pager";
 import { readFileInfo, UnsupportedFormatError } from "@/lib/files";
 import { ampelPaare, ampelText, ampelWert } from "@/lib/ampel";
 import { tabelleLesen } from "@/lib/tabelle";
-import { STATUS_LABEL, abhaengigkeiten, ablaufStarten, fehlendePflichtfelder, fehlendeVorstufe, type OutState, type Werte } from "@/lib/runner";
+import { STATUS_LABEL, abhaengigkeiten, dauerText, laufDauer, ablaufStarten, fehlendePflichtfelder, fehlendeVorstufe, type OutState, type Werte } from "@/lib/runner";
 import { mitBibliotheksAgenten } from "@/lib/agenten";
 import { DienstFehler, benachrichtigen, benachrichtigungErlauben, dienstAktiv, gemerkterLauf, laufEntfernen, laufGesehen, laufMerken, laufStand, laufStarten, type DienstLaufStand } from "@/lib/dienst";
 import type { FileInfo } from "@/lib/request";
@@ -136,11 +136,17 @@ function Uebersicht({ app, kacheln, outs, laeuft, stoppt, geaendert, onStart, on
   // Übersprungene Kacheln zählen nicht mit: bei 1 von 2 übersprungen steht „0 von 1 fertig, 1 übersprungen“
   const uebersprungen = stati.filter((s) => s === "uebersprungen").length;
   const stand = `${fertig} von ${kacheln.length - uebersprungen} fertig${uebersprungen ? `, ${uebersprungen} übersprungen` : ""}`;
+  // Zeitmessung: während des Laufs mitzählen, danach die Gesamtdauer
+  const alleOuts = kacheln.flatMap((k) => k.stepIds.map((id) => outs[id]));
+  const seit = Math.min(...alleOuts.filter((o) => o?.status === "laeuft" && o.start).map((o) => o!.start!));
+  const [, ticken] = useState(0);
+  useEffect(() => { if (!laeuft) return; const t = window.setInterval(() => ticken((n) => n + 1), 1000); return () => window.clearInterval(t); }, [laeuft]);
+  const dauer = laeuft ? (Number.isFinite(seit) ? ` (seit ${dauerText(Date.now() - seit)})` : "") : (() => { const d = laufDauer(alleOuts); return d ? ` · Dauer ${d}` : ""; })();
   return (
     <div className="e-uebersicht">
       <div className="e-kopf">
         <h2 className="o-h o-h2">Ergebnisse</h2>
-        <span className="e-stand" aria-live="polite">{laeuft ? `${stand}, der Ablauf läuft\u00a0…` : gestartet ? `${stand}${mitFehler ? `, ${mitFehler} mit Fehler` : ""}` : "Noch nicht erstellt"}</span>
+        <span className="e-stand" aria-live="polite">{laeuft ? `${stand}, der Ablauf läuft\u00a0…${dauer}` : gestartet ? `${stand}${mitFehler ? `, ${mitFehler} mit Fehler` : ""}${dauer}` : "Noch nicht erstellt"}</span>
         <span className="flex-1" />
         {geaendert && !laeuft && gestartet && <span className="e-hinweis">Die Eingaben wurden seitdem geändert.</span>}
         {!laeuft && fertig > 0 && <ErgebnisSenden app={app} outs={outs} />}
@@ -154,6 +160,7 @@ function Uebersicht({ app, kacheln, outs, laeuft, stoppt, geaendert, onStart, on
             <button type="button" className="e-kachel" data-s={stati[i]} onClick={() => onOeffnen(k.id)} aria-labelledby={`et-${k.id}`} aria-describedby={`es-${k.id}`}>
               <span className="e-kachel-kopf"><span className="e-titel" id={`et-${k.id}`}>{k.titel}</span><span className="status-pill" id={`es-${k.id}`} data-s={stati[i]}>{STATUS_LABEL[stati[i]]}</span></span>
               <span className="e-text" aria-hidden="true">{vorschau(k, outs, laeuft, app)}</span>
+              {(() => { const d = stati[i] === "laeuft" ? "" : laufDauer(k.stepIds.map((id) => outs[id])); return d ? <span className="e-dauer">Dauer {d}</span> : null; })()}
               <span className="e-oeffnen">Öffnen</span>
             </button>
           </li>

@@ -19,6 +19,10 @@ export type OutState = {
   req?: KiRequest;
   meldung?: string;
   team?: TeamLog[];
+  /** Zeitmessung (ms seit 1970): Start des Schritts, Quellen gelesen und Anfrage bereit, Ende */
+  start?: number;
+  bereit?: number;
+  ende?: number;
 };
 
 export const STATUS_LABEL: Record<OutState["status"], string> = {
@@ -219,12 +223,15 @@ export async function ablaufStarten(opts: {
       setOut(s.id, { status: "uebersprungen", meldung: uebersprungenGrund(s, app) });
       return true;
     }
-    setOut(s.id, { status: "laeuft", req: buildRequest(app, s, ctx, files), team: s.art === "team" ? [] : undefined });
+    const start = Date.now();
+    setOut(s.id, { status: "laeuft", req: buildRequest(app, s, ctx, files), team: s.art === "team" ? [] : undefined, start });
+    // Jeder Abschluss bekommt das Ende der Zeitmessung
+    const ende = (o: OutState): OutState => ({ ...o, start, ende: Date.now() });
     try {
       const req = await anfrageVorbereiten(app, s, ctx, files, signal, (meldung) => setOut(s.id, (prev) => ({ ...(prev ?? { status: "laeuft" }), status: "laeuft", meldung })));
       // Während des Lesens gestoppt: nicht mehr fragen (Lesefehler werden je Quelle abgefangen, der Stopp sonst übersehen)
       if (signal.aborted) throw new DOMException("Abgebrochen.", "AbortError");
-      setOut(s.id, (prev) => ({ ...(prev ?? { status: "laeuft" }), status: "laeuft", req, meldung: undefined }));
+      setOut(s.id, (prev) => ({ ...(prev ?? { status: "laeuft" }), status: "laeuft", req, meldung: undefined, start, bereit: Date.now() }));
       let text: string;
       if (s.art === "team") {
         text = await teamAusfuehren({
@@ -250,8 +257,8 @@ export async function ablaufStarten(opts: {
       }
       const paket = s.format === "dateien" ? parsePaket(text) : undefined;
       if (paket && req.vorlagenUrl) paket.vorlagenUrl = req.vorlagenUrl;
-      setOut(s.id, (prev) => ({
-        ...(prev ?? {}), status: s.format === "dateien" && !paket ? "fehler" : "fertig", text, paket,
+      setOut(s.id, (prev) => ende({
+        ...(prev ?? { status: "fertig" }), status: s.format === "dateien" && !paket ? "fehler" : "fertig", text, paket,
         meldung: s.format === "dateien" && !paket ? "Die KI hat kein gültiges Dateipaket geliefert. Starte den Schritt erneut." : prev?.meldung,
       }));
       ergebnisse[s.key] = text; ctx[s.key.toLowerCase()] = text;
@@ -259,16 +266,16 @@ export async function ablaufStarten(opts: {
     } catch (e) {
       if (e instanceof KiSimulation) {
         const text = `‹Ergebnis von ${s.name}›`;
-        setOut(s.id, (prev) => ({ ...(prev ?? {}), status: "simuliert", req: "applikation" in e.req ? e.req : prev?.req }));
+        setOut(s.id, (prev) => ende({ ...(prev ?? { status: "simuliert" }), status: "simuliert", req: "applikation" in e.req ? e.req : prev?.req }));
         ergebnisse[s.key] = text; ctx[s.key.toLowerCase()] = text;
         return s.art !== "team";
       }
       if (signal.aborted || (e instanceof DOMException && e.name === "AbortError")) {
-        setOut(s.id, (prev) => ({ ...(prev ?? {}), status: "gestoppt" }));
+        setOut(s.id, (prev) => ende({ ...(prev ?? { status: "gestoppt" }), status: "gestoppt" }));
         return false;
       }
-      if (e instanceof VorbereitungsFehler) { setOut(s.id, { status: "fehler", meldung: e.message }); return false; }
-      setOut(s.id, (prev) => ({ ...(prev ?? {}), status: "fehler", meldung: fehlerText(e) }));
+      if (e instanceof VorbereitungsFehler) { setOut(s.id, ende({ status: "fehler", meldung: e.message })); return false; }
+      setOut(s.id, (prev) => ende({ ...(prev ?? { status: "fehler" }), status: "fehler", meldung: fehlerText(e) }));
       return false;
     }
   };
@@ -312,3 +319,27 @@ function fehlerText(e: unknown): string {
 }
 
 const lower = (o: Record<string, string>) => Object.fromEntries(Object.entries(o).map(([k, v]) => [k.toLowerCase(), v]));
+
+/** Dauer lesbar: „8 s“, „1 min 12 s“, „1 h 3 min“ */
+export function dauerText(ms: number): string {
+  const sek = Math.max(0, Math.round(ms / 1000));
+  if (sek < 60) return `${sek} s`;
+  const min = Math.floor(sek / 60);
+  if (min < 60) return `${min} min${sek % 60 ? ` ${sek % 60} s` : ""}`;
+  return `${Math.floor(min / 60)} h${min % 60 ? ` ${min % 60} min` : ""}`;
+}
+
+/** Dauer eines Schritts samt Aufteilung (Quellen lesen, KI); "" ohne Messung */
+export function schrittDauer(o: OutState | undefined): string {
+  if (typeof o?.start !== "number" || typeof o.ende !== "number") return "";
+  const gesamt = dauerText(o.ende - o.start);
+  if (typeof o.bereit !== "number" || o.bereit - o.start < 1000) return gesamt;
+  return `${gesamt} (Quellen lesen ${dauerText(o.bereit - o.start)}, KI ${dauerText(o.ende - o.bereit)})`;
+}
+
+/** Dauer mehrerer Schritte vom ersten Start bis zum letzten Ende; "" ohne Messung */
+export function laufDauer(outs: (OutState | undefined)[]): string {
+  const mit = outs.filter((o): o is OutState & { start: number; ende: number } => typeof o?.start === "number" && typeof o.ende === "number");
+  if (!mit.length) return "";
+  return dauerText(Math.max(...mit.map((o) => o.ende)) - Math.min(...mit.map((o) => o.start)));
+}
