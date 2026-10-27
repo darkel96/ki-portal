@@ -82,7 +82,7 @@ test("Postfach: KI zur geöffneten Mail (Zusammenfassung, Antwortentwurf) und Pr
   test.skip(info.project.name !== "desktop", "einmal reicht");
   const prompts = await kiNachbau(page);
   const app = { ...APP, blocks: [{ id: "p1", type: "seite", props: { titel: "Postfach" }, children: [
-    { id: "pf", type: "postfach", props: { titel: "Postfach", anzahl: 25, vorschau: true, prozeduren: [{ name: "CRA ablegen", thema: "CRA, Cyber Resilience Act", tage: 30, zielordner: "CRA-Ablage", ki: true }] } },
+    { id: "pf", type: "postfach", props: { titel: "Postfach", anzahl: 25, vorschau: true, prozeduren: [{ name: "CRA ablegen", thema: "CRA, Cyber Resilience Act", tage: 30, zielordner: "CRA-Ablage", ki: true, suchOrdner: [] }] } },
   ] }] };
   await page.addInitScript((a) => localStorage.setItem("kihub-apps-v3", JSON.stringify([a])), app);
   await page.goto("/app/post-app");
@@ -187,7 +187,7 @@ test("Themensuche über Microsoft: durchsucht den ganzen Zeitraum, KI ergänzt B
   });
   await page.addInitScript(() => localStorage.setItem("kihub-graph-test", "test-token"));
   const app = { ...APP, blocks: [{ id: "p1", type: "seite", props: { titel: "Postfach" }, children: [
-    { id: "pf", type: "postfach", props: { titel: "Postfach", anzahl: 25, vorschau: true, prozeduren: [{ name: "CRA ablegen", thema: "Alles zum CRA", tage: 180, zielordner: "CRA-Ablage", ki: true }] } },
+    { id: "pf", type: "postfach", props: { titel: "Postfach", anzahl: 25, vorschau: true, prozeduren: [{ name: "CRA ablegen", thema: "Alles zum CRA", tage: 180, zielordner: "CRA-Ablage", ki: true, suchOrdner: [] }] } },
   ] }] };
   await page.addInitScript((a) => localStorage.setItem("kihub-apps-v3", JSON.stringify([a])), app);
   await page.goto("/app/post-app");
@@ -270,4 +270,37 @@ test("Zielordner wird in allen Ebenen gesucht: „KTE“ unter Projekte wird gen
   expect(r.zwei).toEqual(["Posteingang › CRA", "CRA"]);
   expect(r.eins).toBe(1);
   expect(r.teile).toEqual(["Projekte", "KTE"]);
+});
+
+test("Themensuche: Standard nur der Posteingang; abgewählt lassen sich die Ordner genau wählen", async ({ page }, info) => {
+  test.skip(info.project.name !== "desktop", "einmal reicht");
+  await kiNachbau(page);
+  await page.addInitScript((a) => localStorage.setItem("kihub-apps-v3", JSON.stringify([a])), { ...APP, blocks: [{ id: "p1", type: "seite", props: { titel: "Postfach" }, children: [{ id: "pf", type: "postfach", props: { titel: "Postfach", anzahl: 25, vorschau: true, prozeduren: [] } }] }] });
+  await page.goto("/app/post-app");
+  const post = page.locator(".o-post");
+  await post.getByRole("button", { name: "Prozeduren" }).click();
+  await post.getByRole("textbox", { name: "Thema", exact: true }).fill("CRA");
+  await post.getByRole("textbox", { name: "Zielordner", exact: true }).fill("CRA-Ablage");
+  await post.getByRole("checkbox", { name: /KI wählt/ }).uncheck();
+  const nurPost = post.getByRole("checkbox", { name: "Nur Posteingang" });
+  await expect(nurPost).toBeChecked();
+  await post.getByRole("button", { name: "Vorschau" }).click();
+  const treffer = post.getByRole("group", { name: "Gefundene Mails" });
+  await expect(treffer).toContainText("CRA Attest Retrofit Linie 3");
+  await expect(treffer).not.toContainText("VDMA CRA FAQ");
+  await expect(post.getByText(/Gesucht in „Posteingang“/)).toBeVisible();
+  // Abwählen: Ordnerliste zum genauen Wählen; nur der Unterordner „CRA“
+  await nurPost.uncheck();
+  const wahl = post.getByRole("group", { name: /Suchen in/ });
+  await wahl.getByRole("checkbox", { name: "CRA", exact: true }).check();
+  await post.getByRole("button", { name: "Vorschau" }).click();
+  await expect(treffer).toContainText("VDMA CRA FAQ");
+  await expect(treffer).not.toContainText("CRA Attest Retrofit Linie 3");
+  await expect(post.getByText(/Gesucht in „Posteingang › CRA“/)).toBeVisible();
+  // Nichts gewählt = alle Ordner
+  await wahl.getByRole("checkbox", { name: "CRA", exact: true }).uncheck();
+  await post.getByRole("button", { name: "Vorschau" }).click();
+  await expect(treffer).toContainText("VDMA CRA FAQ");
+  await expect(treffer).toContainText("CRA Attest Retrofit Linie 3");
+  await expect(post.getByText(/Gesucht in allen Ordnern/)).toBeVisible();
 });

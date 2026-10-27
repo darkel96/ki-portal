@@ -5,7 +5,7 @@ import DOMPurify from "dompurify";
 import { toast } from "sonner";
 import { BookmarkPlus, ChevronDown, ChevronRight, FolderInput, Mail, MailOpen, Paperclip, RefreshCw, Search, Sparkles, Square } from "lucide-react";
 import type { Block } from "@/lib/schema";
-import { antwortEntwurf, mailKontext, nachrichtenLaden, nachrichtenSeit, nachrichtenSuchen, nachrichtenVerschieben, nachrichtLaden, ordnerGemerkt, ordnerLaden, ordnerNamen, ordnerNeuAnlegen, postfachEcht, zielOrdnerSuchen, pfadTeile, type OrdnerPfad, type Nachricht, type NachrichtVoll, type Ordner } from "@/lib/ki/postfach";
+import { antwortEntwurf, mailKontext, nachrichtenLaden, nachrichtenSeit, nachrichtenSuchen, nachrichtenVerschieben, nachrichtLaden, ordnerGemerkt, ordnerLaden, ordnerNamen, ordnerNeuAnlegen, postfachEcht, zielOrdnerSuchen, pfadTeile, alleOrdner, suchOrdnerAufloesen, type OrdnerPfad, type Nachricht, type NachrichtVoll, type Ordner } from "@/lib/ki/postfach";
 import { KiSimulation, jsonAus, kiFragen } from "@/lib/ki";
 import { markdown } from "@/lib/markdown";
 import type { Mode } from "./BlockContent";
@@ -15,6 +15,8 @@ type Prozedur = Extract<Block, { type: "postfach" }>["props"]["prozeduren"][numb
 const MAX_MAILS = 1000;
 const PAKET = 150;
 type Kandidat = Nachricht & { ordnerId: string };
+/** Wo eine Prozedur sucht (ältere, gemerkte Prozeduren ohne Angabe: nur im Posteingang) */
+const suchIn = (p: Prozedur): string[] => (Array.isArray(p.suchOrdner) ? p.suchOrdner.map((x) => x.trim()).filter(Boolean) : ["Posteingang"]);
 type Treffer = Nachricht & { ordnerId: string; ordnerName?: string; gewaehlt: boolean };
 
 /** Vordefinierte KI-Aktionen zur geöffneten Mail */
@@ -57,7 +59,9 @@ export function PostfachView({ b, mode }: Props) {
   const [entwurf, setEntwurf] = useState<"laeuft" | string | null>(null);
   // Prozeduren: Mails zu einem Thema aus den letzten Tagen in einen Ordner ablegen
   const [prozOffen, setProzOffen] = useState(false);
-  const [proz, setProz] = useState<Prozedur>({ name: "", thema: "", tage: 30, zielordner: "", ki: true });
+  const [proz, setProz] = useState<Prozedur>({ name: "", thema: "", tage: 30, zielordner: "", ki: true, suchOrdner: ["Posteingang"] });
+  /** Alle Ordner (für die Auswahl, wo gesucht wird); erst geladen, wenn „Nur Posteingang“ abgewählt wird */
+  const [ordnerWahl, setOrdnerWahl] = useState<OrdnerPfad[] | null>(null);
   const [treffer, setTreffer] = useState<Treffer[] | null>(null);
   /** Zielordner zur Eingabe: gefunden (mit Pfad), mehrfach vorhanden (Person muss genauer werden) oder neu anzulegen */
   const [ziel, setZiel] = useState<{ eingabe: string; treffer: OrdnerPfad[] } | null>(null);
@@ -71,7 +75,7 @@ export function PostfachView({ b, mode }: Props) {
   const eigeneSetzen = (liste: Prozedur[]) => { setEigene(liste); try { localStorage.setItem(eigeneSchluessel, JSON.stringify(liste)); } catch { /* voll oder gesperrt */ } };
   const merken = () => {
     const neu: Prozedur = { ...proz, name: proz.thema.trim().slice(0, 40), thema: proz.thema.trim(), zielordner: proz.zielordner.trim() };
-    const gleich = (a: Prozedur) => a.thema === neu.thema && a.zielordner === neu.zielordner && a.tage === neu.tage && a.ki === neu.ki;
+    const gleich = (a: Prozedur) => a.thema === neu.thema && a.zielordner === neu.zielordner && a.tage === neu.tage && a.ki === neu.ki && suchIn(a).join("|") === suchIn(neu).join("|");
     if (eigene.some(gleich) || b.props.prozeduren.some(gleich)) { toast.info("Diese Prozedur gibt es schon."); return; }
     eigeneSetzen([...eigene, neu].slice(-12));
     toast.success(`„${neu.name}“ gemerkt. Ein Klick darauf startet die Vorschau.`);
@@ -104,15 +108,24 @@ export function PostfachView({ b, mode }: Props) {
     try {
       const w = suchWorte(p.thema);
       const dazu = (liste: Kandidat[], mehr: Kandidat[]) => { const ids = new Set(liste.map((n) => n.id)); return [...liste, ...mehr.filter((n) => !ids.has(n.id))]; };
-      // 1. Im ganzen Zeitraum nach den Suchwörtern suchen (Microsoft durchsucht Betreff, Text und Absender in allen Ordnern)
-      setProzPhase(`Sucht ${w.map((x) => `„${x}“`).join(", ")} in den Mails der letzten ${p.tage} Tage`);
+      // Wo gesucht wird: Standard nur der Posteingang, sonst die gewählten Ordner oder alle
+      const pfade = suchIn(p);
+      setProzPhase("Sucht die Ordner");
+      const { ordner: suchOrdner, fehlen } = await suchOrdnerAufloesen(pfade);
+      if (fehlen.length) hinweise.push(`Nicht gefunden und übersprungen: ${fehlen.map((f) => `„${f}“`).join(", ")}.`);
+      if (pfade.length && !suchOrdner.length) { setProzMeldung(`Keinen der Suchordner gefunden (${pfade.join(", ")}).`); return; }
+      const suchIds = suchOrdner.map((o) => o.id);
+      const wo = suchOrdner.length ? suchOrdner.map((o) => `„${o.pfad.join(" › ")}“`).join(", ") : "allen Ordnern";
+      // 1. Im ganzen Zeitraum nach den Suchwörtern suchen (Microsoft durchsucht Betreff, Text und Absender)
+      setProzPhase(`Sucht ${w.map((x) => `„${x}“`).join(", ")} in ${wo}, letzte ${p.tage} Tage`);
       let kandidaten: Kandidat[];
-      try { kandidaten = await nachrichtenSuchen(w, p.tage, undefined, MAX_MAILS); }
+      try { kandidaten = await nachrichtenSuchen(w, p.tage, undefined, MAX_MAILS, suchIds); }
       catch (e) {
         // Suche nicht möglich: die neuesten Mails des Zeitraums laden und selbst nach den Wörtern filtern
         hinweise.push(`Die Suche von Microsoft war nicht möglich (${e instanceof Error ? e.message : String(e)}); geprüft wurden Betreff und Vorschau der neuesten ${MAX_MAILS} Mails.`);
-        kandidaten = (await nachrichtenSeit(p.tage, undefined, MAX_MAILS)).filter((n) => passtZumThema(`${n.betreff} ${n.von} ${n.vonAdresse} ${n.vorschau}`, w));
+        kandidaten = (await nachrichtenSeit(p.tage, undefined, MAX_MAILS)).filter((n) => (!suchIds.length || suchIds.includes(n.ordnerId)) && passtZumThema(`${n.betreff} ${n.von} ${n.vonAdresse} ${n.vorschau}`, w));
       }
+      hinweise.push(`Gesucht in ${wo}.`);
       let kiAus = !p.ki;
       if (p.ki) {
         // 2. Die KI nennt weitere Begriffe, unter denen das Thema läuft (Projekt-, Anlagennummern, Kunden), und es wird auch danach gesucht
@@ -123,7 +136,7 @@ export function PostfachView({ b, mode }: Props) {
           const extra = (Array.isArray(j.begriffe) ? j.begriffe : []).map((x) => String(x).trim()).filter((x) => x.length >= 2 && x.length <= 40 && !w.includes(x.toLowerCase())).slice(0, 5);
           if (extra.length) {
             setProzPhase(`Sucht auch nach ${extra.map((x) => `„${x}“`).join(", ")}`);
-            kandidaten = dazu(kandidaten, await nachrichtenSuchen(extra, p.tage, undefined, MAX_MAILS).catch(() => []));
+            kandidaten = dazu(kandidaten, await nachrichtenSuchen(extra, p.tage, undefined, MAX_MAILS, suchIds).catch(() => []));
             hinweise.push(`Mitgesucht: ${extra.join(", ")}.`);
           }
         } catch (e) {
@@ -199,6 +212,12 @@ export function PostfachView({ b, mode }: Props) {
     finally { setProzLaeuft(null); setProzPhase(""); }
   };
 
+  const nurPosteingang = (p: Prozedur) => { const l = suchIn(p); return l.length === 1 && l[0]!.toLowerCase() === "posteingang"; };
+  const nurPosteingangSetzen = async (an: boolean) => {
+    // Abgewählt: erst einmal alle Ordner (leere Auswahl), die Liste zum genauen Wählen lädt dazu
+    setProz({ ...proz, suchOrdner: an ? ["Posteingang"] : [] });
+    if (!an && !ordnerWahl) setOrdnerWahl(await alleOrdner().catch(() => []));
+  };
   const zielStand: "da" | "neu" | "mehrfach" | null = !ziel || ziel.eingabe !== proz.zielordner.trim() ? null : ziel.treffer.length === 1 ? "da" : ziel.treffer.length ? "mehrfach" : "neu";
   const ordnerHolen = async () => {
     setLaedt("ordner"); setFehler("");
@@ -278,7 +297,7 @@ export function PostfachView({ b, mode }: Props) {
           <p className="hint" style={{ margin: 0 }}>Mails zu einem Thema aus den letzten Tagen in einen Ordner ablegen. Du siehst die Auswahl vorher und bestätigst sie.</p>
           {(b.props.prozeduren.length > 0 || eigene.length > 0) && (
             <div className="o-post-proz-liste">
-              {b.props.prozeduren.map((p, i) => <button key={i} type="button" className="o-chat-knopf" disabled={prozLaeuft !== null} onClick={() => void prozSuchen(p)} title={`Thema „${p.thema}“, letzte ${p.tage} Tage, nach „${p.zielordner}“`}>{p.name || p.thema}</button>)}
+              {b.props.prozeduren.map((p, i) => <button key={i} type="button" className="o-chat-knopf" disabled={prozLaeuft !== null} onClick={() => void prozSuchen(p)} title={`Thema „${p.thema}“, letzte ${p.tage} Tage, in ${suchIn(p).length ? suchIn(p).join(", ") : "allen Ordnern"}, nach „${p.zielordner}“`}>{p.name || p.thema}</button>)}
               {eigene.map((p, i) => (
                 <span key={`e${i}`} className="o-post-proz-eigen">
                   <button type="button" className="o-chat-knopf" disabled={prozLaeuft !== null} onClick={() => void prozSuchen(p)} title={`Eigene Prozedur: Thema „${p.thema}“, letzte ${p.tage} Tage, nach „${p.zielordner || "(kein Ordner)"}“`}>{p.name || p.thema}</button>
@@ -292,9 +311,20 @@ export function PostfachView({ b, mode }: Props) {
             <select value={String(proz.tage)} onChange={(e) => setProz({ ...proz, tage: Number(e.target.value) })} aria-label="Zeitraum">{TAGE.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select>
             <input value={proz.zielordner} onChange={(e) => setProz({ ...proz, zielordner: e.target.value })} placeholder="Zielordner, z. B. CRA" aria-label="Zielordner" />
             <label className="o-post-proz-ki"><input type="checkbox" checked={proz.ki} onChange={(e) => setProz({ ...proz, ki: e.target.checked })} />KI wählt thematisch</label>
+            <label className="o-post-proz-ki"><input type="checkbox" checked={nurPosteingang(proz)} onChange={(e) => void nurPosteingangSetzen(e.target.checked)} />Nur Posteingang</label>
             <button type="submit" className="o-btn" style={{ "--btn": "var(--app-accent)", "--btn-ink": "var(--app-accent-ink)" } as CSSProperties} disabled={prozLaeuft !== null}>{prozLaeuft === "suche" ? <Arbeitet text="Sucht" /> : "Vorschau"}</button>
             <button type="button" className="o-chat-knopf" disabled={!proz.thema.trim()} onClick={merken} title="Diese Suche als eigene Prozedur merken (nur in diesem Browser)"><BookmarkPlus size={13} aria-hidden="true" />Merken</button>
           </form>
+          {!nurPosteingang(proz) && (
+            <fieldset className="o-post-suchordner">
+              <legend>Suchen in <span className="o-muted">(keiner gewählt = alle Ordner; Unterordner einzeln wählen)</span></legend>
+              {!ordnerWahl ? <p className="o-muted"><Arbeitet text="Lädt die Ordner" /></p> : (
+                <ul>{ordnerWahl.map((o) => { const pf = o.pfad.join("/"); const an = suchIn(proz).some((x) => x.toLowerCase() === pf.toLowerCase()); return (
+                  <li key={o.id} style={{ paddingLeft: `${(o.pfad.length - 1) * 16}px` }}><label><input type="checkbox" checked={an} onChange={() => setProz({ ...proz, suchOrdner: an ? suchIn(proz).filter((x) => x.toLowerCase() !== pf.toLowerCase()) : [...suchIn(proz), pf] })} />{o.name}</label></li>
+                ); })}</ul>
+              )}
+            </fieldset>
+          )}
           {prozLaeuft && prozPhase && <p className="o-muted" role="status"><Arbeitet text={prozPhase} /></p>}
           {prozMeldung && <p className="o-muted" role="status">{prozMeldung}</p>}
           {treffer && treffer.length > 0 && (

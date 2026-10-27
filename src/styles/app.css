@@ -916,6 +916,10 @@ a.mh-titel:hover { text-decoration: underline; text-underline-offset: 4px; }
 .o-chat-knopf.ist-aktiv { border-color: var(--app-accent); color: var(--app-accent); }
 .o-post-proz { display: grid; gap: 10px; padding: 12px 14px; border: 1px solid var(--app-line); border-radius: var(--app-radius); background: var(--app-soft); }
 .o-post-proz-liste { display: flex; flex-wrap: wrap; gap: 6px; }
+.o-post-suchordner { margin: 0; padding: 8px 10px; border: 1px solid var(--app-line); border-radius: var(--app-radius); font-size: 13px; }
+.o-post-suchordner legend { padding: 0 4px; font-weight: 600; }
+.o-post-suchordner ul { margin: 0; padding: 0; list-style: none; max-height: 220px; overflow: auto; display: grid; gap: 2px; }
+.o-post-suchordner label { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; }
 .o-post-proz-form { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .o-post-proz-form input, .o-post-proz-form select { font: inherit; font-size: 13.5px; padding: 7px 10px; border: 1px solid var(--app-line); border-radius: var(--app-radius); background: var(--app-bg); color: var(--app-ink); }
 .o-post-proz-form input:first-child { flex: 2 1 260px; }
