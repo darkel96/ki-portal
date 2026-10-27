@@ -1,4 +1,5 @@
 import {
+  ListTodo,
   Square, Columns2, FileText, MoveVertical, Minus, Heading, Pilcrow, Info, Image, Type, TextAlignStart, ChevronDown, CircleDot,
   SquareCheck, Hash, Calendar, Upload, Play, Sparkles, MessageSquare, Mail, Table, type LucideIcon,
 } from "lucide-react";
@@ -27,5 +28,6 @@ export const BT: Record<BlockType, { label: string; icon: LucideIcon; group: "La
   output: { label: "Ergebnis", icon: Sparkles, group: "KI" },
   chat: { label: "Chat", icon: MessageSquare, group: "KI" },
   postfach: { label: "Postfach", icon: Mail, group: "Microsoft 365" },
+  aufgaben: { label: "Aufgaben (Planner)", icon: ListTodo, group: "Microsoft 365" },
 };
 export const GROUPS = ["Layout", "Inhalt", "Eingaben", "KI", "Microsoft 365"] as const;

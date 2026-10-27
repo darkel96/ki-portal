@@ -41,7 +41,7 @@ param(
 $ErrorActionPreference = "Continue"
 $GRAPH = "00000003-0000-0000-c000-000000000000"
 $SCOPES = "Sites.Read.All", "Mail.Read", "People.Read.All", "OnlineMeetingTranscript.Read.All",
-          "Chat.Read", "ChannelMessage.Read.All", "ExternalItem.Read.All"
+          "Chat.Read", "ChannelMessage.Read.All", "ExternalItem.Read.All", "Tasks.ReadWrite", "User.ReadBasic.All"
 $SCOPES_DIENST = "Mail.Send", "Chat.ReadWrite", "ChatMessage.Send", "Calendars.Read", "Team.ReadBasic.All",
                  "Channel.ReadBasic.All", "offline_access"
 if ($Dienst) { $SCOPES = $SCOPES + $SCOPES_DIENST }

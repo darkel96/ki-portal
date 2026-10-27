@@ -292,6 +292,13 @@ export function Inspector({ b, onDelete, bereiche, onSeite }: { b: Builder; onDe
       <TextFld label="Begrüßung" multiline rows={2} value={x.props.begruessung} onChange={(v) => set("begruessung", v, true)} />
       <TextFld label="Platzhalter im Eingabefeld" value={x.props.platzhalter} onChange={(v) => set("platzhalter", v, true)} />
       <p className="hint" style={{ margin: 0 }}>Rolle, Wissen, Quellen und Wissensmodus des Experten stehen am KI-Schritt. Sein Prompt darf {"{{frage}}"} und {"{{verlauf}}"} enthalten; fehlen sie, hängt der Chat Verlauf und Frage automatisch an. Der Schritt läuft nie im Durchlauf, nur auf Frage.</p></>; break;
+    case "aufgaben": f = <>
+      <TextFld id="insp-first" label="Titel" value={x.props.titel} onChange={(v) => set("titel", v, true)} />
+      <Sel label="Aufgaben aus dem Ergebnis von" value={x.props.quelle || "__none"} onChange={(v) => set("quelle", v === "__none" ? "" : v)} options={[["__none", "Bitte wählen"], ...steps]} />
+      <Seg label="Wohin" value={x.props.ziel} options={[["planner", "Team-Aufgaben (Planner)"], ["todo", "Meine Aufgaben (To Do)"]]} onChange={(v) => set("ziel", v)} />
+      <TextFld label={x.props.ziel === "planner" ? "Plan (vorgewählt, optional)" : "Liste (vorgewählt, optional)"} value={x.props.plan} placeholder={x.props.ziel === "planner" ? "z. B. KTE Projekt" : "leer = „Aufgaben“"} onChange={(v) => set("plan", v, true)} />
+      {x.props.ziel === "planner" && <TextFld label="Bucket (vorgewählt, optional)" value={x.props.bucket} placeholder="leer = erster Bucket" onChange={(v) => set("bucket", v, true)} />}
+      <p className="hint" style={{ margin: 0 }}>Die KI liest die offenen Aufgaben aus dem Ergebnis (Titel, Fälligkeit, Zuständig, Priorität, Notiz). Die Person prüft und ändert sie in einer Tabelle und kann Ziel und Plan noch wechseln; Aufgaben mit gleichem Titel, die es schon gibt, sind abgewählt. Planner zeigt die Aufgaben in Teams im Plan des Teams, To Do unter „Meine Aufgaben“. Braucht die Zustimmung zu Tasks.ReadWrite (einmal im Anmeldefenster).</p></>; break;
     case "postfach": f = <>
       <TextFld id="insp-first" label="Titel" value={x.props.titel} onChange={(v) => set("titel", v, true)} />
       <Seg label="Nachrichten je Seite" value={x.props.anzahl} options={[[10, "10"], [25, "25"], [50, "50"]]} onChange={(v) => set("anzahl", v)} />

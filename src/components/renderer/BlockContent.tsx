@@ -5,6 +5,7 @@ import { FILE_ACCEPT } from "@/lib/files";
 import { AMPEL_KURZ, AMPEL_LABEL, AMPEL_STANDARD, AMPEL_STANDARD_TEXT, ampelPaare, ampelText, ampelWert, type Ampel } from "@/lib/ampel";
 import { TONES } from "./theme";
 import { useRun } from "./runContext";
+import { AufgabenView } from "./AufgabenView";
 import { OutputView } from "./OutputView";
 import { ChatView } from "./ChatView";
 import { PostfachView } from "./PostfachView";
@@ -175,6 +176,8 @@ export function BlockContent({ b, app, mode, renderList }: { b: Block; app: App;
       return <ChatView app={app} b={b} mode={mode} />;
     case "postfach":
       return <PostfachView b={b} mode={mode} />;
+    case "aufgaben":
+      return <AufgabenView b={b} mode={mode} app={app} />;
     case "tabelle":
       return <TabelleView b={b} mode={mode} />;
     default:

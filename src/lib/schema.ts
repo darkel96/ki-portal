@@ -94,6 +94,13 @@ export const PropsSchemas = {
       suchOrdner: z.array(z.string().max(300)).max(50).default(["Posteingang"]).describe('Wo gesucht wird: Ordnerpfade wie "Posteingang" oder "Posteingang/Projekte"; [] = alle Ordner; Standard nur der Posteingang'),
     })).max(10).default([]),
   }).describe("Postfach der angemeldeten Person wie in Outlook: Ordner, Nachrichten, geöffnete Nachricht; KI zur offenen Mail (Zusammenfassung, Antwortentwurf, Aufgaben, freie Frage) und Prozeduren (Mails zu einem Thema in einen Ordner ablegen). Microsoft Graph Mail.Read, Schreiben mit Mail.ReadWrite"),
+  aufgaben: z.object({
+    titel: z.string().max(120).default("Aufgaben anlegen"),
+    quelle: z.string().max(40).default("").describe("ID des KI-Schritts, aus dessen Ergebnis die Aufgaben kommen (z. B. die Tabelle offener Punkte)"),
+    ziel: z.enum(["planner", "todo"]).default("planner").describe('"planner" = Team-Aufgaben in einem Planner-Plan (in Teams sichtbar), "todo" = Meine Aufgaben (Microsoft To Do)'),
+    plan: z.string().max(200).default("").describe("Name des Planner-Plans bzw. der To-Do-Liste, vorgewählt; leer = die Person wählt"),
+    bucket: z.string().max(200).default("").describe("Name des Buckets im Planner-Plan, vorgewählt; leer = erster Bucket"),
+  }).describe("Aufgaben aus einem KI-Ergebnis in Planner (Teams) oder Microsoft To Do anlegen. Die KI liest die Aufgaben aus dem Ergebnis, die Person prüft und ändert sie in einer Tabelle, erst dann werden sie angelegt; vorhandene mit gleichem Titel werden nicht doppelt angelegt. Graph Tasks.ReadWrite"),
   output: z.object({ titel: z.string().max(120).default("Ergebnis"), quelle: z.string().max(40).default("").describe("ID eines Schritts"), stil: z.enum(["card", "plain"]).default("card"), pfad: z.string().max(120).default("").describe('bei format json: nur diesen Teil des Ergebnisses zeigen, z. B. "bericht" oder "produkte.wartung"; Text wird als Markdown gezeigt, Listen und Objekte als Liste bzw. Tabelle; "" = ganzes Ergebnis') }),
 } as const;
 

@@ -323,6 +323,7 @@ const lower = (o: Record<string, string>) => Object.fromEntries(Object.entries(o
 /** Dauer lesbar: „8 s“, „1 min 12 s“, „1 h 3 min“ */
 export function dauerText(ms: number): string {
   const sek = Math.max(0, Math.round(ms / 1000));
+  if (sek < 1) return "unter 1 s";
   if (sek < 60) return `${sek} s`;
   const min = Math.floor(sek / 60);
   if (min < 60) return `${min} min${sek % 60 ? ` ${sek % 60} s` : ""}`;
