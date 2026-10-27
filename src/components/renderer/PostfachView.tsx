@@ -5,7 +5,7 @@ import DOMPurify from "dompurify";
 import { toast } from "sonner";
 import { BookmarkPlus, ChevronDown, ChevronRight, FolderInput, Mail, MailOpen, Paperclip, RefreshCw, Search, Sparkles, Square } from "lucide-react";
 import type { Block } from "@/lib/schema";
-import { antwortEntwurf, mailKontext, nachrichtenLaden, nachrichtenSeit, nachrichtenSuchen, nachrichtenVerschieben, nachrichtLaden, ordnerAnlegen, ordnerLaden, ordnerNamen, postfachEcht, type Nachricht, type NachrichtVoll, type Ordner } from "@/lib/ki/postfach";
+import { antwortEntwurf, mailKontext, nachrichtenLaden, nachrichtenSeit, nachrichtenSuchen, nachrichtenVerschieben, nachrichtLaden, ordnerAnlegen, ordnerGemerkt, ordnerLaden, ordnerNamen, postfachEcht, type Nachricht, type NachrichtVoll, type Ordner } from "@/lib/ki/postfach";
 import { KiSimulation, jsonAus, kiFragen } from "@/lib/ki";
 import { markdown } from "@/lib/markdown";
 import type { Mode } from "./BlockContent";
@@ -188,6 +188,9 @@ export function PostfachView({ b, mode }: Props) {
 
   const ordnerHolen = async () => {
     setLaedt("ordner"); setFehler("");
+    // Zuletzt geladene Ordner sofort zeigen, die frische Liste ersetzt sie gleich
+    const alt = await ordnerGemerkt();
+    if (alt?.length) { setOrdner((jetzt) => (jetzt.length ? jetzt : alt)); setGewaehlt((g) => g ?? alt[0] ?? null); }
     try {
       const o = await ordnerLaden();
       setOrdner(o);

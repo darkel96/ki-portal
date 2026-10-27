@@ -206,3 +206,34 @@ test("Themensuche über Microsoft: durchsucht den ganzen Zeitraum, KI ergänzt B
   await expect(post.getByText("1 Mail liegt schon in „CRA-Ablage“.")).toBeVisible();
   expect(prompts.some((p) => p.includes("weitere Suchbegriffe"))).toBe(true);
 });
+
+test("Postfach über Microsoft: höchstens drei Anfragen gleichzeitig (sonst bremst Exchange mit 429), 429 wird abgewartet", async ({ page }, info) => {
+  test.skip(info.project.name !== "desktop", "einmal reicht");
+  let gleichzeitig = 0, hoechstens = 0, gebremst = 0;
+  await page.route("https://graph.microsoft.com/**", async (route) => {
+    const req = route.request();
+    const url = new URL(req.url());
+    const cors = { "access-control-allow-origin": "*", "access-control-allow-headers": "*", "access-control-allow-methods": "*", "access-control-expose-headers": "Retry-After" };
+    if (req.method() === "OPTIONS") return route.fulfill({ status: 204, headers: cors });
+    gleichzeitig++; hoechstens = Math.max(hoechstens, gleichzeitig);
+    await new Promise((r) => setTimeout(r, 150));
+    gleichzeitig--;
+    const ok = (wert: unknown) => route.fulfill({ status: 200, headers: cors, contentType: "application/json", body: JSON.stringify(wert) });
+    const pfad = url.pathname.replace("/v1.0/me", "");
+    if (pfad === "/mailFolders") return ok({ value: Array.from({ length: 8 }, (_, i) => ({ id: `f${i}`, displayName: `Ordner ${i}`, unreadItemCount: 0, totalItemCount: 1, childFolderCount: 1 })) });
+    if (/childFolders/.test(pfad)) {
+      // Eine Anfrage wird einmal gebremst
+      if (pfad.includes("/f3/") && gebremst++ === 0) return route.fulfill({ status: 429, headers: { ...cors, "Retry-After": "1" }, body: JSON.stringify({ error: { code: "ApplicationThrottled" } }) });
+      return ok({ value: [{ id: `${pfad.split("/")[2]}-k`, displayName: `Unter ${pfad.split("/")[2]}`, unreadItemCount: 0, totalItemCount: 0 }] });
+    }
+    if (/^\/mailFolders\/[a-z]+$/.test(pfad)) return ok({ id: pfad.split("/").pop() });
+    return ok({ value: [] });
+  });
+  await page.addInitScript((a) => { localStorage.setItem("kihub-graph-test", "test-token"); localStorage.setItem("kihub-apps-v3", JSON.stringify([a])); }, APP);
+  await page.goto("/app/post-app");
+  const ordner = page.locator(".o-post").getByRole("navigation", { name: "Ordner" });
+  await expect(ordner.getByRole("button", { name: /Ordner 7/ })).toBeVisible({ timeout: 20_000 });
+  await expect(page.getByText(/Fehler 429/)).toHaveCount(0);
+  expect(gebremst).toBe(2);
+  expect(hoechstens).toBeLessThanOrEqual(3);
+});
