@@ -68,6 +68,8 @@ export function sanitizeApp(raw: unknown, base: App): App {
       name: field(shape.name, s.name, `KI-Schritt ${i + 1}`),
       art: field(shape.art, s.art, "prompt"),
       rolle: field(shape.rolle, s.rolle, ""),
+      // Agent der Bibliothek als Rolle (nur eine ID; die KI setzt sie nie selbst, der Baukasten verknüpft)
+      agent: typeof s.agent === "string" && /^[A-Za-z0-9_-]{1,60}$/.test(s.agent) ? s.agent : "",
       wissen: field(shape.wissen, s.wissen, ""),
       prompt: field(shape.prompt, s.prompt, ""),
       modell: field(shape.modell, s.modell, "default"),

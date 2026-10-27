@@ -3,7 +3,8 @@
  * Ein Team-Agent mit „vorlage“ verweist auf einen Bibliotheksagenten; beim Lauf setzt der Hub dessen aktuelle Rolle ein,
  * sodass eine Feinjustierung sofort in allen Apps wirkt. Ablage wie die Apps: Browser oder gemeinsamer SharePoint-Ordner.
  */
-import { AgentVorlageSchema, type Agent, type AgentVorlage, type App } from "./schema";
+import { AgentVorlageSchema, type AgentVorlage, type App } from "./schema";
+import { agentenEinsetzen, brauchtBibliothek } from "./agentenlogik";
 import { dateiLoeschen, dateiSchreiben, dateienLesen, speicherKonfig, speicherSchreibbar } from "./speicher";
 
 const LS_KEY = "kihub-agenten-v1";
@@ -48,27 +49,10 @@ export async function agentLoeschen(id: string): Promise<void> {
 
 export const neueAgentId = () => `ag${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
 
-/** Vollständige Rolle eines Bibliotheksagenten: Rolle plus Feinjustierung */
-export const agentRolle = (v: Pick<AgentVorlage, "rolle" | "hinweise">) => [v.rolle.trim(), v.hinweise.trim() ? `Feinjustierung (gilt immer):\n${v.hinweise.trim()}` : ""].filter(Boolean).join("\n\n");
-
-/** Team-Agent aus einem Bibliotheksagenten (verknüpft) */
-export const agentAusVorlage = (v: AgentVorlage, id: string): Agent => ({ id, name: v.name, rolle: agentRolle(v), vorlage: v.id });
-
-/**
- * Vor einem Lauf: verknüpfte Agenten bekommen Name und Rolle aus der Bibliothek. Fehlt der Bibliotheksagent inzwischen,
- * bleibt die in der App gespeicherte Fassung. Liefert dieselbe App zurück, wenn nichts zu ersetzen ist.
- */
-export function agentenEinsetzen(app: App, bibliothek: AgentVorlage[]): App {
-  if (!app.steps.some((s) => s.team?.agenten.some((a) => a.vorlage))) return app;
-  const je = new Map(bibliothek.map((v) => [v.id, v]));
-  return { ...app, steps: app.steps.map((s) => (!s.team ? s : { ...s, team: { ...s.team, agenten: s.team.agenten.map((a) => { const v = a.vorlage ? je.get(a.vorlage) : undefined; return v ? { ...a, name: v.name, rolle: agentRolle(v) } : a; }) } })) };
-}
+export { agentAusVorlage, agentNutzung, agentRolle, agentenEinsetzen, brauchtBibliothek } from "./agentenlogik";
 
 /** Beim Lauf im Browser und beim Start im Hub-Dienst: App mit den aktuellen Bibliotheksagenten */
 export async function mitBibliotheksAgenten(app: App): Promise<App> {
-  if (!app.steps.some((s) => s.team?.agenten.some((a) => a.vorlage))) return app;
+  if (!brauchtBibliothek(app)) return app;
   try { return agentenEinsetzen(app, await agentenLaden()); } catch { return app; }
 }
-
-/** In welchen Apps ein Bibliotheksagent verwendet wird */
-export const agentNutzung = (apps: Pick<App, "id" | "name" | "steps">[], id: string) => apps.filter((a) => a.steps.some((s) => s.team?.agenten.some((x) => x.vorlage === id)));

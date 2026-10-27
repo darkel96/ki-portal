@@ -5,6 +5,8 @@
  */
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
+import { agentenEinsetzen, brauchtBibliothek } from "@/lib/agentenlogik";
+import { AgentVorlageSchema, type App } from "@/lib/schema";
 import { darfAppBearbeiten, festeRechteAus, rechteVon, RECHT_LABEL, RechteStandSchema, type Identitaet, type Recht } from "@/lib/rechte";
 import type { Nutzer } from "./anmeldung";
 import { UMGEBUNG } from "./umgebung";
@@ -122,4 +124,19 @@ export async function hubDatenAendern(nutzer: Nutzer, pfad: string, daten: unkno
     else m[schluessel] = daten;
     return m;
   }, `Hub-Daten: ${sammlung}/${schluessel}${daten === undefined ? " entfernt" : ""} (${wer})`);
+}
+
+/**
+ * Vor einem Lauf im Dienst (Aufträge): verknüpfte Agenten mit der aktuellen Fassung aus der Agentenbibliothek im
+ * Git-Speicher. Ohne Git-Speicher oder wenn GitHub nicht antwortet, bleibt die Fassung, die der Hub mitgeschickt hat.
+ */
+export async function mitAgentenAusGit<T>(app: T): Promise<T> {
+  const a = app as unknown as App;
+  if (!UMGEBUNG.gitRepo || !a || !Array.isArray(a.steps) || !brauchtBibliothek(a)) return app;
+  try {
+    const text = await hubDatenLesen("agenten.json");
+    if (!text) return app;
+    const liste = Object.values(JSON.parse(text) as Record<string, unknown>).map((x) => AgentVorlageSchema.safeParse(x)).flatMap((r) => (r.success ? [r.data] : []));
+    return agentenEinsetzen(a, liste) as unknown as T;
+  } catch { return app; }
 }

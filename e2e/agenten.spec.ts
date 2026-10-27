@@ -86,3 +86,48 @@ test("Agenten: ohne Baukasten-Recht keine Bibliothek", async ({ page }, info) =>
   await expect(page.getByRole("heading", { name: "Dafür fehlt dir das Recht." })).toBeVisible();
   await expect(page.getByRole("link", { name: "Agenten" })).toHaveCount(0);
 });
+
+test("Agent als Rolle eines KI-Schritts: Rolle als Agent speichern, in einer anderen App wählen, Feinjustierung wirkt beim Lauf", async ({ page }, info) => {
+  test.skip(info.project.name !== "desktop", "einmal reicht");
+  await kiNachbau(page, "ok");
+  // App 1: eigene Rolle als Agent in die Bibliothek
+  await page.goto("/baukasten?kopie=protokoll");
+  await page.getByRole("tab", { name: /KI-Ablauf/ }).click();
+  await page.getByRole("tab", { name: "Feineinstellungen" }).click();
+  await page.getByLabel("Rolle und Regeln für die KI").fill("Du bist ein sorgfältiger Projekt- und Vertragsüberwachungsassistent. Du triffst keine verbindlichen Entscheidungen.");
+  await page.getByRole("button", { name: "Als Agent speichern" }).click();
+  await expect(page.getByText(/ist jetzt in der Agentenbibliothek und hier als Rolle verknüpft/)).toBeVisible();
+  const gruppe = page.getByRole("group", { name: "Rolle von einem Agenten" });
+  await expect(gruppe).toContainText("Rolle von Agent");
+  await expect(page.getByLabel("Rolle und Regeln für die KI")).toHaveCount(0);
+  const bib = await page.evaluate(() => JSON.parse(localStorage.getItem("kihub-agenten-v1") || "[]") as { id: string; name: string; rolle: string }[]);
+  expect(bib).toHaveLength(1);
+  expect(bib[0].rolle).toContain("Vertragsüberwachungsassistent");
+  await page.locator(".bar-speichern").click();
+  await expect(page.getByText(/gespeichert/i).first()).toBeVisible();
+  // App 2: denselben Agenten als Rolle wählen
+  await page.goto("/baukasten?kopie=serviceangebot");
+  await page.getByRole("tab", { name: /KI-Ablauf/ }).click();
+  await page.getByRole("tab", { name: "Feineinstellungen" }).click();
+  await page.getByLabel("Rolle von einem Agenten").click();
+  await page.getByRole("option", { name: bib[0].name }).click();
+  await expect(page.getByRole("group", { name: "Rolle von einem Agenten" })).toContainText(`Rolle von Agent „${bib[0].name}“`);
+  await page.locator(".bar-speichern").click();
+  await expect(page.getByText(/gespeichert/i).first()).toBeVisible();
+  // Bibliothek: in beiden Apps verwendet; Feinjustierung ändern
+  await page.goto("/agenten");
+  await page.getByRole("button", { name: new RegExp(bib[0].name) }).click();
+  await expect(page.getByText(/Verwendet in:/)).toContainText("Meeting-Protokoll (Kopie)");
+  await page.getByLabel("Feinjustierung").fill("Antworte immer mit einer Tabelle.");
+  await page.getByRole("button", { name: "Speichern" }).click();
+  await expect(page.getByText(/gespeichert\. Agenten-Teams/)).toBeVisible();
+  // Beim Lauf gilt die neue Fassung in beiden Apps, ohne sie neu zu speichern
+  const rollen = await page.evaluate(async (id) => {
+    const ag = await import("/src/lib/agenten.ts");
+    const apps = JSON.parse(localStorage.getItem("kihub-apps-v3") || "[]") as { steps: { agent: string; rolle: string }[] }[];
+    const mit = apps.filter((a) => a.steps.some((s) => s.agent === id));
+    return Promise.all(mit.map(async (a) => (await ag.mitBibliotheksAgenten(a as never)).steps.find((s: { agent: string }) => s.agent === id)!.rolle as string));
+  }, bib[0].id);
+  expect(rollen).toHaveLength(2);
+  for (const r of rollen) { expect(r).toContain("Vertragsüberwachungsassistent"); expect(r).toContain("Feinjustierung (gilt immer):\nAntworte immer mit einer Tabelle."); }
+});

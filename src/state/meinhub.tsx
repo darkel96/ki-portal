@@ -8,6 +8,7 @@ import {
 } from "@/lib/meinhub";
 import type { App } from "@/lib/schema";
 import type { OutState } from "@/lib/runner";
+import { mitBibliotheksAgenten } from "@/lib/agenten";
 import { alsLauf, auftraegeSchreiben, auftragJetzt, dienstAktiv, laeufeListe, laufEntfernen } from "@/lib/dienst";
 import { laufInhalt, zustellenImBrowser, zustellungMoeglich } from "@/lib/ki/zustellung";
 import { zielText } from "@/lib/versand";
@@ -225,7 +226,9 @@ export function MeinHubProvider({ children }: { children: ReactNode }) {
     if (schluessel === letzterAbgleich.current) return;
     const t = window.setTimeout(() => {
       letzterAbgleich.current = schluessel;
-      auftraegeSchreiben(n).then(termineUebernehmen).catch((e) => {
+      // Agenten aus der Bibliothek in der aktuellen Fassung mitgeben (der Dienst kennt die Bibliothek nur im Git-Speicher)
+      Promise.all(Object.entries(n.apps).map(async ([id, a]) => [id, await mitBibliotheksAgenten(a)] as const))
+        .then((apps) => auftraegeSchreiben({ ...n, apps: Object.fromEntries(apps) })).then(termineUebernehmen).catch((e) => {
         letzterAbgleich.current = "";
         toast.error(`Die Aufträge konnten nicht an den Hub-Dienst übergeben werden: ${e instanceof Error ? e.message : e}`);
       });
