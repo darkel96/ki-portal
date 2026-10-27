@@ -91,6 +91,7 @@ export const PropsSchemas = {
       tage: z.number().int().min(1).max(365).default(30),
       zielordner: z.string().max(120).default("").describe("Name des Zielordners; wird angelegt, wenn es ihn nicht gibt"),
       ki: z.boolean().default(true).describe("KI entscheidet thematisch, sonst nur Wortsuche in Betreff, Absender und Vorschau"),
+      suchOrdner: z.array(z.string().max(300)).max(50).default(["Posteingang"]).describe('Wo gesucht wird: Ordnerpfade wie "Posteingang" oder "Posteingang/Projekte"; [] = alle Ordner; Standard nur der Posteingang'),
     })).max(10).default([]),
   }).describe("Postfach der angemeldeten Person wie in Outlook: Ordner, Nachrichten, geöffnete Nachricht; KI zur offenen Mail (Zusammenfassung, Antwortentwurf, Aufgaben, freie Frage) und Prozeduren (Mails zu einem Thema in einen Ordner ablegen). Microsoft Graph Mail.Read, Schreiben mit Mail.ReadWrite"),
   output: z.object({ titel: z.string().max(120).default("Ergebnis"), quelle: z.string().max(40).default("").describe("ID eines Schritts"), stil: z.enum(["card", "plain"]).default("card"), pfad: z.string().max(120).default("").describe('bei format json: nur diesen Teil des Ergebnisses zeigen, z. B. "bericht" oder "produkte.wartung"; Text wird als Markdown gezeigt, Listen und Objekte als Liste bzw. Tabelle; "" = ganzes Ergebnis') }),

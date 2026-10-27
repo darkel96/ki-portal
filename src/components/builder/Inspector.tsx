@@ -304,10 +304,16 @@ export function Inspector({ b, onDelete, bereiche, onSeite }: { b: Builder; onDe
           <Sel label="Zeitraum" value={String(p.tage)} options={[["7", "7 Tage"], ["14", "14 Tage"], ["30", "30 Tage"], ["60", "60 Tage"], ["90", "90 Tage"], ["180", "180 Tage"]]} onChange={(v) => set("prozeduren", x.props.prozeduren.map((q, j) => (j === k ? { ...q, tage: Number(v) } : q)))} />
           <TextFld label="Zielordner" value={p.zielordner} onChange={(v) => set("prozeduren", x.props.prozeduren.map((q, j) => (j === k ? { ...q, zielordner: v } : q)), true)} />
           <Check label="KI wählt thematisch (sonst nur Wortsuche)" checked={p.ki} onChange={(v) => set("prozeduren", x.props.prozeduren.map((q, j) => (j === k ? { ...q, ki: v } : q)))} />
+          <Check label="Nur im Posteingang suchen" checked={p.suchOrdner.length === 1 && p.suchOrdner[0]!.toLowerCase() === "posteingang"} onChange={(v) => set("prozeduren", x.props.prozeduren.map((q, j) => (j === k ? { ...q, suchOrdner: v ? ["Posteingang"] : [] } : q)))} />
+          {!(p.suchOrdner.length === 1 && p.suchOrdner[0]!.toLowerCase() === "posteingang") && (
+            <TextFld label="Suchen in (Ordnerpfade, mit Komma)" value={p.suchOrdner.join(", ")} placeholder="leer = alle Ordner; z. B. Posteingang, Posteingang/Projekte"
+              hint="Jeder Ordner zählt ohne seine Unterordner. Wer die Prozedur ausführt, kann die Auswahl im Postfach noch ändern."
+              onChange={(v) => set("prozeduren", x.props.prozeduren.map((q, j) => (j === k ? { ...q, suchOrdner: v.split(",").map((t) => t.trimStart()).slice(0, 50) } : q)), true)} />
+          )}
           <Button variant="ghost" size="sm" onClick={() => set("prozeduren", x.props.prozeduren.filter((_, j) => j !== k))}>Prozedur entfernen</Button>
         </div>
       ))}
-      <div><Button variant="outline" size="sm" disabled={x.props.prozeduren.length >= 10} onClick={() => set("prozeduren", [...x.props.prozeduren, { name: "Aufräumen", thema: "", tage: 30, zielordner: "", ki: true }])}>Prozedur hinzufügen</Button></div>
+      <div><Button variant="outline" size="sm" disabled={x.props.prozeduren.length >= 10} onClick={() => set("prozeduren", [...x.props.prozeduren, { name: "Aufräumen", thema: "", tage: 30, zielordner: "", ki: true, suchOrdner: ["Posteingang"] }])}>Prozedur hinzufügen</Button></div>
       <p className="hint" style={{ margin: 0 }}>Postfach der angemeldeten Person wie in Outlook. KI zur geöffneten Mail (Zusammenfassung, Antwortentwurf, Aufgaben, freie Frage) und Prozeduren, die Mails zu einem Thema in einen Ordner ablegen; die Auswahl wird vorher bestätigt. Lesen mit Mail.Read; Verschieben, Ordner und Entwürfe brauchen die Zustimmung zu Mail.ReadWrite. Ohne Copilot-Anbindung ein Beispielpostfach.</p></>; break;
     case "output": f = <>
       <TextFld id="insp-first" label="Titel" value={x.props.titel} onChange={(v) => set("titel", v, true)} />

@@ -170,13 +170,14 @@ export async function nachrichtenSeit(tage: number, signal?: AbortSignal, max = 
  * Volltextsuche über alle Ordner im Zeitraum (Betreff, Text, Absender; Graph „$search“ mit KQL). Ein Treffer reicht
  * für eines der Wörter; ein Begriff aus mehreren Wörtern braucht alle. Gelöschte, Junk, Entwürfe und Gesendete fallen weg.
  */
-export async function nachrichtenSuchen(begriffe: string[], tage: number, signal?: AbortSignal, max = 1000): Promise<(Nachricht & { ordnerId: string })[]> {
+/** ordnerIds: nur in diesen Ordnern suchen (ohne Unterordner); leer = in allen */
+export async function nachrichtenSuchen(begriffe: string[], tage: number, signal?: AbortSignal, max = 1000, ordnerIds: string[] = []): Promise<(Nachricht & { ordnerId: string })[]> {
   const ab = new Date(Date.now() - tage * 86_400_000);
   const saetze = begriffe.map((b) => b.replace(/["\\()]/g, " ").split(/\s+/).filter((w) => w.length >= 2)).filter((l) => l.length);
   if (!saetze.length) return [];
   const weglassen = ["deleteditems", "junkemail", "drafts", "sentitems"];
   if (!postfachEcht()) {
-    return beispiel.nachrichten.filter((n) => Date.parse(n.empfangen) >= ab.getTime() && !weglassen.includes(n.ordner)
+    return beispiel.nachrichten.filter((n) => Date.parse(n.empfangen) >= ab.getTime() && !weglassen.includes(n.ordner) && (!ordnerIds.length || ordnerIds.includes(n.ordner))
       && saetze.some((l) => l.every((w) => passtZumThema(`${n.betreff} ${n.von} ${n.vonAdresse} ${n.text}`, [w.toLowerCase()]))))
       .sort((a, b) => b.empfangen.localeCompare(a.empfangen)).map(({ ordner, an: _a, cc: _c, html: _h, text: _t, ...n }) => ({ ...n, ordnerId: ordner }));
   }
@@ -184,14 +185,18 @@ export async function nachrichtenSuchen(begriffe: string[], tage: number, signal
   const weg = new Set(weglassen.map((w) => ids[w]).filter(Boolean));
   const kql = `(${saetze.map((l) => (l.length > 1 ? `(${l.join(" AND ")})` : l[0])).join(" OR ")}) AND received>=${ab.toISOString().slice(0, 10)}`;
   const aus = new Map<string, Nachricht & { ordnerId: string }>();
-  let pfad: string | null = `/messages?$search=${encodeURIComponent(`"${kql}"`)}&$top=100&$select=id,subject,from,receivedDateTime,isRead,hasAttachments,bodyPreview,importance,parentFolderId`;
-  while (pfad && aus.size < max) {
-    const j: { value: (GraphNachricht & { parentFolderId?: string })[]; "@odata.nextLink"?: string } = await graph(pfad, signal);
-    for (const m of j.value) {
-      if (weg.has(m.parentFolderId ?? "") || Date.parse(m.receivedDateTime ?? "") < ab.getTime()) continue;
-      aus.set(m.id, { ...nachrichtAus(m), ordnerId: m.parentFolderId ?? "" });
+  const abfrage = `$search=${encodeURIComponent(`"${kql}"`)}&$top=100&$select=id,subject,from,receivedDateTime,isRead,hasAttachments,bodyPreview,importance,parentFolderId`;
+  // Je gewähltem Ordner eine Suche (Graph sucht dann nur dort), sonst eine über das ganze Postfach
+  for (const start of ordnerIds.length ? ordnerIds.map((id) => `/mailFolders/${encodeURIComponent(id)}/messages?${abfrage}`) : [`/messages?${abfrage}`]) {
+    let pfad: string | null = start;
+    while (pfad && aus.size < max) {
+      const j: { value: (GraphNachricht & { parentFolderId?: string })[]; "@odata.nextLink"?: string } = await graph(pfad, signal);
+      for (const m of j.value) {
+        if (weg.has(m.parentFolderId ?? "") || Date.parse(m.receivedDateTime ?? "") < ab.getTime()) continue;
+        aus.set(m.id, { ...nachrichtAus(m), ordnerId: m.parentFolderId ?? "" });
+      }
+      pfad = j["@odata.nextLink"] ?? null;
     }
-    pfad = j["@odata.nextLink"] ?? null;
   }
   return [...aus.values()].sort((a, b) => b.empfangen.localeCompare(a.empfangen)).slice(0, max);
 }
@@ -280,6 +285,16 @@ export async function zielOrdnerSuchen(eingabe: string, signal?: AbortSignal): P
   if (!teile.length) return [];
   const alle = await alleOrdner(signal);
   return alle.filter((o) => o.pfad.length >= teile.length && teile.every((t, i) => o.pfad[o.pfad.length - teile.length + i]!.toLowerCase() === t));
+}
+
+/** Ordnerpfade („Posteingang“, „Posteingang/Projekte“) zu Ordnern; nicht gefundene getrennt */
+export async function suchOrdnerAufloesen(pfade: string[], signal?: AbortSignal): Promise<{ ordner: OrdnerPfad[]; fehlen: string[] }> {
+  if (!pfade.length) return { ordner: [], fehlen: [] };
+  const alle = await alleOrdner(signal);
+  const gleich = (o: OrdnerPfad, teile: string[]) => o.pfad.length === teile.length && o.pfad.every((t, i) => t.toLowerCase() === teile[i]!.toLowerCase());
+  const ordner: OrdnerPfad[] = [], fehlen: string[] = [];
+  for (const p of pfade) { const o = alle.find((x) => gleich(x, pfadTeile(p))); if (o) ordner.push(o); else fehlen.push(p); }
+  return { ordner, fehlen };
 }
 
 /**
