@@ -144,5 +144,62 @@
       "geaendert": "2026-10-26T15:54:54.580Z"
     },
     "geloescht": "2026-10-27T08:18:23.920Z"
+  },
+  "app-mvi3alnrlwjk": {
+    "app": {
+      "id": "app-mvi3alnrlwjk",
+      "v": 2,
+      "typ": "baukasten",
+      "url": "",
+      "name": "Neue Applikation",
+      "bereich": "Allgemein",
+      "beschreibung": "Beschreib hier kurz, was die Applikation macht.",
+      "theme": {
+        "accent": "",
+        "bg": "",
+        "font": "sans",
+        "radius": "m",
+        "width": "m"
+      },
+      "wissen": {
+        "modus": "eingaben",
+        "text": "",
+        "quellen": []
+      },
+      "blocks": [
+        {
+          "id": "b8igw332",
+          "type": "seite",
+          "props": {
+            "titel": "Eingaben"
+          },
+          "children": [
+            {
+              "id": "bp9gqb53",
+              "type": "postfach",
+              "props": {
+                "titel": "Postfach",
+                "anzahl": 25,
+                "vorschau": true,
+                "prozeduren": []
+              }
+            }
+          ]
+        }
+      ],
+      "steps": [],
+      "status": "entwurf",
+      "pflichtSperre": true,
+      "owner": "",
+      "erstelltVon": "dario.keller@koerber.com",
+      "rechte": {
+        "bearbeiten": [],
+        "nutzen": []
+      },
+      "schutz": "intern",
+      "version": 5,
+      "geaendert": "2026-10-26T14:30:13.933Z"
+    },
+    "geloescht": "2026-10-27T08:18:35.807Z"
   }
 }
