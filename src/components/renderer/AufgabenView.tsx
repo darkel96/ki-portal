@@ -3,7 +3,7 @@ import { ListTodo } from "lucide-react";
 import { toast } from "sonner";
 import type { Block } from "@/lib/schema";
 import { KiSimulation } from "@/lib/ki";
-import { aufgabeAnlegen, aufgabenAusText, aufgabenEcht, bucketsLaden, listenLaden, personFinden, plaeneLaden, vorhandeneTitel, type Ablage, type Aufgabe, type AufgabenZiel, type Prioritaet } from "@/lib/ki/aufgaben";
+import { aufgabeAnlegen, aufgabenAnmelden, aufgabenAusText, aufgabenEcht, bucketsLaden, listenLaden, personFinden, plaeneLaden, vorhandeneTitel, type Ablage, type Aufgabe, type AufgabenZiel, type Prioritaet } from "@/lib/ki/aufgaben";
 import { Arbeitet } from "@/components/layout/Arbeitet";
 import { useRun } from "./runContext";
 import type { Mode } from "./BlockContent";
@@ -30,19 +30,22 @@ export function AufgabenView({ b, mode, app }: { b: Extract<Block, { type: "aufg
   const [zeilen, setZeilen] = useState<Zeile[] | null>(null);
   const [phase, setPhase] = useState("");
   const [meldung, setMeldung] = useState("");
+  /** Pläne/Listen nicht ladbar (z. B. Anmeldung fehlt): Meldung und Knopf zum erneuten Laden */
+  const [ablageFehler, setAblageFehler] = useState("");
+  const [ladeNr, setLadeNr] = useState(0);
 
   // Pläne bzw. Listen laden (vorgewählt nach Name aus dem Baukasten), sobald Aufgaben da sind oder das Ziel wechselt
   useEffect(() => {
     if (!zeilen) return;
     let aus = false;
-    setAblagen(null);
+    setAblagen(null); setAblageFehler("");
     (ziel === "planner" ? plaeneLaden() : listenLaden()).then((l) => {
       if (aus) return;
       setAblagen(l);
       setAblageId((P.plan && l.find((x) => gleich(x.name, P.plan))?.id) || (ziel === "todo" ? l[0]?.id ?? "" : l.length === 1 ? l[0]!.id : ""));
-    }, (e) => { if (!aus) { setAblagen([]); toast.error(e instanceof Error ? e.message : String(e)); } });
+    }, (e) => { if (!aus) { setAblagen([]); setAblageFehler(e instanceof Error ? e.message : String(e)); } });
     return () => { aus = true; };
-  }, [ziel, !!zeilen]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [ziel, !!zeilen, ladeNr]); // eslint-disable-line react-hooks/exhaustive-deps
   // Buckets des Plans und vorhandene Aufgaben (nichts doppelt anlegen)
   useEffect(() => {
     if (!ablageId || !zeilen) return;
@@ -73,8 +76,12 @@ export function AufgabenView({ b, mode, app }: { b: Extract<Block, { type: "aufg
 
   const lesen = async () => {
     if (!out?.text) return;
-    setPhase("KI liest die Aufgaben aus dem Ergebnis"); setMeldung(""); setZeilen(null);
+    setMeldung(""); setZeilen(null);
     try {
+      // Erst anmelden (das Fenster gehört zum Klick), dann lesen
+      setPhase("Anmeldung für Planner und To Do");
+      await aufgabenAnmelden();
+      setPhase("KI liest die Aufgaben aus dem Ergebnis");
       const l = await aufgabenAusText(out.text);
       setZeilen(l.map((a) => ({ ...a, an: true, schonDa: false, angelegt: false })));
       if (!l.length) setMeldung(`In „${schritt?.name ?? "dem Ergebnis"}“ stehen keine offenen Aufgaben.`);
@@ -116,7 +123,7 @@ export function AufgabenView({ b, mode, app }: { b: Extract<Block, { type: "aufg
         <span className="flex-1" />
         {!aufgabenEcht() && <span className="o-muted">Beispielpläne (ohne Copilot-Anmeldung)</span>}
         <button type="button" className="o-btn" style={knopf} disabled={!bereit || !!phase} onClick={() => void lesen()}>
-          {phase.startsWith("KI") ? <Arbeitet text="Liest" /> : zeilen ? "Neu lesen" : `Aufgaben aus „${schritt?.name ?? "Ergebnis"}“ übernehmen`}
+          {phase && !phase.startsWith("Legt") ? <Arbeitet text="Liest" /> : zeilen ? "Neu lesen" : `Aufgaben aus „${schritt?.name ?? "Ergebnis"}“ übernehmen`}
         </button>
       </div>
       {!bereit && <p className="o-muted">Erst wenn „{schritt?.name ?? "der Schritt"}“ fertig ist, lassen sich die Aufgaben übernehmen.</p>}
@@ -138,6 +145,11 @@ export function AufgabenView({ b, mode, app }: { b: Extract<Block, { type: "aufg
               {phase.startsWith("Legt") ? <Arbeitet text="Legt an" /> : `${gewaehlt.length} ${gewaehlt.length === 1 ? "Aufgabe" : "Aufgaben"} anlegen`}
             </button>
           </div>
+          {ablageFehler && (
+            <p className="o-aufgaben-fehler" role="alert">{ziel === "planner" ? "Die Pläne" : "Die Listen"} ließen sich nicht laden: {ablageFehler}{" "}
+              <button type="button" className="o-chat-link" onClick={() => void aufgabenAnmelden().then(() => setLadeNr((n) => n + 1), (e) => setAblageFehler(e instanceof Error ? e.message : String(e)))}>Anmelden und neu laden</button>
+            </p>
+          )}
           {ziel === "todo" && <p className="o-muted">In „Meine Aufgaben“ gibt es keine Zuständigen; Namen stehen dann in der Notiz.</p>}
           <div className="o-aufgaben-tabelle" role="region" aria-label="Aufgaben" tabIndex={0}>
             <table>

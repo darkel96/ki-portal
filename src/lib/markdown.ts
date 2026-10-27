@@ -1,3 +1,4 @@
+import { tabellenReparieren } from "./tabellenreparatur";
 import DOMPurify from "dompurify";
 import type { Step } from "./schema";
 
@@ -52,7 +53,7 @@ const blockStart = /^(#{1,4}\s|\s*[-*•]\s+|\s*\d+[.)]\s+|\s*\|.*\|\s*$|\s*(---
 
 /** Einfaches Markdown für KI-Antworten. Das Ergebnis wird immer mit DOMPurify bereinigt. */
 export function markdown(src: string): string {
-  return DOMPurify.sanitize(bloecke(String(src).replace(/\r/g, "").split("\n")), { USE_PROFILES: { html: true }, ADD_ATTR: ["target"] });
+  return DOMPurify.sanitize(bloecke(tabellenReparieren(String(src).replace(/\r/g, "")).split("\n")), { USE_PROFILES: { html: true }, ADD_ATTR: ["target"] });
 }
 
 export { textAblauf, diagrammQuelle, diagrammArt } from "./diagrammquelle";

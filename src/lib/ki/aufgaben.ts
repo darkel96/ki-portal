@@ -17,6 +17,14 @@ const GRAPH = `${KI_CONFIG.graph}/v1.0`;
 const SCOPES = ["https://graph.microsoft.com/Tasks.ReadWrite", "https://graph.microsoft.com/User.ReadBasic.All"];
 
 export const aufgabenEcht = () => kiModus() === "copilot" || !!graphTestToken();
+/**
+ * Zustimmung und Token direkt beim Klick holen: Das Anmeldefenster darf nur als Folge eines Klicks aufgehen; später
+ * (nach dem Lesen durch die KI) blockiert der Browser es. Danach liegt das Token im Zwischenspeicher.
+ */
+export async function aufgabenAnmelden(): Promise<void> {
+  if (!aufgabenEcht() || graphTestToken()) return;
+  await graphToken(SCOPES);
+}
 
 const warten = (ms: number) => new Promise((r) => setTimeout(r, ms));
 /** Graph-Aufruf; bei 429/503 so lange warten, wie Microsoft sagt. Liefert Antwort und ETag (Planner braucht ihn zum Ändern) */

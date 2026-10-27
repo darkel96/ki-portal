@@ -986,5 +986,6 @@ a.mh-titel:hover { text-decoration: underline; text-underline-offset: 4px; }
 .o-aufgaben-tabelle td:nth-child(2) input { width: 100%; }
 .o-aufgaben-tabelle tr[data-angelegt] { opacity: .6; }
 .o-aufgaben-notiz { display: block; margin-top: 3px; font-size: 12px; }
+.o-aufgaben-fehler { margin: 0 0 8px; font-size: 13px; color: var(--danger); }
 .o-aufgaben-da { display: inline-block; margin-top: 3px; font-size: 12px; font-weight: 600; color: var(--danger); }
 .o-aufgaben-ok { display: inline-block; margin-top: 3px; font-size: 12px; font-weight: 600; color: var(--app-accent); }

@@ -138,3 +138,19 @@ test("Baukasten: Aufgaben stehen unter Microsoft 365 und lassen sich einstellen"
   await expect(page.getByLabel("Plan (vorgewählt, optional)")).toHaveValue("KTE Projekt");
   await expect(page.getByLabel("Bucket (vorgewählt, optional)")).toHaveValue("Offen");
 });
+
+test("Tabellen ohne äußere Striche und Trennzeile (Copilot) werden zu echten Tabellen", async ({ page }, info) => {
+  test.skip(info.project.name !== "desktop", "einmal reicht");
+  await page.goto("/");
+  const r = await page.evaluate(async () => {
+    const t = await import("/src/lib/tabellenreparatur.ts");
+    const md = await import("/src/lib/markdown.ts");
+    const roh = "Offene Punkte\nPriorität | Was ist zu tun | Zuständig\nhoch | Freigabe einholen | Dario\nmittel | Liste abstimmen | Marcel Huck\n\nText mit a | b bleibt.";
+    return { text: t.tabellenReparieren(roh), html: md.markdown(roh), unveraendert: t.tabellenReparieren("| A | B | C |\n|---|---|---|\n| 1 | 2 | 3 |"), einzeln: t.tabellenReparieren("nur a | b | c in einer Zeile") };
+  });
+  expect(r.text).toBe("Offene Punkte\n| Priorität | Was ist zu tun | Zuständig |\n| --- | --- | --- |\n| hoch | Freigabe einholen | Dario |\n| mittel | Liste abstimmen | Marcel Huck |\n\nText mit a | b bleibt.");
+  expect(r.html).toContain("<th>Priorität</th>");
+  expect(r.html).toContain("<td>Marcel Huck</td>");
+  expect(r.unveraendert).toBe("| A | B | C |\n|---|---|---|\n| 1 | 2 | 3 |");
+  expect(r.einzeln).toBe("nur a | b | c in einer Zeile");
+});
