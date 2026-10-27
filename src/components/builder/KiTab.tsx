@@ -15,7 +15,8 @@ import { KI_ZENTRAL } from "@/lib/ki/config";
 import { kiModus } from "@/lib/ki";
 import { Check, Fld, Sel, TextFld } from "./controls";
 import { geloeschtToast, type Builder } from "./useBuilder";
-import { agentAusVorlage, agentRolle, agentSpeichern, agentenLaden, neueAgentId } from "@/lib/agenten";
+import { agentAusVorlage, agentSpeichern, agentenLaden, neueAgentId } from "@/lib/agenten";
+import { AgentRolle } from "./AgentRolle";
 import type { AgentVorlage } from "@/lib/schema";
 import { toast } from "sonner";
 
@@ -80,20 +81,6 @@ function StepCard({ b, i, onAktiv }: { b: Builder; i: number; onAktiv: (id: stri
   // Agentenbibliothek: verknüpfte Agenten zeigen Name und Rolle von dort; „In die Bibliothek“ legt einen Teamagenten global an
   const [bibliothek, setBibliothek] = useState<AgentVorlage[]>([]);
   useEffect(() => { agentenLaden().then(setBibliothek, () => setBibliothek([])); }, [s.art]);
-  /** Rolle des Schritts aus einem Bibliotheksagenten (verknüpft; die Rolle in der App bleibt als Rückfall) */
-  const rollenAgent = s.agent ? bibliothek.find((v) => v.id === s.agent) : undefined;
-  const agentAlsRolle = (id: string) => {
-    const v = bibliothek.find((x) => x.id === id);
-    if (v) b.change((d) => { d.steps[i].agent = v.id; d.steps[i].rolle = agentRolle(v); });
-  };
-  const rolleAlsAgent = async () => {
-    try {
-      const v = await agentSpeichern({ id: neueAgentId(), name: s.name.trim() || "Agent", beschreibung: "", rolle: s.rolle, hinweise: "", geaendert: "", erstelltVon: "" });
-      setBibliothek(await agentenLaden(true));
-      b.change((d) => { d.steps[i].agent = v.id; });
-      toast.success(`„${v.name}“ ist jetzt in der Agentenbibliothek und hier als Rolle verknüpft. Andere Apps können ihn unter „Rolle von einem Agenten“ wählen.`);
-    } catch (e) { toast.error(e instanceof Error ? e.message : "Das hat nicht geklappt."); }
-  };
   const inBibliothek = async (ai: number) => {
     const a = s.team?.agenten[ai];
     if (!a) return;
@@ -190,25 +177,7 @@ function StepCard({ b, i, onAktiv }: { b: Builder; i: number; onAktiv: (id: stri
         </TabsContent>
       )}
         <TabsContent value="fein" className="ki-teil" tabIndex={-1}>
-      {!team && (s.agent ? (
-        <div className="ki-rollen-agent" role="group" aria-label="Rolle von einem Agenten">
-          <span className="lbl text-[13px] font-semibold"><Users size={14} aria-hidden="true" /> Rolle von Agent „{rollenAgent?.name ?? "…"}“</span>
-          {rollenAgent?.beschreibung && <p className="hint" style={{ margin: 0 }}>{rollenAgent.beschreibung}</p>}
-          {!rollenAgent && bibliothek.length > 0 && <p className="hint" style={{ margin: 0 }}>Diesen Agenten gibt es nicht mehr in der Bibliothek; es gilt die zuletzt übernommene Rolle.</p>}
-          <details><summary className="hint">Rolle und Feinjustierung ansehen</summary><pre className="ki-rollen-text">{rollenAgent ? agentRolle(rollenAgent) : s.rolle}</pre></details>
-          <p className="hint" style={{ margin: 0 }}>Die Rolle kommt beim Lauf aus der Agentenbibliothek; eine Feinjustierung dort wirkt sofort in allen Apps, die den Agenten nutzen.</p>
-          <div className="ag-team-zeile">
-            <Button variant="outline" size="sm" asChild><a href={`${import.meta.env.BASE_URL}agenten`}>In der Agentenbibliothek bearbeiten</a></Button>
-            <Button variant="outline" size="sm" onClick={() => b.change((d) => { d.steps[i].agent = ""; if (rollenAgent) d.steps[i].rolle = agentRolle(rollenAgent); })} title="Die Rolle bleibt als eigene Kopie in dieser App">Verknüpfung lösen</Button>
-          </div>
-        </div>
-      ) : (
-        <>
-          {bibliothek.length > 0 && <Sel label="Rolle von einem Agenten" value="" options={[["", "Eigene Rolle (unten)"], ...bibliothek.map((v) => [v.id, v.beschreibung ? `${v.name}: ${v.beschreibung.slice(0, 60)}` : v.name] as [string, string])]} onChange={agentAlsRolle} />}
-          <TextFld label="Rolle und Regeln für die KI" multiline rows={2} value={s.rolle} placeholder="z. B. Du bist Assistenz im Vertrieb. Du schreibst sachlich und erfindest keine Preise …" onChange={(v) => set("rolle", v, true)} />
-          {s.rolle.trim().length > 20 && <div className="ag-team-zeile"><Button variant="outline" size="sm" onClick={() => void rolleAlsAgent()} title="Diese Rolle als Agenten in der Bibliothek anlegen, damit andere Apps sie nutzen können">Als Agent speichern</Button></div>}
-        </>
-      ))}
+      {!team && <AgentRolle b={b} i={i} bibliothek={bibliothek} setBibliothek={setBibliothek} />}
       <div className="three">
         <StepKey b={b} i={i} />
         <Sel label="Modell" value={s.modell} options={Object.entries(MODELL_LABEL) as [Step["modell"], string][]} onChange={(v) => set("modell", v)} />

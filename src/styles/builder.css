@@ -172,6 +172,10 @@
 /* KI-Schritt: Rolle von einem Agenten der Bibliothek */
 .ki-rollen-agent { display: grid; gap: 6px; padding: 10px 12px; border: 1px dashed var(--line-strong); border-radius: 10px; background: var(--brand-soft); }
 .ki-rollen-agent .lbl { display: inline-flex; align-items: center; gap: 6px; }
+.ki-abgleich { display: grid; gap: 6px; padding: 10px 12px; border: 1px solid var(--brand); border-radius: 10px; background: var(--brand-soft); }
+.ki-abgleich .lbl { display: inline-flex; align-items: center; gap: 6px; }
+.ki-abgleich ul { margin: 0; padding-left: 18px; }
+.ki-abgleich-warn { margin: 0; font-size: 12.5px; font-weight: 600; color: var(--danger); }
 .ki-rollen-text { margin: 6px 0 0; white-space: pre-wrap; overflow-wrap: anywhere; font: inherit; font-size: 12.5px; max-height: 240px; overflow: auto; }
 .agent-row.ist-verknuepft input, .agent-row.ist-verknuepft textarea { opacity: .75; }
 
