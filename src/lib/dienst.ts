@@ -129,6 +129,9 @@ export const vorschlagEinreichenDienst = (appId: string, v: Vorschlag) => ruf<Le
 export const vorschlagSetzen = (appId: string, id: string, stand: Vorschlag["stand"]) => ruf<LernStand>(`/lernen/${encodeURIComponent(appId)}/vorschlaege/${encodeURIComponent(id)}`, { method: "PUT", body: JSON.stringify({ stand }) });
 
 /** Gespeicherte Anmeldung im Dienst löschen (danach laufen Aufträge erst nach dem nächsten Speichern wieder) */
+/** Anmeldung beim Dienst vermerken (für die Personenliste der Verwaltung) und die Liste aller Angemeldeten holen */
+export const anmeldungMelden = () => ruf<{ ok: true }>("/anmeldung", { method: "POST" });
+export const personenHolen = () => ruf<{ id: string; name: string; email: string; zuletzt: string }[]>("/personen");
 export const kontoLoeschen = () => ruf<{ ok: true }>("/konto", { method: "DELETE" });
 
 /** Merkt sich je Applikation den Lauf, der im Dienst läuft, damit die App ihn beim nächsten Öffnen wieder anzeigt */

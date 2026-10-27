@@ -22,13 +22,26 @@ const DEUTSCH: Record<string, string> = { inbox: "Posteingang", drafts: "Entwür
 
 export const postfachEcht = () => kiModus() === "copilot";
 
+const warten = (ms: number, signal?: AbortSignal) => new Promise<void>((ok, fehler) => {
+  if (signal?.aborted) { fehler(new DOMException("Abgebrochen", "AbortError")); return; }
+  const t = setTimeout(ok, ms);
+  signal?.addEventListener("abort", () => { clearTimeout(t); fehler(new DOMException("Abgebrochen", "AbortError")); }, { once: true });
+});
+
 async function graph<T>(pfad: string, signal?: AbortSignal, opts: { method?: string; body?: unknown; schreiben?: boolean } = {}): Promise<T> {
   const token = await graphToken(opts.schreiben ? SCOPES_SCHREIBEN : SCOPES);
-  const r = await fetch(pfad.startsWith("http") ? pfad : `${GRAPH}${pfad}`, {
+  const senden = () => fetch(pfad.startsWith("http") ? pfad : `${GRAPH}${pfad}`, {
     method: opts.method ?? "GET", signal,
     headers: { Authorization: `Bearer ${token}`, Prefer: 'outlook.body-content-type="html"', ...(opts.body !== undefined ? { "Content-Type": "application/json" } : {}) },
     body: opts.body !== undefined ? JSON.stringify(opts.body) : undefined,
   });
+  let r = await senden();
+  // Zu viele Anfragen (429) oder kurz überlastet (503): so lange warten, wie Microsoft sagt, und erneut versuchen
+  for (let versuch = 0; (r.status === 429 || r.status === 503) && versuch < 6; versuch++) {
+    const sek = Number(r.headers.get("Retry-After"));
+    await warten(Math.min(30, Number.isFinite(sek) && sek > 0 ? sek : 2 ** versuch) * 1000, signal);
+    r = await senden();
+  }
   if (!r.ok) {
     const t = await r.text().catch(() => "");
     const code = /"code"\s*:\s*"([^"]+)"/.exec(t)?.[1] ?? "";
@@ -113,14 +126,18 @@ export async function nachrichtenSeit(tage: number, signal?: AbortSignal): Promi
 }
 
 /** Nachrichten in einen Ordner verschieben; liefert die Zahl der verschobenen */
-export async function nachrichtenVerschieben(ids: string[], zielOrdnerId: string, signal?: AbortSignal): Promise<number> {
+export async function nachrichtenVerschieben(ids: string[], zielOrdnerId: string, signal?: AbortSignal, verschoben?: (id: string) => void): Promise<number> {
   if (!postfachEcht()) {
     let n = 0;
-    for (const m of beispiel.nachrichten) if (ids.includes(m.id) && m.ordner !== zielOrdnerId) { m.ordner = zielOrdnerId; n++; }
+    for (const m of beispiel.nachrichten) if (ids.includes(m.id) && m.ordner !== zielOrdnerId) { m.ordner = zielOrdnerId; n++; verschoben?.(m.id); }
     return n;
   }
   let n = 0;
-  for (const id of ids) { await graph(`/messages/${encodeURIComponent(id)}/move`, signal, { method: "POST", body: { destinationId: zielOrdnerId }, schreiben: true }); n++; }
+  for (const id of ids) {
+    try { await graph(`/messages/${encodeURIComponent(id)}/move`, signal, { method: "POST", body: { destinationId: zielOrdnerId }, schreiben: true }); }
+    catch (e) { throw n ? new Error(`${n} von ${ids.length} Mails verschoben, dann: ${e instanceof Error ? e.message : String(e)} Erneut starten verschiebt den Rest.`) : e; }
+    n++; verschoben?.(id);
+  }
   return n;
 }
 

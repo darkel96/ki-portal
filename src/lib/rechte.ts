@@ -157,11 +157,43 @@ const aktiv = async (): Promise<RechteStore> => {
   if (k.art === "lokal") return lokalerRechteStore;
   return (await speicherSchreibbar()) ? gemeinsamerRechteStore : gemischterRechteStore;
 };
+/** Läuft der Hub-Dienst, vermerkt er die Anmeldungen aller Personen (sonst sähe die Verwaltung im Git-Speicher nur den eigenen Browser) */
+const mitDienst = async () => {
+  try {
+    const d = await import("./dienst");
+    const i = await d.dienstAktiv();
+    if (!i) return null;
+    // Nur mit vorhandener Anmeldung (sonst öffnete der Token-Abruf beim Laden ein Anmeldefenster)
+    if (!i.testmodus && !(await (await import("./ki/auth")).aktuellesKonto())) return null;
+    return d;
+  } catch { return null; }
+};
+const MARKE_DIENST = "kihub-dienst-vermerkt";
 export const rechteStore: RechteStore = {
   laden: async () => (await aktiv()).laden(),
   speichern: async (s) => (await aktiv()).speichern(s),
-  vermerken: async (ich) => (await aktiv()).vermerken(ich),
-  anmeldungen: async () => (await aktiv()).anmeldungen(),
+  vermerken: async (ich) => {
+    await (await aktiv()).vermerken(ich);
+    const d = await mitDienst();
+    if (!d) return;
+    // Höchstens einmal in der Stunde; jeder andere Aufruf des Dienstes vermerkt ohnehin mit
+    const marke = `${ich.email.toLowerCase()}|${new Date().toISOString().slice(0, 13)}`;
+    try { if (localStorage.getItem(MARKE_DIENST) === marke) return; } catch { /* egal */ }
+    await d.anmeldungMelden();
+    try { localStorage.setItem(MARKE_DIENST, marke); } catch { /* egal */ }
+  },
+  anmeldungen: async () => {
+    const eigene = await (await aktiv()).anmeldungen();
+    const d = await mitDienst();
+    const vomDienst = d ? await d.personenHolen().catch((e) => { console.warn("Personenliste vom Dienst nicht geladen:", e); return []; }) : [];
+    // Je Person der jüngste Stand
+    const aus = new Map<string, Anmeldung>();
+    for (const a of [...vomDienst, ...eigene]) {
+      const k = a.email.trim().toLowerCase(), alt = aus.get(k);
+      if (!alt || a.zuletzt > alt.zuletzt) aus.set(k, { ...a, name: a.name || alt?.name || "" });
+    }
+    return [...aus.values()];
+  },
 };
 
 /** Personenliste der Verwaltung: Einträge mit Rechten plus alle, die sich angemeldet haben; „zuletzt“ aus der Anmeldung */

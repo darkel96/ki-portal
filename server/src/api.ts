@@ -6,11 +6,12 @@ import type { DateiSpeicher } from "./speicher";
 import { UMGEBUNG } from "./umgebung";
 import type { Zeitplan } from "./zeitplan";
 import type { Lernen } from "./lernen";
-import { HubDatenFehler, hubDatenAendern, hubDatenSchreibbar } from "./hubdaten";
+import { HubDatenFehler, hubDatenAendern, hubDatenSchreibbar, rechteVonNutzer } from "./hubdaten";
+import type { Personen } from "./personen";
 
 export class ApiFehler extends Error { constructor(public status: number, msg: string) { super(msg); } }
 
-export type Dienste = { speicher: DateiSpeicher; laeufe: Laeufe; zeitplan: Zeitplan; lernen: Lernen };
+export type Dienste = { speicher: DateiSpeicher; laeufe: Laeufe; zeitplan: Zeitplan; lernen: Lernen; personen: Personen };
 
 export async function api(req: IncomingMessage, res: ServerResponse, pfad: string, query: URLSearchParams, body: unknown, d: Dienste): Promise<void> {
   const json = (status: number, wert: unknown) => { res.writeHead(status, { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store" }); res.end(JSON.stringify(wert)); };
@@ -20,6 +21,8 @@ export async function api(req: IncomingMessage, res: ServerResponse, pfad: strin
       return json(200, { dienst: "KI-Hub", version: UMGEBUNG.version, testmodus: UMGEBUNG.testmodus, apiScope: UMGEBUNG.apiScope, clientId: UMGEBUNG.clientId, tenantId: UMGEBUNG.tenantId, hubDaten: hubDatenSchreibbar(), zeit: new Date().toISOString() });
     }
     const { nutzer, token } = await anmeldungPruefen(req.headers.authorization);
+    // Jede Anmeldung vermerken, damit die Verwaltung alle Personen sieht (auch aus anderen Browsern)
+    await d.personen.vermerken(nutzer).catch((e) => console.warn("[Hub-Dienst] Anmeldung nicht vermerkt:", e));
     /** Zugang der Person hinterlegen bzw. auffrischen (bei allem, was der Dienst später in ihrem Namen tut) */
     const uebernehmen = () => zugangUebernehmen(d.speicher, nutzer, token);
     const eigener = (id: string) => {
@@ -60,6 +63,16 @@ export async function api(req: IncomingMessage, res: ServerResponse, pfad: strin
       if (methode === "POST" && lauf[2] === "gesehen") { d.laeufe.gesehen(l.id); return json(200, { ok: true }); }
       // Laufend: abbrechen; sonst aus dem Dienst löschen (die Person hat ihn aus dem Verlauf entfernt)
       if (methode === "DELETE") { if (l.status === "laeuft") d.laeufe.abbrechen(l.id); else await d.laeufe.loeschen(l.id); return json(200, { ok: true }); }
+    }
+
+    if (pfad === "/anmeldung" && methode === "POST") return json(200, { ok: true });
+    // Personenliste für Verwaltung und Baukasten (Personenwahl bei „Freigabe“)
+    if (pfad === "/personen" && methode === "GET") {
+      if (hubDatenSchreibbar()) {
+        const r = await rechteVonNutzer({ id: nutzer.id, name: nutzer.name, email: nutzer.email });
+        if (!r.has("admin") && !r.has("bauen")) throw new ApiFehler(403, "Die Personenliste sehen nur Verwaltung und Baukasten.");
+      }
+      return json(200, await d.personen.alle());
     }
 
     if (pfad === "/auftraege") {

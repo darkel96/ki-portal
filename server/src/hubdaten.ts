@@ -75,7 +75,8 @@ async function festeRechte() {
   try { return festeRechteAus((JSON.parse(await readFile(join(UMGEBUNG.statisch, "hub-config.json"), "utf8")) as { rechte?: unknown }).rechte); }
   catch { return {}; }
 }
-async function rechteVonNutzer(ich: Identitaet): Promise<Set<Recht>> {
+/** Rechte einer Person laut rechte.json im Repository und hub-config.json */
+export async function rechteVonNutzer(ich: Identitaet): Promise<Set<Recht>> {
   const { inhalt } = await mitSha("rechte.json");
   const stand = RechteStandSchema.safeParse(inhalt ?? {});
   return rechteVon(ich, stand.success ? stand.data : { nutzer: [], ausgeblendet: [] }, UMGEBUNG.statisch ? await festeRechte() : {});

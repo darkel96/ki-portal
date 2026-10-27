@@ -11,6 +11,7 @@ import { api } from "./api";
 import { attrappe } from "./attrappe";
 import { Laeufe } from "./laeufe";
 import { Lernen } from "./lernen";
+import { Personen } from "./personen";
 import { DateiSpeicher } from "./speicher";
 import { UMGEBUNG, umgebungPruefen } from "./umgebung";
 import { zustellenImDienst } from "./versand";
@@ -89,6 +90,7 @@ async function start() {
   const laeufe = new Laeufe(speicher);
   const zeitplan = new Zeitplan(speicher, laeufe);
   const lernen = new Lernen(speicher);
+  const personen = new Personen(speicher);
   laeufe.onEnde = async (l) => {
     console.info(`[Hub-Dienst] Lauf ${l.id} „${l.titel}“: ${l.status}${l.meldung ? ` (${l.meldung})` : ""}`);
     if (l.auftragId && l.status === "fertig" && l.ziel && l.ziel.art !== "hub") {
@@ -109,7 +111,7 @@ async function start() {
     const url = new URL(req.url ?? "/", "http://hub");
     try {
       if (cors(req, res)) return;
-      if (url.pathname.startsWith("/api/")) return await api(req, res, url.pathname.slice(4), url.searchParams, await body(req), { speicher, laeufe, zeitplan, lernen });
+      if (url.pathname.startsWith("/api/")) return await api(req, res, url.pathname.slice(4), url.searchParams, await body(req), { speicher, laeufe, zeitplan, lernen, personen });
       if (UMGEBUNG.testmodus && url.pathname.startsWith("/attrappe/")) return await attrappe(req, res, url.pathname.slice(9), await body(req), speicher);
       if (await statisch(url.pathname, res)) return;
       res.writeHead(404, { "Content-Type": "text/plain; charset=utf-8" });
