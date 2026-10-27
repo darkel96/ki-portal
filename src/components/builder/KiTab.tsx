@@ -198,12 +198,20 @@ function StepCard({ b, i, onAktiv }: { b: Builder; i: number; onAktiv: (id: stri
           <option value="">immer ausführen</option>
           {fieldsOf(b.app).map((x) => <option key={x.id} value={x.props.key}>{x.props.label}</option>)}
         </select>
-        {s.bedingung && <>
+        {s.bedingung && (fieldsOf(b.app).find((x) => x.props.key === s.bedingung!.feld)?.type === "checkbox" ? (
+          // Ankreuzfeld: angehakt oder nicht, ohne Wert (intern „ausgefüllt“ bzw. „leer“)
+          <select aria-label="Vergleich" className="h-9 rounded-[4px] border border-input bg-background px-2 text-sm"
+            value={s.bedingung.op === "leer" || (s.bedingung.op === "gleich" && /^(nein|false|0|aus)$/i.test(s.bedingung.wert.trim())) ? "leer" : "gefuellt"}
+            onChange={(e) => b.change((d) => { d.steps[i].bedingung = { feld: d.steps[i].bedingung!.feld, op: e.target.value as "gefuellt" | "leer", wert: "" }; })}>
+            <option value="gefuellt">ist angehakt</option>
+            <option value="leer">ist nicht angehakt</option>
+          </select>
+        ) : <>
           <select aria-label="Vergleich" className="h-9 rounded-[4px] border border-input bg-background px-2 text-sm" value={s.bedingung.op} onChange={(e) => b.change((d) => { d.steps[i].bedingung!.op = e.target.value as typeof BED_OP[number][0]; })}>
             {BED_OP.map(([k, t]) => <option key={k} value={k}>{t}</option>)}
           </select>
           {!["gefuellt", "leer"].includes(s.bedingung.op) && <Input aria-label="Wert der Bedingung" className="w-40" value={s.bedingung.wert} onChange={(e) => b.change((d) => { d.steps[i].bedingung!.wert = e.target.value; }, `${s.id}:bed`)} />}
-        </>}
+        </>)}
       </div>
         </TabsContent>
         <TabsContent value="wissen" className="ki-teil" tabIndex={-1}>

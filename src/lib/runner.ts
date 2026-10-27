@@ -1,5 +1,5 @@
 import type { App, Quelle, Step } from "./schema";
-import { fieldsOf, stepsFor, stepsUsing, stepText, varsIn } from "./model";
+import { fieldsOf, slug, stepsFor, stepsUsing, stepText, varsIn } from "./model";
 import { auszuegeZusammen, buildRequest, wissenFuer, type FileInfo, type KiRequest, type WissenAuszug } from "./request";
 import { KiSimulation, kiSenden } from "./ki";
 import { parsePaket, type Paket } from "./paket";
@@ -71,19 +71,55 @@ export function fehlendeVorstufe(app: App, steps: Step[], ergebnisse: Record<str
   return null;
 }
 
-export function bedingungErfuellt(s: Step, ctx: Record<string, string>): boolean {
+/** Werte, die bei einem Ankreuzfeld „angehakt“ bzw. „nicht angehakt“ heißen (die KI schreibt gern true/false) */
+const JA = /^(ja|true|wahr|1|x|an|ein|yes|on|angehakt|aktiv|ausgewählt|gewählt|checked)$/;
+const NEIN = /^(nein|false|falsch|0|aus|no|off|nicht angehakt|leer|unchecked)$/;
+
+/** Feld der Bedingung: der Schlüssel, sonst ein Feld mit passendem Namen (die KI nennt gern die Beschriftung) */
+function bedingungsFeld(feld: string, ctx: Record<string, string>, app?: App): string {
+  const k = feld.toLowerCase();
+  if (k in ctx || !app) return k;
+  const f = fieldsOf(app).find((x) => slug(x.props.label) === slug(feld) || slug(x.props.key) === slug(feld));
+  return f ? f.props.key.toLowerCase() : k;
+}
+
+export function bedingungErfuellt(s: Step, ctx: Record<string, string>, app?: App): boolean {
   const b = s.bedingung;
   if (!b?.feld) return true;
-  let v = ctx[b.feld.toLowerCase()] ?? "";
+  let v = ctx[bedingungsFeld(b.feld, ctx, app)] ?? "";
   if (v === "(keine Angabe)") v = "";
   v = v.trim().toLowerCase();
-  const w = b.wert.trim().toLowerCase();
+  let w = b.wert.trim().toLowerCase();
+  // Ankreuzfelder liefern „ja“/„nein“: „true“, „an“, „angehakt“ usw. zählen genauso
+  if (v === "ja" || v === "nein") { if (JA.test(w)) w = "ja"; else if (NEIN.test(w)) w = "nein"; }
   switch (b.op) {
     case "gefuellt": return !!v && v !== "nein";
     case "leer": return !v || v === "nein";
     case "ungleich": return v !== w;
     default: return v === w;
   }
+}
+
+/** Bedingung in Worten für Meldungen: „„To-dos erstellen“ ist angehakt“ */
+export function bedingungText(s: Step, app: App): string {
+  const b = s.bedingung;
+  if (!b?.feld) return "keine Bedingung";
+  const f = fieldsOf(app).find((x) => x.props.key.toLowerCase() === b.feld.toLowerCase() || slug(x.props.label) === slug(b.feld));
+  const name = `„${f?.props.label || b.feld}“`;
+  const w = b.wert.trim().toLowerCase();
+  if (f?.type === "checkbox") {
+    const an = b.op === "gefuellt" || (b.op === "gleich" && JA.test(w)) || (b.op === "ungleich" && NEIN.test(w));
+    return `${name} ist ${an ? "" : "nicht "}angehakt`;
+  }
+  return b.op === "gefuellt" ? `${name} ist ausgefüllt` : b.op === "leer" ? `${name} ist leer` : `${name} ${b.op === "ungleich" ? "ist nicht" : "ist"} „${b.wert}“`;
+}
+
+/** Meldung für einen übersprungenen Schritt: „Übersprungen, weil „Briefing erstellen“ nicht angehakt ist.“ */
+export function uebersprungenGrund(s: Step, app: App): string {
+  const t = bedingungText(s, app);
+  const m = /^(„.+“) ist (nicht )?angehakt$/.exec(t);
+  if (m) return `Übersprungen, weil ${m[1]} ${m[2] ? "" : "nicht "}angehakt ist.`;
+  return `Übersprungen, weil die Bedingung nicht zutrifft (${t}).`;
 }
 
 /** Schritte dieses Laufs, deren Ergebnis ein Schritt braucht (Platzhalter oder Bedingung). */
@@ -178,9 +214,9 @@ export async function ablaufStarten(opts: {
 
   /** Ein Schritt; gibt false zurück, wenn danach nichts mehr starten soll. */
   const schritt = async (s: Step): Promise<boolean> => {
-    if (!bedingungErfuellt(s, ctx)) {
+    if (!bedingungErfuellt(s, ctx, app)) {
       ergebnisse[s.key] = ""; ctx[s.key.toLowerCase()] = "";
-      setOut(s.id, { status: "uebersprungen", meldung: "Übersprungen, weil die Bedingung nicht erfüllt ist." });
+      setOut(s.id, { status: "uebersprungen", meldung: uebersprungenGrund(s, app) });
       return true;
     }
     setOut(s.id, { status: "laeuft", req: buildRequest(app, s, ctx, files), team: s.art === "team" ? [] : undefined });
