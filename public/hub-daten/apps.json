@@ -857,7 +857,7 @@
         },
         "children": [
           {
-            "id": "bj2v7cht",
+            "id": "bakkyupz",
             "type": "postfach",
             "props": {
               "titel": "Postfach",
@@ -879,7 +879,7 @@
       "nutzen": []
     },
     "schutz": "intern",
-    "version": 4,
-    "geaendert": "2026-10-27T08:27:13.541Z"
+    "version": 5,
+    "geaendert": "2026-10-27T08:27:23.229Z"
   }
 }
