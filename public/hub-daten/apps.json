@@ -857,32 +857,13 @@
         },
         "children": [
           {
-            "id": "bjrtgj5w",
+            "id": "bj2v7cht",
             "type": "postfach",
             "props": {
               "titel": "Postfach",
               "anzahl": 25,
               "vorschau": true,
               "prozeduren": []
-            }
-          }
-        ]
-      },
-      {
-        "id": "buaw1b2e",
-        "type": "seite",
-        "props": {
-          "titel": "Ergebnis"
-        },
-        "children": [
-          {
-            "id": "breky5wq",
-            "type": "output",
-            "props": {
-              "titel": "Ergebnis",
-              "quelle": "srwkcn8h",
-              "stil": "card",
-              "pfad": ""
             }
           }
         ]
@@ -922,7 +903,7 @@
       "nutzen": []
     },
     "schutz": "intern",
-    "version": 1,
-    "geaendert": "2026-10-27T08:22:21.429Z"
+    "version": 2,
+    "geaendert": "2026-10-27T08:23:00.868Z"
   }
 }
