@@ -1,3 +1,4 @@
+import { dauerText } from "@/lib/runner";
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { Link, useSearchParams } from "react-router";
 import { toast } from "sonner";
@@ -181,7 +182,7 @@ function LaufDetail({ lauf, app, onZurueck }: { lauf: Lauf; app?: HubApp; onZuru
       <div className="e-kopf">
         <button type="button" className="pg-btn" onClick={onZurueck}><ChevronLeft size={16} aria-hidden="true" />Verlauf</button>
         <h2 className="mh-h2">{lauf.titel}</h2>
-        <span className="hint">{datumZeit(lauf.start)}{lauf.appName && lauf.appName !== lauf.titel ? `, ${lauf.appName}` : ""}</span>
+        <span className="hint">{datumZeit(lauf.start)}{lauf.appName && lauf.appName !== lauf.titel ? `, ${lauf.appName}` : ""}{laufZeit(lauf) ? `, Dauer ${laufZeit(lauf)}` : ""}</span>
         <span className="flex-1" />
         {app && !laeuft && lauf.status === "fertig" && <ErgebnisSenden app={app} outs={outs} variante="hub" />}
         <Button size="sm" variant="ghost" className="rounded-full" disabled={laeuft} title={laeuft ? "Läuft noch" : undefined} onClick={() => setFragen(true)}><Trash aria-hidden="true" />Löschen</Button>
@@ -213,6 +214,9 @@ function LaufDetail({ lauf, app, onZurueck }: { lauf: Lauf; app?: HubApp; onZuru
     </div>
   );
 }
+
+/** Dauer eines abgelegten Laufs (Start bis Ende); "" wenn er noch läuft oder keine Zeiten hat */
+const laufZeit = (l: { start: string; ende: string }) => { const a = Date.parse(l.start), e = Date.parse(l.ende); return Number.isFinite(a) && Number.isFinite(e) && e > a ? dauerText(e - a) : ""; };
 
 export function MeinHubPage() {
   const { apps, find } = useApps();
@@ -294,7 +298,7 @@ export function MeinHubPage() {
                 return (
                   <button type="button" className="e-kachel mh-lauf" data-s={LAUF_STATUS[l.status][1]} onClick={() => zumLauf(l.id)}>
                     <span className="e-kachel-kopf"><span className="e-titel">{l.titel}</span><span className="status-pill" data-s={LAUF_STATUS[l.status][1]}>{LAUF_STATUS[l.status][0]}</span></span>
-                    <span className="e-text">{datumZeit(l.start)}{l.appName && l.appName !== l.titel ? `, ${l.appName}` : ""}{l.meldung ? `. ${l.meldung}` : `. ${anzahl(fertig, "Ergebnis", "Ergebnisse")}${status ? ` (${status})` : ""}`}</span>
+                    <span className="e-text">{datumZeit(l.start)}{l.appName && l.appName !== l.titel ? `, ${l.appName}` : ""}{laufZeit(l) ? `, Dauer ${laufZeit(l)}` : ""}{l.meldung ? `. ${l.meldung}` : `. ${anzahl(fertig, "Ergebnis", "Ergebnisse")}${status ? ` (${status})` : ""}`}</span>
                     <span className="e-oeffnen">Öffnen</span>
                   </button>
                 );

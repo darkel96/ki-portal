@@ -967,3 +967,7 @@ a.mh-titel:hover { text-decoration: underline; text-underline-offset: 4px; }
 .o-post-proz-eigen > .o-chat-knopf { border-top-right-radius: 0; border-bottom-right-radius: 0; border-style: dashed; }
 .o-post-proz-weg { border: 1px dashed var(--app-line); border-left: 0; border-radius: 0 999px 999px 0; background: transparent; color: var(--app-muted); padding: 0 9px; align-self: stretch; cursor: pointer; font-size: 14px; line-height: 1; }
 .o-post-proz-weg:hover { color: var(--danger); }
+
+/* Zeitmessung: klein am Ende von Kachel und Ergebnis */
+.e-dauer { display: block; font-size: 11.5px; color: var(--app-muted); font-variant-numeric: tabular-nums; }
+.o-dauer { margin-left: auto; font-size: 11.5px; color: var(--app-muted); font-variant-numeric: tabular-nums; }

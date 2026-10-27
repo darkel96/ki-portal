@@ -157,4 +157,9 @@ test("Lauf im Hub-Dienst: Seite im Hub verlassen und zurückkommen bricht ihn ni
   expect(loeschen).toEqual([]);
   const liste = await (await api("/laeufe", nutzer)).json() as { status: string }[];
   expect(liste[0]?.status).not.toBe("abgebrochen");
+  // Die Zeitmessung läuft auch im Dienst mit (Start, Quellen bereit, Ende je Schritt)
+  await expect.poll(async () => {
+    const st = await (await api(`/laeufe/${(liste[0] as unknown as { id: string }).id}`, nutzer)).json() as { outs: Record<string, { start?: number; ende?: number }> };
+    return Object.values(st.outs).every((o) => typeof o.start === "number" && typeof o.ende === "number" && o.ende >= o.start);
+  }, { timeout: 20_000 }).toBe(true);
 });

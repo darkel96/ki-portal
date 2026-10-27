@@ -42,6 +42,10 @@ test("Ankreuzfelder wählen die Teile: angehakt läuft, nicht angehakt wird mit 
   await page.getByLabel("To-dos erstellen").check();
   await page.getByRole("navigation", { name: "Seiten blättern" }).getByRole("button", { name: /erstellen/i }).click();
   await expect(page.getByText("1 von 1 fertig, 1 übersprungen")).toBeVisible({ timeout: 20_000 });
+  // Zeitmessung: Gesamtdauer im Stand, je Kachel klein darunter
+  await expect(page.locator(".e-stand")).toHaveText(/· Dauer \d+ s$/);
+  await expect(page.locator(".e-kachel").filter({ hasText: "Offene Punkte & To-dos" }).locator(".e-dauer")).toHaveText(/^Dauer \d+ s$/);
+  await expect(page.locator(".e-kachel").filter({ hasText: "Briefing" }).locator(".e-dauer")).toHaveCount(0);
   const kacheln = page.locator(".e-kachel");
   await expect(kacheln.filter({ hasText: "Offene Punkte & To-dos" })).toContainText("Fertig");
   await expect(kacheln.filter({ hasText: "Briefing" })).toContainText("Übersprungen, weil „Briefing erstellen“ nicht angehakt ist.");
@@ -61,4 +65,12 @@ test("Ankreuzfelder wählen die Teile: angehakt läuft, nicht angehakt wird mit 
     ];
   }, APP);
   expect(r).toEqual([true, true, true, false, true]);
+  // Dauer lesbar und im geöffneten Ergebnis klein unten
+  const d = await page.evaluate(async () => {
+    const run = await import("/src/lib/runner.ts");
+    return [run.dauerText(8_400), run.dauerText(72_000), run.dauerText(3_780_000), run.schrittDauer({ status: "fertig", start: 0, bereit: 8_000, ende: 72_000 }), run.laufDauer([{ status: "fertig", start: 1_000, ende: 5_000 }, { status: "fertig", start: 2_000, ende: 9_000 }])];
+  });
+  expect(d).toEqual(["8 s", "1 min 12 s", "1 h 3 min", "1 min 12 s (Quellen lesen 8 s, KI 1 min 4 s)", "8 s"]);
+  await kacheln.filter({ hasText: "Offene Punkte & To-dos" }).click();
+  await expect(page.locator(".o-dauer").first()).toHaveText(/^Dauer \d+ s/);
 });
