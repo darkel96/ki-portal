@@ -3,6 +3,7 @@
  * Applikationen in den Dienst. Der Dienst prüft jede halbe Minute, was fällig ist, und startet den Lauf.
  * Verpasste Termine (Dienst war aus) laufen einmal nach.
  */
+import { mitAgentenAusGit } from "./hubdaten";
 import { AuftragSchema, VoreinstellungSchema, naechsterLauf, type Auftrag, type Voreinstellung } from "@/lib/meinhub";
 import type { App } from "@/lib/schema";
 import { loadApp } from "@/lib/sanitize";
@@ -55,11 +56,12 @@ export class Zeitplan {
     const stand = await this.lesen(nutzer);
     const a = stand.auftraege.find((x) => x.id === auftragId);
     if (!a) throw new Error("Den Auftrag gibt es im Dienst nicht. Bitte die Aufträge im Hub neu speichern.");
-    return this.starten(nutzer, stand, a, new Date());
+    return await this.starten(nutzer, stand, a, new Date());
   }
 
-  private starten(nutzer: string, stand: AuftragsStand, a: Auftrag, jetzt: Date): string {
-    const app = stand.apps[a.appId];
+  private async starten(nutzer: string, stand: AuftragsStand, a: Auftrag, jetzt: Date): Promise<string> {
+    // Agenten aus der Bibliothek in der aktuellen Fassung (Feinjustierung wirkt auch in geplanten Aufträgen)
+    const app = await mitAgentenAusGit(stand.apps[a.appId]);
     const vorlage = a.voreinstellungId ? stand.voreinstellungen.find((v) => v.id === a.voreinstellungId) ?? null : null;
     if (!app) throw new Error(`Für den Auftrag „${a.name}“ liegt die Applikation nicht im Dienst. Bitte die Aufträge im Hub neu speichern.`);
     const l = this.laeufe.anlegen({
@@ -85,7 +87,7 @@ export class Zeitplan {
           // Termin zuerst weitersetzen, damit ein Auftrag nie doppelt startet
           a.naechsterLauf = naechsterLauf(a.zeitplan, jetzt).toISOString();
           geaendert = true;
-          try { this.starten(stand.nutzer || ordner, stand, a, jetzt); }
+          try { await this.starten(stand.nutzer || ordner, stand, a, jetzt); }
           catch (e) { console.error(`[Hub-Dienst] Auftrag „${a.name}“:`, e instanceof Error ? e.message : e); }
         }
         if (geaendert) await this.speicher.schreiben(`nutzer/${ordner}/auftraege.json`, stand);

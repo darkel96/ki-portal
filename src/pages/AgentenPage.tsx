@@ -48,7 +48,7 @@ export function AgentenPage() {
       const e = await agentSpeichern({ ...aktiv, erstelltVon: aktiv.erstelltVon || rechte.ich?.email || "" });
       await laden();
       setAktiv({ ...e }); setNeu(false);
-      toast.success(`„${e.name}“ gespeichert. Agenten-Teams, die ihn verwenden, nutzen ab jetzt diese Fassung.`);
+      toast.success(`„${e.name}“ gespeichert. Agenten-Teams und KI-Schritte, die ihn verwenden, nutzen ab jetzt diese Fassung.`);
     } catch (err) { toast.error(err instanceof Error ? err.message : "Speichern fehlgeschlagen."); }
     finally { setSpeichert(false); }
   };
@@ -77,7 +77,7 @@ export function AgentenPage() {
       <section className="hero hero-meldung hero-kompakt">
         <div className="hero-text">
           <h1>Agentenbibliothek</h1>
-          <p className="lede">Agenten einmal anlegen und feinjustieren, in jedem Agenten-Team verwenden. Änderungen wirken sofort in allen Apps, die den Agenten verknüpft haben.</p>
+          <p className="lede">Agenten einmal anlegen und feinjustieren, dann in jedem Agenten-Team oder als Rolle eines KI-Schritts verwenden. Änderungen wirken sofort in allen Apps, die den Agenten verknüpft haben.</p>
         </div>
       </section>
       <div className="ag-seite">

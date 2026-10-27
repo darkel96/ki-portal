@@ -189,6 +189,8 @@ export const StepSchema = z.object({
   key: Key.describe("Ergebnis-Variable, in späteren Prompts {{key}}"),
   art: z.enum(["prompt", "team"]).default("prompt").describe('"team" = mehrere Agenten lösen die Aufgabe gemeinsam'),
   rolle: z.string().max(4000).default(""),
+  /** ID eines Agenten aus der Agentenbibliothek: seine Rolle und Feinjustierung gelten für diesen Schritt (wirkt in allen Apps) */
+  agent: z.string().max(60).default("").describe("nie selbst setzen"),
   wissen: z.string().max(20000).default(""),
   prompt: z.string().max(8000).default("").describe('Aufgabe; bei art "team" die Startsituation'),
   modell: z.enum(["quick", "default", "complex"]).default("default"),

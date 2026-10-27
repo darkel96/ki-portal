@@ -169,6 +169,10 @@
 .lern-faq-neu { display: grid; gap: 8px; }
 
 .ag-team-zeile { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+/* KI-Schritt: Rolle von einem Agenten der Bibliothek */
+.ki-rollen-agent { display: grid; gap: 6px; padding: 10px 12px; border: 1px dashed var(--line-strong); border-radius: 10px; background: var(--brand-soft); }
+.ki-rollen-agent .lbl { display: inline-flex; align-items: center; gap: 6px; }
+.ki-rollen-text { margin: 6px 0 0; white-space: pre-wrap; overflow-wrap: anywhere; font: inherit; font-size: 12.5px; max-height: 240px; overflow: auto; }
 .agent-row.ist-verknuepft input, .agent-row.ist-verknuepft textarea { opacity: .75; }
 
 
