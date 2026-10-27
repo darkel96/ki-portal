@@ -1,7 +1,9 @@
+import { passtZumThema, suchWorte } from "@/lib/themensuche";
+import { Arbeitet } from "@/components/layout/Arbeitet";
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import DOMPurify from "dompurify";
 import { toast } from "sonner";
-import { ChevronDown, ChevronRight, FolderInput, Mail, MailOpen, Paperclip, RefreshCw, Search, Sparkles, Square } from "lucide-react";
+import { BookmarkPlus, ChevronDown, ChevronRight, FolderInput, Mail, MailOpen, Paperclip, RefreshCw, Search, Sparkles, Square } from "lucide-react";
 import type { Block } from "@/lib/schema";
 import { antwortEntwurf, mailKontext, nachrichtenLaden, nachrichtenSeit, nachrichtenVerschieben, nachrichtLaden, ordnerAnlegen, ordnerLaden, postfachEcht, type Nachricht, type NachrichtVoll, type Ordner } from "@/lib/ki/postfach";
 import { KiSimulation, jsonAus, kiFragen } from "@/lib/ki";
@@ -19,7 +21,6 @@ const AKTIONEN: { key: string; label: string; auftrag: string }[] = [
   { key: "uebersetzen", label: "Übersetzen", auftrag: "Übersetze diese E-Mail vollständig: ist sie deutsch, ins Englische, sonst ins Deutsche. Nur die Übersetzung ausgeben." },
 ];
 const TAGE: [string, string][] = [["7", "7 Tage"], ["14", "14 Tage"], ["30", "30 Tage"], ["60", "60 Tage"], ["90", "90 Tage"], ["180", "180 Tage"]];
-const worte = (s: string) => s.toLowerCase().split(/[,;]+|\s+/).map((w) => w.trim()).filter((w) => w.length >= 3);
 
 type Props = { b: Extract<Block, { type: "postfach" }>; mode: Mode };
 
@@ -56,6 +57,19 @@ export function PostfachView({ b, mode }: Props) {
   const [treffer, setTreffer] = useState<Treffer[] | null>(null);
   const [prozLaeuft, setProzLaeuft] = useState<"suche" | "verschieben" | null>(null);
   const [prozMeldung, setProzMeldung] = useState("");
+  /** Was die Suche gerade tut (für den Knopf): „Lädt die Mails …“, „KI wählt aus 150 Mails …“ */
+  const [prozPhase, setProzPhase] = useState("");
+  // Eigene Prozeduren: gemerkte Suchen dieser Person (im Browser, je Postfach-Baustein)
+  const eigeneSchluessel = `kihub-prozeduren:${b.id}`;
+  const [eigene, setEigene] = useState<Prozedur[]>(() => { try { const v = JSON.parse(localStorage.getItem(eigeneSchluessel) || "[]"); return Array.isArray(v) ? v : []; } catch { return []; } });
+  const eigeneSetzen = (liste: Prozedur[]) => { setEigene(liste); try { localStorage.setItem(eigeneSchluessel, JSON.stringify(liste)); } catch { /* voll oder gesperrt */ } };
+  const merken = () => {
+    const neu: Prozedur = { ...proz, name: proz.thema.trim().slice(0, 40), thema: proz.thema.trim(), zielordner: proz.zielordner.trim() };
+    const gleich = (a: Prozedur) => a.thema === neu.thema && a.zielordner === neu.zielordner && a.tage === neu.tage && a.ki === neu.ki;
+    if (eigene.some(gleich) || b.props.prozeduren.some(gleich)) { toast.info("Diese Prozedur gibt es schon."); return; }
+    eigeneSetzen([...eigene, neu].slice(-12));
+    toast.success(`„${neu.name}“ gemerkt. Ein Klick darauf startet die Vorschau.`);
+  };
 
   const kiAnfrage = async (aktion: string, auftrag: string) => {
     if (!nachricht) return;
@@ -79,18 +93,23 @@ export function PostfachView({ b, mode }: Props) {
   /** Prozedur vorbereiten: Mails der letzten Tage holen, zum Thema auswählen (Wortsuche, auf Wunsch KI), zur Bestätigung zeigen */
   const prozSuchen = async (p: Prozedur) => {
     if (!p.thema.trim()) { toast.error("Bitte ein Thema oder Suchbegriffe angeben."); return; }
-    setProz(p); setProzLaeuft("suche"); setTreffer(null); setProzMeldung("");
+    setProz(p); setProzLaeuft("suche"); setTreffer(null); setProzMeldung(""); setProzPhase(`Lädt die Mails der letzten ${p.tage} Tage`);
     try {
       const alle = await nachrichtenSeit(p.tage);
-      const w = worte(p.thema);
-      let passend = alle.filter((n) => { const t = `${n.betreff} ${n.von} ${n.vonAdresse} ${n.vorschau}`.toLowerCase(); return w.some((x) => t.includes(x)); });
+      const w = suchWorte(p.thema);
+      // Wortsuche: nur echte Suchwörter (ohne „alles“, „zum“, „Projekt“ …), jeweils am Wortanfang
+      const wortTreffer = alle.filter((n) => passtZumThema(`${n.betreff} ${n.von} ${n.vonAdresse} ${n.vorschau}`, w));
+      let passend = wortTreffer;
       if (p.ki && alle.length) {
-        const liste = alle.slice(0, 150).map((n, i) => `${i + 1} | ${n.empfangen.slice(0, 10)} | ${n.von} | ${n.betreff} | ${n.vorschau.slice(0, 120)}`).join("\n");
+        setProzPhase(`KI wählt aus ${Math.min(150, alle.length)} Mails`);
+        const geprueft = alle.slice(0, 150);
+        const liste = geprueft.map((n, i) => `${i + 1} | ${n.empfangen.slice(0, 10)} | ${n.von} | ${n.betreff} | ${n.vorschau.slice(0, 120)}`).join("\n");
         try {
-          const antwort = await kiFragen(`Welche dieser E-Mails gehören inhaltlich zum Thema „${p.thema}“? Zähle auch Mails dazu, die das Thema anders benennen. Antworte nur mit JSON: {"nummern": [Zahlen]}\n\nNr | Datum | Von | Betreff | Vorschau\n${liste}`);
+          const antwort = await kiFragen(`Welche dieser E-Mails gehören eindeutig zum Thema „${p.thema}“? Zähle auch Mails dazu, die das Thema anders benennen (Projektnummer, Kunde, Anlage), aber nur, wenn der Bezug klar ist; im Zweifel nicht. Newsletter, Einladungen, Benachrichtigungen von Tools und Werbung gehören nicht dazu, außer sie handeln ausdrücklich vom Thema. Antworte nur mit JSON: {"nummern": [Zahlen]}\n\nNr | Datum | Von | Betreff | Vorschau\n${liste}`);
           const j = jsonAus(antwort) as { nummern?: unknown };
-          const nummern = Array.isArray(j.nummern) ? j.nummern.map(Number).filter((n) => n >= 1 && n <= alle.length) : [];
-          const ids = new Set([...passend.map((n) => n.id), ...nummern.map((n) => alle[n - 1].id)]);
+          const nummern = Array.isArray(j.nummern) ? j.nummern.map(Number).filter((n) => n >= 1 && n <= geprueft.length) : [];
+          // Die KI entscheidet über die geprüften Mails; ältere, die sie nicht gesehen hat, kommen über die Wortsuche dazu
+          const ids = new Set([...nummern.map((n) => geprueft[n - 1]!.id), ...wortTreffer.filter((n) => !geprueft.includes(n)).map((n) => n.id)]);
           passend = alle.filter((n) => ids.has(n.id));
         } catch (e) {
           if (e instanceof KiSimulation) setProzMeldung("Simulation: Die KI-Auswahl würde an die zentrale KI-Anbindung gehen; gezeigt wird nur die Wortsuche.");
@@ -190,9 +209,15 @@ export function PostfachView({ b, mode }: Props) {
       {prozOffen && (
         <section className="o-post-proz" aria-label="Prozeduren">
           <p className="hint" style={{ margin: 0 }}>Mails zu einem Thema aus den letzten Tagen in einen Ordner ablegen. Du siehst die Auswahl vorher und bestätigst sie.</p>
-          {b.props.prozeduren.length > 0 && (
+          {(b.props.prozeduren.length > 0 || eigene.length > 0) && (
             <div className="o-post-proz-liste">
               {b.props.prozeduren.map((p, i) => <button key={i} type="button" className="o-chat-knopf" disabled={prozLaeuft !== null} onClick={() => void prozSuchen(p)} title={`Thema „${p.thema}“, letzte ${p.tage} Tage, nach „${p.zielordner}“`}>{p.name || p.thema}</button>)}
+              {eigene.map((p, i) => (
+                <span key={`e${i}`} className="o-post-proz-eigen">
+                  <button type="button" className="o-chat-knopf" disabled={prozLaeuft !== null} onClick={() => void prozSuchen(p)} title={`Eigene Prozedur: Thema „${p.thema}“, letzte ${p.tage} Tage, nach „${p.zielordner || "(kein Ordner)"}“`}>{p.name || p.thema}</button>
+                  <button type="button" className="o-post-proz-weg" aria-label={`„${p.name || p.thema}“ vergessen`} onClick={() => eigeneSetzen(eigene.filter((_, k) => k !== i))}>×</button>
+                </span>
+              ))}
             </div>
           )}
           <form className="o-post-proz-form" onSubmit={(e) => { e.preventDefault(); void prozSuchen(proz); }}>
@@ -200,8 +225,10 @@ export function PostfachView({ b, mode }: Props) {
             <select value={String(proz.tage)} onChange={(e) => setProz({ ...proz, tage: Number(e.target.value) })} aria-label="Zeitraum">{TAGE.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select>
             <input value={proz.zielordner} onChange={(e) => setProz({ ...proz, zielordner: e.target.value })} placeholder="Zielordner, z. B. CRA" aria-label="Zielordner" />
             <label className="o-post-proz-ki"><input type="checkbox" checked={proz.ki} onChange={(e) => setProz({ ...proz, ki: e.target.checked })} />KI wählt thematisch</label>
-            <button type="submit" className="o-btn" style={{ "--btn": "var(--app-accent)", "--btn-ink": "var(--app-accent-ink)" } as CSSProperties} disabled={prozLaeuft !== null}>{prozLaeuft === "suche" ? "Sucht …" : "Vorschau"}</button>
+            <button type="submit" className="o-btn" style={{ "--btn": "var(--app-accent)", "--btn-ink": "var(--app-accent-ink)" } as CSSProperties} disabled={prozLaeuft !== null}>{prozLaeuft === "suche" ? <Arbeitet text="Sucht" /> : "Vorschau"}</button>
+            <button type="button" className="o-chat-knopf" disabled={!proz.thema.trim()} onClick={merken} title="Diese Suche als eigene Prozedur merken (nur in diesem Browser)"><BookmarkPlus size={13} aria-hidden="true" />Merken</button>
           </form>
+          {prozLaeuft === "suche" && prozPhase && <p className="o-muted" role="status"><Arbeitet text={prozPhase} /></p>}
           {prozMeldung && <p className="o-muted" role="status">{prozMeldung}</p>}
           {treffer && treffer.length > 0 && (
             <div className="o-post-proz-treffer" role="group" aria-label="Gefundene Mails">
@@ -210,7 +237,7 @@ export function PostfachView({ b, mode }: Props) {
                 <button type="button" className="o-chat-link" onClick={() => setTreffer(treffer.map((t) => ({ ...t, gewaehlt: true })))}>alle</button>
                 <button type="button" className="o-chat-link" onClick={() => setTreffer(treffer.map((t) => ({ ...t, gewaehlt: false })))}>keine</button>
                 <span className="flex-1" />
-                <button type="button" className="o-btn" style={{ "--btn": "var(--app-accent)", "--btn-ink": "var(--app-accent-ink)" } as CSSProperties} disabled={prozLaeuft !== null || !treffer.some((t) => t.gewaehlt)} onClick={() => void prozAusfuehren()}>{prozLaeuft === "verschieben" ? "Verschiebt …" : `Nach „${proz.zielordner || "…"}“ verschieben`}</button>
+                <button type="button" className="o-btn" style={{ "--btn": "var(--app-accent)", "--btn-ink": "var(--app-accent-ink)" } as CSSProperties} disabled={prozLaeuft !== null || !treffer.some((t) => t.gewaehlt)} onClick={() => void prozAusfuehren()}>{prozLaeuft === "verschieben" ? <Arbeitet text="Verschiebt" /> : `Nach „${proz.zielordner || "…"}“ verschieben`}</button>
               </div>
               <ul>
                 {treffer.map((t) => (
@@ -248,7 +275,7 @@ export function PostfachView({ b, mode }: Props) {
                 </li>
               ))}
             </ul>}
-          {weiter && <button type="button" className="o-chat-knopf" onClick={() => void mehr()} disabled={laedt !== null}>{laedt === "mehr" ? "Lädt …" : "Mehr laden"}</button>}
+          {weiter && <button type="button" className="o-chat-knopf" onClick={() => void mehr()} disabled={laedt !== null}>{laedt === "mehr" ? <Arbeitet text="Lädt" /> : "Mehr laden"}</button>}
         </section>
         <article className="o-post-inhalt" aria-label="Geöffnete Nachricht">
           {laedt === "nachricht" ? <p className="o-muted">Nachricht wird geladen …</p>
@@ -275,7 +302,7 @@ export function PostfachView({ b, mode }: Props) {
                     {ki.text ? <div className="o-body" aria-live="polite" dangerouslySetInnerHTML={{ __html: markdown(ki.text) }} /> : <p className="o-muted">Denkt nach …</p>}
                     {ki.aktion === "antwort" && ki.text && !kiLaeuft && (
                       <div className="o-post-ki-zeile">
-                        <button type="button" className="o-chat-knopf" disabled={entwurf === "laeuft"} onClick={() => void entwurfAnlegen()}>{entwurf === "laeuft" ? "Legt an …" : "Als Entwurf in Outlook anlegen"}</button>
+                        <button type="button" className="o-chat-knopf" disabled={entwurf === "laeuft"} onClick={() => void entwurfAnlegen()}>{entwurf === "laeuft" ? <Arbeitet text="Legt an" /> : "Als Entwurf in Outlook anlegen"}</button>
                         {entwurf && entwurf !== "laeuft" && (entwurf.startsWith("http") ? <a className="o-chat-link" href={entwurf} target="_blank" rel="noopener noreferrer">Entwurf öffnen</a> : <span className="o-chat-vermerk">Entwurf angelegt</span>)}
                       </div>
                     )}

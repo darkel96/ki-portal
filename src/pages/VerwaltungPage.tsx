@@ -1,3 +1,4 @@
+import { Arbeitet } from "@/components/layout/Arbeitet";
 import { useEffect, useState } from "react";
 import { Link } from "react-router";
 import { toast } from "sonner";
@@ -100,7 +101,7 @@ export function VerwaltungPage() {
         </form>
         <span className="flex-1" />
         <span className="hint">Gespeichert in: {r.speicherName}</span>
-        <Button className="rounded-full" disabled={!geaendert || laeuft} onClick={() => void speichern()}>{laeuft ? "Speichert …" : "Rechte speichern"}</Button>
+        <Button className="rounded-full" disabled={!geaendert || laeuft} onClick={() => void speichern()}>{laeuft ? <Arbeitet text="Speichert" /> : "Rechte speichern"}</Button>
       </div>
       </section>
       <AppsBereich />
@@ -291,7 +292,7 @@ function SpeicherBereich() {
         </div>
         <div className="rv-speicher-zeile">
           <Input type="password" value={token} onChange={(e) => { setToken(e.target.value); setGitPr(null); }} placeholder="GitHub-Token (github_pat_… oder ghp_…), optional zum Schreiben" aria-label="GitHub-Token" autoComplete="off" />
-          <Button variant="outline" className="rounded-full" disabled={!git.repo.trim() || !!laeuft} onClick={() => void gitPruefenJetzt()}>{laeuft === "gitpruefen" ? "Prüft …" : "Git prüfen"}</Button>
+          <Button variant="outline" className="rounded-full" disabled={!git.repo.trim() || !!laeuft} onClick={() => void gitPruefenJetzt()}>{laeuft === "gitpruefen" ? <Arbeitet text="Prüft" /> : "Git prüfen"}</Button>
           {gh?.quelle === "datei"
             ? <Button className="rounded-full" disabled={!!laeuft || token === gitToken()} onClick={() => void tokenSpeichern()}>{token.trim() || !gitToken() ? "Token in diesem Browser hinterlegen" : "Token entfernen"}</Button>
             : <Button className="rounded-full" disabled={!gitPr?.lesen || !!laeuft} onClick={() => void gitVerwenden(true)}>Git-Speicher hier nutzen</Button>}
@@ -302,7 +303,7 @@ function SpeicherBereich() {
       <span className="lbl">SharePoint-Ordner</span>
       <div className="rv-speicher-zeile">
         <Input value={ordner} onChange={(e) => { setOrdner(e.target.value); setPruefung(null); }} placeholder="https://koerbergroup.sharepoint.com/sites/…/Freigegebene Dokumente/KI-Hub" aria-label="Adresse des SharePoint-Ordners" />
-        <Button variant="outline" className="rounded-full" disabled={!ordner.trim() || !!laeuft} onClick={() => void pruefen()}>{laeuft === "pruefen" ? "Prüft …" : "Verbindung prüfen"}</Button>
+        <Button variant="outline" className="rounded-full" disabled={!ordner.trim() || !!laeuft} onClick={() => void pruefen()}>{laeuft === "pruefen" ? <Arbeitet text="Prüft" /> : "Verbindung prüfen"}</Button>
         <Button className="rounded-full" disabled={!pruefung?.schreiben || !!laeuft} onClick={() => void verwenden(ordner)}>In diesem Browser verwenden</Button>
         {sp?.quelle === "browser" && <Button variant="ghost" className="rounded-full" onClick={() => void verwenden(null)}>Zurück auf diesen Browser</Button>}
       </div>
@@ -310,7 +311,7 @@ function SpeicherBereich() {
       {(sp || (gh && schreibbar)) && (lokal.apps > 0 || lokal.personen > 0) && (
         <div className="rv-speicher-zeile">
           <span className="hint">In diesem Browser liegen noch {lokal.apps} Applikation{lokal.apps === 1 ? "" : "en"} und {lokal.personen} Rechte-Einträge.</span>
-          <Button variant="outline" className="rounded-full" disabled={!!laeuft} onClick={() => void uebernehmen()}>{laeuft === "uebernehmen" ? "Übernimmt …" : gh ? "In den Git-Speicher übernehmen" : "In den SharePoint-Ordner übernehmen"}</Button>
+          <Button variant="outline" className="rounded-full" disabled={!!laeuft} onClick={() => void uebernehmen()}>{laeuft === "uebernehmen" ? <Arbeitet text="Übernimmt" /> : gh ? "In den Git-Speicher übernehmen" : "In den SharePoint-Ordner übernehmen"}</Button>
         </div>
       )}
       <p className="hint" style={{ margin: 0 }}>Im Ordner legt der Hub „apps/“, „rechte.json“ und „anmeldungen/“ an. Rechte in SharePoint: alle lesen; Schreiben in „apps/“ nur, wer bauen darf; „rechte.json“ nur die Verwaltung; in „anmeldungen/“ alle. Der Hub braucht dafür zusätzlich die Berechtigung Sites.ReadWrite.All mit Administratorzustimmung.</p>

@@ -41,7 +41,7 @@ test("Ankreuzfelder wählen die Teile: angehakt läuft, nicht angehakt wird mit 
   await page.getByRole("textbox", { name: "Thema" }).fill("KTE");
   await page.getByLabel("To-dos erstellen").check();
   await page.getByRole("navigation", { name: "Seiten blättern" }).getByRole("button", { name: /erstellen/i }).click();
-  await expect(page.getByText("1 von 2 fertig")).toBeVisible({ timeout: 20_000 });
+  await expect(page.getByText("1 von 1 fertig, 1 übersprungen")).toBeVisible({ timeout: 20_000 });
   const kacheln = page.locator(".e-kachel");
   await expect(kacheln.filter({ hasText: "Offene Punkte & To-dos" })).toContainText("Fertig");
   await expect(kacheln.filter({ hasText: "Briefing" })).toContainText("Übersprungen, weil „Briefing erstellen“ nicht angehakt ist.");

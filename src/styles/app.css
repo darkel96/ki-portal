@@ -949,3 +949,13 @@ a.mh-titel:hover { text-decoration: underline; text-underline-offset: 4px; }
 /* ----- Übersicht: Apps, die nur in diesem Browser liegen ----- */
 .hub-nurbrowser { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; margin: 0 auto 12px; width: min(100%, var(--app-max, 1200px)); padding: 10px 14px; border: 1px solid var(--app-line); border-left: 3px solid var(--tool-text, #b45309); border-radius: var(--app-radius); background: var(--app-soft); font-size: 14px; }
 .hub-nurbrowser span { flex: 1 1 280px; min-width: 0; }
+
+/* ----- Läuft gerade: drehendes Zeichen neben dem Text ----- */
+.arbeitet { display: inline-flex; align-items: center; gap: 6px; }
+.arbeitet svg { flex: none; }
+
+/* ----- Postfach: eigene Prozeduren mit „vergessen“ ----- */
+.o-post-proz-eigen { display: inline-flex; align-items: center; }
+.o-post-proz-eigen > .o-chat-knopf { border-top-right-radius: 0; border-bottom-right-radius: 0; border-style: dashed; }
+.o-post-proz-weg { border: 1px dashed var(--app-line); border-left: 0; border-radius: 0 999px 999px 0; background: transparent; color: var(--app-muted); padding: 0 9px; align-self: stretch; cursor: pointer; font-size: 14px; line-height: 1; }
+.o-post-proz-weg:hover { color: var(--danger); }
