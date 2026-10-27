@@ -883,5 +883,119 @@
     "schutz": "intern",
     "version": 8,
     "geaendert": "2026-10-27T09:28:43.790Z"
+  },
+  "app-mvqurtoib9yx": {
+    "id": "app-mvqurtoib9yx",
+    "v": 2,
+    "typ": "baukasten",
+    "url": "",
+    "name": "TEST Planer",
+    "bereich": "Allgemein",
+    "beschreibung": "Beschreib hier kurz, was die Applikation macht.",
+    "theme": {
+      "accent": "#0060ff",
+      "bg": "",
+      "font": "sans",
+      "radius": "m",
+      "width": "m"
+    },
+    "wissen": {
+      "modus": "eingaben",
+      "text": "",
+      "quellen": []
+    },
+    "blocks": [
+      {
+        "id": "bdv7s5su",
+        "type": "seite",
+        "props": {
+          "titel": "Eingaben"
+        },
+        "children": [
+          {
+            "id": "bvcwncu5",
+            "type": "textarea",
+            "props": {
+              "label": "Notizen",
+              "key": "notizen",
+              "keyAuto": false,
+              "pflicht": true,
+              "hilfe": "",
+              "beispiel": "",
+              "placeholder": "Besprechungsnotizen oder To-dos einfügen …",
+              "aus": "",
+              "rows": 9
+            }
+          }
+        ]
+      },
+      {
+        "id": "bgk8klnk",
+        "type": "seite",
+        "props": {
+          "titel": "Ergebnis"
+        },
+        "children": [
+          {
+            "id": "bnu41q4v",
+            "type": "output",
+            "props": {
+              "titel": "Offene Punkte",
+              "quelle": "sycedzve",
+              "stil": "card",
+              "pfad": ""
+            }
+          },
+          {
+            "id": "b6k0l6m4",
+            "type": "aufgaben",
+            "props": {
+              "titel": "Aufgaben in Planner anlegen",
+              "quelle": "sycedzve",
+              "ziel": "planner",
+              "plan": "KI-Hub Test",
+              "bucket": "Offen"
+            }
+          }
+        ]
+      }
+    ],
+    "steps": [
+      {
+        "id": "sycedzve",
+        "name": "Offene Punkte",
+        "key": "punkte",
+        "art": "prompt",
+        "rolle": "",
+        "agent": "",
+        "wissen": "",
+        "prompt": "Erstelle aus diesen Notizen eine Tabelle „Offene Punkte und Maßnahmen“ mit den Spalten Priorität, Was ist zu tun, Zuständig, Fällig bis, Status. Übernimm nur, was in den Notizen steht; fehlt eine Angabe, schreibe „festzulegen“. Datumsangaben als TT.MM.JJJJ.\n{{notizen}}",
+        "modell": "default",
+        "format": "text",
+        "datei": "",
+        "autoAll": false,
+        "vorlage": null,
+        "wissenModus": "app",
+        "quellen": [],
+        "bedingung": null,
+        "hausregeln": {
+          "fassungen": []
+        },
+        "faq": {
+          "eintraege": []
+        }
+      }
+    ],
+    "status": "entwurf",
+    "pflichtSperre": true,
+    "owner": "",
+    "erstelltVon": "dario.keller@koerber.com",
+    "rechte": {
+      "bearbeiten": [],
+      "nutzen": []
+    },
+    "schutz": "intern",
+    "version": 1,
+    "geaendert": "2026-10-27T15:41:09.762Z"
   }
 }
