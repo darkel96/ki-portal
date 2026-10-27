@@ -125,6 +125,23 @@ export async function nachrichtenSeit(tage: number, signal?: AbortSignal): Promi
   return aus;
 }
 
+/** Namen der Ordner zu IDs: erst aus der geladenen Ordnerliste, unbekannte (tiefere Unterordner) einzeln bei Graph */
+const ordnerNamenCache = new Map<string, string>();
+export async function ordnerNamen(ids: string[], bekannt: Ordner[], signal?: AbortSignal): Promise<Record<string, string>> {
+  const aus: Record<string, string> = {};
+  const flach = (l: Ordner[]): Ordner[] => l.flatMap((o) => [o, ...flach(o.kinder ?? [])]);
+  for (const o of flach(postfachEcht() ? bekannt : beispiel.ordner)) aus[o.id] = o.name;
+  const fehlen = [...new Set(ids)].filter((id) => id && !aus[id]);
+  for (const id of fehlen) {
+    if (!ordnerNamenCache.has(id) && postfachEcht()) {
+      try { ordnerNamenCache.set(id, (await graph<{ displayName: string }>(`/mailFolders/${encodeURIComponent(id)}?$select=displayName`, signal)).displayName); }
+      catch { ordnerNamenCache.set(id, ""); }
+    }
+    aus[id] = ordnerNamenCache.get(id) ?? "";
+  }
+  return aus;
+}
+
 /** Nachrichten in einen Ordner verschieben; liefert die Zahl der verschobenen */
 export async function nachrichtenVerschieben(ids: string[], zielOrdnerId: string, signal?: AbortSignal, verschoben?: (id: string) => void): Promise<number> {
   if (!postfachEcht()) {

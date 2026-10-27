@@ -5,13 +5,13 @@ import DOMPurify from "dompurify";
 import { toast } from "sonner";
 import { BookmarkPlus, ChevronDown, ChevronRight, FolderInput, Mail, MailOpen, Paperclip, RefreshCw, Search, Sparkles, Square } from "lucide-react";
 import type { Block } from "@/lib/schema";
-import { antwortEntwurf, mailKontext, nachrichtenLaden, nachrichtenSeit, nachrichtenVerschieben, nachrichtLaden, ordnerAnlegen, ordnerLaden, postfachEcht, type Nachricht, type NachrichtVoll, type Ordner } from "@/lib/ki/postfach";
+import { antwortEntwurf, mailKontext, nachrichtenLaden, nachrichtenSeit, nachrichtenVerschieben, nachrichtLaden, ordnerAnlegen, ordnerLaden, ordnerNamen, postfachEcht, type Nachricht, type NachrichtVoll, type Ordner } from "@/lib/ki/postfach";
 import { KiSimulation, jsonAus, kiFragen } from "@/lib/ki";
 import { markdown } from "@/lib/markdown";
 import type { Mode } from "./BlockContent";
 
 type Prozedur = Extract<Block, { type: "postfach" }>["props"]["prozeduren"][number];
-type Treffer = Nachricht & { ordnerId: string; gewaehlt: boolean };
+type Treffer = Nachricht & { ordnerId: string; ordnerName?: string; gewaehlt: boolean };
 
 /** Vordefinierte KI-Aktionen zur geöffneten Mail */
 const AKTIONEN: { key: string; label: string; auftrag: string }[] = [
@@ -116,7 +116,9 @@ export function PostfachView({ b, mode }: Props) {
           else setProzMeldung(`KI-Auswahl nicht möglich (${e instanceof Error ? e.message : String(e)}); gezeigt wird die Wortsuche.`);
         }
       }
-      setTreffer(passend.map((n) => ({ ...n, gewaehlt: true })));
+      // Ordner, in dem die Mail gerade liegt (Spalte in der Auswahl)
+      const namen = await ordnerNamen(passend.map((n) => n.ordnerId), ordner).catch(() => ({} as Record<string, string>));
+      setTreffer(passend.map((n) => ({ ...n, ordnerName: namen[n.ordnerId] ?? "", gewaehlt: true })));
       if (!passend.length) setProzMeldung((m) => m || `Keine Mails zum Thema „${p.thema}“ in den letzten ${p.tage} Tagen (${alle.length} geprüft).`);
     } catch (e) { toast.error(e instanceof Error ? e.message : "Die Suche ist fehlgeschlagen."); }
     finally { setProzLaeuft(null); }
@@ -246,7 +248,7 @@ export function PostfachView({ b, mode }: Props) {
               </div>
               <ul>
                 {treffer.map((t) => (
-                  <li key={t.id}><label><input type="checkbox" checked={t.gewaehlt} onChange={(e) => setTreffer(treffer.map((x) => (x.id === t.id ? { ...x, gewaehlt: e.target.checked } : x)))} /><span className="o-post-datum">{datum(t.empfangen)}</span><b>{t.von}</b><span className="o-post-betreff">{t.betreff}</span></label></li>
+                  <li key={t.id}><label><input type="checkbox" checked={t.gewaehlt} onChange={(e) => setTreffer(treffer.map((x) => (x.id === t.id ? { ...x, gewaehlt: e.target.checked } : x)))} /><span className="o-post-datum">{datum(t.empfangen)}</span><b>{t.von}</b><span className="o-post-betreff">{t.betreff}</span><span className="o-post-ort" title={t.ordnerName ? `Liegt in „${t.ordnerName}“` : undefined}>{t.ordnerName || "–"}</span></label></li>
                 ))}
               </ul>
             </div>

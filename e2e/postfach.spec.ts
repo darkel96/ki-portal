@@ -109,6 +109,8 @@ test("Postfach: KI zur geöffneten Mail (Zusammenfassung, Antwortentwurf) und Pr
   await expect(treffer).toContainText("CRA Attest Retrofit Linie 3");
   await expect(treffer).toContainText("VDMA CRA FAQ 2.0");
   await expect(treffer).toContainText("Rückfrage SBOM");
+  // Spalte mit dem Ordner, in dem die Mail gerade liegt
+  await expect(treffer.locator("li").filter({ hasText: "CRA Attest Retrofit Linie 3" }).locator(".o-post-ort")).toHaveText("Posteingang");
   // Eine abwählen, dann verschieben
   await treffer.getByLabel(/Rückfrage SBOM/).uncheck();
   await treffer.getByRole("button", { name: "Nach „CRA-Ablage“ verschieben" }).click();
