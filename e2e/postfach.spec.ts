@@ -64,7 +64,7 @@ async function kiNachbau(page: Page) {
     const c = body?.messages?.[0]?.content ?? "";
     const prompt = typeof c === "string" ? c : c.map((t) => t.text ?? "").join("\n");
     prompts.push(prompt);
-    const text = prompt.includes("Welche dieser E-Mails") ? '{"nummern": [3]}' : prompt.includes("Entwirf eine Antwort") ? "Hallo Anna,\n\ndanke, ich gebe das Attest bis Freitag frei.\n\nViele Grüße\nDario" : "**Kurz:** Anna bittet um Freigabe des CRA Attests bis Freitag.";
+    const text = prompt.includes("Welche dieser E-Mails") ? JSON.stringify({ nummern: [...prompt.matchAll(/^(\d+) \|(.*)$/gm)].filter((m) => /CRA|Cyber Resilience|SBOM/i.test(m[2]!)).map((m) => Number(m[1])) }) : prompt.includes("Entwirf eine Antwort") ? "Hallo Anna,\n\ndanke, ich gebe das Attest bis Freitag frei.\n\nViele Grüße\nDario" : "**Kurz:** Anna bittet um Freigabe des CRA Attests bis Freitag.";
     const ev = (type: string, data: object) => `event: ${type}\ndata: ${JSON.stringify({ type, ...data })}\n\n`;
     const sse = [
       ev("message_start", { message: { id: "m", type: "message", role: "assistant", model: "x", content: [], stop_reason: null, stop_sequence: null, usage: { input_tokens: 1, output_tokens: 1 } } }),
@@ -101,7 +101,7 @@ test("Postfach: KI zur geöffneten Mail (Zusammenfassung, Antwortentwurf) und Pr
   await kiBereich.getByLabel("Frage zur Mail").fill("Bis wann?");
   await kiBereich.getByRole("button", { name: "Fragen" }).click();
   expect(prompts.at(-1)).toContain("Aufgabe: Bis wann?");
-  // Prozedur: Vorschau mit Wortsuche plus KI-Auswahl (Nr. 3 = SBOM-Mail), dann verschieben
+  // Prozedur: Die KI wählt (CRA-Mails und die SBOM-Rückfrage, die das Wort „CRA“ nicht enthält), dann verschieben
   await post.getByRole("button", { name: "Prozeduren" }).click();
   await post.getByRole("button", { name: "CRA ablegen" }).click();
   const treffer = post.getByRole("group", { name: "Gefundene Mails" });
@@ -117,4 +117,42 @@ test("Postfach: KI zur geöffneten Mail (Zusammenfassung, Antwortentwurf) und Pr
   await post.getByRole("navigation", { name: "Ordner" }).getByRole("button", { name: /CRA-Ablage/ }).click();
   await expect(post.locator(".o-post-nachricht")).toHaveCount(3);
   await page.screenshot({ path: `screenshots/${info.project.name}-postfach-ki.png` });
+});
+
+test("Themensuche: Füllwörter zählen nicht, Wortanfang statt Teilwort, die KI entscheidet; eigene Prozedur merken", async ({ page }, info) => {
+  test.skip(info.project.name !== "desktop", "einmal reicht");
+  await page.goto("/");
+  const r = await page.evaluate(async () => {
+    const t = await import("/src/lib/themensuche.ts");
+    const w = t.suchWorte("Alles zum Projekt KTE");
+    return {
+      w, nurFuell: t.suchWorte("Projekt"),
+      treffer: ["KTE: TGW Remotezugriffe", "AW: KTE-Projekt Stand", "Digital Projects @KTE"].map((x) => t.passtZumThema(x, w)),
+      daneben: ["Projektname: AU20-430", "Ihr Team arbeitet an diesen Seiten – zum Mitmachen", "Projekte im Überblick"].map((x) => t.passtZumThema(x, w)),
+      endung: t.passtZumThema("AW: Remotezugriffe TGW", t.suchWorte("Remotezugriff")),
+    };
+  });
+  expect(r.w).toEqual(["kte"]);
+  expect(r.nurFuell).toEqual(["projekt"]);
+  expect(r.treffer).toEqual([true, true, true]);
+  expect(r.daneben).toEqual([false, false, false]);
+  expect(r.endung).toBe(true);
+  // Eigene Prozedur merken: bleibt nach dem Neuladen, lässt sich wieder vergessen
+  await kiNachbau(page);
+  const app = { ...APP, blocks: [{ id: "p1", type: "seite", props: { titel: "Postfach" }, children: [
+    { id: "pf-merken", type: "postfach", props: { titel: "Postfach", anzahl: 25, vorschau: true, prozeduren: [] } },
+  ] }] };
+  await page.addInitScript((a) => localStorage.setItem("kihub-apps-v3", JSON.stringify([a])), app);
+  await page.goto("/app/post-app");
+  const post = page.locator(".o-post");
+  await post.getByRole("button", { name: "Prozeduren" }).click();
+  await post.getByRole("textbox", { name: "Thema", exact: true }).fill("Attest Retrofit");
+  await post.getByRole("textbox", { name: "Zielordner", exact: true }).fill("Retrofit");
+  await post.getByRole("button", { name: "Merken" }).click();
+  await expect(page.getByText("„Attest Retrofit“ gemerkt.", { exact: false })).toBeVisible();
+  await page.reload();
+  await page.locator(".o-post").getByRole("button", { name: "Prozeduren" }).click();
+  await expect(page.locator(".o-post").getByRole("button", { name: "Attest Retrofit", exact: true })).toBeVisible();
+  await page.locator(".o-post").getByRole("button", { name: "„Attest Retrofit“ vergessen" }).click();
+  await expect(page.locator(".o-post").getByRole("button", { name: "Attest Retrofit", exact: true })).toHaveCount(0);
 });

@@ -1,3 +1,4 @@
+import { Arbeitet } from "@/components/layout/Arbeitet";
 import { useEffect, useId, useLayoutEffect, useRef, useState, type FormEvent } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -189,7 +190,7 @@ export function AuftragDialog({ offen, onOffen, appId, appName, auftrag, stand, 
             <div className="flex flex-wrap items-center gap-2">
               <Input id="af-adresse" className="min-w-0 flex-1" value={ziel.adresse} autoComplete="off" maxLength={2000} aria-invalid={!!adressFehler || undefined}
                 placeholder={ziel.art === "email" ? "leer = an mich; mehrere mit Komma trennen" : "leer = an mich; E-Mail einer Person oder https://… (Webhook)"} onChange={(e) => setZiel((alt) => ({ ...alt, adresse: e.target.value }))} />
-              <Button type="button" variant="outline" size="sm" className="rounded-full" disabled={testet || !graphDa && !istWebhook(ziel.adresse)} title={!graphDa && !istWebhook(ziel.adresse) ? "Zum Testen aus dem Browser braucht es die Copilot-Anmeldung" : undefined} onClick={() => void zustellungTesten()}>{testet ? "Sendet …" : "Zustellung testen"}</Button>
+              <Button type="button" variant="outline" size="sm" className="rounded-full" disabled={testet || !graphDa && !istWebhook(ziel.adresse)} title={!graphDa && !istWebhook(ziel.adresse) ? "Zum Testen aus dem Browser braucht es die Copilot-Anmeldung" : undefined} onClick={() => void zustellungTesten()}>{testet ? <Arbeitet text="Sendet" /> : "Zustellung testen"}</Button>
             </div>
             <p className="hint" style={{ margin: "4px 0 0", color: adressFehler ? "var(--danger)" : undefined }}>{adressFehler ?? zielHinweis}</p>
           </Fld>

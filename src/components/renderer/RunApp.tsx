@@ -1,3 +1,4 @@
+import { Arbeitet } from "@/components/layout/Arbeitet";
 import { klartext } from "@/lib/verweise";
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { ChevronDown, ChevronLeft, Send } from "lucide-react";
@@ -113,8 +114,8 @@ export function ErgebnisSenden({ app, outs, variante = "app" }: { app: App; outs
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         {variante === "hub"
-          ? <Button size="sm" variant="outline" className="rounded-full" disabled={!!sendet}><Send aria-hidden="true" />{sendet ? "Sendet …" : "Senden"}<ChevronDown aria-hidden="true" /></Button>
-          : <button type="button" className="o-btn outline e-senden" disabled={!!sendet}><Send size={15} aria-hidden="true" />{sendet ? "Sendet …" : "Senden"}<ChevronDown size={14} aria-hidden="true" /></button>}
+          ? <Button size="sm" variant="outline" className="rounded-full" disabled={!!sendet}><Send aria-hidden="true" />{sendet ? <Arbeitet text="Sendet" /> : "Senden"}<ChevronDown aria-hidden="true" /></Button>
+          : <button type="button" className="o-btn outline e-senden" disabled={!!sendet}><Send size={15} aria-hidden="true" />{sendet ? <Arbeitet text="Sendet" /> : "Senden"}<ChevronDown size={14} aria-hidden="true" /></button>}
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-64">
         <DropdownMenuItem onSelect={() => void senden("email")}>Per E-Mail an mich</DropdownMenuItem>
@@ -132,11 +133,14 @@ function Uebersicht({ app, kacheln, outs, laeuft, stoppt, geaendert, onStart, on
   const fertig = stati.filter((s) => s === "fertig" || s === "simuliert").length;
   const mitFehler = stati.filter((s) => s === "fehler").length;
   const gestartet = stati.some((s) => s !== "wartet");
+  // Übersprungene Kacheln zählen nicht mit: bei 1 von 2 übersprungen steht „0 von 1 fertig, 1 übersprungen“
+  const uebersprungen = stati.filter((s) => s === "uebersprungen").length;
+  const stand = `${fertig} von ${kacheln.length - uebersprungen} fertig${uebersprungen ? `, ${uebersprungen} übersprungen` : ""}`;
   return (
     <div className="e-uebersicht">
       <div className="e-kopf">
         <h2 className="o-h o-h2">Ergebnisse</h2>
-        <span className="e-stand" aria-live="polite">{laeuft ? `${fertig} von ${kacheln.length} fertig, der Ablauf läuft\u00a0…` : gestartet ? `${fertig} von ${kacheln.length} fertig${mitFehler ? `, ${mitFehler} mit Fehler` : ""}` : "Noch nicht erstellt"}</span>
+        <span className="e-stand" aria-live="polite">{laeuft ? `${stand}, der Ablauf läuft\u00a0…` : gestartet ? `${stand}${mitFehler ? `, ${mitFehler} mit Fehler` : ""}` : "Noch nicht erstellt"}</span>
         <span className="flex-1" />
         {geaendert && !laeuft && gestartet && <span className="e-hinweis">Die Eingaben wurden seitdem geändert.</span>}
         {!laeuft && fertig > 0 && <ErgebnisSenden app={app} outs={outs} />}

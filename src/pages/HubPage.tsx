@@ -1,3 +1,4 @@
+import { Arbeitet } from "@/components/layout/Arbeitet";
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { Link, useSearchParams } from "react-router";
 import { Input } from "@/components/ui/input";
@@ -248,7 +249,7 @@ function NurImBrowser() {
   return (
     <p className="hub-nurbrowser" role="status">
       <span>{namen.length === 1 ? `${namen[0]} liegt` : `${namen.slice(0, 3).join(", ")}${namen.length > 3 ? ` und ${namen.length - 3} weitere` : ""} liegen`} nur in diesem Browser, andere sehen sie noch nicht.</span>
-      <button type="button" className="pg-btn" disabled={laeuft} onClick={() => void teilen()}>{laeuft ? "Speichert …" : "Für alle speichern"}</button>
+      <button type="button" className="pg-btn" disabled={laeuft} onClick={() => void teilen()}>{laeuft ? <Arbeitet text="Speichert" /> : "Für alle speichern"}</button>
     </p>
   );
 }
