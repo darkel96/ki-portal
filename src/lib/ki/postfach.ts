@@ -229,15 +229,82 @@ export async function nachrichtenVerschieben(ids: string[], zielOrdnerId: string
   return n;
 }
 
-/** Ordner anlegen (unter dem Posteingang oder oberste Ebene); gibt es ihn schon, den vorhandenen liefern */
-export async function ordnerAnlegen(name: string, signal?: AbortSignal): Promise<Ordner> {
-  const alle = await ordnerLaden(signal);
-  const flach = alle.flatMap((o) => [o, ...(o.kinder ?? [])]);
-  const da = flach.find((o) => o.name.trim().toLowerCase() === name.trim().toLowerCase());
-  if (da) return da;
-  if (!postfachEcht()) { const o = { id: `neu-${Date.now().toString(36)}`, name: name.trim(), ungelesen: 0, gesamt: 0 }; beispiel.ordner.push(o); return o; }
-  const o = await graph<GraphOrdner>("/mailFolders", signal, { method: "POST", body: { displayName: name.trim() }, schreiben: true });
-  return ordnerAus(o);
+/** Ordner mit vollem Pfad (z. B. „Posteingang › Projekte › KTE“) */
+export type OrdnerPfad = { id: string; name: string; pfad: string[] };
+
+/**
+ * Alle Ordner des Postfachs in jeder Tiefe (ohne Gelöschte Elemente und Junk-E-Mail). Nötig, damit ein Zielordner
+ * wie „KTE“ auch unter „Projekte“ gefunden und nicht doppelt angelegt wird.
+ */
+export async function alleOrdner(signal?: AbortSignal): Promise<OrdnerPfad[]> {
+  const aus: OrdnerPfad[] = [];
+  if (!postfachEcht()) {
+    const gehen = (l: Ordner[], vor: string[]) => { for (const o of l) { if (["deleteditems", "junkemail"].includes(o.id)) continue; aus.push({ id: o.id, name: o.name, pfad: [...vor, o.name] }); gehen(o.kinder ?? [], [...vor, o.name]); } };
+    gehen(beispiel.ordner, []);
+    return aus;
+  }
+  const bekannt = await bekannteOrdnerIds(signal);
+  const weg = new Set([bekannt.deleteditems, bekannt.junkemail].filter(Boolean));
+  const deutsch = new Map(Object.entries(bekannt).filter(([, id]) => id).map(([w, id]) => [id, DEUTSCH[w] ?? ""]));
+  type G = { id: string; displayName: string; childFolderCount?: number };
+  let ebene: { id: string; pfad: string[] }[] = [{ id: "", pfad: [] }];
+  for (let tiefe = 0; tiefe < 8 && ebene.length && aus.length < 1000; tiefe++) {
+    const naechste: { id: string; pfad: string[] }[] = [];
+    await Promise.all(ebene.map(async (e) => {
+      let pfad: string | null = e.id ? `/mailFolders/${encodeURIComponent(e.id)}/childFolders?$top=100&$select=id,displayName,childFolderCount` : "/mailFolders?$top=100&$select=id,displayName,childFolderCount";
+      while (pfad) {
+        const j: { value: G[]; "@odata.nextLink"?: string } = await graph(pfad, signal);
+        for (const o of j.value) {
+          if (weg.has(o.id)) continue;
+          const name = deutsch.get(o.id) || o.displayName;
+          aus.push({ id: o.id, name, pfad: [...e.pfad, name] });
+          if (o.childFolderCount) naechste.push({ id: o.id, pfad: [...e.pfad, name] });
+        }
+        pfad = j["@odata.nextLink"] ?? null;
+      }
+    }));
+    ebene = naechste;
+  }
+  return aus;
+}
+
+/** „Projekte/KTE“, „Projekte › KTE“ oder „KTE“ in Teile zerlegen */
+export const pfadTeile = (eingabe: string) => eingabe.split(/\s*(?:\/|\\|›|>)\s*/).map((t) => t.trim()).filter(Boolean);
+
+/**
+ * Zielordner zur Eingabe suchen: Der Pfad muss am Ende passen („KTE“ trifft „Posteingang › Projekte › KTE“,
+ * „Projekte/KTE“ nur diesen). Mehrere Treffer: die Person muss genauer werden, es wird nichts angelegt.
+ */
+export async function zielOrdnerSuchen(eingabe: string, signal?: AbortSignal): Promise<OrdnerPfad[]> {
+  const teile = pfadTeile(eingabe).map((t) => t.toLowerCase());
+  if (!teile.length) return [];
+  const alle = await alleOrdner(signal);
+  return alle.filter((o) => o.pfad.length >= teile.length && teile.every((t, i) => o.pfad[o.pfad.length - teile.length + i]!.toLowerCase() === t));
+}
+
+/**
+ * Neuen Ordner anlegen: „Name“ auf oberster Ebene, „Eltern/Name“ unter dem (eindeutigen) Elternordner. Vorher immer
+ * zielOrdnerSuchen fragen, sonst entstehen doppelte Ordner.
+ */
+export async function ordnerNeuAnlegen(eingabe: string, signal?: AbortSignal): Promise<OrdnerPfad> {
+  const teile = pfadTeile(eingabe);
+  const name = teile.at(-1) ?? "";
+  if (!name) throw new Error("Bitte einen Ordnernamen angeben.");
+  let eltern: OrdnerPfad | null = null;
+  if (teile.length > 1) {
+    const e = await zielOrdnerSuchen(teile.slice(0, -1).join("/"), signal);
+    if (e.length !== 1) throw new Error(e.length ? `Den Ordner „${teile.slice(0, -1).join(" › ")}“ gibt es mehrmals; bitte den Pfad genauer angeben.` : `Den Ordner „${teile.slice(0, -1).join(" › ")}“ gibt es nicht.`);
+    eltern = e[0]!;
+  }
+  if (!postfachEcht()) {
+    const o: Ordner = { id: `neu-${Date.now().toString(36)}`, name, ungelesen: 0, gesamt: 0 };
+    const finden = (l: Ordner[]): Ordner | undefined => { for (const x of l) { const t = x.id === eltern?.id ? x : finden(x.kinder ?? []); if (t) return t; } return undefined; };
+    const e = eltern ? finden(beispiel.ordner) : undefined;
+    if (e) (e.kinder ??= []).push(o); else beispiel.ordner.push(o);
+    return { id: o.id, name, pfad: [...(eltern?.pfad ?? []), name] };
+  }
+  const o = await graph<GraphOrdner>(eltern ? `/mailFolders/${encodeURIComponent(eltern.id)}/childFolders` : "/mailFolders", signal, { method: "POST", body: { displayName: name }, schreiben: true });
+  return { id: o.id, name: o.displayName, pfad: [...(eltern?.pfad ?? []), o.displayName] };
 }
 
 /** Antwortentwurf in Outlook anlegen (Antwort an den Absender, Text oben, Original darunter); liefert den Link zum Entwurf */
@@ -269,7 +336,7 @@ const bsp = (id: string, ordner: string, betreff: string, von: string, vonAdress
 });
 const beispiel = {
   ordner: [
-    { id: "inbox", name: "Posteingang", ungelesen: 2, gesamt: 5, kinder: [{ id: "inbox-cra", name: "CRA", ungelesen: 0, gesamt: 1 }, { id: "inbox-projekte", name: "Projekte", ungelesen: 0, gesamt: 0 }] },
+    { id: "inbox", name: "Posteingang", ungelesen: 2, gesamt: 5, kinder: [{ id: "inbox-cra", name: "CRA", ungelesen: 0, gesamt: 1 }, { id: "inbox-projekte", name: "Projekte", ungelesen: 0, gesamt: 0, kinder: [{ id: "inbox-projekte-kte", name: "KTE", ungelesen: 0, gesamt: 0 }] }] },
     { id: "drafts", name: "Entwürfe", ungelesen: 0, gesamt: 0 },
     { id: "sentitems", name: "Gesendete Elemente", ungelesen: 0, gesamt: 1 },
     { id: "deleteditems", name: "Gelöschte Elemente", ungelesen: 0, gesamt: 0 },
