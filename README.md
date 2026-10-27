@@ -218,6 +218,21 @@ Junk, Entwürfe, Gesendete), wählt per Wortsuche und auf Wunsch per KI thematis
 (an- und abwählbar) und verschiebt dann; der Zielordner wird angelegt, wenn es ihn nicht gibt. Verschieben, Ordner und
 Entwürfe brauchen die delegierte Berechtigung Mail.ReadWrite (Zustimmung beim ersten Mal im Anmeldefenster).
 
+### Aufgaben (Planner und To Do)
+
+Der Baustein **Aufgaben** (Palette „Microsoft 365“) übernimmt die offenen Punkte aus dem Ergebnis eines KI-Schritts,
+z. B. aus der Tabelle „Offene Punkte und Maßnahmen“. Die KI liest Titel, Fälligkeit, Zuständig, Priorität und eine
+Notiz heraus; die Person prüft und ändert alles in einer Tabelle und wählt das Ziel:
+
+- **Team-Aufgaben (Planner):** Plan (alle Pläne, in denen die Person Mitglied ist) und Bucket; in Teams im Plan des
+  Teams sichtbar. Zuständige werden über Name oder E-Mail gefunden; wer nicht eindeutig gefunden wird, steht in der
+  Notiz. Die Notiz wird zur Beschreibung der Aufgabe.
+- **Meine Aufgaben (To Do):** Liste (Standard „Aufgaben“); Zuständige stehen in der Notiz.
+
+Aufgaben mit gleichem Titel, die es im Plan bzw. in der Liste schon gibt (offen), sind abgewählt. Plan, Liste und
+Bucket lassen sich im Baukasten vorwählen. Berechtigungen (delegiert, ohne Administratorzustimmung): Tasks.ReadWrite,
+User.ReadBasic.All; sie stehen in `scripts/entra-einrichten.ps1` oder werden beim ersten Anlegen im Anmeldefenster zugestimmt.
+
 ## Rechte und Verwaltung
 
 **Applikationen verwalten:** In der Verwaltung stehen alle Applikationen in einer Tabelle: eigene bearbeiten, sperren,

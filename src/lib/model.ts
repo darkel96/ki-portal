@@ -75,6 +75,8 @@ export function makeBlock<T extends BlockType>(type: T, app?: Pick<App, "blocks"
     p.key = uniqueKey(slug(p.label), allKeys(app));
   }
   if ((type === "output" || type === "chat") && app?.steps[0]) (b.props as PropsOf<"output">).quelle = app.steps[0].id;
+  // Aufgaben: aus dem letzten Schritt (meist der mit den offenen Punkten)
+  if (type === "aufgaben" && app?.steps.length) (b.props as PropsOf<"aufgaben">).quelle = app.steps[app.steps.length - 1]!.id;
   return b;
 }
 export function makeStep(app: Pick<App, "blocks" | "steps">, art: "prompt" | "team" = "prompt"): Step {
@@ -353,6 +355,7 @@ export function appWarnings(app: App): Warnung[] {
       if (!app.steps.some((s) => s.id === b.props.quelle)) hard(`Das Ergebnis-Element „${b.props.titel}“ ist mit keinem KI-Schritt verbunden.`);
       outSrc.add(b.props.quelle);
     }
+    if (b.type === "aufgaben" && !app.steps.some((s) => s.id === b.props.quelle)) hard(`„${b.props.titel}“ ist mit keinem KI-Schritt verbunden. Wähle, aus welchem Ergebnis die Aufgaben kommen.`);
     if (b.type === "chat") {
       if (!app.steps.some((s) => s.id === b.props.quelle)) hard(`Der Chat „${b.props.titel}“ ist mit keinem KI-Schritt verbunden.`);
       chatSrc.add(b.props.quelle);

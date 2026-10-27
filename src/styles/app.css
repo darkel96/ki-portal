@@ -971,3 +971,20 @@ a.mh-titel:hover { text-decoration: underline; text-underline-offset: 4px; }
 /* Zeitmessung: klein am Ende von Kachel und Ergebnis */
 .e-dauer { display: block; font-size: 11.5px; color: var(--app-muted); font-variant-numeric: tabular-nums; }
 .o-dauer { margin-left: auto; font-size: 11.5px; color: var(--app-muted); font-variant-numeric: tabular-nums; }
+
+/* Baustein „Aufgaben“: aus einem Ergebnis nach Planner oder To Do */
+.o-aufgaben { display: grid; gap: 10px; padding: 14px 16px; border: 1px solid var(--app-line); border-radius: var(--app-radius); background: var(--app-bg); }
+.o-aufgaben-kopf { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.o-aufgaben-ziel { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 10px; margin-bottom: 8px; }
+.o-aufgaben-ziel label { display: grid; gap: 3px; font-size: 12.5px; font-weight: 600; }
+.o-aufgaben select, .o-aufgaben input:not([type="checkbox"]) { font: inherit; font-size: 13.5px; padding: 6px 8px; border: 1px solid var(--app-line); border-radius: var(--app-radius); background: var(--app-bg); color: var(--app-ink); min-width: 0; }
+.o-aufgaben-tabelle { overflow: auto; max-height: 420px; border: 1px solid var(--app-line); border-radius: var(--app-radius); }
+.o-aufgaben-tabelle table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+.o-aufgaben-tabelle th { position: sticky; top: 0; background: var(--app-soft, var(--app-bg)); text-align: left; font-size: 12px; padding: 6px 8px; border-bottom: 1px solid var(--app-line); }
+.o-aufgaben-tabelle td { padding: 6px 8px; border-bottom: 1px solid var(--app-line); vertical-align: top; }
+.o-aufgaben-tabelle td:nth-child(2) { min-width: 260px; }
+.o-aufgaben-tabelle td:nth-child(2) input { width: 100%; }
+.o-aufgaben-tabelle tr[data-angelegt] { opacity: .6; }
+.o-aufgaben-notiz { display: block; margin-top: 3px; font-size: 12px; }
+.o-aufgaben-da { display: inline-block; margin-top: 3px; font-size: 12px; font-weight: 600; color: var(--danger); }
+.o-aufgaben-ok { display: inline-block; margin-top: 3px; font-size: 12px; font-weight: 600; color: var(--app-accent); }

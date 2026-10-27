@@ -43,8 +43,8 @@ test("Ankreuzfelder wählen die Teile: angehakt läuft, nicht angehakt wird mit 
   await page.getByRole("navigation", { name: "Seiten blättern" }).getByRole("button", { name: /erstellen/i }).click();
   await expect(page.getByText("1 von 1 fertig, 1 übersprungen")).toBeVisible({ timeout: 20_000 });
   // Zeitmessung: Gesamtdauer im Stand, je Kachel klein darunter
-  await expect(page.locator(".e-stand")).toHaveText(/· Dauer \d+ s$/);
-  await expect(page.locator(".e-kachel").filter({ hasText: "Offene Punkte & To-dos" }).locator(".e-dauer")).toHaveText(/^Dauer \d+ s$/);
+  await expect(page.locator(".e-stand")).toHaveText(/· Dauer (unter 1|\d+) s$/);
+  await expect(page.locator(".e-kachel").filter({ hasText: "Offene Punkte & To-dos" }).locator(".e-dauer")).toHaveText(/^Dauer (unter 1|\d+) s$/);
   await expect(page.locator(".e-kachel").filter({ hasText: "Briefing" }).locator(".e-dauer")).toHaveCount(0);
   const kacheln = page.locator(".e-kachel");
   await expect(kacheln.filter({ hasText: "Offene Punkte & To-dos" })).toContainText("Fertig");
@@ -72,5 +72,5 @@ test("Ankreuzfelder wählen die Teile: angehakt läuft, nicht angehakt wird mit 
   });
   expect(d).toEqual(["8 s", "1 min 12 s", "1 h 3 min", "1 min 12 s (Quellen lesen 8 s, KI 1 min 4 s)", "8 s"]);
   await kacheln.filter({ hasText: "Offene Punkte & To-dos" }).click();
-  await expect(page.locator(".o-dauer").first()).toHaveText(/^Dauer \d+ s/);
+  await expect(page.locator(".o-dauer").first()).toHaveText(/^Dauer (unter 1|\d+) s/);
 });
