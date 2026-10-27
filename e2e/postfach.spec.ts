@@ -64,7 +64,7 @@ async function kiNachbau(page: Page) {
     const c = body?.messages?.[0]?.content ?? "";
     const prompt = typeof c === "string" ? c : c.map((t) => t.text ?? "").join("\n");
     prompts.push(prompt);
-    const text = prompt.includes("Welche dieser E-Mails") ? JSON.stringify({ nummern: [...prompt.matchAll(/^(\d+) \|(.*)$/gm)].filter((m) => /CRA|Cyber Resilience|SBOM/i.test(m[2]!)).map((m) => Number(m[1])) }) : prompt.includes("Entwirf eine Antwort") ? "Hallo Anna,\n\ndanke, ich gebe das Attest bis Freitag frei.\n\nViele Grüße\nDario" : "**Kurz:** Anna bittet um Freigabe des CRA Attests bis Freitag.";
+    const text = prompt.includes("weitere Suchbegriffe") ? JSON.stringify({ begriffe: ["SBOM"] }) : prompt.includes("Welche dieser E-Mails") ? JSON.stringify({ nummern: [...prompt.matchAll(/^(\d+) \|(.*)$/gm)].filter((m) => /CRA|Cyber Resilience|SBOM/i.test(m[2]!)).map((m) => Number(m[1])) }) : prompt.includes("Entwirf eine Antwort") ? "Hallo Anna,\n\ndanke, ich gebe das Attest bis Freitag frei.\n\nViele Grüße\nDario" : "**Kurz:** Anna bittet um Freigabe des CRA Attests bis Freitag.";
     const ev = (type: string, data: object) => `event: ${type}\ndata: ${JSON.stringify({ type, ...data })}\n\n`;
     const sse = [
       ev("message_start", { message: { id: "m", type: "message", role: "assistant", model: "x", content: [], stop_reason: null, stop_sequence: null, usage: { input_tokens: 1, output_tokens: 1 } } }),
@@ -157,4 +157,52 @@ test("Themensuche: Füllwörter zählen nicht, Wortanfang statt Teilwort, die KI
   await expect(page.locator(".o-post").getByRole("button", { name: "Attest Retrofit", exact: true })).toBeVisible();
   await page.locator(".o-post").getByRole("button", { name: "„Attest Retrofit“ vergessen" }).click();
   await expect(page.locator(".o-post").getByRole("button", { name: "Attest Retrofit", exact: true })).toHaveCount(0);
+});
+
+test("Themensuche über Microsoft: durchsucht den ganzen Zeitraum, KI ergänzt Begriffe und prüft, Zielordner bleibt außen vor", async ({ page }, info) => {
+  test.skip(info.project.name !== "desktop", "einmal reicht");
+  const prompts = await kiNachbau(page);
+  const vor = (tage: number) => new Date(Date.now() - tage * 86_400_000).toISOString();
+  const suchen: string[] = [];
+  const mail = (id: string, betreff: string, tage: number, ordner: string) => ({ id, subject: betreff, from: { emailAddress: { name: "Anna Berger", address: "anna@firma.de" } }, receivedDateTime: vor(tage), bodyPreview: betreff, parentFolderId: ordner });
+  await page.route("https://graph.microsoft.com/**", async (route) => {
+    const req = route.request();
+    const url = new URL(req.url());
+    const cors = { "access-control-allow-origin": "*", "access-control-allow-headers": "*", "access-control-allow-methods": "*" };
+    const ok = (wert: unknown) => route.fulfill({ status: 200, headers: cors, contentType: "application/json", body: JSON.stringify(wert) });
+    if (req.method() === "OPTIONS") return route.fulfill({ status: 204, headers: cors });
+    const pfad = url.pathname.replace("/v1.0/me", "");
+    if (pfad === "/mailFolders" ) return ok({ value: [{ id: "inbox", displayName: "Inbox", unreadItemCount: 0, totalItemCount: 3 }, { id: "f-cra", displayName: "CRA-Ablage", totalItemCount: 1 }] });
+    if (/^\/mailFolders\/[a-z]+$/.test(pfad) && !url.searchParams.has("$top")) return ok({ id: pfad.split("/").pop() });
+    if (/^\/mailFolders\/.+\/childFolders/.test(pfad) || /^\/mailFolders\/.+\/messages/.test(pfad)) return ok({ value: [] });
+    if (pfad === "/messages" && url.searchParams.has("$search")) {
+      const s = url.searchParams.get("$search")!;
+      suchen.push(s);
+      if (s.includes("SBOM")) return ok({ value: [mail("s1", "Rückfrage SBOM Steuerung", 120, "inbox")] });
+      return ok({ value: [mail("c1", "CRA Attest Linie 3", 2, "inbox"), mail("c2", "CRA Newsletter alt", 170, "inbox"), mail("c3", "CRA schon abgelegt", 5, "f-cra"), mail("c4", "CRA im Papierkorb", 3, "deleteditems")] });
+    }
+    return ok({ value: [] });
+  });
+  await page.addInitScript(() => localStorage.setItem("kihub-graph-test", "test-token"));
+  const app = { ...APP, blocks: [{ id: "p1", type: "seite", props: { titel: "Postfach" }, children: [
+    { id: "pf", type: "postfach", props: { titel: "Postfach", anzahl: 25, vorschau: true, prozeduren: [{ name: "CRA ablegen", thema: "Alles zum CRA", tage: 180, zielordner: "CRA-Ablage", ki: true }] } },
+  ] }] };
+  await page.addInitScript((a) => localStorage.setItem("kihub-apps-v3", JSON.stringify([a])), app);
+  await page.goto("/app/post-app");
+  const post = page.locator(".o-post");
+  await post.getByRole("button", { name: "Prozeduren" }).click();
+  await post.getByRole("button", { name: "CRA ablegen" }).click();
+  const treffer = post.getByRole("group", { name: "Gefundene Mails" });
+  await expect(treffer).toContainText("3 von 3 Mails ausgewählt", { timeout: 15_000 });
+  // Gesucht wird bei Microsoft im ganzen Zeitraum, nur nach echten Suchwörtern, dann nach dem Begriff der KI
+  expect(suchen[0]).toMatch(/^"\(cra\) AND received>=\d{4}-\d{2}-\d{2}"$/);
+  expect(suchen[0]).toContain(`received>=${vor(180).slice(0, 10)}`);
+  expect(suchen.some((s) => s.includes("SBOM"))).toBe(true);
+  // Auch die Mail von vor 170 Tagen ist dabei; Papierkorb und Zielordner nicht
+  await expect(treffer).toContainText("CRA Newsletter alt");
+  await expect(treffer).toContainText("Rückfrage SBOM Steuerung");
+  await expect(treffer).not.toContainText("CRA im Papierkorb");
+  await expect(treffer).not.toContainText("CRA schon abgelegt");
+  await expect(post.getByText("1 Mail liegt schon in „CRA-Ablage“.")).toBeVisible();
+  expect(prompts.some((p) => p.includes("weitere Suchbegriffe"))).toBe(true);
 });
