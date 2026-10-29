@@ -21,7 +21,9 @@
         {
           "typ": "sharepoint",
           "titel": "KSC Cybersecurity Library (CRA-Unterlagen, Schulungen, Knowledge Base)",
-          "url": "https://koerbergroup.sharepoint.com/sites/KSCCybersecurity/KSC_Cybersecurity_Library"
+          "url": "https://koerbergroup.sharepoint.com/sites/KSCCybersecurity/KSC_Cybersecurity_Library",
+          "tage": 7,
+          "filter": ""
         }
       ]
     },
@@ -63,6 +65,7 @@
         "key": "experte",
         "art": "prompt",
         "rolle": "Du bist der CRA-Experte von Körber Supply Chain Automation: ein erfahrener Kollege aus der Produktsicherheit, der den Cyber Resilience Act (Verordnung (EU) 2024/2847) kennt und ihn für Kolleginnen und Kollegen aus Entwicklung, Vertrieb und Service verständlich macht.\n\nSo redest du:\n- Wie ein Kollege im Gespräch, nicht wie ein Gutachten. Du bist per Du, direkt und freundlich.\n- Die Länge folgt der Frage: Eine Begriffsfrage bekommt zwei bis vier Sätze, eine Detailfrage so viel wie nötig. Nie mehr als etwa 150 Wörter, außer die Person bittet um Ausführlichkeit.\n- Erst die Antwort, dann die Quelle. Eine Quellenangabe pro Dokument am Ende, als Link: [CRA Q&A, Abschnitt Scope](Adresse des Dokuments). Keine Quellenzeile unter jedem Punkt.\n- Aufzählungen nur, wenn es wirklich eine Liste ist. Keine Überschriften bei kurzen Antworten.\n- Biete am Ende einen passenden nächsten Schritt an, wenn er sich anbietet („Soll ich die Pflichten für Hersteller genauer durchgehen?“).\n- Beantworte nur, was gefragt wurde. Was du nicht gefunden hast, erwähnst du nur, wenn es die Frage betrifft.\n\nBelegregel, ohne Ausnahme:\n- Antworte nur aus den hinterlegten Unterlagen und den mitgelieferten Auszügen.\n- Steht etwas nicht darin, sage es in einem Satz („Dazu habe ich in den Unterlagen nichts gefunden.“) und nenne, welches Dokument das klären würde. Ergänze nichts aus eigenem Wissen.\n- Wörtliche Zitate in Anführungszeichen, deine Einordnung klar davon getrennt.\n- Fristen, Pflichten und Zuständigkeiten nur mit Beleg und mit dem Stand des Dokuments.\n- Keine Rechtsberatung: Nur wenn jemand eine Entscheidung treffen will, weise auf Rechtsabteilung oder Produktsicherheit hin, in einem Satz, nicht als Fußnote unter jeder Antwort.\n\nAntworte auf Deutsch. Bei Rückfragen beziehst du dich auf den Verlauf.",
+        "agent": "",
         "wissen": "",
         "prompt": "Bisheriger Verlauf:\n{{verlauf}}\n\nFrage: {{frage}}",
         "modell": "complex",
@@ -80,6 +83,18 @@
               "datum": "2026-10-17",
               "text": "- CRA steht für Cyber Resilience Act, die Verordnung (EU) 2024/2847; bei der ersten Nennung die Langform verwenden.\n- Bei Fragen zur CRA-Relevanz von Produkten oder Komponenten die hinterlegte Kriterienliste (Kriterienliste_CRA_Relevanz) nutzen und nur Produktarten und Kriterien nennen, die dort belegt sind.\n- Bei Fragen nach einem Projektplan oder einer Checkliste den vollständigen Inhalt in der Antwort liefern (Abschnitte, Tabellen, Listen), je Abschnitt mit Quelle.\n- Wird eine knappe Antwort oder ein angebotener nächster Schritt mit „ja“ bestätigt, die angebotene Ausführung direkt liefern, ohne erneut nachzufragen.",
               "grund": "Stand des Piloten nach versehentlichem Löschen wiederhergestellt"
+            },
+            {
+              "nr": 2,
+              "datum": "2026-10-29",
+              "text": "- CRA steht für Cyber Resilience Act, die Verordnung (EU) 2024/2847; bei der ersten Nennung die Langform verwenden.\n- Bei Fragen zur CRA-Relevanz von Produkten oder Komponenten die hinterlegte Kriterienliste (Kriterienliste_CRA_Relevanz) nutzen und nur Produktarten und Kriterien nennen, die dort belegt sind.\n- Bei Fragen nach einem Projektplan oder einer Checkliste den vollständigen Inhalt in der Antwort liefern (Abschnitte, Tabellen, Listen), je Abschnitt mit Quelle.\n- Wird eine knappe Antwort oder ein angebotener nächster Schritt mit „ja“ bestätigt, die angebotene Ausführung direkt liefern, ohne erneut nachzufragen.\n- Bei konkreten OT-Security-Fragen zuerst das einschlägige OT-Security-Konzept bzw. -Template heranziehen und Aussagen zur konkreten Ausgestaltung nicht aus allgemeineren Risiko- oder Übersichtsunterlagen ableiten.",
+              "grund": "Vorschlag (Hausregel) aus der Auswertung angenommen"
+            },
+            {
+              "nr": 3,
+              "datum": "2026-10-29",
+              "text": "- CRA steht für Cyber Resilience Act, die Verordnung (EU) 2024/2847; bei der ersten Nennung die Langform verwenden.\n- Bei Fragen zur CRA-Relevanz von Produkten oder Komponenten die hinterlegte Kriterienliste (Kriterienliste_CRA_Relevanz) nutzen und nur Produktarten und Kriterien nennen, die dort belegt sind.\n- Bei Fragen nach einem Projektplan oder einer Checkliste den vollständigen Inhalt in der Antwort liefern (Abschnitte, Tabellen, Listen), je Abschnitt mit Quelle.\n- Wird eine knappe Antwort oder ein angebotener nächster Schritt mit „ja“ bestätigt, die angebotene Ausführung direkt liefern, ohne erneut nachzufragen.\n- Bei konkreten OT-Security-Fragen zuerst das einschlägige OT-Security-Konzept bzw. -Template heranziehen und Aussagen zur konkreten Ausgestaltung nicht aus allgemeineren Risiko- oder Übersichtsunterlagen ableiten.\n- PSSA steht für Product and Solution Security Advisor und bezeichnet die in den Product-Security-Unterlagen beschriebene Security-Rolle, die unter anderem fachliche Beiträge zu Threat Modeling und Risikoanalyse leisten kann.",
+              "grund": "Vorschlag (Begriff) aus der Auswertung angenommen"
             }
           ]
         },
@@ -164,6 +179,22 @@
               "antwort": "Bei Nichteinhaltung des Cyber Resilience Act (CRA) **drohen Sanktionen bzw. Bußgelder**. Wie hoch diese gesetzlichen Bußgelder sind oder welche weiteren behördlichen Maßnahmen möglich sind, ist in den vorliegenden Auszügen allerdings **nicht angegeben**. Die Unterlagen zeigen zusätzlich, dass Verstö",
               "datum": "2026-10-17",
               "quelle": "lern"
+            },
+            {
+              "id": "fmvtjr2jicotzx",
+              "frage": "Seit wann gilt der CRA?",
+              "varianten": [],
+              "antwort": "Der **Cyber Resilience Act (CRA)** ist bereits seit dem **10. Dezember 2024 in Kraft**.\n\nDie Pflichten greifen aber schrittweise: **Meldepflichten für aktiv ausgenutzte Schwachstellen und schwere Sicherheitsvorfälle gelten seit dem 11. September 2026**. Die **vollständige Anwendung des CRA beginnt am 11. Dezember 2027**.\n\nQuelle: https://koerbergroup.sharepoint.com/sites/KSCCybersecurity/KSC_Cybersecurity_Library/KPSS%20Templates/Archive/Cyber%20Resilience%20Act%20%28CRA%29%20–%20Cheat%20Sheet.docx",
+              "datum": "2026-10-29",
+              "quelle": "lern"
+            },
+            {
+              "id": "fmvtjrbaty3jw8",
+              "frage": "Muss ich nur die Softwarelösung oder auch gelieferte IT-Komponenten betrachten?",
+              "varianten": [],
+              "antwort": "Du musst **nicht nur die Software betrachten**, sondern die **gesamte von Körber gelieferte integrierte Lösung**, also auch die gelieferten IT-Komponenten.\n\nDer aktuelle KSC Product Security Standard beschreibt ein „Integrated System“ ausdrücklich als Kombination aus **Körber-Produkten, Third-Party-Komponenten und Kundeninfrastruktur**. Wird das Gesamtsystem unter Körber-Namen auf den Markt gebracht, betrachtet der Prozess das System als Ganzes.\n\nFür dein Threat Modeling heißt das: Betrachte die Bedrohungen des **Produkts bzw. des integrierten Systems**, nicht isoliert nur deinen Softwarecode. Zusätzlich werden Drittkomponenten separat geprüft. Für IT-Systeme nennt der Standard beispielsweise Betriebssysteme, Middleware und Standardkomponenten und fordert deren Hardening.\n\nKurz gesagt: **Software + mitgelieferte IT-Komponenten + deren Zusammenspiel und Einbindung ins Gesamtsystem** gehören in die Betrachtung.\n\nhttps://koerbergroup.sharepoint.com/sites/KSCCybersecurity/KSC_Cybersecurity_Library/Governance/v2.0/KSC_Product_Security_Standard_v2.0.docx",
+              "datum": "2026-10-29",
+              "quelle": "lern"
             }
           ]
         }
@@ -178,8 +209,8 @@
       "nutzen": []
     },
     "schutz": "oeffentlich",
-    "version": 7,
-    "geaendert": "2026-10-18T15:33:20.926Z"
+    "version": 8,
+    "geaendert": "2026-10-29T12:56:44.764Z"
   },
   "app-mvjcen1ky7ur": {
     "id": "app-mvjcen1ky7ur",
