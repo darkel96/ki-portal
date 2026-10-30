@@ -34,6 +34,13 @@ export function QuellenEditor({ quellen, onChange, id }: { quellen: Quelle[]; on
                 Tage{q.typ === "kalender" ? " zurück und voraus" : ""}</label>
               {q.typ !== "kalender" && <Input className="min-w-[200px] flex-1" aria-label="Filter (Wörter, Komma getrennt)" placeholder="Filter: Wörter, Komma getrennt; leer = alle; Platzhalter wie {{thema}}" value={q.filter} onChange={(e) => set(qi, { filter: e.target.value })} />}
             </div>
+          ) : q.typ === "connector" ? (
+            // Netzlaufwerk über einen Graph-Connector: Verbindungs-ID und optional ein Ordner
+            <div className="qkarte-voll flex flex-wrap items-center gap-2">
+              <Input className="min-w-[180px] flex-1" aria-label="Verbindungs-ID des Connectors" placeholder="Verbindungs-ID aus dem Microsoft 365 Admin Center, z. B. laufwerky" value={q.url} onChange={(e) => set(qi, { url: e.target.value.trim() })} />
+              <Input className="min-w-[220px] flex-[2]" aria-label="Nur dieser Ordner (optional)" placeholder="Nur Ordner (optional), z. B. \\server\freigabe\Projekte\KTE" value={q.filter} onChange={(e) => set(qi, { filter: e.target.value })} />
+              <span className="hint w-full">Gefunden wird nur, was die angemeldete Person auf dem Laufwerk lesen darf.</span>
+            </div>
           ) : (
             <Input className="qkarte-voll" aria-label="Adresse der Quelle" placeholder="https://firma.sharepoint.com/sites/QM/Freigegebene Dokumente" value={q.url} onChange={(e) => set(qi, { url: e.target.value })} />
           )}
@@ -42,6 +49,7 @@ export function QuellenEditor({ quellen, onChange, id }: { quellen: Quelle[]; on
       <div className="flex flex-wrap items-center gap-2">
         <Button variant="outline" size="sm" onClick={() => onChange([...quellen, { typ: "sharepoint", titel: "", url: "", tage: 7, filter: "" }])}><Plus />Wissensquelle</Button>
         <Button variant="outline" size="sm" onClick={() => onChange([...quellen, { typ: "mail", titel: "", url: "", tage: 7, filter: "" }])}><Plus />Meine E-Mails</Button>
+        <Button variant="outline" size="sm" onClick={() => onChange([...quellen, { typ: "connector", titel: "Laufwerk Y", url: "", tage: 7, filter: "" }])}><Plus />Netzlaufwerk</Button>
         {frei.length > 0 && (
           <select aria-label="Aus der Wissensbibliothek übernehmen" className="h-8 min-w-0 max-w-full rounded-full border border-input bg-background px-3 text-sm" value="" id={`${id}-lib`}
             onChange={(e) => { const x = frei.find((f) => f.id === e.target.value); if (x) onChange([...quellen, { typ: x.typ, titel: x.titel, url: x.url, tage: 7, filter: "" }]); }}>

@@ -218,6 +218,16 @@ Junk, Entwürfe, Gesendete), wählt per Wortsuche und auf Wunsch per KI thematis
 (an- und abwählbar) und verschiebt dann; der Zielordner wird angelegt, wenn es ihn nicht gibt. Verschieben, Ordner und
 Entwürfe brauchen die delegierte Berechtigung Mail.ReadWrite (Zustimmung beim ersten Mal im Anmeldefenster).
 
+### Netzlaufwerk als Wissensquelle (Graph-Connector)
+
+Dateien von einem Netzlaufwerk (z. B. Y:) nutzt der Hub über einen Microsoft-Graph-Connector „Dateifreigabe“: Die IT
+richtet ihn im Microsoft 365 Admin Center ein (Copilot → Connectors → Dateifreigabe; dazu der Graph Connector Agent auf
+einem Windows-Server, der die Freigabe erreicht, UNC-Pfad wie `\\server\freigabe`, Berechtigungen „nur Personen mit
+Zugriff“). Im Baukasten kommt unter Wissen eine Quelle **Netzlaufwerk** dazu: Verbindungs-ID des Connectors und optional
+ein Ordner. Vor jedem Schritt bzw. jeder Chat-Frage holt der Hub die passenden Stellen über die Copilot-Retrieval-API
+(sonst über die Microsoft-Suche) im Namen der angemeldeten Person; Microsoft liefert nur, was sie auf dem Laufwerk lesen
+darf. Berechtigung: ExternalItem.Read.All (ist bereits Teil der Copilot-Berechtigungen).
+
 ### Aufgaben (Planner und To Do)
 
 Der Baustein **Aufgaben** (Palette „Microsoft 365“) übernimmt die offenen Punkte aus dem Ergebnis eines KI-Schritts,

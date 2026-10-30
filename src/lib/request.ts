@@ -11,6 +11,7 @@ export const MODELL_LABEL: Record<Step["modell"], string> = { quick: "Schnell", 
 export const QUELL_TYP: Record<string, string> = {
   sharepoint: "SharePoint (Website, Bibliothek oder Ordner)", datei: "Einzelne Datei (SharePoint/OneDrive)", web: "Webseite",
   mail: "Meine E-Mails (Zeitraum, Filter)", teams: "Meine Teams-Chats und -Kanäle (Zeitraum, Filter)", kalender: "Mein Kalender (Zeitraum)",
+  connector: "Netzlaufwerk / Graph-Connector",
 };
 /** Globale Regel: Diagramme als Mermaid, die der Hub zeichnet und als SVG, PNG und draw.io anbietet; keine erfundenen Datei-Links */
 export const DIAGRAMM_HINWEIS = "Ist ein Ablauf, Prozess, Organigramm, Entscheidungsweg oder Zeitplan gefragt oder hilfreich, zeichne ihn immer als Mermaid-Codeblock (```mermaid mit flowchart TD), nie als Text- oder Pfeildiagramm. Jeder Kasten: kurzer Titel und optional eine Erläuterungszeile, z. B. B[Risk Classification<br/>CRA-Relevanz bewerten]; Entscheidungen als C{Lokal umsetzbar?} mit beschrifteten Pfeilen -->|Ja|. Keine Farben oder Styles angeben, der Hub gestaltet das Diagramm und bietet es als SVG, PNG und draw.io-Datei zum Herunterladen an. Du kannst keine Dateien bereitstellen: Verweise nie auf Download-Links oder Dateien, die du selbst erstellt hättest.";
@@ -120,7 +121,7 @@ export function systemText(app: AppWissen, step: Step, wissenText: string): stri
     `Du arbeitest in der Applikation „${app.name}“ eines internen KI-Hubs. Antworte auf Deutsch.`,
     step.rolle,
     wissenText ? `Hintergrundwissen:\n${wissenText}` : "",
-    w.quellen.length ? "Hinterlegte Wissensquellen:\n" + w.quellen.map((x) => `- ${x.titel || x.url} (${QUELL_TYP[x.typ] ?? "Quelle"})${x.url ? ": " + x.url.replace(/\(/g, "%28").replace(/\)/g, "%29") : ""}`).join("\n")
+    w.quellen.length ? "Hinterlegte Wissensquellen:\n" + w.quellen.map((x) => x.typ === "connector" ? `- ${x.titel || "Netzlaufwerk"} (${QUELL_TYP.connector}${x.filter ? `, Ordner ${x.filter}` : ""})` : `- ${x.titel || x.url} (${QUELL_TYP[x.typ] ?? "Quelle"})${x.url ? ": " + x.url.replace(/\(/g, "%28").replace(/\)/g, "%29") : ""}`).join("\n")
       + "\nQuellenangaben schreibst du als Markdown-Link [Dokument, Abschnitt](Adresse), sobald du die Adresse des Dokuments kennst (aus den Auszügen oder dieser Liste); so öffnet sich die Quelle direkt. Nie die nackte Adresse ausgeben, der Linktext ist der Name des Dokuments mit der Stelle." : "",
     WISSEN_TEXT[w.modus],
     // Hausregeln erst nach der Wissensgrenze: Sie sind Kontext (Begriffe, Tonfall), kein Wissen und kein Grund, die Auszüge zu übergehen

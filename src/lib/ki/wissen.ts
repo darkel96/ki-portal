@@ -495,13 +495,16 @@ async function dateiLaden(q: Quelle, token: string, signal?: AbortSignal): Promi
  */
 export async function wissenAuszuege(quellen: Quelle[], suche: string, signal?: AbortSignal, breiter?: string): Promise<Auszug[]> {
   const { istM365Quelle, m365Auszug } = await import("./m365quellen");
-  const lesbar = quellen.filter((q) => (q.typ === "sharepoint" || q.typ === "datei") && q.url.trim());
+  const lesbar = quellen.filter((q) => (q.typ === "sharepoint" || q.typ === "datei" || q.typ === "connector") && q.url.trim());
   const m365 = quellen.filter(istM365Quelle);
   const spTeil: Promise<Auszug[]> = lesbar.length && wissenMoeglich()
     ? (async () => {
       const token = await graphToken();
       return Promise.all(lesbar.map(async (q) => {
-        try { return q.typ === "datei" ? await dateiAuszug(q, token, signal) : await sharepointAuszuege(q, suche, token, signal, breiter); }
+        try {
+          if (q.typ === "connector") return await (await import("./connector")).connectorAuszug(q, suche, token, signal, breiter);
+          return q.typ === "datei" ? await dateiAuszug(q, token, signal) : await sharepointAuszuege(q, suche, token, signal, breiter);
+        }
         catch (e) { return { titel: q.titel || q.url, url: q.url, text: "", fehler: e instanceof Error ? e.message : String(e) }; }
       }));
     })()
