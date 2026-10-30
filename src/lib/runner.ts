@@ -170,7 +170,7 @@ export async function anfrageVorbereiten(app: App, s: Step, ctx: Record<string, 
     .filter((q) => !(vorlagenQuelle && q.url.trim() === vorlagenQuelle.url.trim()))
     // Filter wie „{{thema}}“ bei E-Mail- und Teams-Quellen aus den Eingaben füllen
     .map((q) => filterAufloesen(q, ctx as Record<string, unknown>));
-  const lesbar = (q: Quelle) => q.typ === "sharepoint" || q.typ === "datei";
+  const lesbar = (q: Quelle) => q.typ === "sharepoint" || q.typ === "datei" || q.typ === "connector";
   // Eine SharePoint- oder Dateiquelle ohne Adresse kann der Hub nicht lesen: Das steht in der Diagnose, statt still zu fehlen
   diagnose.auszuege = wq.filter((q) => lesbar(q) && !q.url.trim()).map((q) => ({ titel: q.titel || "Wissensquelle", zeichen: 0, fehler: OHNE_ADRESSE }));
   if (wq.some((q) => (lesbar(q) && q.url.trim()) || istM365Quelle(q))) {
