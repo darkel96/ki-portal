@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { BookmarkPlus, Plus, Trash } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -13,6 +13,13 @@ import { bibliothek, merken } from "@/lib/wissensbibliothek";
  */
 export function QuellenEditor({ quellen, onChange, id }: { quellen: Quelle[]; onChange: (q: Quelle[]) => void; id: string }) {
   const [stand, setStand] = useState(0);   // Bibliothek nach „merken“ neu lesen
+  // Netzlaufwerk: freigegebene Ordner des Hub-Dienstes (zum Auswählen), erst wenn eine solche Quelle da ist
+  const [freigaben, setFreigaben] = useState<{ pfad: string; notiz: string }[] | null>(null);
+  const mitLaufwerk = quellen.some((q) => q.typ === "laufwerk");
+  useEffect(() => {
+    if (!mitLaufwerk || freigaben) return;
+    void import("@/lib/dienst").then(async (d) => ((await d.dienstAktiv()) ? (await d.laufwerkInfo()).freigaben : [])).then(setFreigaben, () => setFreigaben([]));
+  }, [mitLaufwerk, freigaben]);
   const lib = bibliothek();
   const frei = lib.filter((e) => !quellen.some((q) => q.url.trim().toLowerCase() === e.url.trim().toLowerCase()));
   const set = (i: number, patch: Partial<Quelle>) => onChange(quellen.map((q, k) => (k === i ? { ...q, ...patch } : q)));
@@ -34,6 +41,13 @@ export function QuellenEditor({ quellen, onChange, id }: { quellen: Quelle[]; on
                 Tage{q.typ === "kalender" ? " zurück und voraus" : ""}</label>
               {q.typ !== "kalender" && <Input className="min-w-[200px] flex-1" aria-label="Filter (Wörter, Komma getrennt)" placeholder="Filter: Wörter, Komma getrennt; leer = alle; Platzhalter wie {{thema}}" value={q.filter} onChange={(e) => set(qi, { filter: e.target.value })} />}
             </div>
+          ) : q.typ === "laufwerk" ? (
+            // Netzlaufwerk über den Hub-Dienst: ein freigegebener Ordner (oder ein Unterordner davon)
+            <div className="qkarte-voll flex flex-wrap items-center gap-2">
+              <Input className="min-w-[220px] flex-1" list={`${id}-lw-${qi}`} aria-label="Ordner auf dem Netzlaufwerk" placeholder="Freigegebener Ordner, z. B. Projekte/KTE" value={q.url} onChange={(e) => set(qi, { url: e.target.value })} />
+              <datalist id={`${id}-lw-${qi}`}>{(freigaben ?? []).map((f) => <option key={f.pfad} value={f.pfad}>{f.notiz}</option>)}</datalist>
+              <span className="hint w-full">{freigaben === null ? "Lädt die freigegebenen Ordner …" : freigaben.length ? `Freigegeben: ${freigaben.map((f) => f.pfad || "/").join(", ")}. Auch Unterordner davon gehen.` : "Keine freigegebenen Ordner (oder kein Hub-Dienst). Die Verwaltung gibt Ordner unter „Netzlaufwerk“ frei."}</span>
+            </div>
           ) : q.typ === "connector" ? (
             // Netzlaufwerk über einen Graph-Connector: Verbindungs-ID und optional ein Ordner
             <div className="qkarte-voll flex flex-wrap items-center gap-2">
@@ -49,7 +63,7 @@ export function QuellenEditor({ quellen, onChange, id }: { quellen: Quelle[]; on
       <div className="flex flex-wrap items-center gap-2">
         <Button variant="outline" size="sm" onClick={() => onChange([...quellen, { typ: "sharepoint", titel: "", url: "", tage: 7, filter: "" }])}><Plus />Wissensquelle</Button>
         <Button variant="outline" size="sm" onClick={() => onChange([...quellen, { typ: "mail", titel: "", url: "", tage: 7, filter: "" }])}><Plus />Meine E-Mails</Button>
-        <Button variant="outline" size="sm" onClick={() => onChange([...quellen, { typ: "connector", titel: "Laufwerk Y", url: "", tage: 7, filter: "" }])}><Plus />Netzlaufwerk</Button>
+        <Button variant="outline" size="sm" onClick={() => onChange([...quellen, { typ: "laufwerk", titel: "Laufwerk Y", url: "", tage: 7, filter: "" }])}><Plus />Netzlaufwerk</Button>
         {frei.length > 0 && (
           <select aria-label="Aus der Wissensbibliothek übernehmen" className="h-8 min-w-0 max-w-full rounded-full border border-input bg-background px-3 text-sm" value="" id={`${id}-lib`}
             onChange={(e) => { const x = frei.find((f) => f.id === e.target.value); if (x) onChange([...quellen, { typ: x.typ, titel: x.titel, url: x.url, tage: 7, filter: "" }]); }}>

@@ -8,10 +8,19 @@ import type { Zeitplan } from "./zeitplan";
 import type { Lernen } from "./lernen";
 import { HubDatenFehler, hubDatenAendern, hubDatenSchreibbar, rechteVonNutzer } from "./hubdaten";
 import type { Personen } from "./personen";
+import type { Laufwerk } from "./laufwerk";
+import { istFesterAdmin } from "@/lib/rechte";
 
 export class ApiFehler extends Error { constructor(public status: number, msg: string) { super(msg); } }
 
-export type Dienste = { speicher: DateiSpeicher; laeufe: Laeufe; zeitplan: Zeitplan; lernen: Lernen; personen: Personen };
+export type Dienste = { speicher: DateiSpeicher; laeufe: Laeufe; zeitplan: Zeitplan; lernen: Lernen; personen: Personen; laufwerk: Laufwerk };
+
+/** Verwaltung? Laut rechte.json im Git-Speicher; ohne Git-Speicher nur die fest eingetragene Verwaltung */
+async function istVerwaltung(n: Nutzer): Promise<boolean> {
+  if (istFesterAdmin(n.email)) return true;
+  if (!hubDatenSchreibbar()) return false;
+  try { return (await rechteVonNutzer({ id: n.id, name: n.name, email: n.email })).has("admin"); } catch { return false; }
+}
 
 export async function api(req: IncomingMessage, res: ServerResponse, pfad: string, query: URLSearchParams, body: unknown, d: Dienste): Promise<void> {
   const json = (status: number, wert: unknown) => { res.writeHead(status, { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store" }); res.end(JSON.stringify(wert)); };
@@ -73,6 +82,38 @@ export async function api(req: IncomingMessage, res: ServerResponse, pfad: strin
         if (!r.has("admin") && !r.has("bauen")) throw new ApiFehler(403, "Die Personenliste sehen nur Verwaltung und Baukasten.");
       }
       return json(200, await d.personen.alle());
+    }
+
+    // Netzlaufwerk: Stand und Freigaben (Verwaltung), Ordner zum Auswählen, Suche
+    if (pfad.startsWith("/laufwerk")) {
+      const lw = d.laufwerk;
+      const admin = await istVerwaltung(nutzer);
+      if (pfad === "/laufwerk" && methode === "GET") {
+        return json(200, { aktiv: lw.aktiv, name: UMGEBUNG.laufwerkName, unc: UMGEBUNG.laufwerkUnc, admin, freigaben: admin ? lw.alleFreigaben() : lw.freigabenFuer(nutzer.email).map((f) => ({ ...f, fuer: [] })), stand: lw.stand });
+      }
+      if (!lw.aktiv) throw new ApiFehler(404, "Im Hub-Dienst ist kein Netzlaufwerk eingebunden (HUB_LAUFWERK).");
+      if (pfad === "/laufwerk/ordner" && methode === "GET") {
+        // Verwaltung: ganzes Laufwerk (zum Freigeben); sonst nur innerhalb der eigenen Freigaben
+        const p = query.get("pfad") ?? "";
+        if (!admin && !lw.freigabenFuer(nutzer.email).some((f) => (p + "/").toLowerCase().startsWith(f.pfad.toLowerCase() + "/") || p.toLowerCase() === f.pfad.toLowerCase())) throw new ApiFehler(403, "Dieser Ordner ist für dich nicht freigegeben.");
+        try { return json(200, await lw.ordner(p)); } catch (e) { throw new ApiFehler(404, e instanceof Error && /Ungültig/.test(e.message) ? e.message : "Diesen Ordner gibt es nicht."); }
+      }
+      if (pfad === "/laufwerk/freigaben" && methode === "PUT") {
+        if (!admin) throw new ApiFehler(403, "Freigaben ändert nur die Verwaltung.");
+        return json(200, await lw.freigabenSetzen(body));
+      }
+      if (pfad === "/laufwerk/einlesen" && methode === "POST") {
+        if (!admin) throw new ApiFehler(403, "Einlesen startet nur die Verwaltung.");
+        void lw.einlesen();
+        return json(200, { ok: true });
+      }
+      if (pfad === "/laufwerk/suche" && methode === "POST") {
+        const b = (body ?? {}) as { pfad?: string; frage?: string; breiter?: string; titel?: string };
+        const titel = String(b.titel ?? "") || UMGEBUNG.laufwerkName;
+        let r = lw.suchen(nutzer.email, String(b.pfad ?? ""), String(b.frage ?? ""), titel);
+        if (!r.fehler && !r.text && b.breiter) r = lw.suchen(nutzer.email, String(b.pfad ?? ""), String(b.breiter), titel);
+        return json(200, r);
+      }
     }
 
     if (pfad === "/auftraege") {

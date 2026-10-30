@@ -173,10 +173,11 @@ export async function anfrageVorbereiten(app: App, s: Step, ctx: Record<string, 
   const lesbar = (q: Quelle) => q.typ === "sharepoint" || q.typ === "datei" || q.typ === "connector";
   // Eine SharePoint- oder Dateiquelle ohne Adresse kann der Hub nicht lesen: Das steht in der Diagnose, statt still zu fehlen
   diagnose.auszuege = wq.filter((q) => lesbar(q) && !q.url.trim()).map((q) => ({ titel: q.titel || "Wissensquelle", zeichen: 0, fehler: OHNE_ADRESSE }));
-  if (wq.some((q) => (lesbar(q) && q.url.trim()) || istM365Quelle(q))) {
+  const laufwerk = (q: Quelle) => q.typ === "laufwerk";
+  if (wq.some((q) => (lesbar(q) && q.url.trim()) || istM365Quelle(q) || laufwerk(q))) {
     const w = await import("./ki/wissen");
-    // E-Mails, Teams und Kalender liest der Hub auch ohne SharePoint-Anbindung (Beispiele ohne Copilot-Anmeldung)
-    if (w.wissenMoeglich() || wq.some(istM365Quelle)) {
+    // E-Mails, Teams und Kalender liest der Hub auch ohne SharePoint-Anbindung (Beispiele ohne Copilot-Anmeldung), das Netzlaufwerk der Dienst
+    if (w.wissenMoeglich() || wq.some(istM365Quelle) || wq.some(laufwerk)) {
       melden?.("Wissensquellen werden gelesen\u00a0…");
       // Suchtext: im Chat die Frage (mit Vorfragen), sonst die Aufgabe mit Eingaben. Sehr kurze Fragen („was ist der cra“)
       // bekommen das Thema der App dazu; liefert die Suche nichts, wird einmal mit dem Thema nachgesucht.

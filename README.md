@@ -218,6 +218,24 @@ Junk, Entwürfe, Gesendete), wählt per Wortsuche und auf Wunsch per KI thematis
 (an- und abwählbar) und verschiebt dann; der Zielordner wird angelegt, wenn es ihn nicht gibt. Verschieben, Ordner und
 Entwürfe brauchen die delegierte Berechtigung Mail.ReadWrite (Zustimmung beim ersten Mal im Anmeldefenster).
 
+### Netzlaufwerk als Wissensquelle (über den Hub-Dienst)
+
+Ohne Microsoft-Connector: Der Hub-Dienst bindet die Windows-Freigabe (z. B. Laufwerk Y:) schreibgeschützt ein und liest
+sie selbst. Einrichtung auf dem Linux-Server (fragt UNC-Pfad, Lesekonto und Passwort; Eintrag in /etc/fstab):
+
+```
+sudo bash scripts/laufwerk-einrichten.sh
+```
+
+Danach in der **Verwaltung → Netzlaufwerk** die Ordner freigeben, die als Wissen dienen sollen, und je Freigabe
+festlegen, wer sie nutzen darf (leer = alle Angemeldeten). Der Dienst liest nur freigegebene Ordner ein (Word, Excel,
+PowerPoint, PDF, Text; alle 30 Minuten Neues und Geändertes) und legt einen Suchindex an. Im Baukasten unter Wissen
+**+ Netzlaufwerk** einen freigegebenen Ordner (oder Unterordner) wählen; vor jedem Schritt bzw. jeder Chat-Frage gehen
+die passenden Stellen mit Dateiname und UNC-Pfad an die KI.
+
+Wichtig: Alle lesen mit dem Lesekonto des Servers. Die Ordnerrechte von Windows gelten im Hub nicht, sondern die
+Freigaben der Verwaltung; deshalb nur Ordner freigeben, die die vorgesehenen Personen auch lesen dürfen.
+
 ### Netzlaufwerk als Wissensquelle (Graph-Connector)
 
 Dateien von einem Netzlaufwerk (z. B. Y:) nutzt der Hub über einen Microsoft-Graph-Connector „Dateifreigabe“: Die IT

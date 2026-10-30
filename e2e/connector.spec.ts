@@ -61,9 +61,8 @@ test("Baukasten: Netzlaufwerk als Wissensquelle mit Verbindungs-ID und Ordner", 
   await page.goto("/baukasten?kopie=protokoll");
   await page.getByRole("tab", { name: /KI-Ablauf/ }).click();
   await page.getByRole("tab", { name: /^Wissen/ }).click();
-  await page.getByRole("button", { name: "Netzlaufwerk" }).first().click();
-  await expect(page.getByLabel("Art der Quelle").last()).toHaveValue("connector");
-  await expect(page.getByLabel("Bezeichnung der Quelle").last()).toHaveValue("Laufwerk Y");
+  await page.getByRole("button", { name: "Wissensquelle", exact: true }).first().click();
+  await page.getByLabel("Art der Quelle").last().selectOption("connector");
   await page.getByLabel("Verbindungs-ID des Connectors").fill("laufwerky");
   await page.getByLabel("Nur dieser Ordner (optional)").fill("\\\\fs01\\daten\\Projekte\\KTE");
   await expect(page.getByText("Gefunden wird nur, was die angemeldete Person auf dem Laufwerk lesen darf.")).toBeVisible();

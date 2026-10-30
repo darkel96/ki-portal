@@ -12,6 +12,9 @@ import { attrappe } from "./attrappe";
 import { Laeufe } from "./laeufe";
 import { Lernen } from "./lernen";
 import { Personen } from "./personen";
+import { Laufwerk } from "./laufwerk";
+import { laufwerkImDienstSetzen } from "@/lib/ki/laufwerkquelle";
+import { tokenKontext } from "./alias/auth";
 import { DateiSpeicher } from "./speicher";
 import { UMGEBUNG, umgebungPruefen } from "./umgebung";
 import { zustellenImDienst } from "./versand";
@@ -91,6 +94,22 @@ async function start() {
   const zeitplan = new Zeitplan(speicher, laeufe);
   const lernen = new Lernen(speicher);
   const personen = new Personen(speicher);
+  const laufwerk = new Laufwerk(speicher);
+  await laufwerk.laden();
+  if (laufwerk.aktiv) {
+    // Neues und Geändertes regelmäßig nachlesen (alle 30 Minuten)
+    setInterval(() => { void laufwerk.einlesen(); }, 30 * 60_000);
+    // Läufe im Dienst: Suche mit der Person des Laufs (Freigaben nach ihrer E-Mail)
+    laufwerkImDienstSetzen(async (q, frage, breiter) => {
+      const id = tokenKontext.getStore()?.nutzer ?? "";
+      const email = (await personen.alle()).find((p) => p.id === id)?.email ?? "";
+      const titel = q.titel || UMGEBUNG.laufwerkName;
+      let r = laufwerk.suchen(email, q.url, frage, titel);
+      if (!r.fehler && !r.text && breiter) r = laufwerk.suchen(email, q.url, breiter, titel);
+      return r;
+    });
+    console.info(`[Hub-Dienst] Netzlaufwerk ${UMGEBUNG.laufwerk}${UMGEBUNG.laufwerkUnc ? ` (${UMGEBUNG.laufwerkUnc})` : ""}: ${laufwerk.alleFreigaben().length} Freigabe(n)`);
+  }
   laeufe.onEnde = async (l) => {
     console.info(`[Hub-Dienst] Lauf ${l.id} „${l.titel}“: ${l.status}${l.meldung ? ` (${l.meldung})` : ""}`);
     if (l.auftragId && l.status === "fertig" && l.ziel && l.ziel.art !== "hub") {
@@ -111,7 +130,7 @@ async function start() {
     const url = new URL(req.url ?? "/", "http://hub");
     try {
       if (cors(req, res)) return;
-      if (url.pathname.startsWith("/api/")) return await api(req, res, url.pathname.slice(4), url.searchParams, await body(req), { speicher, laeufe, zeitplan, lernen, personen });
+      if (url.pathname.startsWith("/api/")) return await api(req, res, url.pathname.slice(4), url.searchParams, await body(req), { speicher, laeufe, zeitplan, lernen, personen, laufwerk });
       if (UMGEBUNG.testmodus && url.pathname.startsWith("/attrappe/")) return await attrappe(req, res, url.pathname.slice(9), await body(req), speicher);
       if (await statisch(url.pathname, res)) return;
       res.writeHead(404, { "Content-Type": "text/plain; charset=utf-8" });

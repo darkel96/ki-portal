@@ -24,6 +24,9 @@ services:
       - "127.0.0.1:8787:8787"
     volumes:
       - hub-daten:/daten
+      # Netzlaufwerk (scripts/laufwerk-einrichten.sh): auf dem Server eingebundene Freigabe, im Container nur lesbar.
+      # Ohne Einrichtung ein leerer Ordner; aktiv wird es erst mit HUB_LAUFWERK in .env.
+      - ${HUB_LAUFWERK_HOST:-./laufwerk-aus}:/laufwerk:ro
     restart: unless-stopped
 
 volumes:

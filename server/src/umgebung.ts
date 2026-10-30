@@ -43,6 +43,13 @@ export const UMGEBUNG = {
   gitToken: String(env.HUB_GIT_TOKEN ?? "").trim(),
   /** GitHub-API (nur für Tests änderbar) */
   gitApi: String(env.HUB_GIT_API ?? "").trim().replace(/\/+$/, "") || "https://api.github.com",
+  /** Netzlaufwerk: Pfad der schreibgeschützt eingebundenen Freigabe im Container (z. B. /laufwerk); leer = aus */
+  laufwerk: String(env.HUB_LAUFWERK ?? "").trim(),
+  /** Anzeigename und UNC-Pfad der Freigabe (für Quellenlinks, z. B. \\fs01\daten) */
+  laufwerkName: String(env.HUB_LAUFWERK_NAME ?? "").trim() || "Netzlaufwerk",
+  laufwerkUnc: String(env.HUB_LAUFWERK_UNC ?? "").trim(),
+  /** Höchstens so viele Dateien einlesen (alle Freigaben zusammen) */
+  laufwerkMaxDateien: Number(env.HUB_LAUFWERK_MAX_DATEIEN) || 20_000,
 };
 
 export function umgebungPruefen(): string[] {

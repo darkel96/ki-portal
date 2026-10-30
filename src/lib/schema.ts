@@ -135,7 +135,8 @@ export const BlockSchema: z.ZodType<Block> = z.lazy(() =>
 export const QuelleSchema = z.object({
   /** mail, teams, kalender: die eigenen E-Mails, Teams-Chats und -Kanäle bzw. Termine der Person (Microsoft Graph), ohne Adresse */
   /** connector: Inhalte eines Microsoft-Graph-Connectors (z. B. Netzlaufwerk), url = Connection-ID, filter = Pfad (optional) */
-  typ: z.enum(["sharepoint", "datei", "web", "mail", "teams", "kalender", "connector"]).default("sharepoint"),
+  /** laufwerk: Ordner auf dem Netzlaufwerk, das der Hub-Dienst eingebunden hat (url = Pfad in der Freigabe) */
+  typ: z.enum(["sharepoint", "datei", "web", "mail", "teams", "kalender", "connector", "laufwerk"]).default("sharepoint"),
   titel: z.string().max(120).default(""),
   url: z.string().max(800).default(""),
   /** mail, teams, kalender: Zeitraum in Tagen (Kalender: zurück und voraus) */

@@ -134,3 +134,16 @@ button.link-back { border: 0; background: none; padding: 0; font: inherit; font-
 .rv-speicher h2 { margin: 0; font: 700 17px/1.3 var(--k-font-display); }
 .rv-speicher-zeile { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; }
 .rv-speicher-zeile input { flex: 1 1 380px; min-width: 0; }
+
+/* Verwaltung: Netzlaufwerk (Freigaben und Ordnerauswahl) */
+.rv-laufwerk { display: flex; flex-direction: column; gap: 10px; padding: 18px 20px; border: 1px solid var(--line); border-radius: var(--k-radius-card); background: var(--surface); }
+.rv-laufwerk h2 { margin: 0; font: 700 17px/1.3 var(--k-font-display); }
+.rv-lw-freigaben { display: grid; gap: 8px; }
+.rv-lw-zeile { display: grid; grid-template-columns: minmax(160px, 1.2fr) minmax(180px, 1.5fr) minmax(160px, 1fr) auto; gap: 8px; align-items: center; }
+.rv-lw-pfad, .rv-lw-ordner { display: inline-flex; align-items: center; gap: 6px; min-width: 0; overflow-wrap: anywhere; font-size: 14px; }
+.rv-lw-browser { border: 1px solid var(--line); border-radius: var(--k-radius-card); padding: 10px 12px; }
+.rv-lw-pfadleiste { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; margin-bottom: 6px; }
+.rv-lw-browser ul { margin: 0; padding: 0; list-style: none; display: grid; gap: 2px; max-height: 260px; overflow: auto; }
+.rv-lw-ordner { padding: 4px 6px; border-radius: 6px; width: 100%; text-align: left; }
+.rv-lw-ordner:hover, .rv-lw-ordner:focus-visible { background: var(--brand-soft); }
+@media (max-width: 760px) { .rv-lw-zeile { grid-template-columns: 1fr auto; } .rv-lw-zeile > :nth-child(2), .rv-lw-zeile > :nth-child(3) { grid-column: 1 / -1; } }

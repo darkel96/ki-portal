@@ -511,8 +511,11 @@ export async function wissenAuszuege(quellen: Quelle[], suche: string, signal?: 
     : Promise.resolve([]);
   // Eigene E-Mails, Teams und Kalender: unabhängig vom SharePoint-Wissen, mit Beispielen ohne Copilot-Anmeldung
   const mTeil = Promise.all(m365.map((q) => m365Auszug(q, signal)));
-  const [a, b] = await Promise.all([spTeil, mTeil]);
-  return [...a, ...b];
+  // Netzlaufwerk: liest der Hub-Dienst (unabhängig von der KI-Anbindung)
+  const laufwerk = quellen.filter((q) => q.typ === "laufwerk");
+  const lTeil = laufwerk.length ? import("./laufwerkquelle").then((l) => Promise.all(laufwerk.map((q) => l.laufwerkAuszug(q, suche, breiter)))) : Promise.resolve([]);
+  const [a, b, c] = await Promise.all([spTeil, mTeil, lTeil]);
+  return [...a, ...b, ...c];
 }
 
 /*
