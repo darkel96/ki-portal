@@ -22,8 +22,15 @@ echo "== Angaben zum Netzlaufwerk"
 echo "  Den Pfad zeigt Windows im Explorer: Rechtsklick auf das Laufwerk → Eigenschaften (z. B. \\\\fs01\\daten)."
 fragen LW_UNC "UNC-Pfad der Freigabe"
 fragen LW_NAME "Anzeigename im Hub" "Laufwerk Y"
-fragen LW_DOMAENE "Domäne des Lesekontos (z. B. KOERBER)"
-fragen LW_BENUTZER "Benutzername des Lesekontos (ohne Domäne)"
+echo "  Lesekonto: so wie bei der Windows-Anmeldung, z. B. aberle-it\\dario.keller (cmd: whoami)"
+fragen LW_BENUTZER "Benutzer (DOMÄNE\\name oder name@domäne)"
+# Domäne aus „DOMÄNE\name“ oder „name@domäne“ abtrennen; sonst nachfragen
+case "$LW_BENUTZER" in
+  *\\*) LW_DOMAENE=${LW_DOMAENE:-${LW_BENUTZER%%\\*}}; LW_BENUTZER=${LW_BENUTZER#*\\} ;;
+  *@*) LW_DOMAENE=${LW_DOMAENE:-${LW_BENUTZER#*@}}; LW_BENUTZER=${LW_BENUTZER%%@*} ;;
+  *) fragen LW_DOMAENE "Domäne (z. B. aberle-it)" ;;
+esac
+echo "  Anmeldung als: ${LW_DOMAENE:+$LW_DOMAENE\\}$LW_BENUTZER"
 if [ -z "${LW_PASSWORT:-}" ]; then read -rs -p "  Passwort des Lesekontos: " LW_PASSWORT; echo; fi
 fragen LW_ZIEL "Einbindepunkt auf dem Server" "/mnt/laufwerk-y"
 [ -n "$LW_UNC" ] && [ -n "$LW_BENUTZER" ] && [ -n "$LW_PASSWORT" ] || { echo "UNC-Pfad, Benutzer und Passwort sind nötig. Abbruch."; exit 1; }
@@ -41,20 +48,42 @@ fi
 echo "== Anmeldedaten und /etc/fstab"
 mkdir -p /etc/ki-hub "$LW_ZIEL"
 umask 077
-printf 'username=%s\npassword=%s\ndomain=%s\n' "$LW_BENUTZER" "$LW_PASSWORT" "$LW_DOMAENE" > /etc/ki-hub/laufwerk.cred
+{ printf 'username=%s\npassword=%s\n' "$LW_BENUTZER" "$LW_PASSWORT"; [ -n "$LW_DOMAENE" ] && printf 'domain=%s\n' "$LW_DOMAENE"; } > /etc/ki-hub/laufwerk.cred
 chmod 600 /etc/ki-hub/laufwerk.cred
 # uid/gid 1000 = Benutzer „node“ im Container; schreibgeschützt (ro, nur Lesen für Dateien und Ordner)
-OPTIONEN="credentials=/etc/ki-hub/laufwerk.cred,ro,uid=1000,gid=1000,file_mode=0444,dir_mode=0555,iocharset=utf8,vers=3.0,_netdev,nofail"
-ZEILE="$QUELLE $LW_ZIEL cifs $OPTIONEN 0 0"
-grep -vE "[[:space:]]$(printf '%s' "$LW_ZIEL" | sed 's#/#\\/#g')[[:space:]]+cifs[[:space:]]" /etc/fstab > /etc/fstab.kihub || true
-echo "$ZEILE" >> /etc/fstab.kihub
-cp /etc/fstab /etc/fstab.vor-ki-hub
-mv /etc/fstab.kihub /etc/fstab
-echo "  Eintrag: $QUELLE → $LW_ZIEL (schreibgeschützt); Sicherung: /etc/fstab.vor-ki-hub"
+# Leerzeichen im Freigabenamen stehen in /etc/fstab als \040
+QUELLE_FSTAB=$(printf '%s' "$QUELLE" | sed 's/ /\\040/g')
+eintragen() { # SMB-Version → Eintrag in /etc/fstab
+  local opt="credentials=/etc/ki-hub/laufwerk.cred,ro,uid=1000,gid=1000,file_mode=0444,dir_mode=0555,iocharset=utf8,vers=$1,_netdev,nofail"
+  grep -vE "[[:space:]]$(printf '%s' "$LW_ZIEL" | sed 's#/#\\/#g')[[:space:]]+cifs[[:space:]]" /etc/fstab > /etc/fstab.kihub || true
+  echo "$QUELLE_FSTAB $LW_ZIEL cifs $opt 0 0" >> /etc/fstab.kihub
+  mv /etc/fstab.kihub /etc/fstab
+  systemctl daemon-reload 2>/dev/null || true
+}
+[ -f /etc/fstab.vor-ki-hub ] || cp /etc/fstab /etc/fstab.vor-ki-hub
+echo "  Sicherung der alten Datei: /etc/fstab.vor-ki-hub"
 
 echo "== Einbinden und prüfen"
 mountpoint -q "$LW_ZIEL" && umount "$LW_ZIEL" || true
-mount "$LW_ZIEL" || { echo "Einbinden fehlgeschlagen. Häufig: falsches Passwort, Domäne, Freigabename oder die Firewall (Port 445). Abbruch."; exit 1; }
+OK=""
+for v in 3.1.1 3.0 2.1; do
+  eintragen "$v"
+  if mount "$LW_ZIEL" 2>/tmp/ki-hub-mount.err; then OK=$v; break; fi
+  # Anmeldung abgelehnt: eine andere SMB-Version hilft nicht
+  grep -q "error(13)" /tmp/ki-hub-mount.err && break
+done
+if [ -z "$OK" ]; then
+  cat /tmp/ki-hub-mount.err
+  echo "  Letzte Meldungen des Systems:"; dmesg 2>/dev/null | grep -i cifs | tail -5 | sed 's/^/    /'
+  if grep -q "error(13)" /tmp/ki-hub-mount.err; then
+    echo "Anmeldung abgelehnt (Permission denied): Benutzer, Domäne oder Passwort prüfen. Angemeldet wurde als ${LW_DOMAENE:+$LW_DOMAENE\\}$LW_BENUTZER."
+  else
+    echo "Einbinden fehlgeschlagen: Server oder Freigabename prüfen ($QUELLE), und ob der Server Port 445 erreicht."
+  fi
+  echo "Skript einfach erneut starten; /etc/fstab wird dabei wieder richtig eingetragen."
+  exit 1
+fi
+echo "  Eintrag in /etc/fstab: $QUELLE → $LW_ZIEL (schreibgeschützt, SMB $OK)"
 ANZAHL=$(find "$LW_ZIEL" -maxdepth 1 -mindepth 1 2>/dev/null | wc -l)
 echo "  eingebunden, $ANZAHL Einträge in der obersten Ebene"
 
