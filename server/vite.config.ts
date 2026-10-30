@@ -38,5 +38,6 @@ export default defineConfig({
     sourcemap: true,
     rollupOptions: { output: { entryFileNames: "index.mjs", format: "es" } },
   },
-  ssr: { noExternal: true, target: "node" },
+  // pdf.js lädt seinen Worker zur Laufzeit aus dem eigenen Paket: bleibt extern (im Container unter node_modules)
+  ssr: { noExternal: true, external: ["pdfjs-dist"], target: "node" },
 });

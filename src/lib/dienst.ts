@@ -132,6 +132,15 @@ export const vorschlagSetzen = (appId: string, id: string, stand: Vorschlag["sta
 /** Anmeldung beim Dienst vermerken (für die Personenliste der Verwaltung) und die Liste aller Angemeldeten holen */
 export const anmeldungMelden = () => ruf<{ ok: true }>("/anmeldung", { method: "POST" });
 export const personenHolen = () => ruf<{ id: string; name: string; email: string; zuletzt: string }[]>("/personen");
+/** Netzlaufwerk im Dienst: Stand, Ordner zum Auswählen, Freigaben (Verwaltung), Suche */
+export type LaufwerkFreigabe = { pfad: string; fuer: string[]; notiz: string };
+export type LaufwerkInfo = { aktiv: boolean; name: string; unc: string; admin: boolean; freigaben: LaufwerkFreigabe[]; stand: { dateien: number; fehler: number; zuletzt: string; laeuft: boolean; meldung: string } };
+export const laufwerkInfo = () => ruf<LaufwerkInfo>("/laufwerk");
+export const laufwerkOrdner = (pfad: string) => ruf<{ name: string; pfad: string }[]>(`/laufwerk/ordner?pfad=${encodeURIComponent(pfad)}`);
+export const laufwerkFreigabenSetzen = (liste: LaufwerkFreigabe[]) => ruf<LaufwerkFreigabe[]>("/laufwerk/freigaben", { method: "PUT", body: JSON.stringify(liste) });
+export const laufwerkEinlesen = () => ruf<{ ok: true }>("/laufwerk/einlesen", { method: "POST" });
+export const laufwerkSuchen = (b: { pfad: string; frage: string; breiter?: string; titel: string }) =>
+  ruf<{ titel: string; url: string; text: string; fehler?: string; dateien?: string[]; dateienGesamt?: number }>("/laufwerk/suche", { method: "POST", body: JSON.stringify(b) });
 export const kontoLoeschen = () => ruf<{ ok: true }>("/konto", { method: "DELETE" });
 
 /** Merkt sich je Applikation den Lauf, der im Dienst läuft, damit die App ihn beim nächsten Öffnen wieder anzeigt */

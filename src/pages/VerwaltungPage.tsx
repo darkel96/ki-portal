@@ -1,3 +1,4 @@
+import { LaufwerkBereich } from "@/components/verwaltung/LaufwerkBereich";
 import { Arbeitet } from "@/components/layout/Arbeitet";
 import { useEffect, useState } from "react";
 import { Link } from "react-router";
@@ -108,6 +109,7 @@ export function VerwaltungPage() {
       </section>
       <AppsBereich />
       <SpeicherBereich />
+      <LaufwerkBereich />
       </div>
     </>
   );
