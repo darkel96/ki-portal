@@ -855,12 +855,13 @@
       "nutzen": [
         "benjamin.godi@koerber.com",
         "rouven.lips@koerber.com",
-        "dario.keller@koerber.com"
+        "dario.keller@koerber.com",
+        "tilman.taeuber@koerber.com"
       ]
     },
     "schutz": "oeffentlich",
-    "version": 30,
-    "geaendert": "2026-11-16T10:30:54.412Z"
+    "version": 31,
+    "geaendert": "2026-11-16T10:31:19.995Z"
   },
   "app-mvqf3ilxj7xk": {
     "id": "app-mvqf3ilxj7xk",
