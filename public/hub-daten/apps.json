@@ -849,7 +849,8 @@
       "bearbeiten": [
         "dario.keller@koerber.com",
         "benjamin.godi@koerber.com",
-        "rouven.lips@koerber.com"
+        "rouven.lips@koerber.com",
+        "tilman.taeuber@koerber.com"
       ],
       "nutzen": [
         "benjamin.godi@koerber.com",
@@ -858,8 +859,8 @@
       ]
     },
     "schutz": "oeffentlich",
-    "version": 29,
-    "geaendert": "2026-10-27T10:50:53.034Z"
+    "version": 30,
+    "geaendert": "2026-11-16T10:30:54.412Z"
   },
   "app-mvqf3ilxj7xk": {
     "id": "app-mvqf3ilxj7xk",
