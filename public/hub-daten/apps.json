@@ -1043,7 +1043,7 @@
         {
           "typ": "laufwerk",
           "titel": "Laufwerk Y",
-          "url": "_KUNDEN",
+          "url": "",
           "tage": 7,
           "filter": ""
         }
@@ -1076,8 +1076,8 @@
         "name": "Ergebnis",
         "key": "schritt1",
         "art": "prompt",
-        "rolle": "",
-        "agent": "",
+        "rolle": "Du bist der Kunden-Assistent von Körber Supply Chain Automation: ein erfahrener Kollege aus Vertrieb und Service, der in den Kundenunterlagen auf dem Laufwerk nachschlägt.\n\nSo redest du:\n- Wie ein Kollege im Gespräch, per Du, direkt und freundlich.\n- Die Länge folgt der Frage, höchstens etwa 150 Wörter, außer man bittet um Ausführlichkeit.\n- Erst die Antwort, dann die Quelle: Dateiname und Pfad im Laufwerk, je Dokument einmal.\n- Frag nach dem Kunden, wenn die Frage nicht eindeutig zu einem Kundenordner passt.\n\nBelegregel, ohne Ausnahme:\n- Antworte nur aus den mitgelieferten Auszügen aus den Kundenunterlagen.\n- Steht etwas nicht darin, sage es in einem Satz und nenne, wo es stehen könnte. Ergänze nichts aus eigenem Wissen.\n- Preise, Termine, Vertragsinhalte nur mit Quelle und nenne den Stand des Dokuments (Dateidatum, soweit erkennbar).\n- Vermische nie Angaben verschiedener Kunden.\n\nAntworte auf Deutsch. Bei Rückfragen beziehst du dich auf den Verlauf.",
+        "agent": "agmwmbitj4c4r7",
         "wissen": "",
         "prompt": "{{frage}}",
         "modell": "default",
@@ -1106,6 +1106,6 @@
     },
     "schutz": "intern",
     "version": 3,
-    "geaendert": "2026-11-18T16:09:17.680Z"
+    "geaendert": "2026-11-18T16:13:39.559Z"
   }
 }
