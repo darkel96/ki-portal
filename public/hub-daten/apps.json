@@ -1043,7 +1043,7 @@
         {
           "typ": "laufwerk",
           "titel": "Laufwerk Y",
-          "url": "",
+          "url": "_KUNDEN",
           "tage": 7,
           "filter": ""
         }
@@ -1105,7 +1105,7 @@
       "nutzen": []
     },
     "schutz": "intern",
-    "version": 2,
-    "geaendert": "2026-11-18T16:08:27.856Z"
+    "version": 3,
+    "geaendert": "2026-11-18T16:09:17.680Z"
   }
 }
