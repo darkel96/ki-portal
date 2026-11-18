@@ -846,22 +846,12 @@
     "owner": "Dario Keller",
     "erstelltVon": "dario.keller@koerber.com",
     "rechte": {
-      "bearbeiten": [
-        "dario.keller@koerber.com",
-        "benjamin.godi@koerber.com",
-        "rouven.lips@koerber.com",
-        "tilman.taeuber@koerber.com"
-      ],
-      "nutzen": [
-        "benjamin.godi@koerber.com",
-        "rouven.lips@koerber.com",
-        "dario.keller@koerber.com",
-        "tilman.taeuber@koerber.com"
-      ]
+      "bearbeiten": [],
+      "nutzen": []
     },
     "schutz": "oeffentlich",
-    "version": 31,
-    "geaendert": "2026-11-16T10:31:19.995Z"
+    "version": 32,
+    "geaendert": "2026-11-18T15:52:33.312Z"
   },
   "app-mvqf3ilxj7xk": {
     "id": "app-mvqf3ilxj7xk",
