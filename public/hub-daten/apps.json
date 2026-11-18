@@ -1039,7 +1039,15 @@
     "wissen": {
       "modus": "eingaben",
       "text": "",
-      "quellen": []
+      "quellen": [
+        {
+          "typ": "laufwerk",
+          "titel": "Laufwerk Y",
+          "url": "",
+          "tage": 7,
+          "filter": ""
+        }
+      ]
     },
     "blocks": [
       {
@@ -1057,25 +1065,6 @@
               "quelle": "sblmmnlj",
               "begruessung": "Was möchtest du wissen?",
               "platzhalter": "Frage stellen …"
-            }
-          }
-        ]
-      },
-      {
-        "id": "ba17cvq8",
-        "type": "seite",
-        "props": {
-          "titel": "Ergebnis"
-        },
-        "children": [
-          {
-            "id": "bmwyfulq",
-            "type": "output",
-            "props": {
-              "titel": "Ergebnis",
-              "quelle": "sblmmnlj",
-              "stil": "card",
-              "pfad": ""
             }
           }
         ]
@@ -1116,7 +1105,7 @@
       "nutzen": []
     },
     "schutz": "intern",
-    "version": 1,
-    "geaendert": "2026-11-18T16:07:57.928Z"
+    "version": 2,
+    "geaendert": "2026-11-18T16:08:27.856Z"
   }
 }
