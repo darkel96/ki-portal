@@ -257,9 +257,12 @@ export class Laufwerk {
 
   /** Einen Kundenordner lesen (neu und geändert) und aus dem Index nehmen, was dort nicht mehr liegt */
   private async kundeLesen(rel: string): Promise<void> {
+    const start = Date.now();
     const gesehen = new Set<string>();
-    await this.lesen(rel, gesehen, UMGEBUNG.laufwerkMaxDateien);
+    const fehler = await this.lesen(rel, gesehen, UMGEBUNG.laufwerkMaxDateien);
     for (const p of [...this.dateien.keys()]) if (darunter(p, rel) && !gesehen.has(p)) this.entfernen(p);
+    const imIndex = [...this.dateien.values()].filter((d) => d.stuecke && darunter(d.pfad, rel)).length;
+    console.info(`[Hub-Dienst] Kundenordner ${rel}: ${gesehen.size} lesbare Dateien gefunden, ${imIndex} im Index, ${fehler} Fehler, ${Math.round((Date.now() - start) / 1000)} s`);
   }
 
   /** Hält höchstens MAX_KUNDEN Kundenordner im Index: der am längsten nicht gefragte fliegt raus */
@@ -282,7 +285,8 @@ export class Laufwerk {
     k.benutzt = Date.now();
     if (!k.laeuft && (!k.fertig || Date.now() - k.zeit > KUNDE_NEU_MS)) {
       const stand = k;
-      stand.laeuft = this.kundeLesen(rel).then(() => { stand.fertig = true; stand.zeit = Date.now(); }, () => { stand.zeit = Date.now(); }).finally(() => { stand.laeuft = null; });
+      console.info(`[Hub-Dienst] Kundenordner ${rel}: wird gelesen`);
+      stand.laeuft = this.kundeLesen(rel).then(() => { stand.fertig = true; stand.zeit = Date.now(); }, (e) => { stand.zeit = Date.now(); console.error(`[Hub-Dienst] Kundenordner ${rel}: Lesen fehlgeschlagen:`, e); }).finally(() => { stand.laeuft = null; });
       this.kundenBegrenzen(rel);
     }
     if (!k.fertig && k.laeuft) {
@@ -315,6 +319,7 @@ export class Laufwerk {
     if (!name) {
       const dieErlaubten = (await this.kundenNamen()).filter((n) => erlaubt.some((f) => darunter(`${K}/${n}`, f.pfad) || darunter(f.pfad, `${K}/${n}`)));
       const gefunden = kundeFinden(frage, dieErlaubten, FUELL);
+      console.info(`[Hub-Dienst] Kunde zuerst: ${dieErlaubten.length} Kundenordner für diese Person, erkannt: ${gefunden.length ? gefunden.slice(0, 5).join(", ") : "keiner"}${gefunden.length > 5 ? ` (+${gefunden.length - 5})` : ""}`);
       if (!gefunden.length) {
         const beispiele = dieErlaubten.slice(0, 3).map((n) => `„${n}“`).join(", ");
         return { titel, url: "", text: `Hinweis für die Antwort: In der Frage ist kein Kunde erkennbar.${beispiele ? "" : " Für diese Person ist kein Kundenordner freigegeben."} Beantworte die Frage nicht, sondern frage nach, für welchen Kunden sie gilt (Name wie im Kundenordner${beispiele ? `, z. B. ${beispiele}` : ""}).` };
