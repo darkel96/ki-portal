@@ -24,7 +24,7 @@ test("Netzlaufwerk im Dienst: nur Freigaben, Text aus allen Formaten, Stellen mi
   const i = await (await api("/laufwerk", chef)).json() as { aktiv: boolean; name: string; unc: string; admin: boolean };
   expect(i).toMatchObject({ aktiv: true, name: "Laufwerk Y", unc: "\\\\fs01\\daten", admin: true });
   // Ordner zum Freigeben (nur die Verwaltung sieht das ganze Laufwerk); kein Ausbruch nach oben
-  expect((await (await api("/laufwerk/ordner?pfad=", chef)).json() as { name: string }[]).map((o) => o.name)).toEqual(["Personal", "Projekte"]);
+  expect((await (await api("/laufwerk/ordner?pfad=", chef)).json() as { name: string }[]).map((o) => o.name)).toEqual(["Kunden", "Personal", "Projekte"]);
   expect((await api("/laufwerk/ordner?pfad=..%2F..", chef)).status).toBeGreaterThanOrEqual(400);
   expect((await api("/laufwerk/ordner?pfad=", kollege)).status).toBe(403);
   expect((await api("/laufwerk/freigaben", kollege, { method: "PUT", body: "[]" })).status).toBe(403);
@@ -95,4 +95,49 @@ test("Verwaltung gibt Ordner frei; im Baukasten wählbar; der Chat bekommt die S
   expect(r.a[0]!.fehler).toBeUndefined();
   expect(r.text).toContain("### Laufwerk Y");
   expect(r.text).toContain("Die Abnahme der Emulation ist für den 30.11.2026 geplant.");
+});
+
+test("Kunde zuerst: Kunde aus der Frage, nur dessen Ordner, Rückfrage bei unklarem Kunden, nur freigegebene Kunden", async ({}, info) => {
+  test.skip(info.project.name !== "desktop", "einmal reicht");
+  const chef = `lwkunde${Date.now()}`, kollege = `lwkk${Date.now()}`;
+  await setzen("rechte.json", { nutzer: [{ email: `${chef}@test.local`, rechte: ["admin"] }], ausgeblendet: [] });
+  const frei = async (liste: { pfad: string; fuer: string[] }[]) => expect((await api("/laufwerk/freigaben", chef, { method: "PUT", body: JSON.stringify(liste.map((f) => ({ ...f, notiz: "" }))) })).status).toBe(200);
+  await frei([{ pfad: "Kunden", fuer: [] }]);
+  // Der Kunde steht in der Frage: nur sein Ordner kommt zurück, mit Kopfzeile
+  const a = await suche(kollege, "Kunden", "Was ist das aktuelle Projekt bei Amcor?");
+  expect(a.fehler).toBeUndefined();
+  expect(a.text).toContain("Kundenordner: Amcor_Singen");
+  expect(a.text).toContain("Retrofit der Fördertechnik");
+  expect(a.text).not.toContain("Printus");
+  // Umlaute: „Römer“ trifft den Ordner „Roemer“
+  expect((await suche(kollege, "Kunden", "Wann ist die Inbetriebnahme bei AVS Römer?")).text).toContain("Kundenordner: AVS_Roemer_Grafenau");
+  // Zwei Printus-Ordner: Rückfrage statt Auszügen; mit dem Ort ist es eindeutig
+  const mehrdeutig = await suche(kollege, "Kunden", "Was ist bei Printus das aktuelle Projekt?");
+  expect(mehrdeutig.text).toContain("nicht eindeutig");
+  expect(mehrdeutig.text).toContain("Printus_Offenburg");
+  expect(mehrdeutig.text).toContain("Printus_Hamburg");
+  expect(mehrdeutig.text).not.toContain("Hochregallager");
+  const offenburg = await suche(kollege, "Kunden", "Was ist bei Printus Offenburg das aktuelle Projekt?");
+  expect(offenburg.text).toContain("Kundenordner: Printus_Offenburg");
+  expect(offenburg.text).toContain("Hochregallagers");
+  expect(offenburg.text).not.toContain("Sortieranlage");
+  // Die jüngste Nennung im Chat gilt (Vorfragen stehen vor der aktuellen Frage)
+  expect((await suche(kollege, "Kunden", "Was ist bei Printus Offenburg das Projekt? Und bei Amcor die Ansprechpartnerin?")).text).toContain("Kundenordner: Amcor_Singen");
+  // Kein Kunde in der Frage: Anweisung zur Rückfrage, keine Auszüge
+  const ohne = await suche(kollege, "Kunden", "Wie wird das Wetter morgen?");
+  expect(ohne.text).toContain("kein Kunde erkennbar");
+  expect(ohne.text).not.toContain("Kundenordner:");
+  // Der Kunde steht schon im Ordner der Quelle: keine Kundenwahl nötig
+  expect((await suche(kollege, "Kunden/Amcor_Singen", "Frau Beck")).text).toContain("Kundenordner: Amcor_Singen");
+  // Nur ein Kunde freigegeben: andere Kunden sind weder auffindbar noch in der Rückfrage genannt
+  await frei([{ pfad: "Kunden/Amcor_Singen", fuer: [] }]);
+  const nurAmcor = await suche(kollege, "Kunden", "Was ist bei Printus Offenburg das Projekt?");
+  expect(nurAmcor.text).toContain("kein Kunde erkennbar");
+  expect(nurAmcor.text).not.toContain("Printus");
+  expect(nurAmcor.text).not.toContain("Hochregallager");
+  expect((await suche(kollege, "Kunden", "Retrofit bei Amcor")).text).toContain("Kundenordner: Amcor_Singen");
+  // Nicht freigegeben und kein Ausbruch nach oben
+  await frei([{ pfad: "Projekte", fuer: [] }]);
+  expect((await suche(kollege, "Kunden", "Amcor")).fehler).toContain("nicht freigegeben");
+  await expect(async () => { const r = await api("/laufwerk/suche", kollege, { method: "POST", body: JSON.stringify({ pfad: "Kunden/../Personal", frage: "Gehalt", titel: "Y" }) }); expect(r.status).toBeGreaterThanOrEqual(400); }).toPass();
 });

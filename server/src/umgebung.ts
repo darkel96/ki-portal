@@ -48,8 +48,10 @@ export const UMGEBUNG = {
   /** Anzeigename und UNC-Pfad der Freigabe (für Quellenlinks, z. B. \\fs01\daten) */
   laufwerkName: String(env.HUB_LAUFWERK_NAME ?? "").trim() || "Netzlaufwerk",
   laufwerkUnc: String(env.HUB_LAUFWERK_UNC ?? "").trim(),
-  /** Höchstens so viele Dateien einlesen (alle Freigaben zusammen) */
+  /** Höchstens so viele Dateien einlesen (alle Freigaben zusammen; im Kundenordner je Kunde) */
   laufwerkMaxDateien: Number(env.HUB_LAUFWERK_MAX_DATEIEN) || 20_000,
+  /** Ordner im Laufwerk mit einem Unterordner je Kunde (z. B. _KUNDEN): Der Dienst erkennt den Kunden in der Frage und liest nur dessen Ordner; leer = aus */
+  laufwerkKunden: String(env.HUB_LAUFWERK_KUNDEN ?? "").trim(),
 };
 
 export function umgebungPruefen(): string[] {

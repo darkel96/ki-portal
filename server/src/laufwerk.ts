@@ -4,23 +4,32 @@
  * aus Word, Excel, PowerPoint, PDF und Textdateien, legt einen Suchindex an und liefert zu einer Frage die passenden
  * Stellen. Wer eine Freigabe nutzen darf, steht an der Freigabe (leer = alle Angemeldeten).
  *
+ * Kunde zuerst (HUB_LAUFWERK_KUNDEN, z. B. „_KUNDEN“): Unter diesem Ordner liegt je Kunde ein Unterordner. Der Dienst
+ * liest ihn nicht im Voraus ein, sondern erkennt den Kunden in der Frage, liest nur dessen Ordner (beim ersten Mal, danach
+ * nur Neues) und sucht darin. Ist der Kunde unklar oder nicht eindeutig, liefert er statt Auszügen die Rückfrage.
+ *
  * Alle lesen mit demselben Lesekonto des Servers: Ordnerrechte von Windows gelten hier nicht, sondern die Freigaben.
  */
 import { createHash } from "node:crypto";
 import { readFile, readdir, stat } from "node:fs/promises";
 import { join, relative, sep } from "node:path";
+import { kundeFinden } from "./kunden";
 import type { DateiSpeicher } from "./speicher";
 import { UMGEBUNG } from "./umgebung";
 
 export type Freigabe = { pfad: string; fuer: string[]; notiz: string };
 export type LaufwerkTreffer = { titel: string; url: string; text: string; fehler?: string; dateien?: string[]; dateienGesamt?: number };
 type Eintrag = { pfad: string; mtime: number; groesse: number; stuecke: number; fehler?: string };
+/** Ein Kundenordner im Index: wann zuletzt gefragt, wann zuletzt durchgesehen, ob der erste Durchgang fertig ist */
+type KundeStand = { benutzt: number; zeit: number; fertig: boolean; laeuft: Promise<void> | null };
 
 const ENDUNGEN = /\.(docx|xlsx|pptx|pdf|txt|md|csv)$/i;
 const MAX_GROESSE = 25 * 1024 * 1024;
 const MAX_TEXT = 200_000;
 const STUECK = 1_500;
 const MAX_AUSZUG = 24_000;
+/** Kunde zuerst: Kundenordner im Index gleichzeitig, Wartezeit einer Antwort auf das erste Einlesen, Abstand der erneuten Durchsicht, Zwischenspeicher der Kundenliste */
+const MAX_KUNDEN = 12, KUNDE_WARTEN_MS = 40_000, KUNDE_NEU_MS = 10 * 60_000, NAMEN_MS = 10 * 60_000;
 
 /** Pfad innerhalb der Freigabe: Schrägstriche, keine „..“, ohne Laufwerksbuchstaben und UNC-Anfang */
 export function pfadSauber(p: string): string {
@@ -81,9 +90,12 @@ export class Laufwerk {
   /** Wörter sortiert (für die Suche nach Wortanfang); null = nach Änderungen neu bilden */
   private vokabel: string[] | null = null;
   private nochmal = false;
+  /** Kunde zuerst: Kundenordner im Index (Pfad → Stand) und die Liste der Kundenordner */
+  private kunden = new Map<string, KundeStand>();
+  private namenCache: { zeit: number; namen: string[] } | null = null;
   stand = { dateien: 0, fehler: 0, zuletzt: "", laeuft: false, meldung: "" };
 
-  constructor(private readonly speicher: DateiSpeicher, private readonly wurzel = UMGEBUNG.laufwerk) {}
+  constructor(private readonly speicher: DateiSpeicher, private readonly wurzel = UMGEBUNG.laufwerk, private readonly kundenOrdner = pfadSauber(UMGEBUNG.laufwerkKunden)) {}
 
   get aktiv() { return !!this.wurzel; }
 
@@ -119,7 +131,43 @@ export class Laufwerk {
       .map((e) => ({ name: e.name, pfad: rel ? `${rel}/${e.name}` : e.name })).sort((a, b) => a.name.localeCompare(b.name, "de")).slice(0, 500);
   }
 
-  /** Freigegebene Ordner durchgehen; nur neue und geänderte Dateien werden gelesen */
+  /** Ordner im Modus „Kunde zuerst“ (nicht im Voraus eingelesen)? */
+  private imKundenOrdner = (p: string) => !!this.kundenOrdner && darunter(p, this.kundenOrdner);
+
+  /**
+   * Einen Ordner durchgehen; neue und geänderte Dateien werden gelesen, „gesehen“ sammelt alle gefundenen Dateien
+   * (höchstens max). „ausser“: ein Unterordner, der übersprungen wird. Gibt die Zahl der Fehler zurück.
+   */
+  private async lesen(start: string, gesehen: Set<string>, max: number, ausser = ""): Promise<number> {
+    let fehler = 0;
+    const gehen = async (rel: string): Promise<void> => {
+      if (gesehen.size >= max) return;
+      let eintraege;
+      try { eintraege = await readdir(join(this.wurzel, rel), { withFileTypes: true }); } catch { fehler++; return; }
+      for (const e of eintraege) {
+        if (gesehen.size >= max) return;
+        if (e.name.startsWith(".") || e.name.startsWith("~$")) continue;
+        const p = rel ? `${rel}/${e.name}` : e.name;
+        if (e.isDirectory()) { if (!ausser || p.toLowerCase() !== ausser.toLowerCase()) await gehen(p); continue; }
+        if (!e.isFile() || !ENDUNGEN.test(e.name) || gesehen.has(p)) continue;
+        gesehen.add(p);
+        try {
+          const s = await stat(join(this.wurzel, p));
+          const alt = this.dateien.get(p);
+          if (alt && alt.mtime === s.mtimeMs && alt.groesse === s.size) continue;
+          if (s.size > MAX_GROESSE) { this.dateien.set(p, { pfad: p, mtime: s.mtimeMs, groesse: s.size, stuecke: 0, fehler: "zu groß" }); continue; }
+          this.aufnehmen(p, s.mtimeMs, s.size, await this.textMitZwischenspeicher(p, s.mtimeMs, s.size));
+        } catch (err) {
+          fehler++;
+          this.dateien.set(p, { pfad: p, mtime: 0, groesse: 0, stuecke: 0, fehler: err instanceof Error ? err.message : String(err) });
+        }
+      }
+    };
+    await gehen(start);
+    return fehler;
+  }
+
+  /** Freigegebene Ordner durchgehen; nur neue und geänderte Dateien werden gelesen (Kundenordner erst auf Nachfrage) */
   einlesen(): Promise<void> {
     if (!this.aktiv) return Promise.resolve();
     // Läuft gerade ein Durchgang (mit den alten Freigaben), danach noch einmal
@@ -131,34 +179,17 @@ export class Laufwerk {
       const gesehen = new Set<string>();
       let fehler = 0;
       const max = UMGEBUNG.laufwerkMaxDateien;
-      const gehen = async (rel: string): Promise<void> => {
-        if (gesehen.size >= max) return;
-        let eintraege;
-        try { eintraege = await readdir(join(this.wurzel, rel), { withFileTypes: true }); } catch { fehler++; return; }
-        for (const e of eintraege) {
-          if (gesehen.size >= max) return;
-          if (e.name.startsWith(".") || e.name.startsWith("~$")) continue;
-          const p = rel ? `${rel}/${e.name}` : e.name;
-          if (e.isDirectory()) { await gehen(p); continue; }
-          if (!e.isFile() || !ENDUNGEN.test(e.name) || gesehen.has(p)) continue;
-          gesehen.add(p);
-          try {
-            const s = await stat(join(this.wurzel, p));
-            const alt = this.dateien.get(p);
-            if (alt && alt.mtime === s.mtimeMs && alt.groesse === s.size) continue;
-            if (s.size > MAX_GROESSE) { this.dateien.set(p, { pfad: p, mtime: s.mtimeMs, groesse: s.size, stuecke: 0, fehler: "zu groß" }); continue; }
-            this.aufnehmen(p, s.mtimeMs, s.size, await this.textMitZwischenspeicher(p, s.mtimeMs, s.size));
-          } catch (err) {
-            fehler++;
-            this.dateien.set(p, { pfad: p, mtime: 0, groesse: 0, stuecke: 0, fehler: err instanceof Error ? err.message : String(err) });
-          }
-        }
-      };
       try {
-        for (const f of this.freigaben) await gehen(f.pfad);
-        // Was nicht mehr da oder nicht mehr freigegeben ist, fliegt raus
-        for (const p of [...this.dateien.keys()]) if (!gesehen.has(p)) this.entfernen(p);
-        this.stand = { dateien: [...this.dateien.values()].filter((d) => d.stuecke).length, fehler, zuletzt: new Date().toISOString(), laeuft: false, meldung: gesehen.size >= max ? `Mehr als ${max} Dateien: Der Rest wurde nicht eingelesen.` : "" };
+        let kundenweise = false;
+        for (const f of this.freigaben) {
+          if (this.imKundenOrdner(f.pfad)) { kundenweise = true; continue; }
+          fehler += await this.lesen(f.pfad, gesehen, max, this.kundenOrdner);
+        }
+        // Was nicht mehr da oder nicht mehr freigegeben ist, fliegt raus (Kundenordner im Index verwaltet kundeLesen)
+        for (const p of [...this.dateien.keys()]) if (!gesehen.has(p) && !this.imKundenOrdner(p)) this.entfernen(p);
+        const meldung = gesehen.size >= max ? `Mehr als ${max} Dateien: Der Rest wurde nicht eingelesen.`
+          : kundenweise ? `Kundenordner unter „${this.kundenOrdner}“ liest der Dienst erst, wenn nach dem Kunden gefragt wird.` : "";
+        this.stand = { dateien: [...this.dateien.values()].filter((d) => d.stuecke && !this.imKundenOrdner(d.pfad)).length, fehler, zuletzt: new Date().toISOString(), laeuft: false, meldung };
       } catch (e) {
         this.stand = { ...this.stand, laeuft: false, meldung: e instanceof Error ? e.message : String(e) };
       } finally {
@@ -210,6 +241,95 @@ export class Laufwerk {
     });
     this.dateien.set(p, { pfad: p, mtime, groesse, stuecke: stuecke.length });
     this.vokabel = null;
+  }
+
+  /* ---------- Kunde zuerst ---------- */
+  /** Namen der Kundenordner (zehn Minuten zwischengespeichert) */
+  private async kundenNamen(): Promise<string[]> {
+    if (this.namenCache && Date.now() - this.namenCache.zeit < NAMEN_MS) return this.namenCache.namen;
+    try {
+      const e = await readdir(join(this.wurzel, this.kundenOrdner), { withFileTypes: true });
+      const namen = e.filter((x) => x.isDirectory() && !x.name.startsWith(".") && !x.name.startsWith("~")).map((x) => x.name).sort((a, b) => a.localeCompare(b, "de"));
+      this.namenCache = { zeit: Date.now(), namen };
+      return namen;
+    } catch { return []; }
+  }
+
+  /** Einen Kundenordner lesen (neu und geändert) und aus dem Index nehmen, was dort nicht mehr liegt */
+  private async kundeLesen(rel: string): Promise<void> {
+    const gesehen = new Set<string>();
+    await this.lesen(rel, gesehen, UMGEBUNG.laufwerkMaxDateien);
+    for (const p of [...this.dateien.keys()]) if (darunter(p, rel) && !gesehen.has(p)) this.entfernen(p);
+  }
+
+  /** Hält höchstens MAX_KUNDEN Kundenordner im Index: der am längsten nicht gefragte fliegt raus */
+  private kundenBegrenzen(behalten: string) {
+    while (this.kunden.size > MAX_KUNDEN) {
+      const alt = [...this.kunden.entries()].filter(([r, k]) => r !== behalten && !k.laeuft).sort((a, b) => a[1].benutzt - b[1].benutzt)[0];
+      if (!alt) return;
+      for (const p of [...this.dateien.keys()]) if (darunter(p, alt[0])) this.entfernen(p);
+      this.kunden.delete(alt[0]);
+    }
+  }
+
+  /**
+   * Kundenordner für die Suche bereitmachen: beim ersten Mal lesen (die Antwort wartet höchstens KUNDE_WARTEN_MS, der Rest
+   * läuft im Hintergrund weiter), danach alle zehn Minuten im Hintergrund auf Neues durchsehen. true = erster Durchgang fertig.
+   */
+  private async kundeBereit(rel: string): Promise<boolean> {
+    let k = this.kunden.get(rel);
+    if (!k) this.kunden.set(rel, (k = { benutzt: 0, zeit: 0, fertig: false, laeuft: null }));
+    k.benutzt = Date.now();
+    if (!k.laeuft && (!k.fertig || Date.now() - k.zeit > KUNDE_NEU_MS)) {
+      const stand = k;
+      stand.laeuft = this.kundeLesen(rel).then(() => { stand.fertig = true; stand.zeit = Date.now(); }, () => { stand.zeit = Date.now(); }).finally(() => { stand.laeuft = null; });
+      this.kundenBegrenzen(rel);
+    }
+    if (!k.fertig && k.laeuft) {
+      let t: NodeJS.Timeout | undefined;
+      await Promise.race([k.laeuft, new Promise<void>((r) => { t = setTimeout(r, KUNDE_WARTEN_MS); })]);
+      clearTimeout(t);
+    }
+    return k.fertig;
+  }
+
+  /**
+   * Suche mit Kundenwahl: Liegt der Ordner im Kundenordner (HUB_LAUFWERK_KUNDEN), erkennt der Dienst den Kunden in der
+   * Frage (nur unter den Kunden, die die Person nutzen darf), liest dessen Ordner und sucht darin. Sonst wie suchen().
+   * Ist der Kunde unklar oder nicht eindeutig, steht in „text“ die Anweisung zur Rückfrage statt Auszügen.
+   */
+  async suchenMitKunde(email: string, ordner: string, frage: string, titel: string, breiter?: string): Promise<LaufwerkTreffer> {
+    const o = pfadSauber(ordner);
+    const suchen = (wo: string) => {
+      let r = this.suchen(email, wo, frage, titel);
+      if (!r.fehler && !r.text && breiter) r = this.suchen(email, wo, breiter, titel);
+      return r;
+    };
+    const K = this.kundenOrdner;
+    if (!this.aktiv || !K || !darunter(o, K)) return suchen(o);
+    const erlaubt = this.freigabenFuer(email).filter((f) => darunter(o, f.pfad) || darunter(f.pfad, o));
+    if (!erlaubt.length) return suchen(o);
+
+    // Der Kunde steht schon im Ordner der Quelle („_KUNDEN/Printus_Offenburg“) oder muss aus der Frage kommen
+    let name = o === K ? "" : o.slice(K.length + 1).split("/")[0]!;
+    if (!name) {
+      const dieErlaubten = (await this.kundenNamen()).filter((n) => erlaubt.some((f) => darunter(`${K}/${n}`, f.pfad) || darunter(f.pfad, `${K}/${n}`)));
+      const gefunden = kundeFinden(frage, dieErlaubten, FUELL);
+      if (!gefunden.length) {
+        const beispiele = dieErlaubten.slice(0, 3).map((n) => `„${n}“`).join(", ");
+        return { titel, url: "", text: `Hinweis für die Antwort: In der Frage ist kein Kunde erkennbar.${beispiele ? "" : " Für diese Person ist kein Kundenordner freigegeben."} Beantworte die Frage nicht, sondern frage nach, für welchen Kunden sie gilt (Name wie im Kundenordner${beispiele ? `, z. B. ${beispiele}` : ""}).` };
+      }
+      if (gefunden.length > 1) {
+        const liste = gefunden.slice(0, 8).map((n) => `„${n}“`).join(", ");
+        return { titel, url: "", text: `Hinweis für die Antwort: Der Kunde ist nicht eindeutig. Es passen ${gefunden.length} Kundenordner: ${liste}${gefunden.length > 8 ? " u. a." : ""}. Beantworte die Frage nicht, sondern frage nach, welcher gemeint ist.` };
+      }
+      name = gefunden[0]!;
+    }
+    const kundeRel = `${K}/${name}`;
+    const fertig = await this.kundeBereit(kundeRel);
+    const r = suchen(darunter(o, kundeRel) ? o : kundeRel);
+    const kopf = `Kundenordner: ${name}${fertig ? "" : " (wird noch eingelesen, es können Dateien fehlen)"}`;
+    return { ...r, text: r.fehler ? r.text : `${kopf}\n\n${r.text || "In diesem Kundenordner wurde zu der Frage nichts gefunden."}` };
   }
 
   /** Passende Stellen zu einer Frage, nur aus dem Ordner und nur aus Freigaben dieser Person */

@@ -233,6 +233,14 @@ PowerPoint, PDF, Text; alle 30 Minuten Neues und Geändertes) und legt einen Suc
 **+ Netzlaufwerk** einen freigegebenen Ordner (oder Unterordner) wählen; vor jedem Schritt bzw. jeder Chat-Frage gehen
 die passenden Stellen mit Dateiname und UNC-Pfad an die KI.
 
+**Kunde zuerst** (bei Ordnern mit einem Unterordner je Kunde, z. B. `_KUNDEN` mit mehreren hundert Kunden): In `.env`
+`HUB_LAUFWERK_KUNDEN=_KUNDEN` setzen und den Ordner in der Verwaltung freigeben. Der Dienst liest ihn dann **nicht im
+Voraus** ein. Er erkennt den Kunden in der Frage (Name des Kundenordners, Umlaute egal: „Römer“ trifft `Roemer`; bei
+mehreren Nennungen im Chat gilt die jüngste), liest nur dessen Ordner (beim ersten Mal, danach alle zehn Minuten nur
+Neues; höchstens zwölf Kundenordner gleichzeitig im Speicher) und sucht darin. Passen mehrere Ordner („BASF“) oder keiner,
+bekommt die KI die Anweisung nachzufragen, statt zu antworten. Die Auszüge beginnen mit „Kundenordner: …“. Wer nur einen
+Kunden braucht, wählt im Baukasten den Kundenordner selbst als Quelle.
+
 Wichtig: Alle lesen mit dem Lesekonto des Servers. Die Ordnerrechte von Windows gelten im Hub nicht, sondern die
 Freigaben der Verwaltung; deshalb nur Ordner freigeben, die die vorgesehenen Personen auch lesen dürfen.
 

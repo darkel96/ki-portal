@@ -104,9 +104,7 @@ async function start() {
       const id = tokenKontext.getStore()?.nutzer ?? "";
       const email = (await personen.alle()).find((p) => p.id === id)?.email ?? "";
       const titel = q.titel || UMGEBUNG.laufwerkName;
-      let r = laufwerk.suchen(email, q.url, frage, titel);
-      if (!r.fehler && !r.text && breiter) r = laufwerk.suchen(email, q.url, breiter, titel);
-      return r;
+      return laufwerk.suchenMitKunde(email, q.url, frage, titel, breiter);
     });
     console.info(`[Hub-Dienst] Netzlaufwerk ${UMGEBUNG.laufwerk}${UMGEBUNG.laufwerkUnc ? ` (${UMGEBUNG.laufwerkUnc})` : ""}: ${laufwerk.alleFreigaben().length} Freigabe(n)`);
   }

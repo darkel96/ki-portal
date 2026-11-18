@@ -110,9 +110,7 @@ export async function api(req: IncomingMessage, res: ServerResponse, pfad: strin
       if (pfad === "/laufwerk/suche" && methode === "POST") {
         const b = (body ?? {}) as { pfad?: string; frage?: string; breiter?: string; titel?: string };
         const titel = String(b.titel ?? "") || UMGEBUNG.laufwerkName;
-        let r = lw.suchen(nutzer.email, String(b.pfad ?? ""), String(b.frage ?? ""), titel);
-        if (!r.fehler && !r.text && b.breiter) r = lw.suchen(nutzer.email, String(b.pfad ?? ""), String(b.breiter), titel);
-        return json(200, r);
+        return json(200, await lw.suchenMitKunde(nutzer.email, String(b.pfad ?? ""), String(b.frage ?? ""), titel, b.breiter ? String(b.breiter) : undefined));
       }
     }
 
