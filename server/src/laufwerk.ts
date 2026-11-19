@@ -30,6 +30,10 @@ const MAX_TEXT = 200_000;
 const MAX_AUSZUG = 24_000;
 /** Kunde zuerst: Kundenordner im Index gleichzeitig, Wartezeit einer Antwort auf das erste Einlesen, Abstand der erneuten Durchsicht, Zwischenspeicher der Kundenliste */
 const MAX_KUNDEN = 12, KUNDE_WARTEN_MS = 40_000, KUNDE_NEU_MS = 10 * 60_000, NAMEN_MS = 10 * 60_000;
+/** So lange gilt der zuletzt erkannte Kunde für Folgefragen ohne Kundennamen */
+const VERLAUF_MS = 30 * 60_000;
+/** Anweisung an die KI, wie sie aus dem Kundenordner antwortet */
+const ANTWORTSTIL = (name: string) => `Hinweis für die Antwort: Antworte direkt und sicher aus diesen Unterlagen von ${name}, ohne von „Auszügen“ oder „mitgelieferten Unterlagen“ zu sprechen und ohne nachzufragen, welcher Kunde gemeint ist. Steht etwas nicht darin, sag das in einem Satz und nenne das Dokument, in dem es am ehesten stehen müsste.`;
 
 /** Pfad innerhalb der Freigabe: Schrägstriche, keine „..“, ohne Laufwerksbuchstaben und UNC-Anfang */
 export function pfadSauber(p: string): string {
@@ -41,7 +45,11 @@ const darunter = (pfad: string, ordner: string) => !ordner || pfad.toLowerCase()
 
 /** Wörter für den Index: klein, ohne Satzzeichen, ab drei Zeichen; Umlaute bleiben */
 const woerter = (t: string) => t.toLowerCase().split(/[^\p{L}\p{N}]+/u).filter((w) => w.length >= 3 && w.length <= 40);
-const FUELL = new Set(["und", "oder", "der", "die", "das", "den", "dem", "des", "ein", "eine", "einen", "einem", "einer", "ist", "sind", "wie", "was", "wer", "wann", "wo", "mit", "von", "für", "auf", "aus", "bei", "zum", "zur", "nicht", "auch", "noch", "nach", "über", "unter", "alle", "alles", "bitte", "gibt", "steht", "the", "and", "for"]);
+const FUELL = new Set(["und", "oder", "der", "die", "das", "den", "dem", "des", "ein", "eine", "einen", "einem", "einer", "ist", "sind", "wie", "was", "wer", "wann", "wo", "mit", "von", "für", "auf", "aus", "bei", "zum", "zur", "nicht", "auch", "noch", "nach", "über", "unter", "alle", "alles", "bitte", "gibt", "steht", "the", "and", "for",
+  // Gesprächswörter aus Folgefragen („kannst du da bitte nachschauen?“)
+  "kannst", "kann", "können", "dass", "dann", "doch", "schau", "schaue", "nachschauen", "mal", "mir", "uns", "sag", "sage", "zeig", "zeige",
+  "welche", "welcher", "welches", "danke", "nein", "genau", "richtig", "okay", "dort", "hier", "diese", "dieser", "dieses", "hat", "haben",
+  "wird", "werden", "war", "einmal", "nochmal", "sie", "ihr", "uns", "euch", "mich", "dich", "wäre", "würde", "soll", "sollte"]);
 
 /* ---------- Text aus Dateien ---------- */
 async function textAus(datei: string): Promise<string> {
@@ -95,6 +103,8 @@ export class Laufwerk {
   private namenCache: { zeit: number; namen: string[] } | null = null;
   /** Suchindex auf der Festplatte für die Kunden in HUB_LAUFWERK_INDEX (statt Einlesen auf Nachfrage) */
   private kundenIndex: KundenIndex | null = null;
+  /** Zuletzt erkannter Kunde je Person (für Folgefragen ohne Kundennamen) */
+  private letzterKunde = new Map<string, { name: string; zeit: number }>();
   stand = { dateien: 0, fehler: 0, zuletzt: "", laeuft: false, meldung: "" };
 
   constructor(private readonly speicher: DateiSpeicher, private readonly wurzel = UMGEBUNG.laufwerk, private readonly kundenOrdner = pfadSauber(UMGEBUNG.laufwerkKunden)) {}
@@ -318,35 +328,51 @@ export class Laufwerk {
 
     // Der Kunde steht schon im Ordner der Quelle („_KUNDEN/Printus_Offenburg“) oder muss aus der Frage kommen
     let name = o === K ? "" : o.slice(K.length + 1).split("/")[0]!;
+    let ausVerlauf = false;
     if (!name) {
-      const dieErlaubten = (await this.kundenNamen()).filter((n) => erlaubt.some((f) => darunter(`${K}/${n}`, f.pfad) || darunter(f.pfad, `${K}/${n}`)));
+      const alleNamen = await this.kundenNamen();
+      const dieErlaubten = alleNamen.filter((n) => erlaubt.some((f) => darunter(`${K}/${n}`, f.pfad) || darunter(f.pfad, `${K}/${n}`)));
       const gefunden = kundeFinden(frage, dieErlaubten, FUELL);
       console.info(`[Hub-Dienst] Kunde zuerst: ${dieErlaubten.length} Kundenordner für diese Person, erkannt: ${gefunden.length ? gefunden.slice(0, 5).join(", ") : "keiner"}${gefunden.length > 5 ? ` (+${gefunden.length - 5})` : ""}`);
-      if (!gefunden.length) {
+      // Folgefragen ohne Kundennamen („Und der IT-Anteil?“, Nachschlagen) und „Printus“ nach „Printus Offenburg“: Der zuletzt erkannte Kunde gilt weiter
+      const zuletzt = this.letzterKunde.get(email.trim().toLowerCase());
+      const merk = zuletzt && Date.now() - zuletzt.zeit < VERLAUF_MS && dieErlaubten.includes(zuletzt.name) ? zuletzt.name : "";
+      // Nennt die Frage einen Kunden, den die Person nicht nutzen darf, gilt der gemerkte nicht (sonst käme die Antwort von einem anderen Kunden)
+      const fremd = !gefunden.length && kundeFinden(frage, alleNamen, FUELL).length > 0;
+      if (merk && ((!gefunden.length && !fremd) || (gefunden.length > 1 && gefunden.includes(merk)))) { name = merk; ausVerlauf = true; }
+      else if (!gefunden.length) {
         const beispiele = dieErlaubten.slice(0, 3).map((n) => `„${n}“`).join(", ");
         return { titel, url: "", text: `Hinweis für die Antwort: In der Frage ist kein Kunde erkennbar.${beispiele ? "" : " Für diese Person ist kein Kundenordner freigegeben."} Beantworte die Frage nicht, sondern frage nach, für welchen Kunden sie gilt (Name wie im Kundenordner${beispiele ? `, z. B. ${beispiele}` : ""}).` };
       }
-      if (gefunden.length > 1) {
+      else if (gefunden.length > 1) {
         const liste = gefunden.slice(0, 8).map((n) => `„${n}“`).join(", ");
         return { titel, url: "", text: `Hinweis für die Antwort: Der Kunde ist nicht eindeutig. Es passen ${gefunden.length} Kundenordner: ${liste}${gefunden.length > 8 ? " u. a." : ""}. Beantworte die Frage nicht, sondern frage nach, welcher gemeint ist.` };
       }
-      name = gefunden[0]!;
+      else name = gefunden[0]!;
     }
+    this.letzterKunde.set(email.trim().toLowerCase(), { name, zeit: Date.now() });
     const kundeRel = `${K}/${name}`;
+    const verlauf = ausVerlauf ? `\n(Kunde aus dem bisherigen Gespräch übernommen; nenn ihn in der Antwort, statt nachzufragen.)` : "";
     const idx = this.kundenIndex?.hat(name) ? this.kundenIndex : null;
     if (idx) {
       const ziel = darunter(o, kundeRel) ? o : kundeRel;
       const zulaessig = (p: string) => darunter(p, ziel) && erlaubt.some((f) => darunter(p, f.pfad));
       const fertig = await idx.bereit(name, KUNDE_WARTEN_MS);
-      let r = this.auszug(idx.suchen(name, this.begriffe(frage), zulaessig), titel);
-      if (!r.text && breiter) r = this.auszug(idx.suchen(name, this.begriffe(breiter), zulaessig), titel);
+      // Erst die Stellen zur aktuellen Frage (letzter Teil nach „ | “), dann die zu den Vorfragen
+      const such = (f: string) => {
+        const b = this.indexBegriffe(f), gesehen = new Set<string>();
+        return [...idx.suchen(name, b.jetzt, zulaessig), ...idx.suchen(name, b.alle, zulaessig)]
+          .filter((s) => { const k = `${s.pfad}#${s.nr}`; if (gesehen.has(k)) return false; gesehen.add(k); return true; }).slice(0, 40);
+      };
+      let r = this.auszug(such(frage), titel);
+      if (!r.text && breiter) r = this.auszug(such(breiter), titel);
       const f = idx.fortschritt(name)!;
-      const kopf = `Kundenordner: ${name} · Suchindex${fertig ? "" : ` (wird gerade aufgebaut: ${f.erledigt} von ${f.gesamt || "?"} Dateien gelesen, die neuesten zuerst; fehlt die Antwort, sag, dass der Kundenordner gerade eingelesen wird und die Frage später noch einmal gestellt werden soll)`}`;
+      const kopf = `Kundenordner: ${name} · Suchindex${fertig ? "" : ` (wird gerade aufgebaut: ${f.erledigt} von ${f.gesamt || "?"} Dateien gelesen, die neuesten zuerst; fehlt die Antwort, sag, dass der Kundenordner gerade eingelesen wird und die Frage später noch einmal gestellt werden soll)`}${verlauf}\n${ANTWORTSTIL(name)}`;
       return { ...r, text: `${kopf}\n\n${r.text || "In diesem Kundenordner wurde zu der Frage nichts gefunden."}` };
     }
     const fertig = await this.kundeBereit(kundeRel);
     const r = suchen(darunter(o, kundeRel) ? o : kundeRel);
-    const kopf = `Kundenordner: ${name}${fertig ? "" : " (wird noch eingelesen, es können Dateien fehlen)"}`;
+    const kopf = `Kundenordner: ${name}${fertig ? "" : " (wird noch eingelesen, es können Dateien fehlen)"}${verlauf}\n${ANTWORTSTIL(name)}`;
     return { ...r, text: r.fehler ? r.text : `${kopf}\n\n${r.text || "In diesem Kundenordner wurde zu der Frage nichts gefunden."}` };
   }
 
@@ -380,6 +406,12 @@ export class Laufwerk {
 
   /** Suchbegriffe einer Frage: Wörter ohne Füllwörter, höchstens 30 */
   private begriffe(frage: string) { return [...new Set(woerter(frage).filter((w) => !FUELL.has(w)))].slice(0, 30); }
+
+  /** Für den Suchindex: wie begriffe(), dazu Kürzel aus zwei Großbuchstaben („IT“, „SW“); jetzt = nur die aktuelle Frage */
+  private indexBegriffe(frage: string): { jetzt: string[]; alle: string[] } {
+    const mit = (t: string) => [...new Set([...(t.match(/(?<![\p{L}\p{N}])\p{Lu}{2}(?![\p{L}\p{N}])/gu) ?? []).map((w) => w.toLowerCase()), ...this.begriffe(t)])].slice(0, 30);
+    return { jetzt: mit(frage.split(" | ").pop() ?? frage), alle: mit(frage) };
+  }
 
   /** Stellen (beste zuerst) als Auszug für die KI, mit Dateiname und Link, höchstens MAX_AUSZUG Zeichen */
   private auszug(stellen: IndexStelle[], titel: string): LaufwerkTreffer {

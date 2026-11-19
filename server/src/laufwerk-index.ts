@@ -162,7 +162,8 @@ export class KundenIndex {
 
   /** Beste Stellen eines Kunden zu den Suchbegriffen (Wortanfang zählt, Treffer im Dateinamen doppelt) */
   suchen(kunde: string, begriffe: string[], zulaessig: (p: string) => boolean, max = 40): IndexStelle[] {
-    const ausdruck = begriffe.map((w) => `"${w.replace(/"/g, "")}"*`).join(" OR ");
+    // Kurze Kürzel („it“) nur als ganzes Wort, sonst zählt der Wortanfang
+    const ausdruck = begriffe.map((w) => `"${w.replace(/"/g, "")}"${w.length < 3 ? "" : "*"}`).join(" OR ");
     if (!ausdruck) return [];
     const zeilen = this.db.prepare(`SELECT d.pfad AS pfad, s.rowid % ${STELLEN} AS nr, s.text AS text FROM stellen s JOIN dateien d ON d.id = s.rowid / ${STELLEN}
       WHERE stellen MATCH ? AND d.kunde = ? ORDER BY bm25(stellen, 2.0, 1.0) LIMIT 400`).all(ausdruck, kunde) as IndexStelle[];

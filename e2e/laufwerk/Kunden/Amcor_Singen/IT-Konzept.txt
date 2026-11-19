@@ -1,0 +1,1 @@
+IT: zwei Server als VM, Windows Server 2025, Oracle 19c.

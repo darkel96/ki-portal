@@ -246,6 +246,12 @@ Dienst diese Kunden im Hintergrund vorab ein, die neuesten Dateien zuerst, und h
 Neues und Geändertes, Gelöschtes fliegt raus). Der Index liegt in `HUB_DATEN/laufwerk/index.db` (SQLite mit
 Volltextsuche) und übersteht Neustarts. Eine Frage wartet also nicht auf das Einlesen. Die Auszüge beginnen mit
 „Kundenordner: … · Suchindex“. Alle anderen Kunden laufen weiter wie oben. Die Freigaben gelten unverändert.
+Kürzel aus zwei Großbuchstaben („IT“, „SW“) zählen im Index als Suchbegriff, die Stellen zur aktuellen Frage stehen vor
+denen zu den Vorfragen.
+
+**Folgefragen:** Nennt eine Frage keinen Kunden („Und der IT-Anteil?“) oder nur einen mehrdeutigen („Printus“ nach
+„Printus Offenburg“), gilt 30 Minuten lang der zuletzt erkannte Kunde der Person weiter. Nennt sie einen Kunden, den die
+Person nicht nutzen darf, gilt er nicht. Der Kopf der Auszüge weist die KI an, direkt aus den Unterlagen zu antworten.
 
 Wichtig: Alle lesen mit dem Lesekonto des Servers. Die Ordnerrechte von Windows gelten im Hub nicht, sondern die
 Freigaben der Verwaltung; deshalb nur Ordner freigeben, die die vorgesehenen Personen auch lesen dürfen.

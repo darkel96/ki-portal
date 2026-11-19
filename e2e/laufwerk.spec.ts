@@ -128,8 +128,16 @@ test("Kunde zuerst: Kunde aus der Frage, nur dessen Ordner, Rückfrage bei unkla
   expect(offenburg.text).not.toContain("Sortieranlage");
   // Die jüngste Nennung im Chat gilt (Vorfragen stehen vor der aktuellen Frage)
   expect((await suche(kollege, "Kunden", "Was ist bei Printus Offenburg das Projekt? Und bei Amcor die Ansprechpartnerin?")).text).toContain("Kundenordner: Amcor_Singen");
-  // Kein Kunde in der Frage: Anweisung zur Rückfrage, keine Auszüge
-  const ohne = await suche(kollege, "Kunden", "Wie wird das Wetter morgen?");
+  // Folgefrage ohne Kundennamen: Der zuletzt erkannte Kunde gilt weiter, auch für „Printus“ nach „Printus Offenburg“
+  await suche(kollege, "Kunden", "Was ist bei Printus Offenburg das aktuelle Projekt?");
+  const folge = (await suche(kollege, "Kunden", "Und wann ist die Abnahme?")).text;
+  expect(folge).toContain("Kundenordner: Printus_Offenburg");
+  expect(folge).toContain("aus dem bisherigen Gespräch");
+  expect((await suche(kollege, "Kunden", "Was macht Printus gerade?")).text).toContain("Kundenordner: Printus_Offenburg");
+  // Kürzel aus zwei Großbuchstaben zählen im Suchindex als Suchbegriff
+  expect((await suche(kollege, "Kunden", "Was ist bei Amcor der IT Anteil?")).text).toContain("Server");
+  // Kein Kunde in der Frage (und keiner im Gespräch): Anweisung zur Rückfrage, keine Auszüge
+  const ohne = await suche(`neu${Date.now()}`, "Kunden", "Wie wird das Wetter morgen?");
   expect(ohne.text).toContain("kein Kunde erkennbar");
   expect(ohne.text).not.toContain("Kundenordner:");
   // Der Kunde steht schon im Ordner der Quelle: keine Kundenwahl nötig
