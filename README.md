@@ -250,7 +250,9 @@ Kürzel aus zwei Großbuchstaben („IT“, „SW“) zählen im Index als Suchb
 
 Die Suche im Index arbeitet mit Dokumenten statt einzelnen Stellen: Die KI bekommt die besten acht Dokumente mit Stand
 (Änderungsdatum), Ordner, Link und ihren besten Stellen, danach bis zu 15 weitere passende Dokumente als Titel zum
-Nachschlagen. Treffer im Dateinamen zählen vierfach, ein Dokument mit mehreren guten Stellen schlägt eines mit nur einer.
+Nachschlagen. Aus demselben Ordner kommen höchstens zwei Dokumente mit Inhalt, die übrigen stehen in der Liste – sonst
+belegt etwa ein Nachtragsordner alle Plätze. Die KI trennt Gesamtumfang (Vertrag, Angebot, Pflichtenheft) von
+Nachträgen. Treffer im Dateinamen zählen vierfach, ein Dokument mit mehreren guten Stellen schlägt eines mit nur einer.
 Dokumente in Ordnern wie `Archiv`, `_alt`, `Old` oder `Backup` zählen weniger, ältere Fassungen desselben Dokuments
 (`…_V0.4` neben `…_V0.5`) halb, Neueres liegt leicht vorn. Die aktuelle Frage zählt voll, die Vorfragen ergänzen.
 Vor der Suche macht die KI im Chat aus der Frage Suchbegriffe, wie sie in Dokumenten stehen („Was muss die Projekt-IT

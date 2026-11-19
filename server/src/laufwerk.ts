@@ -30,12 +30,14 @@ const MAX_TEXT = 200_000;
 const MAX_AUSZUG = 24_000;
 /** Suchindex: Dokumente mit Inhalt (die ersten beiden mit mehr Stellen), danach weitere nur als Titel zum Nachschlagen */
 const MAX_DOKUMENTE = 8, MAX_WEITERE = 15;
+/** Höchstens so viele Dokumente mit Inhalt aus demselben Ordner: sonst belegt ein Nachtragsordner alle Plätze */
+const MAX_JE_ORDNER = 2;
 /** Kunde zuerst: Kundenordner im Index gleichzeitig, Wartezeit einer Antwort auf das erste Einlesen, Abstand der erneuten Durchsicht, Zwischenspeicher der Kundenliste */
 const MAX_KUNDEN = 12, KUNDE_WARTEN_MS = 40_000, KUNDE_NEU_MS = 10 * 60_000, NAMEN_MS = 10 * 60_000;
 /** So lange gilt der zuletzt erkannte Kunde für Folgefragen ohne Kundennamen */
 const VERLAUF_MS = 30 * 60_000;
 /** Anweisung an die KI, wie sie aus dem Kundenordner antwortet */
-const ANTWORTSTIL = (name: string) => `Hinweis für die Antwort: Antworte direkt und sicher aus diesen Unterlagen von ${name}, ohne von „Auszügen“ oder „mitgelieferten Unterlagen“ zu sprechen und ohne nachzufragen, welcher Kunde gemeint ist. Stütze dich zuerst auf die aktuellsten passenden Dokumente (Stand); Dokumente aus Archiv- oder Altordnern und ältere Fassungen nur, wenn nichts Neueres da ist, und dann als solche benannt. Fasse bei Überblicksfragen alle passenden Dokumente zusammen, nicht nur das erste. Steht etwas nicht darin, sag das in einem Satz und nenne das Dokument, in dem es am ehesten stehen müsste.`;
+const ANTWORTSTIL = (name: string) => `Hinweis für die Antwort: Antworte direkt und sicher aus diesen Unterlagen von ${name}, ohne von „Auszügen“ oder „mitgelieferten Unterlagen“ zu sprechen und ohne nachzufragen, welcher Kunde gemeint ist. Stütze dich zuerst auf die aktuellsten passenden Dokumente (Stand); Dokumente aus Archiv- oder Altordnern und ältere Fassungen nur, wenn nichts Neueres da ist, und dann als solche benannt. Fasse bei Überblicksfragen alle passenden Dokumente zusammen, nicht nur das erste. Unterscheide den Gesamtumfang (Vertrag, Angebot, Pflichtenheft) von Nachträgen und Change Requests: Bei Überblicksfragen zuerst der Gesamtumfang, Nachträge als solche benannt dazu; fehlt der Gesamtumfang in den Unterlagen, sag das, statt einen Nachtrag als Gesamtumfang darzustellen. Steht etwas nicht darin, sag das in einem Satz und nenne das Dokument, in dem es am ehesten stehen müsste.`;
 
 /** Pfad innerhalb der Freigabe: Schrägstriche, keine „..“, ohne Laufwerksbuchstaben und UNC-Anfang */
 export function pfadSauber(p: string): string {
@@ -444,10 +446,15 @@ export class Laufwerk {
     const ordner = (d: IndexDokument) => d.pfad.slice(basis.length).split("/").slice(0, -1).join("/") || "/";
     let text = "";
     const mit = new Set<string>();
-    for (const [i, d] of docs.slice(0, MAX_DOKUMENTE).entries()) {
-      const kopf = `#### ${d.pfad.split("/").pop()}\nStand: ${stand(d)} · Ordner: ${ordner(d)}\nLink: ${this.link(d.pfad)}\n`;
+    const jeOrdner = new Map<string, number>();
+    for (const d of docs) {
+      if (mit.size >= MAX_DOKUMENTE) break;
+      const o = ordner(d);
+      // Weitere Dokumente aus einem schon vertretenen Ordner kommen nur in die Liste
+      if ((jeOrdner.get(o) ?? 0) >= MAX_JE_ORDNER) continue;
+      const kopf = `#### ${d.pfad.split("/").pop()}\nStand: ${stand(d)} · Ordner: ${o}\nLink: ${this.link(d.pfad)}\n`;
       let teil = "";
-      for (const s of d.stellen.slice(0, i < 2 ? 4 : 2).sort((a, b) => a.nr - b.nr)) {
+      for (const s of d.stellen.slice(0, mit.size < 2 ? 4 : 2).sort((a, b) => a.nr - b.nr)) {
         const st = `[Stelle ${s.nr + 1}]\n${s.text.trim()}\n\n`;
         if (text.length + kopf.length + teil.length + st.length > MAX_AUSZUG) break;
         teil += st;
@@ -455,6 +462,7 @@ export class Laufwerk {
       if (!teil) break;
       text += `${kopf}${teil}`;
       mit.add(d.pfad);
+      jeOrdner.set(o, (jeOrdner.get(o) ?? 0) + 1);
     }
     const weitere = docs.filter((d) => !mit.has(d.pfad)).slice(0, MAX_WEITERE);
     if (text && weitere.length) text += `Weitere passende Dokumente (Inhalt hier nicht enthalten; bei Bedarf mit dem Dateinamen nachschlagen):\n${weitere.map((d) => `- ${d.pfad.split("/").pop()} (Stand ${stand(d)}, Ordner ${ordner(d)})`).join("\n")}`;
