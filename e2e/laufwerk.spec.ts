@@ -135,7 +135,11 @@ test("Kunde zuerst: Kunde aus der Frage, nur dessen Ordner, Rückfrage bei unkla
   expect(folge).toContain("aus dem bisherigen Gespräch");
   expect((await suche(kollege, "Kunden", "Was macht Printus gerade?")).text).toContain("Kundenordner: Printus_Offenburg");
   // Kürzel aus zwei Großbuchstaben zählen im Suchindex als Suchbegriff
-  expect((await suche(kollege, "Kunden", "Was ist bei Amcor der IT Anteil?")).text).toContain("Server");
+  const it = (await suche(kollege, "Kunden", "Was ist bei Amcor der IT Anteil?")).text;
+  expect(it).toContain("Server");
+  // Treffer je Dokument mit Stand; die Fassung im Archiv steht hinter der aktuellen
+  expect(it).toContain("#### IT-Konzept.txt\nStand: ");
+  expect(it.indexOf("#### IT-Konzept.txt")).toBeLessThan(it.indexOf("IT-Konzept_V0.4.txt"));
   // Kein Kunde in der Frage (und keiner im Gespräch): Anweisung zur Rückfrage, keine Auszüge
   const ohne = await suche(`neu${Date.now()}`, "Kunden", "Wie wird das Wetter morgen?");
   expect(ohne.text).toContain("kein Kunde erkennbar");

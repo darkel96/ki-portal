@@ -10,6 +10,17 @@ import { dirname, join } from "node:path";
 import { DatabaseSync, type StatementSync } from "node:sqlite";
 
 export type IndexStelle = { pfad: string; nr: number; text: string };
+/** Ein Dokument als Treffer: Punkte aus seinen besten Stellen, die Stellen beste zuerst */
+export type IndexDokument = { pfad: string; mtime: number; punkte: number; stellen: IndexStelle[] };
+
+/** Ordner mit Altbestand („Archiv“, „_alt“, „00 Old“, „Backup“): Treffer darin zählen weniger */
+const ARCHIV = /^[_\d\s.-]*(?:archiv\p{L}*|archive|alte?|old|backup|sicherung|obsolet\p{L}*|veraltet|überholt)(?!\p{L})/iu;
+/** Dateiname ohne Version, Datum und Kopie-Zusatz: „PH 06 IT_V0.4.docx“ und „PH 06 IT_V0.5.docx“ sind dasselbe Dokument */
+const grundname = (p: string) => (p.split("/").pop() ?? p).toLowerCase().replace(/\.[a-z0-9]+$/, "")
+  .replace(/\d{4}[-_.]?\d{2}[-_.]?\d{2}|\d{1,2}\.\d{1,2}\.\d{2,4}/g, " ")
+  .replace(/(?:^|[\s_-])(?:v|version|rev|stand|index)[\s_.-]?\d+(?:[._]\d+)*/g, " ")
+  .replace(/\(\d+\)|kopie|copy|entwurf|draft/g, " ").replace(/[^\p{L}\p{N}]+/gu, " ").trim();
+const JAHR_MS = 365 * 24 * 3600_000;
 type Fortschritt = { gesamt: number; erledigt: number; fertig: boolean; fertigMelden: () => void; fertigGemeldet: Promise<void> };
 type Datei = { p: string; mtime: number; groesse: number };
 
@@ -160,13 +171,37 @@ export class KundenIndex {
     catch (e) { this.db.exec("ROLLBACK"); throw e; }
   }
 
-  /** Beste Stellen eines Kunden zu den Suchbegriffen (Wortanfang zählt, Treffer im Dateinamen doppelt) */
-  suchen(kunde: string, begriffe: string[], zulaessig: (p: string) => boolean, max = 40): IndexStelle[] {
+  /**
+   * Beste Dokumente eines Kunden zu den Suchbegriffen: Stellen je Datei gebündelt (Wortanfang zählt, Treffer im Dateinamen
+   * vierfach), Dokumente in Archiv- und Altordnern und ältere Fassungen desselben Dokuments abgewertet, Neueres leicht vorn.
+   */
+  dokumente(kunde: string, begriffe: string[], zulaessig: (p: string) => boolean, jetzt = Date.now()): IndexDokument[] {
     // Kurze Kürzel („it“) nur als ganzes Wort, sonst zählt der Wortanfang
     const ausdruck = begriffe.map((w) => `"${w.replace(/"/g, "")}"${w.length < 3 ? "" : "*"}`).join(" OR ");
     if (!ausdruck) return [];
-    const zeilen = this.db.prepare(`SELECT d.pfad AS pfad, s.rowid % ${STELLEN} AS nr, s.text AS text FROM stellen s JOIN dateien d ON d.id = s.rowid / ${STELLEN}
-      WHERE stellen MATCH ? AND d.kunde = ? ORDER BY bm25(stellen, 2.0, 1.0) LIMIT 400`).all(ausdruck, kunde) as IndexStelle[];
-    return zeilen.filter((z) => zulaessig(z.pfad)).slice(0, max);
+    const zeilen = this.db.prepare(`SELECT d.pfad AS pfad, d.mtime AS mtime, s.rowid % ${STELLEN} AS nr, s.text AS text, -bm25(stellen, 4.0, 1.0) AS punkte
+      FROM stellen s JOIN dateien d ON d.id = s.rowid / ${STELLEN}
+      WHERE stellen MATCH ? AND d.kunde = ? ORDER BY bm25(stellen, 4.0, 1.0) LIMIT 2000`).all(ausdruck, kunde) as (IndexStelle & { mtime: number; punkte: number })[];
+    const je = new Map<string, { mtime: number; liste: (IndexStelle & { punkte: number })[] }>();
+    for (const z of zeilen) {
+      if (!zulaessig(z.pfad)) continue;
+      const d = je.get(z.pfad) ?? { mtime: z.mtime, liste: [] };
+      d.liste.push(z);
+      je.set(z.pfad, d);
+    }
+    const start = this.kundenOrdner.length + kunde.length + 2;
+    const docs: IndexDokument[] = [...je.entries()].map(([pfad, d]) => {
+      const p = d.liste.map((s) => s.punkte);
+      // Ein Dokument mit mehreren guten Stellen schlägt eines mit nur einer
+      let punkte = p[0]! + 0.5 * (p[1] ?? 0) + 0.25 * (p[2] ?? 0);
+      if (pfad.slice(start).split("/").slice(0, -1).some((o) => ARCHIV.test(o))) punkte *= 0.4;
+      punkte /= 1 + 0.1 * Math.max(0, (jetzt - d.mtime) / JAHR_MS);
+      return { pfad, mtime: d.mtime, punkte, stellen: d.liste.slice(0, 4).map(({ pfad: x, nr, text }) => ({ pfad: x, nr, text })) };
+    });
+    // Ältere Fassungen desselben Dokuments (gleicher Name ohne Version und Datum) zählen halb
+    const neueste = new Map<string, number>();
+    for (const d of docs) { const g = grundname(d.pfad); if (g) neueste.set(g, Math.max(neueste.get(g) ?? 0, d.mtime)); }
+    for (const d of docs) { const g = grundname(d.pfad); if (g && d.mtime < neueste.get(g)!) d.punkte *= 0.5; }
+    return docs.sort((a, b) => b.punkte - a.punkte);
   }
 }

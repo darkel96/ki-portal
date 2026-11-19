@@ -14,7 +14,7 @@ import { createHash } from "node:crypto";
 import { readFile, readdir, stat } from "node:fs/promises";
 import { join, relative, sep } from "node:path";
 import { kundeFinden } from "./kunden";
-import { KundenIndex, zerlegen, type IndexStelle } from "./laufwerk-index";
+import { KundenIndex, zerlegen, type IndexDokument, type IndexStelle } from "./laufwerk-index";
 import type { DateiSpeicher } from "./speicher";
 import { UMGEBUNG } from "./umgebung";
 
@@ -28,12 +28,14 @@ const ENDUNGEN = /\.(docx|xlsx|pptx|pdf|txt|md|csv)$/i;
 const MAX_GROESSE = 25 * 1024 * 1024;
 const MAX_TEXT = 200_000;
 const MAX_AUSZUG = 24_000;
+/** Suchindex: Dokumente mit Inhalt (die ersten beiden mit mehr Stellen), danach weitere nur als Titel zum Nachschlagen */
+const MAX_DOKUMENTE = 8, MAX_WEITERE = 15;
 /** Kunde zuerst: Kundenordner im Index gleichzeitig, Wartezeit einer Antwort auf das erste Einlesen, Abstand der erneuten Durchsicht, Zwischenspeicher der Kundenliste */
 const MAX_KUNDEN = 12, KUNDE_WARTEN_MS = 40_000, KUNDE_NEU_MS = 10 * 60_000, NAMEN_MS = 10 * 60_000;
 /** So lange gilt der zuletzt erkannte Kunde für Folgefragen ohne Kundennamen */
 const VERLAUF_MS = 30 * 60_000;
 /** Anweisung an die KI, wie sie aus dem Kundenordner antwortet */
-const ANTWORTSTIL = (name: string) => `Hinweis für die Antwort: Antworte direkt und sicher aus diesen Unterlagen von ${name}, ohne von „Auszügen“ oder „mitgelieferten Unterlagen“ zu sprechen und ohne nachzufragen, welcher Kunde gemeint ist. Steht etwas nicht darin, sag das in einem Satz und nenne das Dokument, in dem es am ehesten stehen müsste.`;
+const ANTWORTSTIL = (name: string) => `Hinweis für die Antwort: Antworte direkt und sicher aus diesen Unterlagen von ${name}, ohne von „Auszügen“ oder „mitgelieferten Unterlagen“ zu sprechen und ohne nachzufragen, welcher Kunde gemeint ist. Stütze dich zuerst auf die aktuellsten passenden Dokumente (Stand); Dokumente aus Archiv- oder Altordnern und ältere Fassungen nur, wenn nichts Neueres da ist, und dann als solche benannt. Fasse bei Überblicksfragen alle passenden Dokumente zusammen, nicht nur das erste. Steht etwas nicht darin, sag das in einem Satz und nenne das Dokument, in dem es am ehesten stehen müsste.`;
 
 /** Pfad innerhalb der Freigabe: Schrägstriche, keine „..“, ohne Laufwerksbuchstaben und UNC-Anfang */
 export function pfadSauber(p: string): string {
@@ -358,14 +360,22 @@ export class Laufwerk {
       const ziel = darunter(o, kundeRel) ? o : kundeRel;
       const zulaessig = (p: string) => darunter(p, ziel) && erlaubt.some((f) => darunter(p, f.pfad));
       const fertig = await idx.bereit(name, KUNDE_WARTEN_MS);
-      // Erst die Stellen zur aktuellen Frage (letzter Teil nach „ | “), dann die zu den Vorfragen
-      const such = (f: string) => {
-        const b = this.indexBegriffe(f), gesehen = new Set<string>();
-        return [...idx.suchen(name, b.jetzt, zulaessig), ...idx.suchen(name, b.alle, zulaessig)]
-          .filter((s) => { const k = `${s.pfad}#${s.nr}`; if (gesehen.has(k)) return false; gesehen.add(k); return true; }).slice(0, 40);
+      // Dokumente zur aktuellen Frage (letzter Teil nach „ | “) zählen voll, die zu den Vorfragen ergänzen mit 0,6
+      const such = (f: string): IndexDokument[] => {
+        const b = this.indexBegriffe(f);
+        const jetzt = idx.dokumente(name, b.jetzt, zulaessig), alle = f.includes(" | ") ? idx.dokumente(name, b.alle, zulaessig) : [];
+        const mj = jetzt[0]?.punkte || 1, ma = alle[0]?.punkte || 1;
+        const zus = new Map(jetzt.map((d) => [d.pfad, { ...d, punkte: d.punkte / mj }]));
+        for (const d of alle) {
+          const z = zus.get(d.pfad);
+          if (!z) zus.set(d.pfad, { ...d, punkte: (0.6 * d.punkte) / ma });
+          else { z.punkte += (0.6 * d.punkte) / ma; z.stellen = [...z.stellen, ...d.stellen.filter((s) => !z.stellen.some((x) => x.nr === s.nr))].slice(0, 4); }
+        }
+        return [...zus.values()].sort((a, b) => b.punkte - a.punkte);
       };
-      let r = this.auszug(such(frage), titel);
-      if (!r.text && breiter) r = this.auszug(such(breiter), titel);
+      let docs = such(frage);
+      if (!docs.length && breiter) docs = such(breiter);
+      const r = this.dokumentAuszug(docs, titel, `${kundeRel}/`);
       const f = idx.fortschritt(name)!;
       const kopf = `Kundenordner: ${name} · Suchindex${fertig ? "" : ` (wird gerade aufgebaut: ${f.erledigt} von ${f.gesamt || "?"} Dateien gelesen, die neuesten zuerst; fehlt die Antwort, sag, dass der Kundenordner gerade eingelesen wird und die Frage später noch einmal gestellt werden soll)`}${verlauf}\n${ANTWORTSTIL(name)}`;
       return { ...r, text: `${kopf}\n\n${r.text || "In diesem Kundenordner wurde zu der Frage nichts gefunden."}` };
@@ -423,6 +433,32 @@ export class Laufwerk {
     }
     const dateien = [...new Set(stellen.map((s) => s.pfad))];
     return { titel, url: "", text: text.trim(), dateien: dateien.slice(0, 30).map((p) => p.split("/").pop() ?? p), dateienGesamt: dateien.length };
+  }
+
+  /**
+   * Dokumente aus dem Suchindex für die KI: je Dokument Name, Stand, Ordner, Link und die besten Stellen (in Lesereihenfolge),
+   * höchstens MAX_AUSZUG Zeichen; danach die weiteren passenden Dokumente als Liste, damit die KI sie nennen oder nachschlagen kann
+   */
+  private dokumentAuszug(docs: IndexDokument[], titel: string, basis: string): LaufwerkTreffer {
+    const stand = (d: IndexDokument) => new Date(d.mtime).toISOString().slice(0, 10);
+    const ordner = (d: IndexDokument) => d.pfad.slice(basis.length).split("/").slice(0, -1).join("/") || "/";
+    let text = "";
+    const mit = new Set<string>();
+    for (const [i, d] of docs.slice(0, MAX_DOKUMENTE).entries()) {
+      const kopf = `#### ${d.pfad.split("/").pop()}\nStand: ${stand(d)} · Ordner: ${ordner(d)}\nLink: ${this.link(d.pfad)}\n`;
+      let teil = "";
+      for (const s of d.stellen.slice(0, i < 2 ? 4 : 2).sort((a, b) => a.nr - b.nr)) {
+        const st = `[Stelle ${s.nr + 1}]\n${s.text.trim()}\n\n`;
+        if (text.length + kopf.length + teil.length + st.length > MAX_AUSZUG) break;
+        teil += st;
+      }
+      if (!teil) break;
+      text += `${kopf}${teil}`;
+      mit.add(d.pfad);
+    }
+    const weitere = docs.filter((d) => !mit.has(d.pfad)).slice(0, MAX_WEITERE);
+    if (text && weitere.length) text += `Weitere passende Dokumente (Inhalt hier nicht enthalten; bei Bedarf mit dem Dateinamen nachschlagen):\n${weitere.map((d) => `- ${d.pfad.split("/").pop()} (Stand ${stand(d)}, Ordner ${ordner(d)})`).join("\n")}`;
+    return { titel, url: "", text: text.trim(), dateien: docs.slice(0, 30).map((d) => d.pfad.split("/").pop() ?? d.pfad), dateienGesamt: docs.length };
   }
 
   /** Anzeige-Adresse einer Datei: UNC-Pfad, wenn bekannt (öffnet im Windows-Explorer), sonst der Pfad in der Freigabe */

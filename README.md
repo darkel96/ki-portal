@@ -246,8 +246,16 @@ Dienst diese Kunden im Hintergrund vorab ein, die neuesten Dateien zuerst, und h
 Neues und Geändertes, Gelöschtes fliegt raus). Der Index liegt in `HUB_DATEN/laufwerk/index.db` (SQLite mit
 Volltextsuche) und übersteht Neustarts. Eine Frage wartet also nicht auf das Einlesen. Die Auszüge beginnen mit
 „Kundenordner: … · Suchindex“. Alle anderen Kunden laufen weiter wie oben. Die Freigaben gelten unverändert.
-Kürzel aus zwei Großbuchstaben („IT“, „SW“) zählen im Index als Suchbegriff, die Stellen zur aktuellen Frage stehen vor
-denen zu den Vorfragen.
+Kürzel aus zwei Großbuchstaben („IT“, „SW“) zählen im Index als Suchbegriff.
+
+Die Suche im Index arbeitet mit Dokumenten statt einzelnen Stellen: Die KI bekommt die besten acht Dokumente mit Stand
+(Änderungsdatum), Ordner, Link und ihren besten Stellen, danach bis zu 15 weitere passende Dokumente als Titel zum
+Nachschlagen. Treffer im Dateinamen zählen vierfach, ein Dokument mit mehreren guten Stellen schlägt eines mit nur einer.
+Dokumente in Ordnern wie `Archiv`, `_alt`, `Old` oder `Backup` zählen weniger, ältere Fassungen desselben Dokuments
+(`…_V0.4` neben `…_V0.5`) halb, Neueres liegt leicht vorn. Die aktuelle Frage zählt voll, die Vorfragen ergänzen.
+Vor der Suche macht die KI im Chat aus der Frage Suchbegriffe, wie sie in Dokumenten stehen („Was muss die Projekt-IT
+liefern?“ → IT-Infrastruktur, Server, VM, Oracle, Pflichtenheft …). Das kostet einen KI-Aufruf mehr, höchstens 15 s.
+Kommt keine Antwort, wird mit der Frage allein gesucht. Beim Nachschlagen entfällt der Schritt.
 
 **Folgefragen:** Nennt eine Frage keinen Kunden („Und der IT-Anteil?“) oder nur einen mehrdeutigen („Printus“ nach
 „Printus Offenburg“), gilt 30 Minuten lang der zuletzt erkannte Kunde der Person weiter. Nennt sie einen Kunden, den die

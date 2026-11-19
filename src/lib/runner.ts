@@ -181,7 +181,14 @@ export async function anfrageVorbereiten(app: App, s: Step, ctx: Record<string, 
       melden?.("Wissensquellen werden gelesen\u00a0…");
       // Suchtext: im Chat die Frage (mit Vorfragen), sonst die Aufgabe mit Eingaben. Sehr kurze Fragen („was ist der cra“)
       // bekommen das Thema der App dazu; liefert die Suche nichts, wird einmal mit dem Thema nachgesucht.
-      const vorab = suche ?? buildRequest(app, s, ctx, files).nachricht;
+      let vorab = suche ?? buildRequest(app, s, ctx, files).nachricht;
+      // Netzlaufwerk (Volltextsuche): Im Chat macht die KI aus der Frage zuerst Suchbegriffe, wie sie in Dokumenten stehen.
+      // Nicht beim Nachschlagen (vorher gesetzt): Dort sind die Begriffe schon von der KI.
+      if (suche && !vorher.length && wq.some(laufwerk)) {
+        melden?.("Suchbegriffe werden ermittelt …");
+        vorab = await (await import("./ki/suchbegriffe")).suchbegriffeErgaenzen(suche, signal);
+        melden?.("Wissensquellen werden gelesen …");
+      }
       const thema = [app.name, s.name].filter(Boolean).join(" ");
       const inhaltswoerter = vorab.toLowerCase().replace(/[^a-zäöüß0-9 ]/g, " ").split(/\s+/).filter((x) => x.length >= 4).length;
       const abfrage = `${s.name}: ${vorab.slice(0, 1200)}`;
