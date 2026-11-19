@@ -52,6 +52,8 @@ export const UMGEBUNG = {
   laufwerkMaxDateien: Number(env.HUB_LAUFWERK_MAX_DATEIEN) || 20_000,
   /** Ordner im Laufwerk mit einem Unterordner je Kunde (z. B. _KUNDEN): Der Dienst erkennt den Kunden in der Frage und liest nur dessen Ordner; leer = aus */
   laufwerkKunden: String(env.HUB_LAUFWERK_KUNDEN ?? "").trim(),
+  /** Kundenordner (Namen wie im Kundenordner, mit Semikolon getrennt), die ein Suchindex auf der Festplatte im Voraus liest und aktuell hält */
+  laufwerkIndex: String(env.HUB_LAUFWERK_INDEX ?? "").split(";").map((s) => s.trim()).filter(Boolean),
 };
 
 export function umgebungPruefen(): string[] {

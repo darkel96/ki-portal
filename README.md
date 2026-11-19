@@ -241,6 +241,12 @@ Neues; höchstens zwölf Kundenordner gleichzeitig im Speicher) und sucht darin.
 bekommt die KI die Anweisung nachzufragen, statt zu antworten. Die Auszüge beginnen mit „Kundenordner: …“. Wer nur einen
 Kunden braucht, wählt im Baukasten den Kundenordner selbst als Quelle.
 
+**Suchindex** (Pilot, für einzelne Kundenordner): Mit `HUB_LAUFWERK_INDEX='Printus_Offenburg;AVS_Roemer_Grafenau'` liest der
+Dienst diese Kunden im Hintergrund vorab ein, die neuesten Dateien zuerst, und hält sie alle 15 Minuten aktuell (nur
+Neues und Geändertes, Gelöschtes fliegt raus). Der Index liegt in `HUB_DATEN/laufwerk/index.db` (SQLite mit
+Volltextsuche) und übersteht Neustarts. Eine Frage wartet also nicht auf das Einlesen. Die Auszüge beginnen mit
+„Kundenordner: … · Suchindex“. Alle anderen Kunden laufen weiter wie oben. Die Freigaben gelten unverändert.
+
 Wichtig: Alle lesen mit dem Lesekonto des Servers. Die Ordnerrechte von Windows gelten im Hub nicht, sondern die
 Freigaben der Verwaltung; deshalb nur Ordner freigeben, die die vorgesehenen Personen auch lesen dürfen.
 

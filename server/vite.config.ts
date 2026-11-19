@@ -39,5 +39,5 @@ export default defineConfig({
     rollupOptions: { output: { entryFileNames: "index.mjs", format: "es" } },
   },
   // pdf.js lädt seinen Worker zur Laufzeit aus dem eigenen Paket: bleibt extern (im Container unter node_modules)
-  ssr: { noExternal: true, external: ["pdfjs-dist"], target: "node" },
+  ssr: { noExternal: true, external: ["pdfjs-dist", "node:sqlite"], target: "node" },
 });

@@ -109,8 +109,13 @@ test("Kunde zuerst: Kunde aus der Frage, nur dessen Ordner, Rückfrage bei unkla
   expect(a.text).toContain("Kundenordner: Amcor_Singen");
   expect(a.text).toContain("Retrofit der Fördertechnik");
   expect(a.text).not.toContain("Printus");
+  // Amcor steht im Suchindex (HUB_LAUFWERK_INDEX), AVS Römer nicht: dort liest der Dienst auf Nachfrage
+  expect(a.text).toContain("Amcor_Singen · Suchindex");
+  expect((await suche(kollege, "Kunden", "Wer ist bei Amcor für die Förder zuständig?")).text).toContain("Fördertechnik");
   // Umlaute: „Römer“ trifft den Ordner „Roemer“
-  expect((await suche(kollege, "Kunden", "Wann ist die Inbetriebnahme bei AVS Römer?")).text).toContain("Kundenordner: AVS_Roemer_Grafenau");
+  const avs = (await suche(kollege, "Kunden", "Wann ist die Inbetriebnahme bei AVS Römer?")).text;
+  expect(avs).toContain("Kundenordner: AVS_Roemer_Grafenau");
+  expect(avs).not.toContain("Suchindex");
   // Zwei Printus-Ordner: Rückfrage statt Auszügen; mit dem Ort ist es eindeutig
   const mehrdeutig = await suche(kollege, "Kunden", "Was ist bei Printus das aktuelle Projekt?");
   expect(mehrdeutig.text).toContain("nicht eindeutig");

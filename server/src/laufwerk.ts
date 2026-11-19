@@ -14,6 +14,7 @@ import { createHash } from "node:crypto";
 import { readFile, readdir, stat } from "node:fs/promises";
 import { join, relative, sep } from "node:path";
 import { kundeFinden } from "./kunden";
+import { KundenIndex, zerlegen, type IndexStelle } from "./laufwerk-index";
 import type { DateiSpeicher } from "./speicher";
 import { UMGEBUNG } from "./umgebung";
 
@@ -26,7 +27,6 @@ type KundeStand = { benutzt: number; zeit: number; fertig: boolean; laeuft: Prom
 const ENDUNGEN = /\.(docx|xlsx|pptx|pdf|txt|md|csv)$/i;
 const MAX_GROESSE = 25 * 1024 * 1024;
 const MAX_TEXT = 200_000;
-const STUECK = 1_500;
 const MAX_AUSZUG = 24_000;
 /** Kunde zuerst: Kundenordner im Index gleichzeitig, Wartezeit einer Antwort auf das erste Einlesen, Abstand der erneuten Durchsicht, Zwischenspeicher der Kundenliste */
 const MAX_KUNDEN = 12, KUNDE_WARTEN_MS = 40_000, KUNDE_NEU_MS = 10 * 60_000, NAMEN_MS = 10 * 60_000;
@@ -93,6 +93,8 @@ export class Laufwerk {
   /** Kunde zuerst: Kundenordner im Index (Pfad → Stand) und die Liste der Kundenordner */
   private kunden = new Map<string, KundeStand>();
   private namenCache: { zeit: number; namen: string[] } | null = null;
+  /** Suchindex auf der Festplatte für die Kunden in HUB_LAUFWERK_INDEX (statt Einlesen auf Nachfrage) */
+  private kundenIndex: KundenIndex | null = null;
   stand = { dateien: 0, fehler: 0, zuletzt: "", laeuft: false, meldung: "" };
 
   constructor(private readonly speicher: DateiSpeicher, private readonly wurzel = UMGEBUNG.laufwerk, private readonly kundenOrdner = pfadSauber(UMGEBUNG.laufwerkKunden)) {}
@@ -102,6 +104,14 @@ export class Laufwerk {
   async laden(): Promise<void> {
     if (!this.aktiv) return;
     this.freigaben = (await this.speicher.lesen<Freigabe[]>("laufwerk/freigaben.json")) ?? [];
+    if (this.kundenOrdner && UMGEBUNG.laufwerkIndex.length && !this.kundenIndex) {
+      try {
+        this.kundenIndex = new KundenIndex(join(UMGEBUNG.daten, "laufwerk", "index.db"), this.wurzel, this.kundenOrdner, UMGEBUNG.laufwerkIndex,
+          ENDUNGEN, MAX_GROESSE, UMGEBUNG.laufwerkMaxDateien, (p, m, g) => this.textMitZwischenspeicher(p, m, g));
+        this.kundenIndex.starten();
+        console.info(`[Hub-Dienst] Suchindex für ${UMGEBUNG.laufwerkIndex.length} Kundenordner: ${UMGEBUNG.laufwerkIndex.join(", ")}`);
+      } catch (e) { this.kundenIndex = null; console.error("[Hub-Dienst] Suchindex nicht verfügbar:", e); }
+    }
     void this.einlesen();
   }
   alleFreigaben(): Freigabe[] { return this.freigaben; }
@@ -224,15 +234,7 @@ export class Laufwerk {
 
   private aufnehmen(p: string, mtime: number, groesse: number, text: string) {
     this.entfernen(p);
-    const stuecke: string[] = [];
-    // Stücke an Absätzen trennen, damit Tabellenzeilen und Sätze zusammenbleiben
-    let akt = "";
-    for (const absatz of text.split(/\n{2,}|\n(?=\[Seite \d+\]|## )/)) {
-      if (akt && akt.length + absatz.length > STUECK) { stuecke.push(akt); akt = ""; }
-      akt = akt ? `${akt}\n\n${absatz}` : absatz;
-      while (akt.length > STUECK * 2) { stuecke.push(akt.slice(0, STUECK)); akt = akt.slice(STUECK); }
-    }
-    if (akt.trim()) stuecke.push(akt);
+    const stuecke = zerlegen(text);
     stuecke.forEach((t, i) => {
       const k = `${p}#${i}`;
       this.texte.set(k, t);
@@ -331,6 +333,17 @@ export class Laufwerk {
       name = gefunden[0]!;
     }
     const kundeRel = `${K}/${name}`;
+    const idx = this.kundenIndex?.hat(name) ? this.kundenIndex : null;
+    if (idx) {
+      const ziel = darunter(o, kundeRel) ? o : kundeRel;
+      const zulaessig = (p: string) => darunter(p, ziel) && erlaubt.some((f) => darunter(p, f.pfad));
+      const fertig = await idx.bereit(name, KUNDE_WARTEN_MS);
+      let r = this.auszug(idx.suchen(name, this.begriffe(frage), zulaessig), titel);
+      if (!r.text && breiter) r = this.auszug(idx.suchen(name, this.begriffe(breiter), zulaessig), titel);
+      const f = idx.fortschritt(name)!;
+      const kopf = `Kundenordner: ${name} · Suchindex${fertig ? "" : ` (wird gerade aufgebaut: ${f.erledigt} von ${f.gesamt || "?"} Dateien gelesen, die neuesten zuerst; fehlt die Antwort, sag, dass der Kundenordner gerade eingelesen wird und die Frage später noch einmal gestellt werden soll)`}`;
+      return { ...r, text: `${kopf}\n\n${r.text || "In diesem Kundenordner wurde zu der Frage nichts gefunden."}` };
+    }
     const fertig = await this.kundeBereit(kundeRel);
     const r = suchen(darunter(o, kundeRel) ? o : kundeRel);
     const kopf = `Kundenordner: ${name}${fertig ? "" : " (wird noch eingelesen, es können Dateien fehlen)"}`;
@@ -344,7 +357,7 @@ export class Laufwerk {
     const erlaubt = this.freigabenFuer(email).filter((f) => darunter(o, f.pfad) || darunter(f.pfad, o));
     if (!erlaubt.length) return { titel, url: "", text: "", fehler: `Der Ordner „${o || "/"}“ ist für dich nicht freigegeben. Die Verwaltung gibt Ordner unter „Netzlaufwerk“ frei.` };
     const zulaessig = (p: string) => darunter(p, o) && erlaubt.some((f) => darunter(p, f.pfad));
-    const begriffe = [...new Set(woerter(frage).filter((w) => !FUELL.has(w)))].slice(0, 30);
+    const begriffe = this.begriffe(frage);
     const punkte = new Map<string, number>();
     const n = Math.max(1, this.texte.size);
     for (const b of begriffe) {
@@ -359,16 +372,25 @@ export class Laufwerk {
       for (const k of treffer) if (zulaessig(k.slice(0, k.lastIndexOf("#")))) punkte.set(k, (punkte.get(k) ?? 0) + idf);
     }
     const sortiert = [...punkte.entries()].sort((a, b) => b[1] - a[1]);
-    const dateien = [...new Set(sortiert.map(([k]) => k.slice(0, k.lastIndexOf("#"))))];
+    const r = this.auszug(sortiert.slice(0, 40).map(([k]) => ({ pfad: k.slice(0, k.lastIndexOf("#")), nr: Number(k.slice(k.lastIndexOf("#") + 1)), text: this.texte.get(k) ?? "" })), titel);
+    const dateien = new Set(sortiert.map(([k]) => k.slice(0, k.lastIndexOf("#"))));
+    const hinweis = this.stand.laeuft && !this.stand.zuletzt ? "Das Laufwerk wird gerade zum ersten Mal eingelesen; es fehlen noch Dateien." : "";
+    return { ...r, text: r.text || hinweis, dateienGesamt: dateien.size, dateien: [...dateien].slice(0, 30).map((p) => p.split("/").pop() ?? p) };
+  }
+
+  /** Suchbegriffe einer Frage: Wörter ohne Füllwörter, höchstens 30 */
+  private begriffe(frage: string) { return [...new Set(woerter(frage).filter((w) => !FUELL.has(w)))].slice(0, 30); }
+
+  /** Stellen (beste zuerst) als Auszug für die KI, mit Dateiname und Link, höchstens MAX_AUSZUG Zeichen */
+  private auszug(stellen: IndexStelle[], titel: string): LaufwerkTreffer {
     let text = "";
-    for (const [k] of sortiert.slice(0, 40)) {
-      const p = k.slice(0, k.lastIndexOf("#"));
-      const teil = `#### ${p.split("/").pop()} (Stelle ${Number(k.slice(k.lastIndexOf("#") + 1)) + 1})\nLink: ${this.link(p)}\n${this.texte.get(k)}\n\n`;
+    for (const s of stellen) {
+      const teil = `#### ${s.pfad.split("/").pop()} (Stelle ${s.nr + 1})\nLink: ${this.link(s.pfad)}\n${s.text}\n\n`;
       if (text.length + teil.length > MAX_AUSZUG) break;
       text += teil;
     }
-    const hinweis = this.stand.laeuft && !this.stand.zuletzt ? "Das Laufwerk wird gerade zum ersten Mal eingelesen; es fehlen noch Dateien." : "";
-    return { titel, url: "", text: text.trim() || hinweis, dateien: dateien.slice(0, 30).map((p) => p.split("/").pop() ?? p), dateienGesamt: dateien.length };
+    const dateien = [...new Set(stellen.map((s) => s.pfad))];
+    return { titel, url: "", text: text.trim(), dateien: dateien.slice(0, 30).map((p) => p.split("/").pop() ?? p), dateienGesamt: dateien.length };
   }
 
   /** Anzeige-Adresse einer Datei: UNC-Pfad, wenn bekannt (öffnet im Windows-Explorer), sonst der Pfad in der Freigabe */
